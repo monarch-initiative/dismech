@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4286,6 +4354,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4307,6 +4376,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4622,6 +4692,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4794,6 +4865,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-sox11-loss-of-function" data-dismech-node="Heterozygous SOX11 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous SOX11 Loss of Function</div>
 
+
                 <div class="item-desc">De novo missense variants clustering in the high-mobility-group (HMG) DNA-binding domain, truncating variants, or 2p25.2 microdeletions remove one functional copy of the single-exon SOX11 gene. Missense changes in the HMG domain either destabilise domain folding or distort the DNA-recognition loops.</div>
 
 
@@ -4927,6 +4999,7 @@ This pathophysiological event involves decreased sequence-specific DNA binding b
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4948,6 +5021,7 @@ This pathophysiological event involves decreased sequence-specific DNA binding b
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4975,6 +5049,7 @@ This pathophysiological event involves decreased sequence-specific DNA binding b
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4999,6 +5074,7 @@ This pathophysiological event involves decreased sequence-specific DNA binding b
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-functional-sox11-protein-dosage" data-dismech-node="Reduced Functional SOX11 Protein Dosage" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Functional SOX11 Protein Dosage</div>
+
 
                 <div class="item-desc">Roughly half the normal amount of functional SOX11 activity remains. This is a pure dosage lesion, not a dominant-negative one: disease missense proteins still localise correctly to the nucleus, and the recurrent Y116C change behaves as a recessive loss of function when modelled at the orthologous residue in Caenorhabditis elegans. Critically, the paralogous SoxC factors SOX4 and SOX12 do not compensate in humans. SOX11 protein abundance is also set post-translationally by USP11-mediated deubiquitination, an independent route to functional SOX11 insufficiency.</div>
 
@@ -5128,6 +5204,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5149,6 +5226,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5176,6 +5254,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5200,6 +5279,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-sox11-target-gene-transactivation" data-dismech-node="Impaired SOX11 Target Gene Transactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired SOX11 Target Gene Transactivation</div>
+
 
                 <div class="item-desc">SOX11 acts as a transcriptional activator at target promoters. Disease variants reduce SOX11-dependent transactivation in reporter assays, so the downstream neurodevelopmental gene programme is under-expressed at critical windows of brain development.</div>
 
@@ -5385,6 +5465,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5406,6 +5487,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5433,6 +5515,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5455,6 +5538,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-precursor-proliferation-differentiation-imbalance" data-dismech-node="Neural Precursor Proliferation-Differentiation Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Precursor Proliferation-Differentiation Imbalance</div>
+
 
                 <div class="item-desc">SOX11 haploinsufficiency shifts the balance between neural precursor proliferation and neuronal differentiation, so fewer neurons are generated per progenitor pool.</div>
 
@@ -5614,6 +5698,7 @@ This pathophysiological event involves dysregulated cell population proliferatio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5636,6 +5721,7 @@ This pathophysiological event involves dysregulated cell population proliferatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-neuronal-apoptosis" data-dismech-node="Increased Neuronal Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Neuronal Apoptosis</div>
+
 
                 <div class="item-desc">SOX11 also acts as a neuronal survival factor; reduced dosage increases apoptotic death of newly born neurons in the developing central nervous system.</div>
 
@@ -5761,6 +5847,7 @@ This pathophysiological event involves increased positive regulation of neuron a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5782,6 +5869,7 @@ This pathophysiological event involves increased positive regulation of neuron a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5809,6 +5897,7 @@ This pathophysiological event involves increased positive regulation of neuron a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5831,6 +5920,7 @@ This pathophysiological event involves increased positive regulation of neuron a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cortical-neurogenesis-and-brain-growth" data-dismech-node="Reduced Cortical Neurogenesis and Brain Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cortical Neurogenesis and Brain Growth</div>
+
 
                 <div class="item-desc">The combination of impaired neuronal generation and increased neuronal death reduces the number of cortical neurons produced during fetal development, yielding a smaller brain with a thin cerebral cortex.</div>
 
@@ -5977,6 +6067,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5998,6 +6089,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6023,6 +6115,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microcephaly-and-impaired-cognitive-development" data-dismech-node="Microcephaly and Impaired Cognitive Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Microcephaly and Impaired Cognitive Development</div>
+
 
                 <div class="item-desc">The clinical endpoint of the neural arm of the cascade: postnatal microcephaly with global developmental delay, intellectual disability, and a high burden of autistic traits.</div>
 
@@ -6061,6 +6154,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6082,6 +6176,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6107,6 +6202,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sox11-specific-dna-methylation-episignature" data-dismech-node="SOX11-Specific DNA Methylation Episignature" data-dismech-type="pathophysiology">
                 <div class="item-name">SOX11-Specific DNA Methylation Episignature</div>
+
 
                 <div class="item-desc">Individuals with pathogenic SOX11 variants carry a reproducible, disorder-specific genome-wide blood DNA methylation pattern. This episignature is mechanistically informative as well as diagnostically useful: it separates SOX11 syndrome from the BAF (SWI/SNF) chromatin remodeller disorders with which SOX11 is clinically lumped.</div>
 
@@ -6145,6 +6241,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6167,6 +6264,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-ocular-morphogenesis" data-dismech-node="Disrupted Ocular Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Ocular Morphogenesis</div>
+
 
                 <div class="item-desc">SOX11 is required for normal eye development. Reduced SOX11 activity can produce structural eye malformations (microphthalmia, iris coloboma) in a minority of affected individuals, which is why the OMIM/MONDO disease name carries the &#34;with or without ocular malformations&#34; qualifier.</div>
 
@@ -6355,6 +6453,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6376,6 +6475,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6401,6 +6501,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hypothalamic-pituitary-gonadotropic-axis-development" data-dismech-node="Impaired Hypothalamic-Pituitary Gonadotropic Axis Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hypothalamic-Pituitary Gonadotropic Axis Development</div>
+
 
                 <div class="item-desc">A subset of affected individuals have idiopathic hypogonadotropic hypogonadism, with anosmic (Kallmann-like) and normosmic forms, plus additional anterior pituitary hormone deficiencies and structural hypothalamic/pituitary and olfactory-bulb defects. This indicates that SOX11 is required for development of the GnRH neuroendocrine axis at both hypothalamic and pituitary levels.</div>
 
@@ -6532,6 +6633,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6553,6 +6655,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6578,6 +6681,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cochlear-nerve-development" data-dismech-node="Impaired Cochlear Nerve Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cochlear Nerve Development</div>
+
 
                 <div class="item-desc">SOX11 is highly expressed in the developing inner ear and is required for sensory neuron survival and axonal outgrowth. Reduced dosage can produce cochlear nerve hypoplasia or aplasia with sensorineural hearing loss despite grossly normal inner ear structures.</div>
 
@@ -6637,6 +6741,7 @@ This pathophysiological event occurs in cochlear nerve (UBERON:0004727). UBERON:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6658,6 +6763,7 @@ This pathophysiological event occurs in cochlear nerve (UBERON:0004727). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6683,6 +6789,7 @@ This pathophysiological event occurs in cochlear nerve (UBERON:0004727). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-hedgehog-signalling-in-the-developing-eye" data-dismech-node="Elevated Hedgehog Signalling in the Developing Eye" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Hedgehog Signalling in the Developing Eye</div>
+
 
                 <div class="item-desc">A mechanistically counter-intuitive arm: loss of SOX11 raises rather than lowers signalling output downstream, because SOX11 normally acts as a negative regulator of shha transcription during ocular morphogenesis. The resulting excess Hedgehog signalling causes failure of choroid fissure closure. In zebrafish the ocular phenotype is rescued by the Hedgehog inhibitor cyclopamine, so the lesion is pathway hyperactivity, not loss.</div>
 
@@ -6829,6 +6936,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6851,6 +6959,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fgf9-driven-mandibular-mesenchyme-proliferation" data-dismech-node="Reduced FGF9-Driven Mandibular Mesenchyme Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced FGF9-Driven Mandibular Mesenchyme Proliferation</div>
+
 
                 <div class="item-desc">SOX11 directly regulates Fgf9 expression, and Fgf9 in turn drives Cyclin D1-dependent proliferation of the developing mandibular mesenchyme. Loss of SOX11 reduces this proliferation.</div>
 
@@ -6942,6 +7051,7 @@ This pathophysiological event involves decreased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6963,6 +7073,7 @@ This pathophysiological event involves decreased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6988,6 +7099,7 @@ This pathophysiological event involves decreased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mandibular-hypoplasia-with-secondary-palatal-shelf-obstruction" data-dismech-node="Mandibular Hypoplasia with Secondary Palatal Shelf Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mandibular Hypoplasia with Secondary Palatal Shelf Obstruction</div>
+
 
                 <div class="item-desc">The cleft palate seen in SOX11 deficiency is mechanistically secondary, not a primary palatal-shelf defect. The shelves themselves retain fusion and elevation competence; mandibular hypoplasia mispositions the tongue, which physically obstructs palatal shelf elevation. The resulting picture resembles the Pierre Robin sequence.</div>
 
@@ -7064,6 +7176,7 @@ This pathophysiological event involves dysregulated roof of mouth development (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7086,6 +7199,7 @@ This pathophysiological event involves dysregulated roof of mouth development (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-nephrogenic-gdnf-domain-restriction" data-dismech-node="Disrupted Nephrogenic Gdnf Domain Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Nephrogenic Gdnf Domain Restriction</div>
+
 
                 <div class="item-desc">SOX11 is expressed in both mesenchymal and epithelial components of the early kidney anlagen and restricts the rostral extent of the Gdnf expression domain in the nephrogenic cord. Loss of Sox11 extends that domain and produces duplex kidney; later, SOX11 is required in the intermediate nephron segment for elongation of Henle&#39;s loop.</div>
 
@@ -7183,6 +7297,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7204,6 +7319,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7275,11 +7391,11 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(4)</span></button>
 
@@ -7287,13 +7403,15 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Integument<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Nervous System<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Growth<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-13">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7334,6 +7452,9 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7348,6 +7469,7 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7411,6 +7533,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7425,6 +7550,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7457,7 +7583,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment" data-dismech-node="Sensorineural Hearing Impairment" data-dismech-type="phenotype">
@@ -7488,6 +7614,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7502,6 +7631,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7529,6 +7659,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7537,6 +7668,78 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                 <div class="evidence-explanation">Independent report of sensorineural hearing loss with a defined cochlear-nerve mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cochlear-nerve-hypoplasia" data-dismech-node="Cochlear Nerve Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cochlear Nerve Hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034585" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0034585</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cochlear nerve hypoplasia (HP:0034585). HP:0034585 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35642566" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35642566" target="_blank">PMID:35642566</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We propose cochlear nerve deficiency as a new phenotypic feature of SOX11-related CSS."</div>
+
+
+                <div class="evidence-explanation">Explicit proposal of cochlear nerve deficiency as a SOX11-associated feature, based on two MRI-confirmed probands.</div>
 
 
 
@@ -7575,15 +7778,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000823</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000823</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7603,6 +7809,7 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7643,15 +7850,18 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000044</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000044</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7671,6 +7881,7 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7695,6 +7906,7 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7735,15 +7947,18 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000821</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7763,6 +7978,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7795,7 +8011,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-oculomotor-apraxia" data-dismech-node="Oculomotor Apraxia" data-dismech-type="phenotype">
@@ -7812,15 +8028,18 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000657</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7840,6 +8059,7 @@ This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7867,6 +8087,7 @@ This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7875,6 +8096,82 @@ This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenot
 
 
                 <div class="evidence-explanation">Systematic pooled review of 58 published SOX11 cases finds ocular motor disorder to be the most prevalent ophthalmological phenotype. Marked PARTIAL and no band assigned to this node: &#34;ocular motor disorder&#34; is a broader category than Cogan-type oculomotor apraxia specifically, so 15/58 (29.31%) is an upper bound on the apraxia frequency rather than a denominator for it. The pooled ophthalmological figure is banded on the Ophthalmological Malformation entry instead.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ophthalmological-malformation" data-dismech-node="Ophthalmological Malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ophthalmological Malformation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the eye</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000478</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ophthalmological malformation, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40933692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40933692" target="_blank">PMID:40933692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Quantitative analysis of the ophthalmological phenotypic spectrum of the 58 cases (including our proband) revealed that almost half (26/58, 44.83%) presented ophthalmological malformations"</div>
+
+
+                <div class="evidence-explanation">Systematic PRISMA-based review pooling 57 published SOX11 cases plus the authors&#39; proband, restricted to single-nucleotide variants after excluding contiguous-gene CNV cases. 26/58 = 44.83%, which falls in the FREQUENT (30-79%) band. This is the first denominator-based ocular frequency for the disorder and is what the OMIM/MONDO &#34;with or without ocular malformation&#34; qualifier had previously left unquantified.</div>
 
 
 
@@ -7904,15 +8201,18 @@ This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000589</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7932,6 +8232,7 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7956,6 +8257,7 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7996,15 +8298,18 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000568</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8027,6 +8332,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8035,6 +8341,78 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                 <div class="evidence-explanation">Unilateral microphthalmia in a carrier of a deletion containing SOX11 only, so the finding is attributable to SOX11 loss.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris Coloboma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Iris Coloboma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000612</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26543203" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26543203" target="_blank">PMID:26543203</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"variants in SOX11 have also been identified in two individuals with iris coloboma and no neurodevelopmental phenotype"</div>
+
+
+                <div class="evidence-explanation">Marked PARTIAL: the two individuals with iris coloboma had no neurodevelopmental phenotype and carried variants outside the HMG domain, so this may represent a distinct, milder allelic presentation rather than a feature of the full syndrome.</div>
 
 
 
@@ -8075,15 +8453,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000077</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8103,6 +8484,7 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8127,6 +8509,7 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8167,15 +8550,18 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000786</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8195,6 +8581,7 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8235,15 +8622,18 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000054</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000054</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8263,6 +8653,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8303,15 +8694,18 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8331,6 +8725,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8355,6 +8750,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8406,15 +8802,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8434,6 +8833,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8461,6 +8861,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8482,6 +8883,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8522,15 +8924,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000458</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000458</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8550,6 +8955,7 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8590,15 +8996,18 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8618,6 +9027,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8669,15 +9079,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0008398</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0008398</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplastic fifth fingernail (HP:0008398). HP:0008398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8697,6 +9110,7 @@ This clinical feature is Hypoplastic fifth fingernail (HP:0008398). HP:0008398 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8721,6 +9135,7 @@ This clinical feature is Hypoplastic fifth fingernail (HP:0008398). HP:0008398 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8761,15 +9176,18 @@ This clinical feature is Hypoplastic fifth fingernail (HP:0008398). HP:0008398 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000998</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000998</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8789,6 +9207,7 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8820,6 +9239,114 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-clinodactyly-of-the-5th-finger" data-dismech-node="Clinodactyly of the 5th Finger" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Clinodactyly of the 5th Finger
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0004209</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35938035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35938035" target="_blank">PMID:35938035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinodactyly 5th ﬁnger −− 10/55"</div>
+
+
+                <div class="evidence-explanation">Table 1 pools the published SOX11 literature (n = 58 reported patients) and gives fifth-finger clinodactyly in 10/55. 10/55 = 18%, which falls in the OCCASIONAL (5-29%) band. This pooled denominator, not the n=7 series below, governs the band: the 5/7 (71%) figure is an outlier from a small consecutive series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39333428" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39333428" target="_blank">PMID:39333428</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"and clinodactyly of the 5th fingers (5/7)"</div>
+
+
+                <div class="evidence-explanation">Fifth-finger clinodactyly in 5/7 of this seven-patient series. Retained as a direct observation; it is not used for the band because the pooled 55-patient denominator above is eight times larger.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
@@ -8840,15 +9367,18 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8868,6 +9398,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8896,11 +9427,11 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-10">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -8919,15 +9450,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8947,6 +9481,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8971,6 +9506,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9013,15 +9549,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9041,6 +9580,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9068,6 +9608,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9089,6 +9630,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9129,15 +9671,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001320</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001320</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9157,6 +9702,7 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9199,15 +9745,18 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9227,6 +9776,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9267,15 +9817,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0007018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9295,6 +9848,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9306,309 +9860,6 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                 <div class="evidence-explanation">Supports the association, but the source counts autism and ADHD together, so no separate ADHD frequency band can be assigned.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39333428" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39333428" target="_blank">PMID:39333428</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"microcephaly (4/7), short stature (4/7), hypotonia (4/7)"</div>
-
-
-                <div class="evidence-explanation">Short stature in 4/7 (57%) maps to the FREQUENT (30-79%) band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35938035" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35938035" target="_blank">PMID:35938035</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Short stature + − + 10/30"</div>
-
-
-                <div class="evidence-explanation">Table 1 pools the published SOX11 literature (n = 58 reported patients) and gives short stature in 10/30 individuals with a reported height. 10/30 = 33%, confirming the FREQUENT (30-79%) band on a four-fold larger denominator than the n=7 series above.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-delay" data-dismech-node="Growth Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Growth Delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001510</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35642566" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35642566" target="_blank">PMID:35642566</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"phenotypic manifestations of CSS including global developmental delay, growth deficiency, and hypoplastic nails"</div>
-
-
-                <div class="evidence-explanation">Growth deficiency reported as a manifestation in two SOX11 probands.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-12">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ophthalmological-malformation" data-dismech-node="Ophthalmological Malformation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ophthalmological Malformation
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the eye</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000478</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ophthalmological malformation, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40933692" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40933692" target="_blank">PMID:40933692</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Quantitative analysis of the ophthalmological phenotypic spectrum of the 58 cases (including our proband) revealed that almost half (26/58, 44.83%) presented ophthalmological malformations"</div>
-
-
-                <div class="evidence-explanation">Systematic PRISMA-based review pooling 57 published SOX11 cases plus the authors&#39; proband, restricted to single-nucleotide variants after excluding contiguous-gene CNV cases. 26/58 = 44.83%, which falls in the FREQUENT (30-79%) band. This is the first denominator-based ocular frequency for the disorder and is what the OMIM/MONDO &#34;with or without ocular malformation&#34; qualifier had previously left unquantified.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-adaptive-behaviour" data-dismech-node="Impaired Adaptive Behaviour" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired Adaptive Behaviour
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37924570" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37924570" target="_blank">PMID:37924570</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Most were found to have borderline (33 %) or mild (39 %) impairment in adaptive behaviour, with more difficulties in communication and daily living than socialisation in the cohort overall."</div>
-
-
-                <div class="evidence-explanation">Supports the adaptive-behaviour profile. Marked PARTIAL because the HPO term for borderline intellectual functioning is an imperfect proxy for the Vineland adaptive-behaviour construct actually measured.</div>
 
 
 
@@ -9638,15 +9889,18 @@ This clinical feature is Ophthalmological malformation, annotated with Abnormali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002474</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002474</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Expressive language delay (HP:0002474). HP:0002474 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9669,6 +9923,7 @@ This clinical feature is Expressive language delay (HP:0002474). HP:0002474 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9677,100 +9932,6 @@ This clinical feature is Expressive language delay (HP:0002474). HP:0002474 is a
 
 
                 <div class="evidence-explanation">Identifies speech delay as a disproportionately affected domain in the 2p25 deletion cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-clinodactyly-of-the-5th-finger" data-dismech-node="Clinodactyly of the 5th Finger" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Clinodactyly of the 5th Finger
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0004209</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35938035" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35938035" target="_blank">PMID:35938035</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinodactyly 5th ﬁnger −− 10/55"</div>
-
-
-                <div class="evidence-explanation">Table 1 pools the published SOX11 literature (n = 58 reported patients) and gives fifth-finger clinodactyly in 10/55. 10/55 = 18%, which falls in the OCCASIONAL (5-29%) band. This pooled denominator, not the n=7 series below, governs the band: the 5/7 (71%) figure is an outlier from a small consecutive series.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39333428" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39333428" target="_blank">PMID:39333428</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"and clinodactyly of the 5th fingers (5/7)"</div>
-
-
-                <div class="evidence-explanation">Fifth-finger clinodactyly in 5/7 of this seven-patient series. Retained as a direct observation; it is not used for the band because the pooled 55-patient denominator above is eight times larger.</div>
 
 
 
@@ -9814,6 +9975,9 @@ This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:00403
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9828,6 +9992,7 @@ This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:00403
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9854,9 +10019,20 @@ This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:00403
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris Coloboma" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-12">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Iris Coloboma
+                        Short Stature
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -9868,12 +10044,12 @@ This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:00403
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000612</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0004322</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9882,16 +10058,19 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26543203" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39333428" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26543203" target="_blank">PMID:26543203</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39333428" target="_blank">PMID:39333428</a>
                     </span>
 
 
@@ -9899,14 +10078,40 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"variants in SOX11 have also been identified in two individuals with iris coloboma and no neurodevelopmental phenotype"</div>
+                <div class="evidence-snippet">"microcephaly (4/7), short stature (4/7), hypotonia (4/7)"</div>
 
 
-                <div class="evidence-explanation">Marked PARTIAL: the two individuals with iris coloboma had no neurodevelopmental phenotype and carried variants outside the HMG domain, so this may represent a distinct, milder allelic presentation rather than a feature of the full syndrome.</div>
+                <div class="evidence-explanation">Short stature in 4/7 (57%) maps to the FREQUENT (30-79%) band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35938035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35938035" target="_blank">PMID:35938035</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Short stature + − + 10/30"</div>
+
+
+                <div class="evidence-explanation">Table 1 pools the published SOX11 literature (n = 58 reported patients) and gives short stature in 10/30 individuals with a reported height. 10/30 = 33%, confirming the FREQUENT (30-79%) band on a four-fold larger denominator than the n=7 series above.</div>
 
 
 
@@ -9922,9 +10127,9 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cochlear-nerve-hypoplasia" data-dismech-node="Cochlear Nerve Hypoplasia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-delay" data-dismech-node="Growth Delay" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cochlear Nerve Hypoplasia
+                        Growth Delay
 
 
 
@@ -9936,15 +10141,18 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034585" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0034585</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001510</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cochlear nerve hypoplasia (HP:0034585). HP:0034585 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9967,14 +10175,79 @@ This clinical feature is Cochlear nerve hypoplasia (HP:0034585). HP:0034585 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"We propose cochlear nerve deficiency as a new phenotypic feature of SOX11-related CSS."</div>
+                <div class="evidence-snippet">"phenotypic manifestations of CSS including global developmental delay, growth deficiency, and hypoplastic nails"</div>
 
 
-                <div class="evidence-explanation">Explicit proposal of cochlear nerve deficiency as a SOX11-associated feature, based on two MRI-confirmed probands.</div>
+                <div class="evidence-explanation">Growth deficiency reported as a manifestation in two SOX11 probands.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-13">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-adaptive-behaviour" data-dismech-node="Impaired Adaptive Behaviour" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired Adaptive Behaviour
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37924570" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37924570" target="_blank">PMID:37924570</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most were found to have borderline (33 %) or mild (39 %) impairment in adaptive behaviour, with more difficulties in communication and daily living than socialisation in the cohort overall."</div>
+
+
+                <div class="evidence-explanation">Supports the adaptive-behaviour profile. Marked PARTIAL because the HPO term for borderline intellectual functioning is an imperfect proxy for the Vineland adaptive-behaviour construct actually measured.</div>
 
 
 
@@ -10066,6 +10339,9 @@ This disease-associated gene is SOX11 (hgnc:11191). hgnc:11191 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10080,6 +10356,7 @@ This disease-associated gene is SOX11 (hgnc:11191). hgnc:11191 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10107,6 +10384,7 @@ This disease-associated gene is SOX11 (hgnc:11191). hgnc:11191 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10128,6 +10406,7 @@ This disease-associated gene is SOX11 (hgnc:11191). hgnc:11191 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10214,6 +10493,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10224,6 +10506,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10251,6 +10536,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10318,6 +10604,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10328,6 +10617,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -10355,6 +10647,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10443,6 +10736,9 @@ This treatment uses gonadorelin (CHEBI:5520). CHEBI:5520 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10453,6 +10749,9 @@ This treatment uses gonadorelin (CHEBI:5520). CHEBI:5520 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -10498,6 +10797,7 @@ This treatment uses gonadorelin (CHEBI:5520). CHEBI:5520 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10565,6 +10865,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10575,6 +10878,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10605,6 +10911,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10629,6 +10936,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10650,6 +10958,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10717,6 +11026,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10727,6 +11039,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10757,6 +11072,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10778,6 +11094,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10888,6 +11205,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10909,6 +11227,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11003,6 +11322,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11024,6 +11344,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11101,6 +11422,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11151,6 +11473,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11261,6 +11584,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11285,6 +11609,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11306,6 +11631,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11386,6 +11712,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11451,6 +11778,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11528,6 +11856,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11596,6 +11925,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11617,6 +11947,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14408,6 +14739,32 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">GeneReviews baseline. There is no SOX11-specific GeneReviews chapter; the Coffin-Siris Syndrome chapter (PMID:23556151) is the applicable expert-curated reference and lists SOX11 as one of 14 Coffin-Siris-spectrum genes. Its Clinical Characteristics section aggregates all 14 genes and is therefore dominated by BAF core-subunit cases, so it is used here for the gene list, management, surveillance, and genetic counselling, and is NOT used as the source of SOX11 phenotype frequencies.
+Lump-versus-split decision. This entry is curated as a distinct disease rather than as a presentation of classical Coffin-Siris syndrome, on three grounds: (1) mechanism - SOX11 is a transcription factor acting downstream of the PAX6-BAF complex, not a BAF core subunit, and SOX11 and BAF-subunit variants are mutually exclusive in Coffin-Siris cohorts (PMID:24886874); (2) molecular class separation - SOX11 cases carry a blood DNA methylation episignature that separates them from the BAFopathies (PMID:35341651); (3) phenotype - SOX11 disease carries a distinctive burden of microcephaly, hypogonadotropic hypogonadism, and infrequent congenital malformations relative to classical Coffin-Siris syndrome (PMID:37558216, PMID:35341651). MONDO currently places MONDO:0014376 as is_a MONDO:0015452 (Coffin-Siris syndrome); that placement is retained as the ontology anchor without importing BAF cohort data.
+Frequency-band provenance. Phenotype bands are derived preferentially from the pooled literature table in PMID:35938035 (Table 1, n = 58 reported patients) and, for the ocular arm, from the pooled 58-case ophthalmological review PMID:40933692, in preference to the 7-patient series PMID:39333428. The derivation for each band is shown in the corresponding evidence explanation and summarised in the sox11_phenotype_frequency_gap discussion.
+Claims deliberately not curated for want of a quotable source. The Al-Jawahiri cohort (PMID:35341651) reports its per-phenotype denominators only in body text; the cache is content_type abstract_only and a re-fetch on 2026-07-31 did not obtain full text despite PMCID PMC9245088. Consequently the following are NOT asserted anywhere in this entry: hypogonadotropic hypogonadism 8/38, developmental delay / intellectual disability 37/38, abnormal brain MRI 12/20, agenesis of the corpus callosum, anterior pituitary hypoplasia, and the episignature&#39;s 224-probe / 10-case-vs-50-control training detail. Cerebellar vermis hypoplasia IS curated, unbanded, because a single case with an isolated de novo SOX11 nonsense variant and a normal array CGH is quotable from the full text of PMID:26543203.
+Impaired Adaptive Behaviour carries no ontology term. The construct measured is a Vineland adaptive-behaviour composite; HP:0006889 (Borderline intellectual disability) was used as a proxy in the initial version of this entry and has been removed, since it names a cognitive band rather than adaptive function and would misrepresent the finding. A new HPO term request for an adaptive-behaviour impairment concept is the correct resolution.
+GeneReviews cross-check. The Coffin-Siris Syndrome GeneReviews Clinical Characteristics items were checked one by one against this entry. Captured here with SOX11-specific citations: developmental delay/intellectual disability, feeding difficulties, hypotonia, hearing impairment, eye issues, congenital heart defects, behavioural issues, and fifth-digit nail/phalanx hypoplasia. Deliberately NOT imported because no SOX11-specific source was found for them: epilepsy (&#34;about half of affected individuals&#34;), frequent infections, joint laxity, scoliosis, ptosis, strabismus, obesity, tics, sleep disturbance, genitourinary malformations, and the ARID1A-specific hepatoblastoma surveillance. Those figures come from BAF-core-subunit-dominated cohorts and importing them would be exactly the named-entity error this entry is written to avoid. The GeneReviews &#34;Agents/Circumstances to Avoid&#34; section contains no drug-safety warning in the cached abstract, so no treatment carries one.
+MONDO anchoring. The deep-research report recommended MONDO:0100626 (&#34;SOX11-related complex neurodevelopmental disorder with or without congenital anomalies&#34;, the ClinGen-grounded term) as the disease_term in preference to MONDO:0014376. Both terms carry the same RO:0004003 relation to HGNC:11191 (SOX11), and MONDO lists this entry&#39;s anchor label as a NARROW synonym of MONDO:0100626. This entry keeps MONDO:0014376 because that is the term the curation request and the tracking issue specify, and records MONDO:0100626 under mappings as a skos:broadMatch so a future re-anchoring is a one-line change. This is a deliberate, documented deviation from the report.
+Deep research provenance. One provider was run: claude_code (23 minutes, 8 web searches, 53 citations). Its recommendations were treated as leads. Every PMID it surfaced that is cited here was fetched with just fetch-reference and every snippet was verified as a byte-exact substring of the cached abstract. Content the report marked [FULL-TEXT] (body text of the open-access Al-Jawahiri 2022 paper) was NOT used for snippets, because body text does not validate against a PubMed-abstract cache; where those figures were valuable but unquotable (per-phenotype denominators from the 38-patient cohort, cerebellar hypoplasia, corpus callosum agenesis, pituitary hypoplasia, the 224-probe episignature detail, the ~21% hypogonadotropic hypogonadism rate) the claim was either dropped or carried in prose without a frequency band. The report also flagged an HPO typo in its primary source (HP:0013272 for abnormal eye morphology, which should be HP:0012372); neither ID is used here.
+Evidence limitations. No population prevalence estimate was found for this disorder and none is asserted. Frequency bands are given only where a denominator exists in a cited abstract, and the largest such denominator is small (n=7 for the clinical-feature counts, n=21 for the behavioural measures); the 38-patient Al-Jawahiri cohort abstract reports the episignature and the hypogonadotropic hypogonadism association but no per-phenotype denominators, so its numbers could not be used. Cleft palate, coarctation of the aorta, cochlear nerve hypoplasia, and olfactory bulb hypoplasia rest on single case reports and carry no frequency.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: SOX11-Related_Neurodevelopmental_Disorder</strong> · 2026-08-01T06:11:18Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SOX11-Related_Neurodevelopmental_Disorder/2026-08-01T061118Z-claude-code-7021d2.yaml">View source</a></p>
+                        <p class="research-review-text">Created the SOX11-related neurodevelopmental disorder entry (MONDO:0014376, OMIM:615866, SOX11/HGNC:11191). Preflight confirmed the MONDO RO:0004003 gene relation is HGNC:11191 SOX11 before any writing. Deep research provider: claude_code (23 min, 8 web searches, 53 citations); report committed under research/. Curated 15 atomic pathophysiology nodes forming one connected graph with a single root (Heterozygous SOX11 Loss of Function), covering the neural, ocular/Hedgehog, craniofacial/FGF9, renal/Gdnf, endocrine GnRH-axis, cochlear-nerve, and DNA-methylation-episignature arms; 31 phenotypes with HPO terms; genetic, inheritance, prevalence, treatments, differential diagnoses, and three discussions (one KNOWLEDGE_GAP on phenotype denominators, one HUMAN_MODEL_MISMATCH on the homozygous-model vs human-heterozygote zygosity mismatch, one KNOWLEDGE_GAP on non-coding variants and adult natural history). Named-entity-confusion handling: SOX11 is curated as distinct from classical BAF core-subunit Coffin-Siris syndrome, from the SOX4 paralogue, and from SOX2, with the lump-vs-split reasoning recorded in differential_diagnoses and notes; no ARID1B/SMARCB1 cohort phenotype data were imported, and the Coffin-Siris epilepsy frequency and ARID1A hepatoblastoma surveillance were explicitly excluded. GeneReviews baseline: no SOX11-specific chapter exists; the Coffin-Siris Syndrome chapter (PMID:23556151) was fetched, tagged GeneReviews, and cross-checked item by item, with imported and deliberately-excluded items listed in notes. Validation: just validate clean (schema no issues, term validation passed, 96/96 snippets verified against cached references); compliance 88.2 percent global / 88.5 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

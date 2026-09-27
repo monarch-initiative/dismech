@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4117,6 +4185,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4138,6 +4207,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4369,6 +4439,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cav1-4-channel-dysfunction-at-the-photoreceptor-ribbon-synapse" data-dismech-node="Cav1.4 Channel Dysfunction at the Photoreceptor Ribbon Synapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Cav1.4 Channel Dysfunction at the Photoreceptor Ribbon Synapse</div>
 
+
                 <div class="item-desc">CACNA1F pathogenic variants (missense, nonsense, frameshift, splice-site, and synonymous splice-altering variants) alter Cav1.4 L-type calcium channel abundance, gating, or biophysical properties at the presynaptic ribbon synapse of rod and cone photoreceptors. Most variants are loss-of-function; rare gain-of-function variants (e.g. I756T) also cause disease via a distinct mechanism.</div>
 
 
@@ -4491,6 +4562,7 @@ This pathophysiological event involves decreased Voltage-gated calcium channel a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4512,6 +4584,7 @@ This pathophysiological event involves decreased Voltage-gated calcium channel a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4537,6 +4610,7 @@ This pathophysiological event involves decreased Voltage-gated calcium channel a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-photoreceptor-to-bipolar-cell-glutamatergic-transmission" data-dismech-node="Defective Photoreceptor-to-Bipolar Cell Glutamatergic Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Photoreceptor-to-Bipolar Cell Glutamatergic Transmission</div>
+
 
                 <div class="item-desc">Impaired Ca2+ influx reduces tonic glutamate release from photoreceptor terminals onto ON- and OFF-bipolar cells, producing the pathognomonic electronegative full-field ERG (markedly reduced b-wave relative to a relatively preserved a-wave) that defines CACNA1F-related iCSNB.</div>
 
@@ -4666,6 +4740,7 @@ This pathophysiological event involves decreased Glutamatergic synaptic transmis
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4687,6 +4762,7 @@ This pathophysiological event involves decreased Glutamatergic synaptic transmis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4712,6 +4788,7 @@ This pathophysiological event involves decreased Glutamatergic synaptic transmis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-bipolar-cell-dendritic-sprouting-and-cone-pathway-dysfunction" data-dismech-node="Cone Bipolar Cell Dendritic Sprouting and Cone Pathway Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cone Bipolar Cell Dendritic Sprouting and Cone Pathway Dysfunction</div>
+
 
                 <div class="item-desc">In Cav1.4 gain-of-function (I756T) mice, cone photoreceptors retain the capacity to release glutamate, but most cone bipolar cells undergo dendritic sprouting and ganglion cell responses to photopic stimuli are lost in the majority of cells, indicating a postsynaptic cone bipolar cell defect downstream of the presynaptic channelopathy. Acute calcium-channel blockade did not rescue synaptic transmission deficits.</div>
 
@@ -4814,6 +4891,7 @@ This pathophysiological event involves Cone retinal bipolar cell (CL:0000752). C
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4836,6 +4914,7 @@ This pathophysiological event involves Cone retinal bipolar cell (CL:0000752). C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-retinal-thinning-and-optic-nerve-involvement" data-dismech-node="Inner Retinal Thinning and Optic Nerve Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Inner Retinal Thinning and Optic Nerve Involvement</div>
+
 
                 <div class="item-desc">Independent of myopia, CACNA1F-retinopathy patients show reduced macular ganglion cell layer-inner plexiform layer (GCL-IPL) thickness and optic disc pallor with reduced peripapillary retinal nerve fiber layer (RNFL) thickness, indicating that higher-order (inner retinal/optic nerve) structures are affected beyond the primary photoreceptor synaptic defect. Longitudinal peripapillary RNFL data in three patients showed stability over time; whether these inner retinal changes are stationary or progressive remains unresolved, and the authors of both cited cohorts call for larger, longer prospective follow-up.</div>
 
@@ -4908,6 +4987,7 @@ This pathophysiological event involves Retinal ganglion cell (CL:0000740). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4929,6 +5009,7 @@ This pathophysiological event involves Retinal ganglion cell (CL:0000740). CL:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4994,36 +5075,18 @@ This pathophysiological event involves Retinal ganglion cell (CL:0000740). CL:00
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(8)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-nyctalopia" data-dismech-node="Nyctalopia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Nyctalopia
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(6)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
-
-
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nyctalopia" data-dismech-node="Nyctalopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nyctalopia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5035,7 +5098,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5055,6 +5121,7 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5079,21 +5146,19 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-photophobia" data-dismech-node="Photophobia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Photophobia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-photophobia" data-dismech-node="Photophobia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Photophobia
 
-                        <span class="phenotype-freq">FREQUENT</span>
-
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5105,7 +5170,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5125,6 +5193,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5149,21 +5218,19 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-visual-acuity" data-dismech-node="Reduced Visual Acuity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced Visual Acuity
+            <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-visual-acuity" data-dismech-node="Reduced Visual Acuity" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Reduced Visual Acuity
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5175,7 +5242,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5195,6 +5265,7 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5219,21 +5290,19 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myopia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Myopia
 
-                        <span class="phenotype-freq">FREQUENT</span>
-
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5245,7 +5314,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5265,6 +5337,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5289,21 +5362,19 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nystagmus
+            <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Nystagmus
 
-                        <span class="phenotype-freq">FREQUENT</span>
-
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5315,7 +5386,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5335,6 +5409,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5359,19 +5434,17 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Strabismus
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Strabismus
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5383,7 +5456,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5403,6 +5479,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5427,14 +5504,13 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electroretinogram" data-dismech-node="Abnormal Electroretinogram" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Electroretinogram
+            <div class="item-box phenotype-box anchor-target" id="phenotype-color-vision-defect" data-dismech-node="Color Vision Defect" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Color Vision Defect
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
+                    <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -5444,165 +5520,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000512</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007641" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0007641</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33668843" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33668843" target="_blank">PMID:33668843</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The DA standard flash ERG showed an electronegative configuration in 20 of 22 patients (mean (SD) b/a ratio: 0.59 (0.23); range 0.25-1.16)"</div>
-
-
-                <div class="evidence-explanation">Quantifies the near-universal electronegative ERG pattern in a molecularly-confirmed CACNA1F cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-visual-loss" data-dismech-node="Progressive Visual Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Visual Loss
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000529</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40390739" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40390739" target="_blank">PMID:40390739</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a 33-year-old Hispanic male patient with childhood-onset nyctalopia and progressive visual loss"</div>
-
-
-                <div class="evidence-explanation">Documents a progressive clinical course distinguishing this CACNA1F presentation from stationary CSNB2A.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-color-vision-defect" data-dismech-node="Color Vision Defect" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Color Vision Defect
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Dyschromatopsia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007641" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007641</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Dyschromatopsia (HP:0007641). HP:0007641 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5622,6 +5551,7 @@ This clinical feature is Dyschromatopsia (HP:0007641). HP:0007641 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5646,14 +5576,13 @@ This clinical feature is Dyschromatopsia (HP:0007641). HP:0007641 is a phenotype
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-disc-pallor" data-dismech-node="Optic Disc Pallor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Optic Disc Pallor
+            <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electroretinogram" data-dismech-node="Abnormal Electroretinogram" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Abnormal Electroretinogram
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -5663,16 +5592,18 @@ This clinical feature is Dyschromatopsia (HP:0007641). HP:0007641 is a phenotype
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000512</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000543</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5692,6 +5623,79 @@ This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The DA standard flash ERG showed an electronegative configuration in 20 of 22 patients (mean (SD) b/a ratio: 0.59 (0.23); range 0.25-1.16)"</div>
+
+
+                <div class="evidence-explanation">Quantifies the near-universal electronegative ERG pattern in a molecularly-confirmed CACNA1F cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-optic-disc-pallor" data-dismech-node="Optic Disc Pallor" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Optic Disc Pallor
+
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33668843" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33668843" target="_blank">PMID:33668843</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5716,14 +5720,13 @@ This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenoty
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-foveal-hypoplasia" data-dismech-node="Foveal Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Foveal Hypoplasia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-foveal-hypoplasia" data-dismech-node="Foveal Hypoplasia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Foveal Hypoplasia
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
+                    <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -5731,20 +5734,20 @@ This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenoty
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Hypoplasia of the fovea</span>
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007750</a>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0007750</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Foveal hypoplasia, annotated with Hypoplasia of the fovea (HP:0007750). HP:0007750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5764,6 +5767,7 @@ This clinical feature is Foveal hypoplasia, annotated with Hypoplasia of the fov
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5788,12 +5792,11 @@ This clinical feature is Foveal hypoplasia, annotated with Hypoplasia of the fov
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fundus-hypopigmentation" data-dismech-node="Fundus Hypopigmentation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fundus Hypopigmentation
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-fundus-hypopigmentation" data-dismech-node="Fundus Hypopigmentation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Fundus Hypopigmentation
 
 
 
@@ -5803,16 +5806,18 @@ This clinical feature is Foveal hypoplasia, annotated with Hypoplasia of the fov
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0007894" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0007894</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007894" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007894</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fundus hypopigmentation (HP:0007894). HP:0007894 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5832,6 +5837,7 @@ This clinical feature is Fundus hypopigmentation (HP:0007894). HP:0007894 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5856,12 +5862,11 @@ This clinical feature is Fundus hypopigmentation (HP:0007894). HP:0007894 is a p
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-retinoschisis" data-dismech-node="Retinoschisis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Retinoschisis
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-retinoschisis" data-dismech-node="Retinoschisis" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Retinoschisis
 
 
 
@@ -5871,16 +5876,18 @@ This clinical feature is Fundus hypopigmentation (HP:0007894). HP:0007894 is a p
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0030502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030502</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0030502</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinoschisis (HP:0030502). HP:0030502 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5900,6 +5907,7 @@ This clinical feature is Retinoschisis (HP:0030502). HP:0030502 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5924,12 +5932,11 @@ This clinical feature is Retinoschisis (HP:0030502). HP:0030502 is a phenotype f
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-atrophy" data-dismech-node="Chorioretinal Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chorioretinal Atrophy
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-atrophy" data-dismech-node="Chorioretinal Atrophy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Chorioretinal Atrophy
 
 
 
@@ -5939,16 +5946,18 @@ This clinical feature is Retinoschisis (HP:0030502). HP:0030502 is a phenotype f
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0000533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000533</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000533</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chorioretinal atrophy (HP:0000533). HP:0000533 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5968,6 +5977,7 @@ This clinical feature is Chorioretinal atrophy (HP:0000533). HP:0000533 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5992,34 +6002,78 @@ This clinical feature is Chorioretinal atrophy (HP:0000533). HP:0000533 is a phe
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-visual-loss" data-dismech-node="Progressive Visual Loss" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Progressive Visual Loss
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000529</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40390739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40390739" target="_blank">PMID:40390739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a 33-year-old Hispanic male patient with childhood-onset nyctalopia and progressive visual loss"</div>
+
+
+                <div class="evidence-explanation">Documents a progressive clinical course distinguishing this CACNA1F presentation from stationary CSNB2A.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6066,6 +6120,9 @@ This disease-associated gene is CACNA1F (hgnc:1393). hgnc:1393 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6080,6 +6137,7 @@ This disease-associated gene is CACNA1F (hgnc:1393). hgnc:1393 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6139,6 +6197,12 @@ This disease-associated gene is CACNA1F (hgnc:1393). hgnc:1393 is a gene from th
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Glasses or contact lenses to correct refractive error (myopia, occasionally hyperopia), which is common in CACNA1F-related disease; yearly eye examinations with refraction are recommended from a young age.</div>
 
 
@@ -6160,6 +6224,7 @@ This disease-associated gene is CACNA1F (hgnc:1393). hgnc:1393 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6232,6 +6297,12 @@ This treatment is strabismus surgery, annotated with Ophthalmologic Surgical Pro
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Conventional strabismus surgery may be required to improve binocularity or head posture in patients with significant strabismus.</div>
 
 
@@ -6253,6 +6324,7 @@ This treatment is strabismus surgery, annotated with Ophthalmologic Surgical Pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6320,6 +6392,9 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6330,6 +6405,9 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -6357,6 +6435,7 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6467,6 +6546,7 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6488,6 +6568,7 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6577,6 +6658,7 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7352,6 +7434,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: CACNA1F-Related Retinopathy (MONDO:0700243)</strong> · 2026-07-14T02:03:28Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CACNA1F-Related_Retinopathy/2026-07-14T020328Z-claude-code-5da1f3.yaml">View source</a></p>
+                        <p class="research-review-text">New gene-level entry for CACNA1F-related retinopathy (X-linked incomplete CSNB / Cav1.4 channelopathy), the next unaddressed high-priority target from issue #4008&#39;s retinopathy tracker. Modeled with two has_subtypes (CSNB2A stationary form, MONDO:0010241; CORDX3 progressive form, MONDO:0010335); Aland Island eye disease is left as its own separately-curated dismech entry rather than duplicated here, cross-linked via parents/description. 4-node pathophysiology causal chain: Cav1.4 channel dysfunction -&gt; defective photoreceptor-to-bipolar glutamatergic transmission -&gt; (a) cone bipolar sprouting/cone pathway dysfunction (mouse model) and (b) inner retinal thinning/optic nerve involvement (human). 9 PMIDs fetched and snippet-verified (GeneReviews baseline PMID:20301423 plus 8 primary literature sources from a falcon deep-research run, research/CACNA1F-Related_Retinopathy-deep-research-falcon.md, 72 citations). During term verification, caught and corrected 4 hallucinated/incorrect ontology IDs the deep-research report had suggested (HP:0000556 -&gt; HP:0000512 for abnormal ERG, HP:0007368 -&gt; HP:0007750 for foveal hypoplasia, CL:0000740 -&gt; CL:0000748 for retinal bipolar neuron, CL:0000741 -&gt; CL:0000745 for retinal horizontal cell, UBERON:0001854 -&gt; UBERON:0001790 for outer plexiform layer) and one NEC near-miss (MONDO:0011395 &#39;cone-rod dystrophy 3&#39; is ABCA4-caused, not CACNA1F; used MONDO:0010335 &#39;X-linked cone-rod dystrophy 3&#39; instead). just validate (schema+term+reference) and just compliance (87.0%) both pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

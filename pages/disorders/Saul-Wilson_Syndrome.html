@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4230,6 +4298,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4324,6 +4393,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-cog4-p-gly516arg-substitution" data-dismech-node="Recurrent COG4 p.Gly516Arg Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent COG4 p.Gly516Arg Substitution</div>
 
+
                 <div class="item-desc">A heterozygous de novo missense change in a lobe-A subunit of the conserved oligomeric Golgi complex. Critically, this is not haploinsufficiency: patient fibroblasts have undiminished COG4 mRNA and protein, so the variant protein is present and acting, not absent.</div>
 
 
@@ -4383,6 +4453,8 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4398,6 +4470,9 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">A single recurrent heterozygous missense substitution. Its impact is not loss of function - COG4 mRNA and protein levels are preserved - and no published work assigns it to a named functional class, so functional_impact_category is recorded as UNKNOWN rather than guessed at.</div>
 
@@ -4465,6 +4540,7 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4486,6 +4562,7 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4511,6 +4588,7 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-imbalanced-bidirectional-golgi-vesicular-traffic" data-dismech-node="Imbalanced Bidirectional Golgi Vesicular Traffic" data-dismech-type="pathophysiology">
                 <div class="item-name">Imbalanced Bidirectional Golgi Vesicular Traffic</div>
+
 
                 <div class="item-desc">Patient fibroblasts show delayed anterograde vesicular trafficking from the ER to the Golgi together with accelerated retrograde recycling from the Golgi back to the ER. The disorder is therefore one of steady-state imbalance in both directions, not a simple block - a distinction that matters because it predicts a shrinking rather than a distended Golgi.</div>
 
@@ -4684,6 +4762,7 @@ This pathophysiological event involves increased retrograde vesicle-mediated tra
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4706,6 +4785,7 @@ This pathophysiological event involves increased retrograde vesicle-mediated tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-golgi-volume-loss-and-stack-collapse" data-dismech-node="Golgi Volume Loss and Stack Collapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Golgi Volume Loss and Stack Collapse</div>
+
 
                 <div class="item-desc">The altered steady-state equilibrium decreases Golgi volume and collapses the Golgi stacks - the structural consequence of removing more membrane retrogradely than arrives anterogradely.</div>
 
@@ -4822,6 +4902,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4844,6 +4925,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-decorin-glycosylation-defect" data-dismech-node="Selective Decorin Glycosylation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Decorin Glycosylation Defect</div>
+
 
                 <div class="item-desc">Despite a visibly abnormal Golgi, protein glycosylation in patient serum and fibroblasts is not notably altered. The one demonstrated exception is decorin, a proteoglycan secreted into the extracellular matrix, whose Golgi-dependent glycosylation is altered. This selectivity is the reason the disease presents as a skeletal dysplasia rather than as a congenital disorder of glycosylation, and it is also the weakest link in the causal chain: no study has yet shown that altered decorin glycosylation is sufficient to produce the skeletal phenotype.</div>
 
@@ -4965,6 +5047,7 @@ This pathophysiological event involves abnormal proteoglycan biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4987,6 +5070,7 @@ This pathophysiological event involves abnormal proteoglycan biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glypican-accumulation-and-elevated-wnt4-signalling" data-dismech-node="Glypican Accumulation and Elevated wnt4 Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Glypican Accumulation and Elevated wnt4 Signalling</div>
+
 
                 <div class="item-desc">The proteoglycan defect is not confined to decorin. Patient fibroblasts accumulate glypicans - heparan sulfate proteoglycans that gate several growth and bone-development pathways - and the same accumulation occurs in zebrafish embryos expressing COG4 p.G516R. Downstream, wnt4 transcripts rise selectively, and overexpressing wnt4 alone phenocopies the developmental defects, so the elevated wnt4 is doing causal work rather than marking the lesion. The Wnt inhibitor LGK974 partially corrects body length, which is the strongest evidence in this disorder that a downstream node is pharmacologically addressable.</div>
 
@@ -5138,6 +5222,7 @@ This pathophysiological event involves increased non-canonical Wnt signaling pat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5159,6 +5244,7 @@ This pathophysiological event involves increased non-canonical Wnt signaling pat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5186,6 +5272,7 @@ This pathophysiological event involves increased non-canonical Wnt signaling pat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5208,6 +5295,7 @@ This pathophysiological event involves increased non-canonical Wnt signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chondrocyte-differentiation-and-secretome" data-dismech-node="Impaired Chondrocyte Differentiation and Secretome" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Chondrocyte Differentiation and Secretome</div>
+
 
                 <div class="item-desc">In a chondrocyte-relevant cell type carrying a CRISPR knock-in of the variant, 3D spheroids are smaller and apoptosis is increased - impaired in vitro chondrogenesis. The defect is largely non-cell-autonomous: adding wild-type cells or merely their conditioned medium rescues both cell death and spheroid size, pointing at missing secreted matrix components rather than an intrinsic block. Secretome analysis identifies MMP13 and IGFBP7, both chondro-osteogenic, as selectively under-secreted, and the cells show reduced MMP13 and COL10A1 differentiation markers with a delayed BMP2 response. Notably, bulk N-glycans change only modestly, which reinforces that this is a trafficking and secretion disease rather than a glycosylation disease.</div>
 
@@ -5415,6 +5503,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5436,6 +5525,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5463,6 +5553,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5487,6 +5578,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-short-stature-and-skeletal-dysplasia" data-dismech-node="Profound Short Stature and Skeletal Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Short Stature and Skeletal Dysplasia</div>
+
 
                 <div class="item-desc">The clinical endpoint: profound short stature with distinctive craniofacial features, short distal phalanges of fingers and toes and often clubfoot, with cognition normal.</div>
 
@@ -5580,6 +5672,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5648,21 +5741,19 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5707,6 +5798,9 @@ This clinical feature is Intermittent neutropenia, annotated with Decreased tota
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5721,6 +5815,7 @@ This clinical feature is Intermittent neutropenia, annotated with Decreased tota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5745,6 +5840,7 @@ This clinical feature is Intermittent neutropenia, annotated with Decreased tota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5812,6 +5908,9 @@ This clinical feature is Hearing loss (conductive, sensorineural or mixed), anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5826,6 +5925,7 @@ This clinical feature is Hearing loss (conductive, sensorineural or mixed), anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5858,7 +5958,7 @@ This clinical feature is Hearing loss (conductive, sensorineural or mixed), anno
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-lamellar-cataracts" data-dismech-node="Lamellar cataracts" data-dismech-type="phenotype">
@@ -5891,6 +5991,9 @@ This clinical feature is Lamellar cataract, annotated with Cataract (HP:0000518)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5905,6 +6008,7 @@ This clinical feature is Lamellar cataract, annotated with Cataract (HP:0000518)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5963,6 +6067,9 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5977,6 +6084,7 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6004,6 +6112,7 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6012,6 +6121,82 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
                 <div class="evidence-explanation">The systematic ophthalmic examination behind the VERY_FREQUENT classification - four of four examined.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cystic-macular-changes" data-dismech-node="Cystic macular changes" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cystic macular changes
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Cystoid macular edema</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0011505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cystoid macular changes, annotated with Cystoid macular edema (HP:0011505). HP:0011505 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31949312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949312" target="_blank">PMID:31949312</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A pigmentary retinopathy consistent with a rod-cone dystrophy was noted in all four patients, whereas macular cystic changes were documented in two of the four individuals seen at the NIH Clinical Center."</div>
+
+
+                <div class="evidence-explanation">Gives the numerator and denominator for both retinal findings; two of four supports FREQUENT.</div>
 
 
 
@@ -6054,15 +6239,18 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Distinctive craniofacial appearance, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6082,6 +6270,7 @@ This clinical feature is Distinctive craniofacial appearance, annotated with Abn
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6114,14 +6303,14 @@ This clinical feature is Distinctive craniofacial appearance, annotated with Abn
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-clubfoot" data-dismech-node="Clubfoot" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-distal-phalanges-of-fingers" data-dismech-node="Short distal phalanges of fingers" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Clubfoot
+                        Short distal phalanges of fingers
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -6130,20 +6319,23 @@ This clinical feature is Distinctive craniofacial appearance, annotated with Abn
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Talipes equinovarus</span>
+                        <span class="phenotype-term-label">Short distal phalanx of finger</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001762</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0009882</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Clubfoot, annotated with Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Short distal phalanx of finger (HP:0009882). HP:0009882 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6163,6 +6355,83 @@ This clinical feature is Clubfoot, annotated with Talipes equinovarus (HP:000176
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"short distal phalanges of fingers and toes, and often clubfoot"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists short distal phalanges among the defining features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-clubfoot" data-dismech-node="Clubfoot" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Clubfoot
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Talipes equinovarus</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001762</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clubfoot, annotated with Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32078278" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32078278" target="_blank">PMID:32078278</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6216,15 +6485,18 @@ This clinical feature is Clubfoot, annotated with Talipes equinovarus (HP:000176
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6244,6 +6516,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6276,7 +6549,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-atlantoaxial-instability" data-dismech-node="Atlantoaxial instability" data-dismech-type="phenotype">
@@ -6295,15 +6568,18 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003467</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003467</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6323,6 +6599,7 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6367,10 +6644,10 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003088</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003088</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature osteoarthritis (HP:0003088), qualified as young adult onset. HP:0003088 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6410,6 +6687,9 @@ This clinical feature is Premature osteoarthritis (HP:0003088), qualified as you
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6427,6 +6707,7 @@ This clinical feature is Premature osteoarthritis (HP:0003088), qualified as you
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6435,6 +6716,82 @@ This clinical feature is Premature osteoarthritis (HP:0003088), qualified as you
 
 
                 <div class="evidence-explanation">The cohort observation, including the age at onset that makes this an adult complication rather than a childhood feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-fragility" data-dismech-node="Skeletal fragility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Skeletal fragility
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased susceptibility to fractures</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002659</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased susceptibility to fractures (HP:0002659). HP:0002659 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31949312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949312" target="_blank">PMID:31949312</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Novel findings included elevation of liver transaminases, skeletal fragility, rod-cone dystrophy, and cystic macular changes."</div>
+
+
+                <div class="evidence-explanation">Skeletal fragility named among the novel cohort findings.</div>
 
 
 
@@ -6475,15 +6832,18 @@ This clinical feature is Premature osteoarthritis (HP:0003088), qualified as you
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6503,6 +6863,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6556,15 +6917,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6584,6 +6948,7 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6595,231 +6960,6 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
                 <div class="evidence-explanation">GeneReviews names profound short stature as the defining feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-distal-phalanges-of-fingers" data-dismech-node="Short distal phalanges of fingers" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short distal phalanges of fingers
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Short distal phalanx of finger</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0009882</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short distal phalanx of finger (HP:0009882). HP:0009882 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32078278" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32078278" target="_blank">PMID:32078278</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"short distal phalanges of fingers and toes, and often clubfoot"</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists short distal phalanges among the defining features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-fragility" data-dismech-node="Skeletal fragility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Skeletal fragility
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased susceptibility to fractures</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002659</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased susceptibility to fractures (HP:0002659). HP:0002659 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31949312" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949312" target="_blank">PMID:31949312</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Novel findings included elevation of liver transaminases, skeletal fragility, rod-cone dystrophy, and cystic macular changes."</div>
-
-
-                <div class="evidence-explanation">Skeletal fragility named among the novel cohort findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cystic-macular-changes" data-dismech-node="Cystic macular changes" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cystic macular changes
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Cystoid macular edema</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0011505</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cystoid macular changes, annotated with Cystoid macular edema (HP:0011505). HP:0011505 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31949312" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949312" target="_blank">PMID:31949312</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A pigmentary retinopathy consistent with a rod-cone dystrophy was noted in all four patients, whereas macular cystic changes were documented in two of the four individuals seen at the NIH Clinical Center."</div>
-
-
-                <div class="evidence-explanation">Gives the numerator and denominator for both retinal findings; two of four supports FREQUENT.</div>
 
 
 
@@ -6909,6 +7049,9 @@ This disease-associated gene is COG4 (hgnc:18620). hgnc:18620 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6923,6 +7066,7 @@ This disease-associated gene is COG4 (hgnc:18620). hgnc:18620 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6947,6 +7091,7 @@ This disease-associated gene is COG4 (hgnc:18620). hgnc:18620 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7033,6 +7178,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7043,6 +7191,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -7112,6 +7263,7 @@ This treatment targets Atlantoaxial instability (HP:0003467). HP:0003467 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7175,6 +7327,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7185,6 +7340,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7234,6 +7392,7 @@ This treatment targets Atlantoaxial instability (HP:0003467). HP:0003467 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7300,6 +7459,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7310,6 +7472,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7376,6 +7541,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7464,6 +7630,9 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7474,6 +7643,9 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -7501,6 +7673,7 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7567,6 +7740,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7577,6 +7753,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7604,6 +7783,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7714,6 +7894,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7785,6 +7966,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7949,6 +8131,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7988,6 +8171,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8100,6 +8284,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9316,6 +9501,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Saul-Wilson Syndrome</strong> · 2026-08-27T04:18:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Saul-Wilson_Syndrome/2026-08-27T041803Z-claude-code-2eb9a0.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for ISDS Nosology 2023 group 21 row NOS 21-0230 (COG4, OMIM 618150). Deep research: claude_code provider; NEC preflight PASS with COG4 the dominant gene. GeneReviews (PMID:32078278) fetched and used as the phenotype baseline, including its Agents/Circumstances to Avoid item, which is curated as a treatment with the restriction quoted directly. Mechanism from PMID:30290151: the entry is explicit that this is not COG4 loss of function - mRNA and protein are preserved - and models the disorder as a bidirectional steady-state imbalance in Golgi traffic leading to Golgi volume loss, with a selective decorin glycosylation defect as the only demonstrated downstream molecular lesion. functional_impact_category is recorded as UNKNOWN rather than guessed, since no publication assigns the variant to a named functional class. A KNOWLEDGE_GAP discussion records that the decorin finding carries the entire explanatory weight between a shrunken Golgi and a skeletal dysplasia. Validation: schema clean, term validation passed, 23/23 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

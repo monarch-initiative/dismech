@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4269,6 +4337,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4293,6 +4362,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4314,6 +4384,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4389,6 +4460,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4410,6 +4482,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4555,6 +4628,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4676,6 +4750,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4697,6 +4772,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4821,6 +4897,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4855,6 +4932,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nsdhl-loss-of-function" data-dismech-node="NSDHL Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">NSDHL Loss of Function</div>
+
 
                 <div class="item-desc">Pathogenic NSDHL variants abolish or severely reduce the activity of the NAD(P)H steroid dehydrogenase-like protein. Missense alleles do not simply produce a catalytically dead but abundant enzyme: across a survey of thirteen disease-causing missense changes and one deletion, protein expression levels were uniformly low, and some mutants could be partially rescued by lowering the temperature or by adding a chemical chaperone, implicating a folding and stability defect rather than pure catalytic loss.</div>
 
@@ -5026,6 +5104,7 @@ This pathophysiological event involves sterol-4-alpha-carboxylate 3-dehydrogenas
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5047,6 +5126,7 @@ This pathophysiological event involves sterol-4-alpha-carboxylate 3-dehydrogenas
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5072,6 +5152,7 @@ This pathophysiological event involves sterol-4-alpha-carboxylate 3-dehydrogenas
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-c4-demethylation-with-cholesterol-deficiency-and-methylsterol-accumulation" data-dismech-node="Blocked C4-Demethylation with Cholesterol Deficiency and Methylsterol Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked C4-Demethylation with Cholesterol Deficiency and Methylsterol Accumulation</div>
+
 
                 <div class="item-desc">The enzymatic block has two simultaneous consequences that are usually described as one. Downstream, flux to cholesterol falls, so affected cells are deprived of the pathway end product. Upstream, methylsterol intermediates accumulate; these are not inert, but insert into membranes and perturb membrane function, oxysterol generation, Hedgehog signalling, and HMG-CoA reductase turnover. In cultured cerebellar granule cell precursors from a conditional Nsdhl mouse, the two arms are experimentally separable: exogenous cholesterol almost completely rescued the proliferation defect, while methylsterol accumulation above the block was associated instead with increased cell death.</div>
 
@@ -5187,6 +5268,7 @@ This pathophysiological event involves decreased cholesterol biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5208,6 +5290,7 @@ This pathophysiological event involves decreased cholesterol biosynthetic proces
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5233,6 +5316,7 @@ This pathophysiological event involves decreased cholesterol biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-x-inactivation-mosaicism-and-negative-selection-of-mutant-expressing-cells" data-dismech-node="X-Inactivation Mosaicism and Negative Selection of Mutant-Expressing Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">X-Inactivation Mosaicism and Negative Selection of Mutant-Expressing Cells</div>
+
 
                 <div class="item-desc">Because NSDHL is X-linked, a heterozygous female is a functional mosaic of cells expressing either allele. Lesional and contralateral clinically normal skin carry equal amounts of mutant and wild-type DNA, but differ completely in what they express: cultured keratinocytes from lesional skin expressed only the mutant allele, and keratinocytes from the unaffected side expressed only the wild-type allele. Fibroblasts showed the same asymmetry less completely. Skewed X inactivation in peripheral blood is consistent with overall depletion of mutant-expressing cells. The mouse work adds the temporal dimension that makes this a process rather than a snapshot: NSDHL-negative cells survive and differentiate during embryogenesis but are progressively outcompeted afterwards, with the mutant fraction in liver falling from about half at postnatal day 6 to about a fifth by one year. That selection is the likely reason skin lesions tend to improve with age, and why the disease is fundamentally a developmental one, doing its damage in the window while mutant clones are still abundant. The model also predicts the clinical observation that a full-thickness graft taken from the unaffected side stays normal after transfer to the affected side. What it does not explain is why the boundary is a sharp body midline rather than the finer Blaschko striping typical of X-linked mosaic skin disease.</div>
 
@@ -5473,6 +5557,7 @@ This pathophysiological event involves random X inactivation, annotated with ran
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5494,6 +5579,7 @@ This pathophysiological event involves random X inactivation, annotated with ran
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5519,6 +5605,7 @@ This pathophysiological event involves random X inactivation, annotated with ran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-epidermal-lamellar-body-secretion-and-barrier-formation" data-dismech-node="Impaired Epidermal Lamellar Body Secretion and Barrier Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Epidermal Lamellar Body Secretion and Barrier Formation</div>
+
 
                 <div class="item-desc">In lesional epidermis the lipid secretory apparatus is structurally disorganized. Lamellar bodies contain few internal lamellae, fuse prematurely into multivesicular bodies, and are incompletely secreted, so organelle contents remain entombed within corneocytes and the stratum corneum extracellular space is left with sparse lamellar material interspersed with non-lamellar vesicles. Histologically this appears as marked hyperkeratosis and acanthosis with loss of the granular layer and dermal foam cells. The severity of this secretory disruption exceeds what topical statin-induced cholesterol deficiency alone produces in normal skin, which is the ultrastructural argument that toxic intermediates and not simply cholesterol depletion drive the ichthyosiform phenotype.</div>
 
@@ -5686,6 +5773,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5707,6 +5795,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5734,6 +5823,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5756,6 +5846,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hedgehog-signal-transduction" data-dismech-node="Impaired Hedgehog Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hedgehog Signal Transduction</div>
+
 
                 <div class="item-desc">Cholesterol is required for Hedgehog signal transduction, so the distal biosynthetic block reaches developmental patterning as well as membrane lipid supply. The cleanest experimental demonstration is in cerebellar granule cell precursors from a conditional Nsdhl mouse, where the proliferation defect was shown to result from defective signalling by SHH and was rescued by exogenous cholesterol. The same dependency is invoked for the persistent failure of hair growth in treated CHILD skin, where the ichthyosis resolves but hair does not return.</div>
 
@@ -5883,6 +5974,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5904,6 +5996,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5929,6 +6022,7 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-labyrinth-failure-and-male-lethality" data-dismech-node="Placental Labyrinth Failure and Male Lethality" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental Labyrinth Failure and Male Lethality</div>
+
 
                 <div class="item-desc">The prenatal male lethality that shapes the inheritance pattern appears to be placental rather than embryonic. In Nsdhl mutant mice, affected male embryos die in midgestation with no consistent anomaly in the embryo itself, but with a labyrinth layer that is always thinner, with fewer fetal vessels and decreased trophoblast proliferation. Heterozygous female placentas show the defect non-cell-autonomously, and Hedgehog reporter activity is markedly reduced or absent in affected male placentas, with failure of Indian hedgehog-expressing cells to migrate into the developing placenta. The mechanism is inferred from mouse; it has not been demonstrated in human conceptuses.</div>
 
@@ -6059,6 +6153,7 @@ This pathophysiological event involves abnormal placenta development (GO:0001890
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6080,6 +6175,7 @@ This pathophysiological event involves abnormal placenta development (GO:0001890
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6142,6 +6238,7 @@ This pathophysiological event involves abnormal placenta development (GO:0001890
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6189,6 +6286,7 @@ This pathophysiological event involves abnormal placenta development (GO:0001890
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6210,6 +6308,7 @@ This pathophysiological event involves abnormal placenta development (GO:0001890
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6257,6 +6356,7 @@ This pathophysiological event involves abnormal placenta development (GO:0001890
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6323,15 +6423,21 @@ This pathophysiological event involves abnormal placenta development (GO:0001890
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6374,6 +6480,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6388,6 +6497,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6419,6 +6529,89 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-kidney-malformation" data-dismech-node="Kidney malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Kidney malformation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal renal morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012210</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal kidney morphology, annotated with Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21290788" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290788" target="_blank">PMID:21290788</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Heart, lung, and kidney malformations can also occur."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states kidney malformation among the visceral anomalies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">3</span>
                 </summary>
@@ -6439,15 +6632,18 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010816" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010816</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010816" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0010816</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ichthyosiform nevus, annotated with Epidermal nevus (HP:0010816). HP:0010816 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to HP:0010816 (Epidermal nevus) rather than HP:0008064 (Ichthyosis). The lesion is genuinely ichthyosiform, but it is a localized, mosaic, unilateral nevus, not a generalized disorder of cornification, and the nevoid character is what discriminates it; the classic delineation places the CHILD nevus among the epidermal nevus syndromes. HP:0034275 (Verrucous epidermal nevus) was considered and not used, since the verrucous quality is reported in some lesions rather than being a general property of the CHILD nevus. The ichthyosiform quality is carried by the preferred_term. Separately, no frequency band is asserted. The lesion is effectively definitional, and grading a defining feature as VERY_FREQUENT on the strength of the phrase &#34;is characterized by&#34; would be circular rather than evidenced. There is no published CHILD syndrome cohort with a denominator from which a real band could be derived.</div>
@@ -6472,6 +6668,7 @@ This clinical feature is Ichthyosiform nevus, annotated with Epidermal nevus (HP
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6493,6 +6690,7 @@ This clinical feature is Ichthyosiform nevus, annotated with Epidermal nevus (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6537,15 +6735,18 @@ This clinical feature is Ichthyosiform nevus, annotated with Epidermal nevus (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6565,6 +6766,7 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,15 +6807,18 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001596</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001596</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6633,6 +6838,7 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6661,16 +6867,16 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
+                    Limbs
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ipsilateral-limb-hypoplasia-or-aplasia" data-dismech-node="Ipsilateral limb hypoplasia or aplasia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Scoliosis
+                        Ipsilateral limb hypoplasia or aplasia
 
 
 
@@ -6679,18 +6885,23 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Aplasia/hypoplasia involving bones of the extremities</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045060" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0045060</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Aplasia/hypoplasia involving bones of the extremities (HP:0045060). HP:0045060 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6710,6 +6921,162 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"unilateral distribution of ichthyosiform skin lesions and ipsilateral limb defects that range from shortening of the metacarpals and phalanges to absence of the entire limb"</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the ipsilateral limb defect and its severity range as a defining characteristic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stippled-epiphyseal-calcification" data-dismech-node="Stippled epiphyseal calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stippled epiphyseal calcification
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Stippled chondral calcification</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002764" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002764</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stippled chondral calcification (HP:0002764). HP:0002764 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10710233" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10710233" target="_blank">PMID:10710233</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CHILD (congenital hemidysplasia, ichthyosis, and limb defects) syndrome is a rare, usually sporadic disorder associated with unilateral distribution of ichthyosiform skin lesions, limb defects, punctate calcifications of cartilaginous structures, and visceral anomalies."</div>
+
+
+                <div class="evidence-explanation">Names punctate calcification of cartilaginous structures among the characteristic features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21290788" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290788" target="_blank">PMID:21290788</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6750,15 +7117,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0034392</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0034392</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6778,6 +7148,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6806,7 +7177,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6829,15 +7200,18 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6857,6 +7231,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6885,7 +7260,90 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lung-malformation" data-dismech-node="Lung malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lung malformation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal lung morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002088</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal lung morphology (HP:0002088). HP:0002088 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21290788" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290788" target="_blank">PMID:21290788</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Heart, lung, and kidney malformations can also occur."</div>
+
+
+                <div class="evidence-explanation">GeneReviews names the lung among the organs that may be malformed, on the same footing as the heart and kidney.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6908,15 +7366,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100555" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100555</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100555" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100555</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6936,6 +7397,7 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6960,6 +7422,7 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6988,11 +7451,11 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-strict-midline-demarcation-of-skin-lesions" data-dismech-node="Strict midline demarcation of skin lesions" data-dismech-type="phenotype">
@@ -7001,6 +7464,9 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No ontology term is bound, deliberately. HPO has no term for strict midline demarcation of a cutaneous eruption. HP:0100555 (Asymmetric growth) was used here previously and has been removed: it describes asymmetry of body growth, not the distribution of a skin lesion, so it is a cross-category proxy rather than a merely broad parent, and no term is better than a misleading one. That term now sits on the separate `Ipsilateral body hypoplasia` phenotype, which it genuinely fits. HP:0025293 (Distributed along Blaschko lines) is explicitly not a substitute, since the whole point of this phenotype is that the demarcation is sharper than Blaschko mosaicism.</div>
@@ -7022,6 +7488,7 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7049,6 +7516,7 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7073,6 +7541,7 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7081,286 +7550,6 @@ This clinical feature is Asymmetric growth (HP:0100555). HP:0100555 is a phenoty
 
 
                 <div class="evidence-explanation">Qualifies rather than supports the lateralization claim, documenting the exception that makes midline demarcation typical but not obligatory.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ipsilateral-limb-hypoplasia-or-aplasia" data-dismech-node="Ipsilateral limb hypoplasia or aplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ipsilateral limb hypoplasia or aplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Aplasia/hypoplasia involving bones of the extremities</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0045060" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0045060</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia/hypoplasia involving bones of the extremities (HP:0045060). HP:0045060 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21290788" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290788" target="_blank">PMID:21290788</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"unilateral distribution of ichthyosiform skin lesions and ipsilateral limb defects that range from shortening of the metacarpals and phalanges to absence of the entire limb"</div>
-
-
-                <div class="evidence-explanation">GeneReviews states the ipsilateral limb defect and its severity range as a defining characteristic.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stippled-epiphyseal-calcification" data-dismech-node="Stippled epiphyseal calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stippled epiphyseal calcification
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Stippled chondral calcification</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002764" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002764</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Stippled chondral calcification (HP:0002764). HP:0002764 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10710233" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10710233" target="_blank">PMID:10710233</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CHILD (congenital hemidysplasia, ichthyosis, and limb defects) syndrome is a rare, usually sporadic disorder associated with unilateral distribution of ichthyosiform skin lesions, limb defects, punctate calcifications of cartilaginous structures, and visceral anomalies."</div>
-
-
-                <div class="evidence-explanation">Names punctate calcification of cartilaginous structures among the characteristic features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-kidney-malformation" data-dismech-node="Kidney malformation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Kidney malformation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal renal morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012210</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal kidney morphology, annotated with Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21290788" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290788" target="_blank">PMID:21290788</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Heart, lung, and kidney malformations can also occur."</div>
-
-
-                <div class="evidence-explanation">GeneReviews states kidney malformation among the visceral anomalies.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lung-malformation" data-dismech-node="Lung malformation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lung malformation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal lung morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002088</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal lung morphology (HP:0002088). HP:0002088 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21290788" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290788" target="_blank">PMID:21290788</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Heart, lung, and kidney malformations can also occur."</div>
-
-
-                <div class="evidence-explanation">GeneReviews names the lung among the organs that may be malformed, on the same footing as the heart and kidney.</div>
 
 
 
@@ -7448,6 +7637,9 @@ This disease-associated gene is NSDHL (hgnc:13398). hgnc:13398 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7462,6 +7654,7 @@ This disease-associated gene is NSDHL (hgnc:13398). hgnc:13398 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7489,6 +7682,7 @@ This disease-associated gene is NSDHL (hgnc:13398). hgnc:13398 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7510,6 +7704,7 @@ This disease-associated gene is NSDHL (hgnc:13398). hgnc:13398 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7567,6 +7762,9 @@ This disease-associated gene is EBP (hgnc:3133). hgnc:3133 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7581,6 +7779,7 @@ This disease-associated gene is EBP (hgnc:3133). hgnc:3133 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7722,6 +7921,9 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7732,6 +7934,9 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7768,6 +7973,7 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7814,6 +8020,7 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7838,6 +8045,7 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7859,6 +8067,7 @@ This treatment uses simvastatin (CHEBI:9150). CHEBI:9150 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7947,6 +8156,9 @@ This treatment uses ketoconazole (CHEBI:47519). CHEBI:47519 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7957,6 +8169,9 @@ This treatment uses ketoconazole (CHEBI:47519). CHEBI:47519 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7984,6 +8199,7 @@ This treatment uses ketoconazole (CHEBI:47519). CHEBI:47519 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8050,6 +8266,9 @@ This treatment is Skin Transplantation (NCIT:C15325). NCIT:C15325 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8060,6 +8279,9 @@ This treatment is Skin Transplantation (NCIT:C15325). NCIT:C15325 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -8096,6 +8318,7 @@ This treatment is Skin Transplantation (NCIT:C15325). NCIT:C15325 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8139,6 +8362,7 @@ This treatment is Skin Transplantation (NCIT:C15325). NCIT:C15325 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8205,6 +8429,9 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8215,6 +8442,9 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -8242,6 +8472,7 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8308,6 +8539,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8318,6 +8552,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8345,6 +8582,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8411,6 +8649,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8421,6 +8662,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8448,6 +8692,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8515,6 +8760,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8536,6 +8782,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8585,6 +8832,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8687,6 +8935,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8711,6 +8960,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8732,6 +8982,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8822,6 +9073,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8843,6 +9095,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8911,6 +9164,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8976,6 +9230,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9082,6 +9337,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9103,6 +9359,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9185,6 +9442,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9206,6 +9464,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9276,6 +9535,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9414,6 +9674,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9453,6 +9714,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9500,6 +9762,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9690,6 +9953,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9729,6 +9993,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9808,6 +10073,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9847,6 +10113,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9926,6 +10193,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9965,6 +10233,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10009,6 +10278,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10186,6 +10456,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10225,6 +10496,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10269,6 +10541,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10446,6 +10719,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10485,6 +10759,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10529,6 +10804,7 @@ This experimental model concerns NSDHL (hgnc:13398). hgnc:13398 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13006,6 +13282,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: CHILD Syndrome</strong> · 2026-08-14T02:20:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CHILD_Syndrome/2026-08-14T022017Z-claude-code-40bd2a.yaml">View source</a></p>
+                        <p class="research-review-text">New Mendelian entry for CHILD syndrome (NSDHL, MONDO:0010621). Deep research: claude_code provider (research/CHILD_Syndrome-deep-research-claude_code.md; 36/36 references resolved, confabulation_rate 0.0, but 6 of 33 quoted claims did not match their cited source, so no quoted material was taken from the report -- every snippet in this entry was quoted directly from the local references_cache abstract). GeneReviews baseline PMID:21290788 (NSDHL-Related Disorders) fetched, tagged, and cross-referenced against Clinical Characteristics. Curated six pathophysiology nodes covering the dual cholesterol-deficiency/methylsterol-toxicity lesion, X-inactivation mosaicism with negative selection, epidermal lamellar body failure, sterol-dependent Hedgehog signalling, and placental male lethality; ten phenotypes, nine of them causally wired into the pathograph (the tenth, &#34;Normal intellect&#34;, is a deliberate negative characterization carrying REFUTE evidence and is correctly unwired); two biochemical markers; two genetic loci (NSDHL causative, EBP as a hedged locus-heterogeneity minority); four treatments including the pathogenesis-based topical cholesterol-plus-statin regimen; three animal models and one cell-line model with modeled_mechanisms links; three discussions (two KNOWLEDGE_GAP, one HUMAN_MODEL_MISMATCH). Deliberately omitted: prevalence (no cohort denominator exists), most frequency bands (definitional or unsupported by the source phrasing), datasets (all twelve GEO candidates were EBP-string collisions with the unrelated C/EBP transcription factor family), and conformance to ciliopathy_dysfunction (CHILD reaches Hedgehog by a sterol route, not a ciliary one). Seeded GO:0000252 and GO:0060816 into cache/go/terms.csv and the matching enum caches via a local sqlite:obo:go adapter run after the OLS lookups timed out. Validated with just validate (schema + terms + references via the pre-write hook), just count-verified-snippets (70/70 verified against cached references), and just validate-disorders (the batched CI-equivalent sweep, exit 0, all validations passed). Also ran just check-folded-hyphens, just check-snippet-length, and just check-title-snippets (all clean, no new violations), dismech.graph --validate (causal graph valid), and dismech.qc_plugins (9/10 phenotypes connected; EBP deliberately unwired, with the reason recorded in its notes rather than papered over). Every reference_title was checked character-for-character against its references_cache title line. Compliance 90.2 percent global, 90.6 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4377,6 +4445,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4398,6 +4467,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4484,6 +4554,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4505,6 +4576,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4601,6 +4673,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4672,6 +4745,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4749,6 +4823,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4773,6 +4848,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4794,6 +4870,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4880,6 +4957,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4954,6 +5032,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4975,6 +5054,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5012,6 +5092,7 @@ Two things make the entry mechanistically distinctive. First, no patient has eve
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-lig1-variants" data-dismech-node="Biallelic Hypomorphic LIG1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic LIG1 Variants</div>
+
 
                 <div class="item-desc">Two LIG1 alleles of reduced function. The allelic spectrum runs from frameshift alleles that delete the entire catalytic core (T415Mfs*10, P260*) through active-site and DNA-binding missense alleles of graded severity (E566K, R771W, R641L, A624T). Crucially the two alleles are never both null: every reported genotype retains residual catalytic activity, which the field reads as evidence that complete LIG1 loss is not compatible with life.</div>
 
@@ -5077,6 +5158,8 @@ This pathophysiological event involves decreased LIG1 (hgnc:6598). hgnc:6598 is 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5095,6 +5178,9 @@ This pathophysiological event involves decreased LIG1 (hgnc:6598). hgnc:6598 is 
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline LIG1 alleles, compound heterozygous in the non-consanguineous kindreds and homozygous in the consanguineous ones. Recorded as PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION because the disease state is necessarily a partial one - a genotype with no residual ligase activity has never been observed in a patient.</div>
 
@@ -5190,6 +5276,7 @@ This pathophysiological event involves decreased DNA ligase (ATP) activity (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5211,6 +5298,7 @@ This pathophysiological event involves decreased DNA ligase (ATP) activity (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5236,6 +5324,7 @@ This pathophysiological event involves decreased DNA ligase (ATP) activity (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-okazaki-fragment-ligation" data-dismech-node="Impaired Okazaki Fragment Ligation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Okazaki Fragment Ligation</div>
+
 
                 <div class="item-desc">LIG1 seals the nick between adjacent Okazaki fragments on the lagging strand, a step repeated tens of millions of times per replication cycle. With reduced ligase activity these nicks persist, so the lagging strand leaves S phase discontinuous.</div>
 
@@ -5325,6 +5414,7 @@ This pathophysiological event involves decreased Okazaki fragment processing, an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5346,6 +5436,7 @@ This pathophysiological event involves decreased Okazaki fragment processing, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5371,6 +5462,7 @@ This pathophysiological event involves decreased Okazaki fragment processing, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abortive-ligation-and-accumulation-of-adenylated-dna" data-dismech-node="Abortive Ligation and Accumulation of Adenylated DNA" data-dismech-type="pathophysiology">
                 <div class="item-name">Abortive Ligation and Accumulation of Adenylated DNA</div>
+
 
                 <div class="item-desc">A lesion specific to certain LIG1 alleles, and not the same thing as being slow. R641L and R771W bind Mg2+ poorly, catalyse adenylyl transfer to the nick, then dissociate before sealing it. Because LIG1 is immediately re-adenylylated it cannot rebind the intermediate, so the abortive product is a 5&#39;-adenylated nick that only aprataxin or flap-displacement synthesis can clear. It therefore blocks the very lesion it was meant to repair.</div>
 
@@ -5460,6 +5552,7 @@ This pathophysiological event involves abnormal DNA ligase (ATP) activity, abort
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5481,6 +5574,7 @@ This pathophysiological event involves abnormal DNA ligase (ATP) activity, abort
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5506,6 +5600,7 @@ This pathophysiological event involves abnormal DNA ligase (ATP) activity, abort
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-single-strand-nicks-and-replication-associated-dna-breaks" data-dismech-node="Persistent Single-Strand Nicks and Replication-Associated DNA Breaks" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Single-Strand Nicks and Replication-Associated DNA Breaks</div>
+
 
                 <div class="item-desc">Unsealed nicks from replication and from unfinished excision repair persist into and beyond S phase. Encountered by a replication fork, a single-strand nick is converted into a one-ended double-strand break, which is why cells with a purely ligation-level defect show gamma-H2AX foci - a double-strand-break marker - both at baseline and after irradiation.</div>
 
@@ -5651,6 +5746,7 @@ This pathophysiological event involves decreased base-excision repair (GO:000628
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5672,6 +5768,7 @@ This pathophysiological event involves decreased base-excision repair (GO:000628
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5697,6 +5794,7 @@ This pathophysiological event involves decreased base-excision repair (GO:000628
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability-and-hypersensitivity-to-dna-damaging-agents" data-dismech-node="Genomic Instability and Hypersensitivity to DNA-Damaging Agents" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic Instability and Hypersensitivity to DNA-Damaging Agents</div>
+
 
                 <div class="item-desc">The cellular signature of the disease: patient fibroblasts and EBV-transformed B cells lose viability after alkylating agents and after ionizing radiation, and patient T cells accumulate excess gamma-H2AX after irradiation. Heterozygous relatives show an intermediate response, which is a dose effect rather than a threshold one.</div>
 
@@ -5864,6 +5962,7 @@ This pathophysiological event involves abnormal cellular response to DNA damage 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5885,6 +5984,7 @@ This pathophysiological event involves abnormal cellular response to DNA damage 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5910,6 +6010,7 @@ This pathophysiological event involves abnormal cellular response to DNA damage 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-lymphocyte-development-and-proliferation" data-dismech-node="Impaired Lymphocyte Development and Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Lymphocyte Development and Proliferation</div>
+
 
                 <div class="item-desc">The lymphoid compartment is hit hardest, which is the observation the literature explains by lymphocyte precursors being among the most rapidly dividing cells in the body and therefore the most exposed to a replicative ligation defect. Patients show reduced T and B cell counts, depressed proliferation to mitogen, and a relative expansion of gamma-delta T cells.</div>
 
@@ -6178,6 +6279,7 @@ This pathophysiological event involves abnormal T cell differentiation (GO:00302
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6199,6 +6301,7 @@ This pathophysiological event involves abnormal T cell differentiation (GO:00302
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6224,6 +6327,7 @@ This pathophysiological event involves abnormal T cell differentiation (GO:00302
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-hypermutation-defect" data-dismech-node="Somatic Hypermutation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Hypermutation Defect</div>
+
 
                 <div class="item-desc">A B-cell-intrinsic finding separate from the numerical B cell defect. Sequencing of VH3 clones from one patient showed both fewer mutated clones and a smaller extent of mutation per clone than in parents, siblings or controls - a role for LIG1 in somatic hypermutation that was not previously recognised. This is a single-patient result and is curated as such.</div>
 
@@ -6347,6 +6451,7 @@ This pathophysiological event involves decreased somatic hypermutation of immuno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6369,6 +6474,7 @@ This pathophysiological event involves decreased somatic hypermutation of immuno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-erythroid-dna-synthesis" data-dismech-node="Impaired Erythroid DNA Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Erythroid DNA Synthesis</div>
+
 
                 <div class="item-desc">Erythroid precursors cannot replicate DNA fast enough relative to cytoplasmic maturation, giving the megaloblastic-type dissociation that produces large red cells. The mechanism is proposed rather than demonstrated: the 2018 series says the exact mechanism is not clear and offers slowed DNA synthesis as the explanation, which is the standard route to macrocytosis.</div>
 
@@ -6498,6 +6604,7 @@ This pathophysiological event involves abnormal erythrocyte differentiation (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6519,6 +6626,7 @@ This pathophysiological event involves abnormal erythrocyte differentiation (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6586,19 +6694,21 @@ This pathophysiological event involves abnormal erythrocyte differentiation (GO:
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(10)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Cellular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Cellular<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6608,7 +6718,7 @@ This pathophysiological event involves abnormal erythrocyte differentiation (GO:
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypogammaglobulinemia" data-dismech-node="Hypogammaglobulinemia" data-dismech-type="phenotype">
@@ -6639,6 +6749,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6665,6 +6778,7 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6686,6 +6800,7 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6738,6 +6853,9 @@ This clinical feature is Lymphopenia, annotated with Decreased total lymphocyte 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6761,6 +6879,7 @@ This clinical feature is Lymphopenia, annotated with Decreased total lymphocyte 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6788,6 +6907,7 @@ This clinical feature is Lymphopenia, annotated with Decreased total lymphocyte 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6811,720 +6931,6 @@ This clinical feature is Lymphopenia, annotated with Decreased total lymphocyte 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-macrocytic-anemia" data-dismech-node="Macrocytic anemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Macrocytic anemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001972</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Macrocytic anemia (HP:0001972). HP:0001972 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36341401" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36341401" target="_blank">PMID:36341401</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Most common manifestations include radiosensitivity, macrocytic anemia, lymphopenia with an increased percentage of gamma-delta T cells, and hypogammaglobulinemia requiring replacement therapy."</div>
-
-
-                <div class="evidence-explanation">Lists macrocytic anemia among the most common manifestations of the disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-neutrophil-count" data-dismech-node="Decreased total neutrophil count" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased total neutrophil count
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001875</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38896336" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38896336" target="_blank">PMID:38896336</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Here we report a homozygous LIG1 mutation (p.A624T), affecting a universally conserved residue, in a patient presenting with leukopenia, neutropenia, lymphopenia, pan-hypogammaglobulinemia, and diminished in vitro response to mitogen stimulation."</div>
-
-
-                <div class="evidence-explanation">Reports neutropenia in the patient with the homozygous A624T genotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphoma" data-dismech-node="Lymphoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lymphoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002665</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:1351188" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1351188" target="_blank">PMID:1351188</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A cell line derived from a young woman with growth retardation, sun sensitivity, and immunodeficiencies, who died aged 19 with lymphoma, showed two different miscoding mutations at the DNA ligase I locus on chromosome 19, one in each allele."</div>
-
-
-                <div class="evidence-explanation">The single reported human lymphoma in this disease, in the index patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent infections
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002719</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35748970" target="_blank">PMID:35748970</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Recurrent bacterial and viral infections; growth retardation; sun sensitivity, radiation sensitivity; macrocytic red blood cells"</div>
-
-
-                <div class="evidence-explanation">The IUIS associated-features cell lists recurrent bacterial and viral infections first among the clinical manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eczematoid-dermatitis" data-dismech-node="Eczematoid dermatitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Eczematoid dermatitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000964</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe eczema, annotated with Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30395541" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30395541" target="_blank">PMID:30395541</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Severe eczema; severe anemia; no dysmorphia"</div>
-
-
-                <div class="evidence-explanation">The complications cell of the clinical table for the patient in whom severe eczema was recorded.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-photosensitivity" data-dismech-node="Cutaneous photosensitivity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cutaneous photosensitivity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000992</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sun sensitivity, annotated with Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:1351188" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1351188" target="_blank">PMID:1351188</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A cell line derived from a young woman with growth retardation, sun sensitivity, and immunodeficiencies, who died aged 19 with lymphoma, showed two different miscoding mutations at the DNA ligase I locus on chromosome 19, one in each allele."</div>
-
-
-                <div class="evidence-explanation">Records sun sensitivity in the index patient in whom LIG1 mutations were first identified.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiectasis" data-dismech-node="Bronchiectasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bronchiectasis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002110</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30395541" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30395541" target="_blank">PMID:30395541</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Hepatosplenomegaly; bronchiectasis; ocular telangiectasia; sun sensitivity;"</div>
-
-
-                <div class="evidence-explanation">The complications cell of the clinical table for the index patient, listing bronchiectasis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cellular
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-sensitivity-to-ionizing-radiation" data-dismech-node="Increased sensitivity to ionizing radiation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased sensitivity to ionizing radiation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0011133</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cellular radiosensitivity, annotated with Increased sensitivity to ionizing radiation (HP:0011133). HP:0011133 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36341401" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36341401" target="_blank">PMID:36341401</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Fibroblasts cultured from skin biopsy showed an intermediate sensitivity to ionizing radiation"</div>
-
-
-                <div class="evidence-explanation">Reports the clonogenic-survival result in patient fibroblasts and its intermediate position relative to an Artemis-deficient comparator.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38896336" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38896336" target="_blank">PMID:38896336</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patient fibroblasts expressed normal levels of LIG1 protein but exhibited impaired growth, poor viability, high baseline levels of gamma-H2AX foci, and an enhanced susceptibility to DNA-damaging agents."</div>
-
-
-                <div class="evidence-explanation">Independent demonstration of DNA-damage hypersensitivity in patient fibroblasts with a different genotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-delay" data-dismech-node="Growth delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Growth delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001510</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Growth retardation, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:1351188" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1351188" target="_blank">PMID:1351188</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A cell line derived from a young woman with growth retardation, sun sensitivity, and immunodeficiencies, who died aged 19 with lymphoma, showed two different miscoding mutations at the DNA ligase I locus on chromosome 19, one in each allele."</div>
-
-
-                <div class="evidence-explanation">Records growth retardation in the index patient.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35748970" target="_blank">PMID:35748970</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Recurrent bacterial and viral infections; growth retardation; sun sensitivity, radiation sensitivity; macrocytic red blood cells"</div>
-
-
-                <div class="evidence-explanation">Growth retardation is listed among the IUIS associated features for Ligase I deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-t-cell-count" data-dismech-node="Decreased total T cell count" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased total T cell count
@@ -7539,15 +6945,18 @@ This clinical feature is Growth retardation, annotated with Growth delay (HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0005403</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005403</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is T lymphocytopenia, annotated with Decreased total T cell count (HP:0005403). HP:0005403 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7567,6 +6976,7 @@ This clinical feature is T lymphocytopenia, annotated with Decreased total T cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7607,15 +7017,18 @@ This clinical feature is T lymphocytopenia, annotated with Decreased total T cel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0010976</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0010976</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is B lymphocytopenia, annotated with Decreased total B cell count (HP:0010976). HP:0010976 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7635,6 +7048,7 @@ This clinical feature is B lymphocytopenia, annotated with Decreased total B cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7675,15 +7089,18 @@ This clinical feature is B lymphocytopenia, annotated with Decreased total B cel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0500270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0500270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0500270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased gamma-delta T cell proportion (HP:0500270). HP:0500270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7703,6 +7120,7 @@ This clinical feature is Increased gamma-delta T cell proportion (HP:0500270). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7727,6 +7145,7 @@ This clinical feature is Increased gamma-delta T cell proportion (HP:0500270). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7767,15 +7186,18 @@ This clinical feature is Increased gamma-delta T cell proportion (HP:0500270). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0031381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0031381</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031381). HP:0031381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7795,6 +7217,7 @@ This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7822,6 +7245,7 @@ This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7830,6 +7254,78 @@ This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031
 
 
                 <div class="evidence-explanation">The IUIS T-cell column for Ligase I deficiency reads &#34;Lymphopenia, increased gamma-delta T cells, decreased mitogen response&#34;; this quote is the resolvable leading substring of that cell.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-macrocytic-anemia" data-dismech-node="Macrocytic anemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Macrocytic anemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001972</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrocytic anemia (HP:0001972). HP:0001972 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36341401" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36341401" target="_blank">PMID:36341401</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most common manifestations include radiosensitivity, macrocytic anemia, lymphopenia with an increased percentage of gamma-delta T cells, and hypogammaglobulinemia requiring replacement therapy."</div>
+
+
+                <div class="evidence-explanation">Lists macrocytic anemia among the most common manifestations of the disease.</div>
 
 
 
@@ -7859,15 +7355,18 @@ This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0005518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Erythrocyte macrocytosis, annotated with Increased mean corpuscular volume (HP:0005518). HP:0005518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7887,6 +7386,7 @@ This clinical feature is Erythrocyte macrocytosis, annotated with Increased mean
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7913,9 +7413,9 @@ This clinical feature is Erythrocyte macrocytosis, annotated with Increased mean
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-multicystic-kidney-dysplasia" data-dismech-node="Multicystic kidney dysplasia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-neutrophil-count" data-dismech-node="Decreased total neutrophil count" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Multicystic kidney dysplasia
+                        Decreased total neutrophil count
 
 
 
@@ -7927,15 +7427,171 @@ This clinical feature is Erythrocyte macrocytosis, annotated with Increased mean
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000003</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001875</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Multicystic dysplastic kidney, annotated with Multicystic kidney dysplasia (HP:0000003). HP:0000003 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38896336" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38896336" target="_blank">PMID:38896336</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we report a homozygous LIG1 mutation (p.A624T), affecting a universally conserved residue, in a patient presenting with leukopenia, neutropenia, lymphopenia, pan-hypogammaglobulinemia, and diminished in vitro response to mitogen stimulation."</div>
+
+
+                <div class="evidence-explanation">Reports neutropenia in the patient with the homozygous A624T genotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphoma" data-dismech-node="Lymphoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lymphoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002665</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1351188" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1351188" target="_blank">PMID:1351188</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A cell line derived from a young woman with growth retardation, sun sensitivity, and immunodeficiencies, who died aged 19 with lymphoma, showed two different miscoding mutations at the DNA ligase I locus on chromosome 19, one in each allele."</div>
+
+
+                <div class="evidence-explanation">The single reported human lymphoma in this disease, in the index patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-conjunctival-telangiectasia" data-dismech-node="Conjunctival telangiectasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Conjunctival telangiectasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000524</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ocular telangiectasia, annotated with Conjunctival telangiectasia (HP:0000524). HP:0000524 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -7955,6 +7611,88 @@ This clinical feature is Multicystic dysplastic kidney, annotated with Multicyst
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hepatosplenomegaly; bronchiectasis; ocular telangiectasia; sun sensitivity;"</div>
+
+
+                <div class="evidence-explanation">The complications cell of the clinical table for the index patient, listing ocular telangiectasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multicystic-kidney-dysplasia" data-dismech-node="Multicystic kidney dysplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Multicystic kidney dysplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000003</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Multicystic dysplastic kidney, annotated with Multicystic kidney dysplasia (HP:0000003). HP:0000003 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30395541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30395541" target="_blank">PMID:30395541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7981,9 +7719,18 @@ This clinical feature is Multicystic dysplastic kidney, annotated with Multicyst
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-conjunctival-telangiectasia" data-dismech-node="Conjunctival telangiectasia" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent infections" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Conjunctival telangiectasia
+                        Recurrent infections
 
 
 
@@ -7995,15 +7742,90 @@ This clinical feature is Multicystic dysplastic kidney, annotated with Multicyst
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000524</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002719</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ocular telangiectasia, annotated with Conjunctival telangiectasia (HP:0000524). HP:0000524 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35748970" target="_blank">PMID:35748970</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recurrent bacterial and viral infections; growth retardation; sun sensitivity, radiation sensitivity; macrocytic red blood cells"</div>
+
+
+                <div class="evidence-explanation">The IUIS associated-features cell lists recurrent bacterial and viral infections first among the clinical manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eczematoid-dermatitis" data-dismech-node="Eczematoid dermatitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Eczematoid dermatitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000964</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe eczema, annotated with Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -8026,6 +7848,169 @@ This clinical feature is Ocular telangiectasia, annotated with Conjunctival tela
 
 
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Severe eczema; severe anemia; no dysmorphia"</div>
+
+
+                <div class="evidence-explanation">The complications cell of the clinical table for the patient in whom severe eczema was recorded.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-photosensitivity" data-dismech-node="Cutaneous photosensitivity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cutaneous photosensitivity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000992</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sun sensitivity, annotated with Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1351188" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1351188" target="_blank">PMID:1351188</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A cell line derived from a young woman with growth retardation, sun sensitivity, and immunodeficiencies, who died aged 19 with lymphoma, showed two different miscoding mutations at the DNA ligase I locus on chromosome 19, one in each allele."</div>
+
+
+                <div class="evidence-explanation">Records sun sensitivity in the index patient in whom LIG1 mutations were first identified.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiectasis" data-dismech-node="Bronchiectasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bronchiectasis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30395541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30395541" target="_blank">PMID:30395541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8033,7 +8018,219 @@ This clinical feature is Ocular telangiectasia, annotated with Conjunctival tela
                 <div class="evidence-snippet">"Hepatosplenomegaly; bronchiectasis; ocular telangiectasia; sun sensitivity;"</div>
 
 
-                <div class="evidence-explanation">The complications cell of the clinical table for the index patient, listing ocular telangiectasia.</div>
+                <div class="evidence-explanation">The complications cell of the clinical table for the index patient, listing bronchiectasis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cellular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-sensitivity-to-ionizing-radiation" data-dismech-node="Increased sensitivity to ionizing radiation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased sensitivity to ionizing radiation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0011133</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cellular radiosensitivity, annotated with Increased sensitivity to ionizing radiation (HP:0011133). HP:0011133 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36341401" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36341401" target="_blank">PMID:36341401</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fibroblasts cultured from skin biopsy showed an intermediate sensitivity to ionizing radiation"</div>
+
+
+                <div class="evidence-explanation">Reports the clonogenic-survival result in patient fibroblasts and its intermediate position relative to an Artemis-deficient comparator.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38896336" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38896336" target="_blank">PMID:38896336</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient fibroblasts expressed normal levels of LIG1 protein but exhibited impaired growth, poor viability, high baseline levels of gamma-H2AX foci, and an enhanced susceptibility to DNA-damaging agents."</div>
+
+
+                <div class="evidence-explanation">Independent demonstration of DNA-damage hypersensitivity in patient fibroblasts with a different genotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-delay" data-dismech-node="Growth delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Growth delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth retardation, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1351188" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1351188" target="_blank">PMID:1351188</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A cell line derived from a young woman with growth retardation, sun sensitivity, and immunodeficiencies, who died aged 19 with lymphoma, showed two different miscoding mutations at the DNA ligase I locus on chromosome 19, one in each allele."</div>
+
+
+                <div class="evidence-explanation">Records growth retardation in the index patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35748970" target="_blank">PMID:35748970</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recurrent bacterial and viral infections; growth retardation; sun sensitivity, radiation sensitivity; macrocytic red blood cells"</div>
+
+
+                <div class="evidence-explanation">Growth retardation is listed among the IUIS associated features for Ligase I deficiency.</div>
 
 
 
@@ -8123,6 +8320,9 @@ This disease-associated gene is LIG1 (hgnc:6598). hgnc:6598 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8137,6 +8337,7 @@ This disease-associated gene is LIG1 (hgnc:6598). hgnc:6598 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8164,6 +8365,7 @@ This disease-associated gene is LIG1 (hgnc:6598). hgnc:6598 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8185,6 +8387,7 @@ This disease-associated gene is LIG1 (hgnc:6598). hgnc:6598 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8231,6 +8434,7 @@ This disease-associated gene is LIG1 (hgnc:6598). hgnc:6598 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8250,11 +8454,17 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SNV</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The recurrent allele of this disease: present in the 1992 index patient (heterozygous), homozygous in all three members of kindred C, and hit at the same codon by a different substitution (R771G) in the 2022 Omenn-like patient. R771 sits next to a DNA-binding motif in the OB-fold domain, and the substitution both lowers catalytic activity to about 4.5% of wild type and weakens Mg2+ affinity, causing abortive ligation about half the time at physiological Mg2+. CADD 34; ExAC minor allele frequency 0.00005.</div>
@@ -8284,6 +8494,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8305,6 +8516,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8340,6 +8552,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8359,11 +8572,17 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SNV</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Carried in compound heterozygosity with T415Mfs*10 by two unrelated White patients from different countries who nonetheless shared both alleles; haplotype analysis found no founder effect, so the pair arose independently. R641 lies in a hairpin loop that contacts the minor groove of nicked DNA and forms a salt bridge with D600; replacing it with leucine leaves about 7% of wild-type activity and, like R771W, produces abortive ligation at physiological Mg2+. These two patients occupy the mild end of the clinical spectrum.</div>
@@ -8390,6 +8609,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8425,6 +8645,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8444,11 +8665,17 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">INDEL</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift introducing a premature stop and removing the entire catalytic core, expressed only at very low levels as a truncated protein. It is the closest thing to a null allele in the reported spectrum, and it is never seen with a second severe allele - both carriers pair it with R641L.</div>
@@ -8475,6 +8702,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8510,6 +8738,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8529,11 +8758,17 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SNV</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous in a consanguineous Saudi patient with SCID. Its interest is mechanistic rather than clinical: it lowers Mg2+ affinity 2.5-fold and, by an allosteric effect on the high-fidelity Mg2+ site, raises ligation fidelity more than 50-fold against 3&#39;-8-oxoguanine mismatches. Higher fidelity is not a benefit here - it means the enzyme refuses to process the nicks it encounters, converting them into persistent single- and double-strand breaks. This is the one allele where a gain in one enzymatic property is part of the disease mechanism.</div>
@@ -8563,6 +8798,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8584,6 +8820,7 @@ This variant is in LIG1 (hgnc:6598). hgnc:6598 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8668,6 +8905,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8678,6 +8918,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
     </div>
+
+
+
 
 
 
@@ -8726,6 +8969,7 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8747,6 +8991,7 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8814,6 +9059,9 @@ This treatment is haematopoietic stem cell transplantation, annotated with Hemat
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8824,6 +9072,9 @@ This treatment is haematopoietic stem cell transplantation, annotated with Hemat
 
 
     </div>
+
+
+
 
 
 
@@ -8872,6 +9123,7 @@ This treatment is haematopoietic stem cell transplantation, annotated with Hemat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8896,6 +9148,7 @@ This treatment is haematopoietic stem cell transplantation, annotated with Hemat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8917,6 +9170,7 @@ This treatment is haematopoietic stem cell transplantation, annotated with Hemat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9005,6 +9259,9 @@ This treatment uses antibacterial, antiviral, antifungal and anti-Pneumocystis p
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9015,6 +9272,9 @@ This treatment uses antibacterial, antiviral, antifungal and anti-Pneumocystis p
 
 
     </div>
+
+
+
 
 
 
@@ -9042,6 +9302,7 @@ This treatment uses antibacterial, antiviral, antifungal and anti-Pneumocystis p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9109,6 +9370,9 @@ This treatment is red blood cell transfusion, annotated with Packed Red Blood Ce
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9119,6 +9383,9 @@ This treatment is red blood cell transfusion, annotated with Packed Red Blood Ce
 
 
     </div>
+
+
+
 
 
 
@@ -9164,6 +9431,7 @@ This treatment is red blood cell transfusion, annotated with Packed Red Blood Ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9231,6 +9499,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9241,6 +9512,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9268,6 +9542,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9356,6 +9631,7 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9404,6 +9680,7 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9484,6 +9761,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9532,6 +9810,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9598,6 +9877,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9642,6 +9922,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9711,6 +9992,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9762,6 +10044,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9819,6 +10102,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9870,6 +10154,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9944,6 +10229,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10086,6 +10372,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10200,6 +10487,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10256,6 +10544,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10297,6 +10586,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12517,6 +12807,52 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">MONDO&#39;s own cross-references for MONDO:0030693 are DOID:0061066, MEDGEN:1810465, OMIM:619774 and UMLS:C5676930. `DiseaseMappings` has slots only for ICD-10-CM, ICD-11 foundation, MONDO and NCIT, so those four identifiers are recorded here rather than in mapping slots that do not exist. No ICD-10-CM or ICD-11 mapping is asserted: the closest available codes (D84.9 &#34;Immunodeficiency, unspecified&#34;, ICD-11 4A00.x) are broad enough to be uninformative, and a broadMatch to an unspecified-immunodeficiency code would add a mapping without adding a fact. No Orphanet code for this entity was found, and there is no second MONDO term to map - MONDO:0030693 is a leaf with one parent (MONDO:0021094 immunodeficiency disease), no descendants and a single causal-gene relation (RO:0004003 to hgnc:6598 LIG1), which is the leaf signature that makes this a DISEASE entry rather than a grouping or a subtype.
+Ultra-rare, and the cohort is small enough that every number in this entry is a count rather than a frequency. The index case was reported in 1992 (the 46BR cell line, from a young woman who died at 19 of pneumonia with lymphoma); the disease was defined as an entity in 2018 by Maffucci et al., who described five patients from three kindreds; a 2022 case report added a seventh patient with Omenn-like SCID; and a 2024 report added an eighth with a homozygous A624T allele and tabulated all eight cases to that date. A 2026 single-case report (PMID:42527943) describes further compound heterozygous LIG1 children, but it is not cited anywhere in this entry: PubMed exposes no abstract or full text for that record, so no exact-quote snippet can be taken from it and no claim here rests on it. The counts above therefore describe the 1992-2024 literature and are a floor rather than a current total. `frequency:` is therefore left unset on every phenotype: with eight patients, an HPO frequency band would imply a precision the literature does not have.
+Two claims that a reader might expect are deliberately absent. There is no GeneReviews chapter for LIG1 deficiency - a PubMed search for `(DNA ligase I deficiency OR LIG1 deficiency OR immunodeficiency 96) AND GeneReviews[All Fields]` returns nothing - so the phenotype baseline here is the primary literature rather than an expert chapter. And no prevalence or incidence estimate exists; the only quantitative population statement in the source literature is Maffucci&#39;s carrier-frequency arithmetic, which is recorded under `prevalence` as an allele-frequency-derived upper bound and not as an observed rate.
+Lymphoma is recorded as a phenotype but with an explicit caveat: it was seen in one patient (the 1992 index case, whose liver showed lymphocytic infiltrates suggesting lymphoma) and in aged Lig1 R771W mice. One human case plus a mouse observation is a signal to watch, not an established cancer predisposition, and the entry says so rather than promoting it to a surveillance recommendation.
+Deep research was requested from `falcon` and fell back to `openscientist` after a provider billing error (HTTP 402); the committed report is `research/Immunodeficiency_96-deep-research-openscientist.md`. Its reference validation was clean (4/4 verified, no unresolved references) and its term validation flagged one obsolete CURIE, `GO:0006266` &#34;DNA ligation&#34;, which is not used here. `just preflight-dr` returned WARN on a rival-gene signal for &#34;HP&#34;; that is a false positive - every bare &#34;HP&#34; in the report is the ontology prefix quoted inside the report&#39;s own auto-generated term-validation section, not haptoglobin - and the disease identity checks out otherwise (LIG1 dominant at 29 mentions, and the report&#39;s OMIM 619774 matches MONDO&#39;s xref). The report&#39;s HPO frequency table (n/N per phenotype) was read but deliberately not transcribed, for the reason given above. Its identifier list gives MedGen as C5676930, which is the UMLS CUI; MONDO&#39;s actual MedGen xref is 1810465, and the corrected values are the ones recorded above.
+`conforms_to` was considered and not declared. The three candidate modules - `genome_instability_mutation`, `genomic_instability_aging` and `dna_repair_synthetic_lethality` - are all framed for a different output: the first two for tumour evolution and for age-dependent damage accumulation respectively, and the third for therapeutic vulnerability of HRR-deficient tumours. IMD96 is a constitutional replicative-ligation defect whose output is a developmental haematopoietic and lymphoid failure, and the mutator/clonal-evolution nodes those modules require are not what this disease is about. A module for constitutional replication-stress immunodeficiency would take this entry, IMD55 (GINS1) and IMD80 (MCM10) as its first conformers.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Immunodeficiency_96</strong> · 2026-09-07T17:30:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_96/2026-09-07T173014Z-claude-code-0ae1c0.yaml">View source</a></p>
+                        <p class="research-review-text">De novo creation of the IMD96 (LIG1 / DNA ligase I deficiency) entry from the stub stubs/Immunodeficiency_96.yaml, which is deleted in the same change.
+
+LUMP/SPLIT. entry_type DISEASE. MONDO:0030693 is a leaf: one parent (MONDO:0021094 immunodeficiency disease), no descendants, and one causal-gene relation (RO:0004003 -&gt; hgnc:6598 LIG1), confirmed against the committed stub and re-read from the MONDO OBO record while checking xrefs. Not a grouping (nothing below it), not a subtype (no curated parent disease it refines), not out of scope (it carries a mechanism).
+
+DEEP RESEARCH. falcon was requested and failed twice with HTTP 402 ProviderBillingError (Edison account out of credits). The re-run used &#39;just dr_fallback=--fallback research-disorder falcon Immunodeficiency_96&#39;, which fell back to openscientist. The report that was actually used and is committed is research/Immunodeficiency_96-deep-research-openscientist.md (frontmatter records fell_back: true, requested_provider: falcon), with its .citations.md sidecar and an _artifacts/ directory holding the provider&#39;s HTML and PDF renderings. No falcon report exists.
+
+REPORT VALIDATION. reference_validation: 4 total references, 4 verified, 0 not found, confabulation_rate 0.0, no unresolved_references; 2 of 4 assessed as on topic. term_validation: needs_review true - 56 terms, 53 verified, 0 not found, 1 obsolete (GO:0006266 &#39;obsolete DNA ligation&#39;), 2 unverifiable, 7 mislabelled. Every one of the 7 mislabelled entries is a parsing artifact where the report&#39;s frequency annotation (&#39;2/5; Maffucci 2018&#39;) was read as a second label; the ontology labels themselves matched. The obsolete GO:0006266 was independently caught by &#39;just validate-terms&#39; when I had used it for the abortive-ligation node, and was replaced with GO:0003910 (DNA ligase (ATP) activity, modifier ABNORMAL). No CURIE from the report was bound without independent OAK lookup.
+
+PREFLIGHT. &#39;just preflight-dr research/Immunodeficiency_96-deep-research-openscientist.md MONDO:0030693&#39; returned WARN: rival gene &#39;HP&#39; at 17 mentions (59% of LIG1&#39;s 29). Resolved as a false positive - every bare &#39;HP&#39; in the report is the ontology prefix quoted inside the report&#39;s own auto-generated Term Validation section, not haptoglobin (verified by grepping bare-HP occurrences: all are on lines 568 and 1120-1139, inside that section). Identity otherwise confirms: LIG1 dominant, report OMIM 619774 == MONDO xref OMIM:619774. AR=4 is the autosomal-recessive abbreviation; BLM=2 and PCNA=2 are legitimate mentions (Bloom syndrome as the historical differential, PCNA as LIG1&#39;s binding partner). Proceeded on that basis.
+
+GENEREVIEWS. No GeneReviews chapter exists. PubMed search &#39;(DNA ligase I deficiency OR LIG1 deficiency OR immunodeficiency 96) AND GeneReviews[All Fields]&#39; returned 0 results. The phenotype baseline is therefore the primary literature (Maffucci 2018 JCI, the 1992 index reports, the 2022 and 2024 case reports) plus the IUIS 2022 classification table, and this is recorded in the entry&#39;s notes.
+
+REFERENCES USED. PMID:30395541 (Maffucci 2018, disease-defining series, full text), PMID:1351188 (Webster 1992 Lancet, index patient), PMID:1581963 (Barnes 1992, 46BR biochemistry), PMID:36341401 (2022 Omenn-like SCID case), PMID:38896336 (2024 A624T SCID case, with the aggregate table of all reported patients), PMID:39510190 (2024 rare-variant biochemistry), PMID:31630206 (ligase deficiency review), PMID:30725883 (chromosome instability syndromes), PMID:35748970 (IUIS 2022 classification), PMID:11896201 (Bentley 2002 Lig1-null mouse, taken from the DR report&#39;s key-reference list). All fetched with &#39;just fetch-reference&#39;; none hand-written.
+
+NOT USED, AND WHY. PMID:42527943 (2026 cyclosporine single-case report, further compound heterozygous LIG1 children) was fetched and PubMed exposes no abstract or full text for it - the cache is content-empty - so no exact-quote snippet is obtainable and nothing in the entry rests on it. Its existence is recorded in the entry&#39;s notes so the patient counts read as a floor for the 1992-2024 window rather than as a current total, and its cache file was pruned rather than committed. PMID:33087274 (Human DNA ligases in replication and repair) was fetched, not cited, and pruned. The DR report&#39;s HPO frequency table (n/N per phenotype) was read and deliberately not transcribed: with eight published patients an HPO frequency band implies precision the literature does not have, so no phenotype carries &#39;frequency:&#39;. The DR report gives MedGen as C5676930, which is the UMLS CUI; MONDO&#39;s actual MedGen xref is 1810465, and the corrected identifiers are what the entry records.
+
+MODELING DECISIONS. Eight-node pathophysiology chain from biallelic hypomorphic LIG1 alleles through failed Okazaki-fragment ligation and abortive ligation, to persistent nicks and replication-associated breaks, to genomic instability, branching into lymphoid, erythroid and somatic-hypermutation arms. The edge from the cellular damage phenotype to the lymphoid phenotype is deliberately INDIRECT_UNKNOWN_INTERMEDIATES and cited to PMID:31630206, which states that the cause of the immunodeficiency in DNA ligase I deficiency is not known - this is the central open question and is also carried as a KNOWLEDGE_GAP discussion. functional_impact_category is PARTIAL_LOSS_OF_FUNCTION, not LOSS_OF_FUNCTION, because no reported genotype is a double null. No conforms_to was declared: genome_instability_mutation and dna_repair_synthetic_lethality are cancer-facing and genomic_instability_aging is aging-facing, and none of their node chains is what this constitutional replication defect produces; the reasoning is recorded in the entry notes. mappings carries an NCIT exactMatch to NCIT:C122658 (DNA Ligase I Deficiency); no ICD-10-CM or ICD-11 mapping is asserted because the closest codes are unspecified-immunodeficiency codes. Five discussions record real open questions, including the 2024 rare-variant work that makes the catalytic-efficiency-versus-abortive-ligation question answerable. The Lig1-null mouse is curated with a PARTIALLY_RECAPITULATES and a RECAPITULATES link plus a REFUTE evidence item for the R771W knock-in, because both models fail to reproduce the human immune phenotype and that failure is informative.
+
+PATIENT COUNTS. Corrected mid-curation against the aggregate table in PMID:38896336: eight published patients (1992 index + 5 in Maffucci 2018 + 1 in 2022 + 1 in 2024), four transplanted, four with entirely normal growth, seven of eight with normal mentation. An earlier draft said nine and was wrong.
+
+VALIDATION RUN AND READ TO COMPLETION. &#39;just validate&#39; pass; &#39;just validate-terms&#39; pass; &#39;just count-verified-snippets&#39; 96/96 verified against cached references; &#39;just check-duplicate-keys&#39;, &#39;just check-entity-refs&#39;, &#39;just check-causal-targets&#39;, &#39;just check-qualifier-terms&#39; (0 qualifier terms in this entry), &#39;just check-enum-values&#39; all OK; &#39;just check-folded-hyphens&#39;, &#39;just check-snippet-length&#39;, &#39;just check-title-snippets&#39;, &#39;just check-snippet-grading&#39;, &#39;just check-reference-titles&#39; all OK with no new baseline entries; &#39;just check-environmental-evidence&#39; OK (both new exposures carry entry-level evidence, no waiver used); &#39;just check-not4curation&#39; OK; &#39;just check-source-defect-claims&#39; reports nothing for this file. &#39;just normalize-cache&#39; and &#39;just check-term-cache-integrity&#39; clean. &#39;just validate-disorders kb/disorders/Immunodeficiency_96.yaml&#39; passed end to end (schema, terms, references). No DOI-keyed evidence is used, so --unskip-prefix DOI was not needed.
+
+CACHE NOTE. cache/go/terms.csv gains a row for GO:0006266 &#39;obsolete DNA ligation&#39;. That row was written by &#39;just validate-terms&#39; during the draft in which I had bound the now-obsolete term, and it is left in place rather than hand-deleted: it is a correct, tool-derived label row, hand-editing cache rows is against the repository contract, and the row is useful - a future curator reaching for GO:0006266 now gets a cache hit telling them it is obsolete. The entry itself does not reference it. Every other cache addition (GO:0033567, GO:0003910, HP:0500270, MONDO:0030693, NCIT:C122658, NCIT:C15409 and the matching enum-membership rows) is a term this entry binds. CL and ECTO terms used here were already cached, so those files are untouched.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

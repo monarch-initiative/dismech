@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A20 Haploinsufficiency · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>A20 Haploinsufficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>A20 Haploinsufficiency</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-09-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0100222" target="_blank" rel="noopener noreferrer">MONDO:0100222</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">26 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>F001 — HA20 is an autosomal-dominant autoinflammatory disease caused by heterozygous LOF <em>TNFAIP3</em> variants</h3>
+<p>The disease was originally described by Zhou et al. (2016) as arising from "high-penetrance heterozygous germline mutations in <em>TNFAIP3</em>, which encodes the NF-κB regulatory protein A20, in six unrelated families with early-onset systemic inflammation" (<a href="https://pubmed.ncbi.nlm.nih.gov/26642243/">PMID: 26642243</a>). The mechanism is haploinsufficiency rather than dominant-negative action: "Mutant, truncated A20 proteins are likely to act through haploinsufficiency because they do not exert a dominant-negative effect in overexpression experiments." A 2024 review reframes the condition beyond its Behçet-like origins: "Originally described as an autosomal dominant form of Behcet's disease, HA20 is now considered a complex inborn error of immunity with a broad spectrum of immunologic and clinical phenotypes" (<a href="https://pubmed.ncbi.nlm.nih.gov/38451381/">PMID: 38451381</a>). Evidence type: <strong>human clinical / genetic</strong>.</p>
+<h3>F002 — Mechanism: loss of A20 ubiquitin-editing activity drives NF-κB and NLRP3 inflammasome hyperactivation</h3>
+<p>A20 is a ubiquitin-editing enzyme that terminates NF-κB signaling. In patient cells, Zhou et al. showed "defective removal of Lys63-linked ubiquitin from TRAF6, NEMO and RIP1 after stimulation with tumor necrosis factor (TNF)," accompanied by increased IκBα degradation, nuclear translocation of NF-κB p65, and elevated NF-κB-dependent cytokines (<a href="https://pubmed.ncbi.nlm.nih.gov/26642243/">PMID: 26642243</a>). Steiner et al. (2018) confirmed that HA20 patients "display excessive ubiquitination and increased activity of NF-κB and of NLRP3 inflammasome activation" (<a href="https://pubmed.ncbi.nlm.nih.gov/29846841/">PMID: 29846841</a>). A parallel necroptosis branch operates through the zinc-finger 7 (ZnF7) ubiquitin-binding domain: "A20 prevents inflammasome-dependent arthritis by inhibiting macrophage necroptosis and that this function depends on its zinc finger 7 (ZnF7)" (<a href="https://pubmed.ncbi.nlm.nih.gov/31086261/">PMID: 31086261</a>) — notably, this anti-inflammatory function does not require A20's deubiquitinase catalytic activity. Evidence type: <strong>human clinical + model organism + in vitro</strong>.</p>
+<h3>F003 — Clinical spectrum: mucocutaneous ulcers dominate, with fever, GI inflammation, cytopenia, arthritis, and autoimmunity</h3>
+<p>The largest international multicenter cohort (He et al. 2026; n=185, 41 clinics, 7 countries; median age at onset 3.3 yr) reports: "Common clinical features were mucocutaneous involvement (80.5%), recurrent fever (63.3%), gastrointestinal symptoms (58.6%), cytopenia (56.6%), arthritis/arthralgia (46.7%), and recurrent infections (35.5%)" (<a href="https://pubmed.ncbi.nlm.nih.gov/41692116/">PMID: 41692116</a>). Hierarchical clustering "identified two major clusters, an autoinflammation-predominant phenotype and an autoimmune-predominant phenotype." An independent Italian series (De Nardi et al. 2026; n=17) found "oral aphthosis (88%), recurrent fever (53%), gastrointestinal inflammation (53%), autoimmunity (47%), genital ulcers (47%), neuropsychiatric symptoms (41%)," with early onset (&lt;5 yr) associated with more lifetime neuropsychiatric involvement (p=0.004) (<a href="https://pubmed.ncbi.nlm.nih.gov/42128528/">PMID: 42128528</a>). Evidence type: <strong>human clinical</strong>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>He 2026 (n=185)</th>
+<th>De Nardi 2026 (n=17)</th>
+<th>Berteau 2018 (n=45)</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Oral/mucocutaneous ulcers</td>
+<td>80.5%</td>
+<td>88%</td>
+<td>87% (oral)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000155" target="_blank" rel="noopener noreferrer">HP:0000155</a> (Oral ulcer)</td>
+</tr>
+<tr>
+<td>Genital ulcers</td>
+<td>—</td>
+<td>47%</td>
+<td>67%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100728" target="_blank" rel="noopener noreferrer">HP:0100728</a> (Genital ulcers)</td>
+</tr>
+<tr>
+<td>Recurrent fever</td>
+<td>63.3%</td>
+<td>53%</td>
+<td>62%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a> (Recurrent fever)</td>
+</tr>
+<tr>
+<td>GI inflammation</td>
+<td>58.6%</td>
+<td>53%</td>
+<td>60% (abdominal)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002037" target="_blank" rel="noopener noreferrer">HP:0002037</a> (Inflammation of the large intestine)</td>
+</tr>
+<tr>
+<td>Cytopenia</td>
+<td>56.6%</td>
+<td>—</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" rel="noopener noreferrer">HP:0001875</a> (Neutropenia) / <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> (Thrombocytopenia)</td>
+</tr>
+<tr>
+<td>Arthritis/arthralgia</td>
+<td>46.7%</td>
+<td>18%</td>
+<td>42%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" rel="noopener noreferrer">HP:0001369</a> (Arthritis)</td>
+</tr>
+<tr>
+<td>Skin inflammation</td>
+<td>—</td>
+<td>12%</td>
+<td>53%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin rash)</td>
+</tr>
+<tr>
+<td>Neuropsychiatric</td>
+<td>—</td>
+<td>41%</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a> (Behavioral abnormality)</td>
+</tr>
+<tr>
+<td>Recurrent infections</td>
+<td>35.5%</td>
+<td>—</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a> (Recurrent infections)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>F004 — Treatment: HA20 is biologic-responsive; anti-TNF most effective, with IL-1/IL-6 blockade, JAK inhibitors, and HCT for refractory disease</h3>
+<p>A Japanese national survey (Shiraki 2025; 72 patients, 54 analyzed) found "Molecular target drugs (MTDs) were administered in 44.4% of patients, among which anti-tumor necrosis factor (TNF)-α agents showed efficacy in 59.5% of patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/40574834/">PMID: 40574834</a>). Secondary failure (anti-drug antibodies, infusion reactions) was common, managed by switching agents, adding a JAK inhibitor/immunomodulator, or allogeneic HCT. A 2026 review confirms that HA20 and related monogenic conditions "are now recognized as biologic-responsive diseases" (<a href="https://pubmed.ncbi.nlm.nih.gov/41620931/">PMID: 41620931</a>). For refractory monogenic IBD phenotypes, "Monogenic IBDs include those that are refractory to traditional treatment and can be cured by allogeneic hematopoietic cell transplantation (HCT)" (<a href="https://pubmed.ncbi.nlm.nih.gov/37899202/">PMID: 37899202</a>), and HCT has been shown to ameliorate autoinflammation in HA20 (<a href="https://pubmed.ncbi.nlm.nih.gov/34427832/">PMID: 34427832</a>). Evidence type: <strong>human clinical</strong>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Therapy</th>
+<th>NCIT suggestion</th>
+<th>Role in HA20</th>
+<th>Key evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anti-TNF (infliximab, adalimumab, etanercept)</td>
+<td>NCIT:C2861 (TNF Inhibitor)</td>
+<td>First-line targeted; ~60% efficacy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40574834/">PMID: 40574834</a></td>
+</tr>
+<tr>
+<td>IL-1 blockade (anakinra, canakinumab)</td>
+<td>NCIT:C2707 (Interleukin-1 Antagonist)</td>
+<td>Autoinflammation/inflammasome-driven disease</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41620931/">PMID: 41620931</a></td>
+</tr>
+<tr>
+<td>IL-6 inhibition (tocilizumab)</td>
+<td>NCIT:C165258 (IL-6 Inhibitor)</td>
+<td>Refractory/systemic inflammation</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41620931/">PMID: 41620931</a></td>
+</tr>
+<tr>
+<td>JAK inhibitors (baricitinib, tofacitinib, ruxolitinib)</td>
+<td>NCIT:C142883 (JAK Inhibitor)</td>
+<td>IFN-high/refractory disease</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31767699/">PMID: 31767699</a></td>
+</tr>
+<tr>
+<td>Colchicine</td>
+<td>NCIT:C819 (Colchicine)</td>
+<td>Inconstant response (~24%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29890348/">PMID: 29890348</a></td>
+</tr>
+<tr>
+<td>Allogeneic HCT</td>
+<td>NCIT:C15431 (Allogeneic HSCT)</td>
+<td>Curative for refractory disease</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34427832/">PMID: 34427832</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37899202/">PMID: 37899202</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>F005 — Diagnostic biomarkers: elevated type I IFN signature and IFN-γ-inducible chemokines mark disease activity and predict JAK-inhibitor response</h3>
+<p>De Nardi et al. found higher type 1 IFN signature (IS) levels in patients with active disease (p&lt;0.01) and concluded "type 1 IS may represent a potential biomarker of disease activity in HA20," alongside evaluation of IFN-γ-inducible chemokines CXCL9/CXCL10 (<a href="https://pubmed.ncbi.nlm.nih.gov/42128528/">PMID: 42128528</a>). Schwartz et al. established that the "Type I interferon signature predicts response to JAK inhibition in haploinsufficiency of A20" (<a href="https://pubmed.ncbi.nlm.nih.gov/31767699/">PMID: 31767699</a>). Importantly, the signature can be elevated even in quiescent disease: "Half of the patients examined in this study, with undifferentiated inflammatory diseases, clinically quiescent A20 haploinsufficiency, or idiopathic pulmonary hemosiderosis, had an elevated type I IFN signature" (<a href="https://pubmed.ncbi.nlm.nih.gov/36211342/">PMID: 36211342</a>). Evidence type: <strong>human clinical</strong>.</p>
+<h3>F006 — Genetics: germline heterozygous LOF variants (truncating dominant, plus OTU/ZnF missense); phenotype spans autoinflammation to monogenic lupus</h3>
+<p>The international cohort revealed a "novel genetic architecture and phenotypic evolution" across 185 patients with pathogenic/likely-pathogenic <em>TNFAIP3</em> variants (<a href="https://pubmed.ncbi.nlm.nih.gov/41692116/">PMID: 41692116</a>). Variant classes include truncating (nonsense, frameshift) variants causing haploinsufficiency, plus pathogenic missense variants in the catalytic OTU deubiquitinase domain — e.g., "a heterozygous c.608T&gt;G (p.Leu203Arg) missense variant in <em>TNFAIP3</em>, located within the OTU domain" (<a href="https://pubmed.ncbi.nlm.nih.gov/40719110/">PMID: 40719110</a>) and c.1804A&gt;T p.T602S causing over-activation of canonical NF-κB signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/34808442/">PMID: 34808442</a>). A systematic review documented the lupus overlap: "Among all the 191 HA20 patients reported in the literature, we identified 16 patients (8.4%) with a compatible diagnosis of SLE," with frequent ANA/anti-dsDNA, renal (56.3%), cutaneous (81.3%), and musculoskeletal (56.3%) involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/39672252/">PMID: 39672252</a>). Evidence type: <strong>human clinical / genetic + in vitro</strong>.</p>
+<h3>F007 — Organ involvement and gut dysbiosis: IBD-like GI inflammation, chronic liver disease, and altered gut microbiota</h3>
+<p>Elhani et al. (2026; 16 HA20 patients vs 22 controls) documented multi-organ pathology and microbiome changes: "The fecal microbiota of HA20 patients was characterized by marked alterations, including a reduction in microbial diversity and an increase in the pro-inflammatory bacterium <em>Ruminococcus gnavus</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/41991504/">PMID: 41991504</a>). The same study found that "Liver imaging revealed chronic liver disease in 3/5 patients, showing as liver dysmorphia and portal hypertension," with histology showing lymphoplasmocytic infiltrate of the GI tract and liver, impaired microbial bile-acid deconjugation/desulfation, and a shift of tryptophan metabolism toward the kynurenine pathway. Evidence type: <strong>human clinical + microbiome/metabolomic</strong>.</p>
+<h3>F008 — Model organisms: A20/<em>Tnfaip3</em> mouse models recapitulate HA20</h3>
+<p>Cell-specific and domain-mutant mouse models reproduce major HA20 features. Myeloid-specific deletion produces arthritis: "Myeloid-cell-specific deletion of the rheumatoid arthritis susceptibility gene A20/Tnfaip3 in mice (A20(myel-KO) mice) triggers a spontaneous erosive polyarthritis that resembles rheumatoid arthritis in patients," and this "crucially relies on the Nlrp3 inflammasome and interleukin-1 receptor signalling" (<a href="https://pubmed.ncbi.nlm.nih.gov/25043000/">PMID: 25043000</a>). Intestinal models reproduce the IBD phenotype: "Combining IEC and myeloid A20 deletion induces ileitis and severe colitis" (<a href="https://pubmed.ncbi.nlm.nih.gov/25267258/">PMID: 25267258</a>). The ZnF7 ubiquitin-binding mutation alone causes arthritis (<a href="https://pubmed.ncbi.nlm.nih.gov/31086261/">PMID: 31086261</a>); additional cell-specific effects appear in airway club cells (<a href="https://pubmed.ncbi.nlm.nih.gov/26815999/">PMID: 26815999</a>), pancreatic β-cells, and enthesitis via STAT1 (<a href="https://pubmed.ncbi.nlm.nih.gov/27551052/">PMID: 27551052</a>). Evidence type: <strong>model organism</strong>.</p>
+<h3>F009 — Epidemiology &amp; temporal course: rare, ubiquitous, female-predominant, early-childhood onset, chronic relapsing course</h3>
+<p>Berteau et al. (2018; systematic review of 45 cases) established key epidemiology: "sex ratio is inversed (one man for two women), first symptoms occur in early childhood (median age = 5.5 years; interquartile range: 1-10) instead of adulthood" (<a href="https://pubmed.ncbi.nlm.nih.gov/29890348/">PMID: 29890348</a>). HA20 "differs from classical BD because its geographical distribution is ubiquitous," and "response to colchicine in HA20 is inconstant (24%) unlike classical BD." The international cohort reports an even earlier median onset (3.3 yr) (<a href="https://pubmed.ncbi.nlm.nih.gov/41692116/">PMID: 41692116</a>). Evidence type: <strong>human clinical / epidemiological</strong>.</p>
+<h3>F010 — Prognosis &amp; complications: chronic lifelong disease with autoimmune, vascular, and lymphoproliferative complications</h3>
+<p>HA20 predisposes to lymphoproliferation: "A20 haploinsufficiency disturbs immune homeostasis and drives the transformation of lymphocytes with permissive antigen receptors" (<a href="https://pubmed.ncbi.nlm.nih.gov/39167656/">PMID: 39167656</a>). Vasculitis is a recognized complication in which "type I interferon-enhanced autoimmune mechanisms and/or dysregulated adaptive immune responses have an important role in the development of immune-mediated endothelial dysfunction and vascular damage" (<a href="https://pubmed.ncbi.nlm.nih.gov/40369133/">PMID: 40369133</a>). Systemic autoimmunity complications include autoimmune cytopenias, thyroiditis, and lupus/glomerulonephritis (renal 56.3% in the SLE subset; <a href="https://pubmed.ncbi.nlm.nih.gov/39672252/">PMID: 39672252</a>). No formal survival/mortality statistics are established; most patients survive with chronic morbidity, though severe refractory disease, macrophage activation syndrome/HLH, and HCT-related risks contribute to mortality in a minority. Evidence type: <strong>human clinical</strong>.</p>
+<h3>F011 — HA20 is distinct from classic Behçet disease and from somatic <em>TNFAIP3</em>-driven lymphoma</h3>
+<p>HA20 differs from classical Behçet disease on multiple axes: "HA20 differs from classical BD because its geographical distribution is ubiquitous, sex ratio is inversed (one man for two women), first symptoms occur in early childhood" (<a href="https://pubmed.ncbi.nlm.nih.gov/29890348/">PMID: 29890348</a>); HLA-B51 is uncommon and colchicine response inconstant. Germline vs somatic <em>TNFAIP3</em> lesions produce distinct diseases: "A20 germline variants are associated with a wide range of inflammatory diseases, while somatic mutations promote development of B cell lymphomas" (<a href="https://pubmed.ncbi.nlm.nih.gov/38451381/">PMID: 38451381</a>). Evidence type: <strong>human clinical / genetic</strong>.</p>
+<hr />
+<h2>Section-by-Section Disease Characterization</h2>
+<h3>1. Disease Information</h3>
+<p>HA20 is a monogenic, autosomal-dominant systemic autoinflammatory disease (an inborn error of immunity) caused by haploinsufficiency of the ubiquitin-editing enzyme A20. It presents with early-onset, recurrent, Behçet-like inflammation and a broad autoinflammatory–autoimmune phenotypic spectrum.</p>
+<ul>
+<li><strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0100222" target="_blank" rel="noopener noreferrer">MONDO:0100222</a>; OMIM #616744 ("Autoinflammatory syndrome, familial, Behçet-like 1", AISBL1); Gene <em>TNFAIP3</em> (OMIM *191163; <a href="https://bioregistry.io/HGNC:11896" target="_blank" rel="noopener noreferrer">HGNC:11896</a>). Orphanet lists it under autoinflammatory syndromes. MeSH is best approximated by "Hereditary Autoinflammatory Diseases" (D056660). ICD-11 maps under immune dysregulation/autoinflammatory disorders (4A60 group).</li>
+<li><strong>Synonyms:</strong> Haploinsufficiency of A20; A20 haploinsufficiency; TNFAIP3 haploinsufficiency; Familial Behçet-like autoinflammatory syndrome 1 (AISBL1); autosomal-dominant familial Behçet disease.</li>
+<li><strong>Data source:</strong> Disease-level aggregated resources (OMIM, Orphanet) plus published patient cohorts and case series — not single-EHR-derived.</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Causal factor:</strong> Heterozygous germline LOF variants in <em>TNFAIP3</em> (genetic; high penetrance) — F001, F006.</li>
+<li><strong>Genetic risk factors:</strong> The pathogenic variant itself is causal and dominant. Modifier genes and co-occurring autoinflammatory VUS may shape phenotype (mixed autoinflammatory disorders; <a href="https://pubmed.ncbi.nlm.nih.gov/41191928/">PMID: 41191928</a>).</li>
+<li><strong>Environmental risk factors:</strong> Not clearly established as disease-<em>causing</em>; however, infection/inflammatory triggers (TNF, LPS, IL-1β) provoke flares by engaging the very pathways A20 fails to restrain (F002). Gut dysbiosis (increased <em>R. gnavus</em>) is associated with the intestinal phenotype (F007) and may act as a gene–environment interface. Female sex is associated with higher prevalence (F009).</li>
+<li><strong>Protective factors:</strong> No validated genetic or environmental protective alleles reported for HA20 specifically. (Data not available.)</li>
+<li><strong>Gene–environment interaction:</strong> Loss of A20 lowers the threshold for NF-κB/inflammasome activation by microbial and cytokine stimuli, so environmental triggers (microbiota, infection) interact with the genetic lesion to precipitate flares (inferred from F002, F007, F008).</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<p>See the frequency table under F003. Phenotype <strong>types</strong> span clinical signs (mucocutaneous ulcers, arthritis), symptoms (fever, abdominal pain), laboratory abnormalities (cytopenias, autoantibodies, elevated inflammatory markers/IFN signature), and behavioral/neuropsychiatric changes. <strong>Onset</strong> is typically pediatric (median 3.3–5.5 yr). <strong>Severity</strong> is variable, ranging from mild recurrent aphthosis to severe multi-organ disease and monogenic lupus. <strong>Progression</strong> is chronic-relapsing/episodic with lifelong activity. <strong>Quality-of-life impact</strong> is substantial through recurrent painful ulcers, chronic GI disease, arthritis, and treatment burden, though formal EQ-5D/SF-36 data specific to HA20 are not available.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<ul>
+<li><strong>Causal gene:</strong> <em>TNFAIP3</em> (chromosome 6q23.3), encoding A20 (F001).</li>
+<li><strong>Variant classes:</strong> Truncating nonsense and frameshift variants (dominant, produce haploinsufficiency; F001) plus pathogenic missense variants in the catalytic OTU deubiquitinase domain (e.g., p.Leu203Arg; p.T602S) and zinc-finger domains (F006).</li>
+<li><strong>Classification:</strong> Pathogenic/likely-pathogenic per ACMG/AMP; truncating LOF in a haploinsufficient gene supports PVS1-level evidence. Rare missense variants require functional confirmation (NF-κB over-activation assays; F006).</li>
+<li><strong>Allele frequency:</strong> Pathogenic variants are private/ultra-rare and essentially absent from population databases (gnomAD), consistent with high-penetrance disease.</li>
+<li><strong>Origin:</strong> Germline (contrast with somatic <em>TNFAIP3</em> mutations in B-cell lymphoma; F011).</li>
+<li><strong>Functional consequence:</strong> Loss of function / haploinsufficiency (no dominant-negative effect; F001).</li>
+<li><strong>Epigenetics / chromosomal abnormalities:</strong> No recurrent epigenetic signature or large-scale chromosomal abnormality is specific to HA20 (not applicable / data not available).</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<p>No specific toxin, radiation, occupational, or infectious agent has been established as a primary cause. The gut microbiome is altered (reduced diversity, increased pro-inflammatory <em>Ruminococcus gnavus</em>, impaired bile-acid metabolism; F007), likely acting as a downstream/modifying environmental factor rather than a primary cause. Microbial and cytokine stimuli (LPS, TNF, IL-1β) trigger flares in vitro and in vivo (F002, F008).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li>A heterozygous germline LOF variant in <em>TNFAIP3</em> <strong>leads to</strong> ~50% reduction in functional A20 protein (haploinsufficiency) — <em>demonstrated</em> (F001).</li>
+<li>Reduced A20 <strong>results in</strong> impaired removal of Lys63-linked polyubiquitin from TRAF6, NEMO, and RIP1 after TNF/TLR stimulation, and impaired ZnF7-dependent ubiquitin binding — <em>demonstrated</em> (F002).</li>
+<li>Excess K63-ubiquitination <strong>leads to</strong> increased IκBα degradation and nuclear translocation of NF-κB p65 — <em>demonstrated</em> (F002).</li>
+<li>NF-κB hyperactivation <strong>results in</strong> transcription of pro-inflammatory cytokines (TNF, IL-6, IL-1β precursors) — <em>demonstrated</em> (F002).</li>
+<li><strong>Branch A (inflammasome):</strong> Loss of A20 restraint <strong>leads to</strong> NLRP3 inflammasome hyperactivation and mature IL-1β release — <em>demonstrated in patient cells and mouse models</em> (F002, F008).</li>
+<li><strong>Branch B (necroptosis):</strong> Loss of ZnF7 function <strong>leads to</strong> RIPK1/RIPK3-MLKL-dependent macrophage necroptosis and inflammasome-dependent arthritis — <em>demonstrated in mice</em> (F002, F008).</li>
+<li><strong>Branch C (interferon):</strong> Downstream signaling <strong>results in</strong> an elevated type I IFN signature and IFN-γ-inducible chemokines (CXCL9/CXCL10) — <em>demonstrated as a biomarker</em> (F005).</li>
+<li>Sustained cytokine excess (TNF/IL-1β/IL-6/type I IFN) <strong>leads to</strong> chronic multi-organ inflammation: mucocutaneous ulcers, IBD-like gut inflammation, arthritis, cytopenias, vasculitis, and autoimmunity — <em>demonstrated clinically</em> (F003, F007, F010).</li>
+<li>Immune dysregulation additionally <strong>leads to</strong> transformation of lymphocytes with permissive antigen receptors, contributing to autoimmunity and lymphoproliferation risk — <em>demonstrated/inferred</em> (F010).</li>
+</ol>
+<p><strong>Pathways &amp; processes:</strong> NF-κB signaling (KEGG hsa04064; Reactome R-HSA-975138), NLRP3 inflammasome (<a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" rel="noopener noreferrer">GO:0072559</a>), TNF signaling, type I IFN signaling, necroptosis (<a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" rel="noopener noreferrer">GO:0070266</a>). <strong>Cellular processes:</strong> inflammation (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), positive regulation of NF-κB (<a href="http://purl.obolibrary.org/obo/GO_0051092" target="_blank" rel="noopener noreferrer">GO:0051092</a>), inflammasome-mediated signaling, apoptosis/necroptosis, autophagy (A20–DEPTOR complex restrains inflammasome via autophagy; <a href="https://pubmed.ncbi.nlm.nih.gov/29940800/">PMID: 29940800</a>). <strong>Cell types (CL):</strong> macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), monocyte (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>), intestinal epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" rel="noopener noreferrer">CL:0002563</a>), neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), T cell (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>), B cell (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>). <strong>Suggested GO biological process:</strong> <a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" rel="noopener noreferrer">GO:0043123</a> (positive regulation of canonical NF-κB signal transduction); <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" rel="noopener noreferrer">GO:0032611</a> (IL-1β production).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organs/systems:</strong> skin and mucosa (oral, genital), gastrointestinal tract, joints, hematologic/immune system.</li>
+<li><strong>Secondary involvement:</strong> liver (chronic liver disease, portal hypertension — F007), blood vessels (vasculitis of all sizes — F010), kidney (glomerulonephritis in lupus subset — F006), CNS (neuropsychiatric — F003), eyes (uveitis), thyroid (autoimmune thyroiditis).</li>
+<li><strong>UBERON terms:</strong> oral mucosa (<a href="http://purl.obolibrary.org/obo/UBERON_0002424" target="_blank" rel="noopener noreferrer">UBERON:0002424</a>), skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), large intestine (<a href="http://purl.obolibrary.org/obo/UBERON_0000059" target="_blank" rel="noopener noreferrer">UBERON:0000059</a>), small intestine/ileum (<a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" rel="noopener noreferrer">UBERON:0002116</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), synovial joint (<a href="http://purl.obolibrary.org/obo/UBERON_0002217" target="_blank" rel="noopener noreferrer">UBERON:0002217</a>), blood vessel (<a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a>).</li>
+<li><strong>Tissue/cell level:</strong> epithelial (intestinal, mucosal), immune (myeloid, lymphoid), endothelial. <strong>CL terms</strong> as above.</li>
+<li><strong>Subcellular (GO CC):</strong> cytoplasm/cytosol (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>, site of A20 ubiquitin editing and NF-κB regulation), inflammasome complex (<a href="http://purl.obolibrary.org/obo/GO_0061702" target="_blank" rel="noopener noreferrer">GO:0061702</a>).</li>
+<li><strong>Lateralization:</strong> Bilateral/systemic; ulcers and arthritis are typically multifocal rather than lateralized.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Congenital predisposition, clinical onset usually early childhood (median 3.3–5.5 yr; F009); onset pattern chronic/insidious with recurrent acute flares.</li>
+<li><strong>Progression:</strong> Chronic, relapsing-remitting/episodic course; lifelong. Rate variable. Early onset (&lt;5 yr) associated with more lifetime neuropsychiatric involvement (F003).</li>
+<li><strong>Patterns:</strong> Treatment-induced remission achievable with biologics; spontaneous remissions uncommon. Early childhood is a critical window given cumulative organ damage.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> Rare (ultra-rare); precise prevalence/incidence not established. Ubiquitous geographic distribution (F009, F011).</li>
+<li><strong>Inheritance:</strong> Autosomal dominant, high penetrance (F001), with variable expressivity even within families. De novo variants occur. Founder effects/consanguinity not central (dominant disease).</li>
+<li><strong>Penetrance:</strong> High but with intra-familial variable expressivity.</li>
+<li><strong>Sex ratio:</strong> Female-predominant, M:F ~1:2 (F009).</li>
+<li><strong>Carrier frequency:</strong> Not applicable (dominant, ultra-rare pathogenic alleles; largely absent from gnomAD).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Genetic testing (definitive):</strong> Molecular confirmation of a pathogenic/likely-pathogenic <em>TNFAIP3</em> variant via single-gene testing, autoinflammatory/immune-dysregulation gene panels, or whole-exome/whole-genome sequencing (F001, F006). Functional confirmation (NF-κB over-activation, ubiquitination assays) supports novel missense variants.</li>
+<li><strong>Laboratory/biomarkers:</strong> Elevated acute-phase reactants during flares; cytopenias; autoantibodies (ANA, anti-dsDNA in lupus-overlap); <strong>type I IFN signature</strong> and IFN-γ-inducible chemokines (CXCL9/CXCL10) as activity and therapy-selection biomarkers (F005).</li>
+<li><strong>Imaging/endoscopy:</strong> GI endoscopy shows ileocolonic ulcers (IBD-like); liver imaging may show dysmorphia/portal hypertension (F007).</li>
+<li><strong>Histopathology:</strong> Lymphoplasmocytic infiltrate of GI tract and liver (F007).</li>
+<li><strong>Clinical criteria &amp; differential diagnosis:</strong> Distinguish from classic Behçet disease (ubiquitous distribution, early onset, inverted sex ratio, uncommon HLA-B51, inconstant colchicine response; F011) and from DADA2, monogenic IBD (IL-10/IL-10R, XIAP), FMF/periodic fevers, SAVI, VEXAS, monogenic lupus/ALPS (F011). Overlapping/mixed autoinflammatory presentations occur (<a href="https://pubmed.ncbi.nlm.nih.gov/41191928/">PMID: 41191928</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39360366/">PMID: 39360366</a>).</li>
+<li><strong>Screening:</strong> Cascade genetic testing of at-risk relatives after a proband variant is identified.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<p>Chronic, lifelong disease with substantial morbidity but generally survivable with modern biologic therapy. <strong>Complications:</strong> autoimmune cytopenias, IBD/chronic liver disease, vasculitis (F010), MAS/HLH, monogenic lupus with glomerulonephritis (F006), and predisposition to lymphocyte transformation/lymphoproliferation (F010). No formal survival/mortality statistics exist. <strong>Prognostic factors:</strong> age of onset (earlier → more neuropsychiatric involvement), disease cluster (autoinflammatory vs autoimmune), and type I IFN signature (activity/therapy response). <strong>Prognostic biomarker:</strong> type I IFN signature (F005).</p>
+<h3>12. Treatment</h3>
+<p>See the treatment table under F004. Strategy: control autoinflammation with targeted biologics, escalate for refractory disease, and reserve HCT for refractory monogenic-IBD/severe phenotypes. <strong>Personalized medicine:</strong> IFN-high patients preferentially respond to JAK inhibition (F005); anti-TNF is the most broadly effective class (F004). Colchicine is inconstantly effective (~24%; F009). Anti-drug antibody-mediated secondary failure is a common practical challenge (F004).</p>
+<h3>13. Prevention</h3>
+<p>No primary prevention exists for this monogenic disease. Prevention is centered on: <strong>genetic counseling</strong> for affected families (AD inheritance, 50% transmission risk, variable expressivity); <strong>prenatal/preimplantation genetic testing</strong> where a familial variant is known; <strong>cascade screening</strong> of relatives; and <strong>tertiary prevention</strong> (early biologic therapy to prevent cumulative organ damage, vigilance for autoimmune, vascular, and lymphoproliferative complications). Novel-variant identification has been proposed to enable prenatal diagnosis and reduce disease burden in newborns (<a href="https://pubmed.ncbi.nlm.nih.gov/34808442/">PMID: 34808442</a>).</p>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy/orthologs:</strong> Human <em>TNFAIP3</em> (NCBI Gene 7128); mouse <em>Tnfaip3</em> (NCBI Gene 21929). The gene and its NF-κB-regulatory function are evolutionarily conserved.</li>
+<li><strong>Natural disease:</strong> No well-characterized spontaneous HA20 equivalent in companion animals is documented (data not available). Disease is primarily modeled experimentally (Section 15).</li>
+<li><strong>Comparative biology:</strong> Cell-specific mouse deletions recapitulate distinct human phenotypes, demonstrating conserved mechanisms (F008).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Type:</strong> Mammalian (mouse, <em>Mus musculus</em>), plus in vitro cell systems (THP-1 monocytes, patient PBMCs, iPSC-derived cells).</li>
+<li><strong>Genetic models:</strong> Germline <em>Tnfaip3</em> knockout is perinatal-lethal with multi-organ inflammation; conditional/cell-specific knockouts (myeloid, intestinal epithelial, airway club cell, β-cell) and domain-specific knock-ins (ZnF7 mutant) are used (F008).</li>
+<li><strong>Phenotype recapitulation:</strong> Myeloid-specific KO → NLRP3/IL-1-dependent erosive polyarthritis (F008); IEC+myeloid KO → ileitis/severe colitis with dysbiosis (F008); ZnF7 mutant → arthritis (F008); myeloid KO → STAT1-dependent enthesitis (<a href="https://pubmed.ncbi.nlm.nih.gov/27551052/">PMID: 27551052</a>).</li>
+<li><strong>Limitations:</strong> Human HA20 is heterozygous haploinsufficiency, whereas most informative mouse models use complete cell-specific deletion; no single model captures the full multi-organ human spectrum.</li>
+<li><strong>Resources:</strong> MGI (<em>Tnfaip3</em>), IMPC, IMSR.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> Germline heterozygous TNFAIP3 LOF variant
+│  (haploinsufficiency, ~50% A20)   [F001]
+▼
+ Impaired removal of K63-Ub from TRAF6/NEMO/RIP1
+ + impaired ZnF7 ubiquitin binding                [F002]
+│
+      ┌─────────┼───────────────────────────┐
+      ▼         ▼                           ▼
+ NF-κB p65   NLRP3 inflammasome      RIPK1/RIPK3-MLKL
+ activation   hyperactivation         necroptosis (ZnF7)
+   [F002]      → IL-1β  [F002/F008]     → arthritis [F008]
+      │            │                         │
+      └──────┬─────┴─────────────┬───────────┘
+     ▼                    ▼
+   TNF/IL-6/IL-1β excess    Type I IFN signature
+             + CXCL9/CXCL10   [F005]
+     │                    │
+     └────────┬───────────┘
+      ▼
+   Chronic multi-organ inflammation &amp; autoimmunity   [F003/F007/F010]
+   (oral/genital ulcers, IBD, arthritis, cytopenia,
+    vasculitis, monogenic lupus, lymphoproliferation)
+      │
+      ▼
+  Therapeutic reversal by anti-TNF / IL-1 / IL-6 / JAK-i / HCT  [F004]
+</code></pre>
+<p>The unifying interpretation is that HA20 is a "de-repression" disease: A20 is a critical negative feedback brake on innate immune signaling, and losing half of it lowers the activation threshold across multiple downstream nodes (NF-κB, inflammasome, necroptosis, type I IFN). Because the lesion sits at a hub with several effector branches, the clinical phenotype is heterogeneous — patients partition into autoinflammation-predominant vs autoimmune-predominant clusters (F003) depending on which branch dominates. This directly rationalizes the therapeutic landscape: cytokine-directed biologics neutralize individual effector arms, anti-TNF works broadly because TNF sits both upstream and downstream of A20-regulated signaling, and JAK inhibition is best matched to IFN-high patients (F004, F005).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26642243/">26642243</a></td>
+<td>LOF <em>TNFAIP3</em> → early-onset autoinflammation (Zhou 2016)</td>
+<td>F001, F002 (causal gene, haploinsufficiency, K63-Ub defect)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38451381/">38451381</a></td>
+<td>Complexity of being A20 (Karri 2024 review)</td>
+<td>F001, F011 (IEI concept; germline vs somatic)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29846841/">29846841</a></td>
+<td>Relopathies update (Steiner 2018)</td>
+<td>F002 (NF-κB + NLRP3 hyperactivation)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31086261/">31086261</a></td>
+<td>A20 ZnF7 prevents necroptosis/arthritis (Polykratis 2019)</td>
+<td>F002, F008 (necroptosis branch)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41692116/">41692116</a></td>
+<td>International cohort n=185 (He 2026)</td>
+<td>F003, F006 (frequencies, clusters, genetic architecture)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42128528/">42128528</a></td>
+<td>Italian case series (De Nardi 2026)</td>
+<td>F003, F005 (frequencies; IFN biomarker)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40574834/">40574834</a></td>
+<td>Japan national survey (Shiraki 2025)</td>
+<td>F004 (anti-TNF efficacy 59.5%)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41620931/">41620931</a></td>
+<td>Biologics in autoinflammatory disorders (Koga 2026)</td>
+<td>F004 (biologic-responsive)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37899202/">37899202</a></td>
+<td>HCT for monogenic IBD (Kanegane 2023)</td>
+<td>F004 (HCT curative for refractory)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34427832/">34427832</a></td>
+<td>HCT ameliorates HA20 autoinflammation (Shiraki 2021)</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31767699/">31767699</a></td>
+<td>IFN signature predicts JAK-i response (Schwartz 2020)</td>
+<td>F004, F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36211342/">36211342</a></td>
+<td>Type I IFN signatures (Miyamoto 2022)</td>
+<td>F005 (IFN elevated even in quiescent HA20)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40719110/">40719110</a></td>
+<td>Novel OTU-domain missense (Potjewijd 2025)</td>
+<td>F006 (p.Leu203Arg, STAT1/mTOR)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34808442/">34808442</a></td>
+<td>Novel missense p.T602S (Jiang 2022)</td>
+<td>F006 (NF-κB over-activation; prenatal implication)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39672252/">39672252</a></td>
+<td>HA20 beyond SLE systematic review (Philip 2025)</td>
+<td>F006 (8.4% meet SLE criteria)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41991504/">41991504</a></td>
+<td>Gut microbiota &amp; intestinal phenotype (Elhani 2026)</td>
+<td>F007 (dysbiosis, liver disease)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25043000/">25043000</a></td>
+<td>A20/NLRP3 &amp; arthritis mouse (Vande Walle 2014)</td>
+<td>F008 (myeloid-KO arthritis)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25267258/">25267258</a></td>
+<td>A20 intestinal homeostasis (Vereecke 2014)</td>
+<td>F008 (ileitis/colitis model)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27551052/">27551052</a></td>
+<td>A20/STAT1 enthesitis (De Wilde 2017)</td>
+<td>F008 (enthesitis branch)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26815999/">26815999</a></td>
+<td>A20 in lung club cells (Maelfait 2016)</td>
+<td>F008 (airway-epithelial model)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29890348/">29890348</a></td>
+<td>HA20 vs Behçet review (Berteau 2018)</td>
+<td>F009, F011 (epidemiology; distinction)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39167656/">39167656</a></td>
+<td>A20 &amp; lymphocyte transformation (Schultheiss 2024)</td>
+<td>F010 (lymphoproliferation risk)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40369133/">40369133</a></td>
+<td>Monogenic vasculitis (Gül 2025)</td>
+<td>F010 (vasculitis, endothelial damage)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29940800/">29940800</a></td>
+<td>TNFAIP3–DEPTOR autophagy (AS monocytes)</td>
+<td>Mechanism (autophagy restraint of inflammasome)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41191928/">41191928</a></td>
+<td>Mixed autoinflammatory disorders</td>
+<td>Differential/overlap diagnosis</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>No formal survival/mortality or population-level prevalence/incidence statistics</strong> exist for HA20; epidemiology derives from case series and systematic reviews, subject to ascertainment bias toward severe cases.</li>
+<li><strong>Genotype–phenotype correlation is incomplete.</strong> The two-cluster (autoinflammation vs autoimmune) framework is data-driven but the molecular determinants of cluster membership remain undefined.</li>
+<li><strong>Model-organism caveat:</strong> Most mechanistic mouse data use complete cell-specific deletion, not the heterozygous haploinsufficiency seen in patients; no single model captures the full human spectrum.</li>
+<li><strong>Microbiome/metabolomic findings</strong> (F007) are from a single small study (n=16) and require replication before causal claims about dysbiosis can be made.</li>
+<li><strong>Type I IFN biomarker</strong> utility is promising but not yet standardized or prospectively validated as a treatment-selection tool at scale.</li>
+<li><strong>Quality-of-life data</strong> specific to HA20 (EQ-5D/SF-36/PROMIS) are absent.</li>
+<li><strong>Prognostic modeling</strong> for lymphoproliferation/malignancy risk is qualitative; absolute risks are unknown.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective natural-history registry</strong> with standardized organ-damage indices and QoL instruments to establish prevalence, mortality, and long-term outcomes.</li>
+<li><strong>Genotype–phenotype and multi-omics integration</strong> (single-cell transcriptomics of monocytes/T/B/NK cells) to define molecular determinants of the autoinflammatory vs autoimmune clusters and to nominate cluster-specific therapies.</li>
+<li><strong>Prospective validation of the type I IFN signature</strong> as a treatment-stratification biomarker (IFN-high → JAK inhibitor) in a controlled trial.</li>
+<li><strong>Microbiome replication and interventional studies</strong> (larger cohorts; assessment of whether modulating <em>R. gnavus</em>/bile-acid metabolism alters GI disease).</li>
+<li><strong>Heterozygous, patient-variant knock-in mouse and iPSC models</strong> that faithfully replicate haploinsufficiency (rather than full deletion) for mechanism and drug testing.</li>
+<li><strong>Systematic surveillance protocol</strong> for lymphoproliferation/malignancy and standardized long-term follow-up of HCT-treated patients.</li>
+<li><strong>Functional-assay framework</strong> for classifying novel <em>TNFAIP3</em> missense VUS (NF-κB reporter, ubiquitination, STAT1/mTOR readouts) to support ACMG classification and cascade counseling.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 11 confirmed findings across 41 reviewed papers. Evidence types are annotated per finding (human clinical, model organism, in vitro, computational). All quoted text is drawn verbatim from the cited abstracts.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/A20_Haploinsufficiency-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/A20_Haploinsufficiency-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Citations</h2>
+<ol>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26642243/" target="_blank" rel="noopener noreferrer">PMID:26642243</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38451381/" target="_blank" rel="noopener noreferrer">PMID:38451381</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29846841/" target="_blank" rel="noopener noreferrer">PMID:29846841</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31086261/" target="_blank" rel="noopener noreferrer">PMID:31086261</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41692116/" target="_blank" rel="noopener noreferrer">PMID:41692116</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42128528/" target="_blank" rel="noopener noreferrer">PMID:42128528</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40574834/" target="_blank" rel="noopener noreferrer">PMID:40574834</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41620931/" target="_blank" rel="noopener noreferrer">PMID:41620931</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37899202/" target="_blank" rel="noopener noreferrer">PMID:37899202</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/34427832/" target="_blank" rel="noopener noreferrer">PMID:34427832</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31767699/" target="_blank" rel="noopener noreferrer">PMID:31767699</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29890348/" target="_blank" rel="noopener noreferrer">PMID:29890348</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36211342/" target="_blank" rel="noopener noreferrer">PMID:36211342</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40719110/" target="_blank" rel="noopener noreferrer">PMID:40719110</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/34808442/" target="_blank" rel="noopener noreferrer">PMID:34808442</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39672252/" target="_blank" rel="noopener noreferrer">PMID:39672252</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41991504/" target="_blank" rel="noopener noreferrer">PMID:41991504</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25043000/" target="_blank" rel="noopener noreferrer">PMID:25043000</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25267258/" target="_blank" rel="noopener noreferrer">PMID:25267258</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26815999/" target="_blank" rel="noopener noreferrer">PMID:26815999</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27551052/" target="_blank" rel="noopener noreferrer">PMID:27551052</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39167656/" target="_blank" rel="noopener noreferrer">PMID:39167656</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40369133/" target="_blank" rel="noopener noreferrer">PMID:40369133</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41191928/" target="_blank" rel="noopener noreferrer">PMID:41191928</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29940800/" target="_blank" rel="noopener noreferrer">PMID:29940800</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39360366/" target="_blank" rel="noopener noreferrer">PMID:39360366</a></li>
+</ol>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="8p_Inverted_Duplication_Deletion_Syndrome-openscientist.html">← 8p Inverted Duplication Deletion Syndrome (OpenScientist)</a>
+                
+                
+                <a href="AA_Amyloidosis-claude_code.html">AA Amyloidosis (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/A20_Haploinsufficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/A20_Haploinsufficiency-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

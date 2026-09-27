@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4114,6 +4182,7 @@ What one patient cannot support is prognosis. The published nuclear complex I de
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4217,6 +4286,7 @@ A note on how the fatal outcome is recorded. It is not curated as a phenotype: H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4241,6 +4311,7 @@ A note on how the fatal outcome is recorded. It is not curated as a phenotype: H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4262,6 +4333,7 @@ A note on how the fatal outcome is recorded. It is not curated as a phenotype: H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4336,6 +4408,7 @@ Two things would close it and neither is expensive. The screen&#39;s own supplem
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4420,6 +4493,7 @@ So the reported frequency of MC1DN39 is a statement about how the group has been
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4454,6 +4528,7 @@ So the reported frequency of MC1DN39 is a statement about how the group has been
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-intronic-ndufb7-variant" data-dismech-node="Biallelic Intronic NDUFB7 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Intronic NDUFB7 Variant</div>
+
 
                 <div class="item-desc">A homozygous c.113-10C&gt;G change in an NDUFB7 intron, ten bases upstream of the acceptor site. This is the class of variant that routine filtering discards: it is not coding, not canonical splice-site, and would be scored by most in silico splice predictors rather than observed. It was found by whole genome sequencing and taken seriously because the RNA was sequenced too.</div>
 
@@ -4548,6 +4623,7 @@ This pathophysiological event involves NDUFB7 (hgnc:7702). hgnc:7702 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4570,6 +4646,7 @@ This pathophysiological event involves NDUFB7 (hgnc:7702). hgnc:7702 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-ndufb7-messenger-rna-splicing" data-dismech-node="Aberrant NDUFB7 Messenger RNA Splicing" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant NDUFB7 Messenger RNA Splicing</div>
+
 
                 <div class="item-desc">Splicing pattern alterations confirmed by RNA sequencing of patient material. The measurement matters more than usual here: for a non-canonical intronic variant, the transcript is the only place the effect is visible, and predicting it would not have been the same claim.</div>
 
@@ -4621,6 +4698,7 @@ This pathophysiological event involves NDUFB7 (hgnc:7702). hgnc:7702 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4643,6 +4721,7 @@ This pathophysiological event involves NDUFB7 (hgnc:7702). hgnc:7702 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ndufb7-protein" data-dismech-node="Reduced NDUFB7 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced NDUFB7 Protein</div>
+
 
                 <div class="item-desc">The accessory subunit falls in abundance. NDUFB7 is one of the thirty-one accessory subunits of the forty-five-subunit human enzyme, and is not among the fourteen core subunits shared with bacterial complex I that carry catalysis.</div>
 
@@ -4694,6 +4773,7 @@ This pathophysiological event involves NDUFB7 (hgnc:7702). hgnc:7702 is a gene f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4715,6 +4795,7 @@ This pathophysiological event involves NDUFB7 (hgnc:7702). hgnc:7702 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4740,6 +4821,13 @@ This pathophysiological event involves NDUFB7 (hgnc:7702). hgnc:7702 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilised-assembly-of-the-complex-i-membrane-arm" data-dismech-node="Destabilised Assembly of the Complex I Membrane Arm" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilised Assembly of the Complex I Membrane Arm</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The step from a missing subunit to a broken enzyme. A systematic knockout screen of every accessory subunit found that losing any one of them destabilises the other subunits sitting in the same structural module, and that twenty-five of the thirty-one are strictly required for a functional complex to assemble at all.
 That is the mechanism this node asserts, and it is asserted as a general property of accessory subunits rather than as a measurement on NDUFB7. The cached record of the screen reports the rule across subunits without naming NDUFB7&#39;s module or its individual result, and no complexome profile has been published for a MC1DN39 patient. The node is marked PROVISIONAL for that reason.</div>
@@ -4851,6 +4939,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4872,6 +4961,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4897,6 +4987,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isolated-complex-i-enzyme-deficiency" data-dismech-node="Isolated Complex I Enzyme Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Isolated Complex I Enzyme Deficiency</div>
+
 
                 <div class="item-desc">Complex I activity is reduced with the other respiratory chain complexes intact, which is what makes the deficiency isolated. This node is where the causal argument closes: expressing wild-type NDUFB7 in the patient&#39;s own fibroblasts normalised complex I function, so the enzyme defect is attributable to NDUFB7 and not to an unrelated variant carried by the same patient.</div>
 
@@ -5024,6 +5115,7 @@ This pathophysiological event involves respiratory chain complex I (GO:0045271).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5046,6 +5138,13 @@ This pathophysiological event involves respiratory chain complex I (GO:0045271).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-in-high-demand-tissues" data-dismech-node="Bioenergetic Failure in High-Demand Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure in High-Demand Tissues</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Reduced electron transfer through complex I lowers oxidative phosphorylation output, and the tissues that decompensate first are the ones with the highest ATP demand: heart and brain. The clinical picture in the index patient follows that pattern, with hypertrophic cardiomyopathy and encephalopathy, and the anaerobic compensation shows as lactic acidosis.
 The tissue-selectivity reasoning is standard mitochondrial-medicine inference rather than a measurement in this patient, so the node is marked PROVISIONAL. No cardiac or brain tissue enzymology was reported.</div>
@@ -5203,6 +5302,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5224,6 +5324,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5272,7 +5373,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant NDUFB7 Messenger RNA Splicing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Splicing pattern alterations confirmed by RNA sequencing of patient material. The measurement matters more than usual here: for a non-canonical intronic variant, the transcript is the only place the effect is visible, and predicting it would not have been the same claim.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic Intronic NDUFB7 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A homozygous c.113-10C\u003eG change in an NDUFB7 intron, ten bases upstream of the acceptor site. This is the class of variant that routine filtering discards: it is not coding, not canonical splice-site, and would be scored by most in silico splice predictors rather than observed. It was found by whole genome sequencing and taken seriously because the RNA was sequenced too.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NDUFB7\"], \"gene_terms\": [{\"label\": \"NDUFB7\", \"id\": \"hgnc:7702\"}]}}, {\"id\": \"Bioenergetic Failure in High-Demand Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced electron transfer through complex I lowers oxidative phosphorylation output, and the tissues that decompensate first are the ones with the highest ATP demand: heart and brain. The clinical picture in the index patient follows that pattern, with hypertrophic cardiomyopathy and encephalopathy, and the anaerobic compensation shows as lactic acidosis.\\nThe tissue-selectivity reasoning is standard mitochondrial-medicine inference rather than a measurement in this patient, so the node is marked PROVISIONAL. No cardiac or brain tissue enzymology was reported.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"ATP synthesis coupled electron transport\"], \"locations\": [\"heart\"]}}, {\"id\": \"Destabilised Assembly of the Complex I Membrane Arm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step from a missing subunit to a broken enzyme. A systematic knockout screen of every accessory subunit found that losing any one of them destabilises the other subunits sitting in the same structural module, and that twenty-five of the thirty-one are strictly required for a functional complex to assemble at all.\\nThat is the mechanism this node asserts, and it is asserted as a general property of accessory subunits rather than as a measurement on NDUFB7. The cached record of the screen reports the rule across subunits without naming NDUFB7\u0027s module or its individual result, and no complexome profile has been published for a MC1DN39 patient. The node is marked PROVISIONAL for that reason.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"]}}, {\"id\": \"Empiric Mitochondrial Cofactor Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The vitamin and cofactor combination often given in mitochondrial disease, typically including riboflavin, coenzyme Q10, thiamine and carnitine. It is offered because the alternative is nothing, not because it has been shown to work: the reviewed evidence base is a small number of clinical trials across a heterogeneous group of disorders, and no trial has enrolled a patient with this genotype.\\nRiboflavin has a mechanistic rationale specific to complex I, since flavin mononucleotide is the enzyme\u0027s own NADH-oxidising prosthetic group, but that rationale is not a result. Nothing here should be read as evidence of benefit in MC1DN39.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"riboflavin\", \"coenzyme Q10\", \"carnitine\"]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal encephalopathy. Brain involvement is near-universal across nuclear complex I deficiency, where the 130-case series found that virtually all children ultimately develop Leigh syndrome or leukoencephalopathy; no neuroimaging pattern has been reported for this subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy appearing after birth. Cardiac involvement is not universal in nuclear complex I deficiency, and the 130-case series found that defects in some genes seem to associate with cardiomyopathy while others do not, so its prominence here is a candidate gene-specific feature rather than a generic one. With one patient it cannot be more than a candidate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Isolated Complex I Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I activity is reduced with the other respiratory chain complexes intact, which is what makes the deficiency isolated. This node is where the causal argument closes: expressing wild-type NDUFB7 in the patient\u0027s own fibroblasts normalised complex I function, so the enzyme defect is attributable to NDUFB7 and not to an unrelated variant carried by the same patient.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"experimental_models\": [{\"name\": \"Patient fibroblasts with wild-type NDUFB7 complementation\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"The complementation arm is the causality argument for this disease. It tests the candidate gene against the biochemical phenotype inside the patient\u0027s own genetic background, so it is not vulnerable to the objection that some other variant in that genome caused the enzyme defect.\"}]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe congenital lactic acidosis, the biochemical hallmark of the bioenergetic block. Present from the neonatal period in the index patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003128\"}}, {\"id\": \"NDUFB7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NDUFB7\"], \"gene_terms\": [{\"label\": \"NDUFB7\", \"id\": \"hgnc:7702\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Patient fibroblasts with wild-type NDUFB7 complementation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Skin fibroblasts from the index patient, carrying the homozygous intronic variant, in which complex I activity was measured before and after expression of wild-type NDUFB7. Function normalised on complementation.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Reduced NDUFB7 Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accessory subunit falls in abundance. NDUFB7 is one of the thirty-one accessory subunits of the forty-five-subunit human enzyme, and is not among the fourteen core subunits shared with bacterial complex I that carry catalysis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Supportive and Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-modifying therapy for MC1DN39, and none for nuclear complex I deficiency generally. Management is symptomatic: treating the lactic acidosis, the hypertrophic cardiomyopathy and the encephalopathy as they present.\\nThis block records the state of the field rather than anything reported for a MC1DN39 patient. No treatment or treatment response was described for the index case, and with one patient no disease-specific management claim is possible.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Intronic NDUFB7 Variant\", \"target\": \"Aberrant NDUFB7 Messenger RNA Splicing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant NDUFB7 Messenger RNA Splicing\", \"target\": \"Reduced NDUFB7 Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced NDUFB7 Protein\", \"target\": \"Destabilised Assembly of the Complex I Membrane Arm\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilised Assembly of the Complex I Membrane Arm\", \"target\": \"Isolated Complex I Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Enzyme Deficiency\", \"target\": \"Bioenergetic Failure in High-Demand Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bioenergetic Failure in High-Demand Tissues\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bioenergetic Failure in High-Demand Tissues\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bioenergetic Failure in High-Demand Tissues\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Bioenergetic Failure in High-Demand Tissues\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Empiric Mitochondrial Cofactor Supplementation\", \"target\": \"Isolated Complex I Enzyme Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient fibroblasts with wild-type NDUFB7 complementation\", \"target\": \"Isolated Complex I Enzyme Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"The complementation arm is the causality argument for this disease. It tests the candidate gene against the biochemical phenotype inside the patient\u0027s own genetic background, so it is not vulnerable to the objection that some other variant in that genome caused the enzyme defect.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts, not heart or brain, so nothing about tissue selectivity or about the cardiomyopathy is testable here. The rescue also establishes that NDUFB7 is limiting for complex I activity in these cells, not the assembly-level mechanism by which it is limiting; no complexome profile or assembly-intermediate analysis has been reported for this patient.\"}, {\"source\": \"NDUFB7\", \"target\": \"Biallelic Intronic NDUFB7 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant NDUFB7 Messenger RNA Splicing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Splicing pattern alterations confirmed by RNA sequencing of patient material. The measurement matters more than usual here: for a non-canonical intronic variant, the transcript is the only place the effect is visible, and predicting it would not have been the same claim.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic Intronic NDUFB7 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A homozygous c.113-10C\u003eG change in an NDUFB7 intron, ten bases upstream of the acceptor site. This is the class of variant that routine filtering discards: it is not coding, not canonical splice-site, and would be scored by most in silico splice predictors rather than observed. It was found by whole genome sequencing and taken seriously because the RNA was sequenced too.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NDUFB7\"], \"gene_terms\": [{\"label\": \"NDUFB7\", \"id\": \"hgnc:7702\"}]}}, {\"id\": \"Bioenergetic Failure in High-Demand Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced electron transfer through complex I lowers oxidative phosphorylation output, and the tissues that decompensate first are the ones with the highest ATP demand: heart and brain. The clinical picture in the index patient follows that pattern, with hypertrophic cardiomyopathy and encephalopathy, and the anaerobic compensation shows as lactic acidosis.\\nThe tissue-selectivity reasoning is standard mitochondrial-medicine inference rather than a measurement in this patient, so the node is marked PROVISIONAL. No cardiac or brain tissue enzymology was reported.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"ATP synthesis coupled electron transport\"], \"locations\": [\"heart\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Destabilised Assembly of the Complex I Membrane Arm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step from a missing subunit to a broken enzyme. A systematic knockout screen of every accessory subunit found that losing any one of them destabilises the other subunits sitting in the same structural module, and that twenty-five of the thirty-one are strictly required for a functional complex to assemble at all.\\nThat is the mechanism this node asserts, and it is asserted as a general property of accessory subunits rather than as a measurement on NDUFB7. The cached record of the screen reports the rule across subunits without naming NDUFB7\u0027s module or its individual result, and no complexome profile has been published for a MC1DN39 patient. The node is marked PROVISIONAL for that reason.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Empiric Mitochondrial Cofactor Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The vitamin and cofactor combination often given in mitochondrial disease, typically including riboflavin, coenzyme Q10, thiamine and carnitine. It is offered because the alternative is nothing, not because it has been shown to work: the reviewed evidence base is a small number of clinical trials across a heterogeneous group of disorders, and no trial has enrolled a patient with this genotype.\\nRiboflavin has a mechanistic rationale specific to complex I, since flavin mononucleotide is the enzyme\u0027s own NADH-oxidising prosthetic group, but that rationale is not a result. Nothing here should be read as evidence of benefit in MC1DN39.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"riboflavin\", \"coenzyme Q10\", \"carnitine\"]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal encephalopathy. Brain involvement is near-universal across nuclear complex I deficiency, where the 130-case series found that virtually all children ultimately develop Leigh syndrome or leukoencephalopathy; no neuroimaging pattern has been reported for this subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy appearing after birth. Cardiac involvement is not universal in nuclear complex I deficiency, and the 130-case series found that defects in some genes seem to associate with cardiomyopathy while others do not, so its prominence here is a candidate gene-specific feature rather than a generic one. With one patient it cannot be more than a candidate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Isolated Complex I Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I activity is reduced with the other respiratory chain complexes intact, which is what makes the deficiency isolated. This node is where the causal argument closes: expressing wild-type NDUFB7 in the patient\u0027s own fibroblasts normalised complex I function, so the enzyme defect is attributable to NDUFB7 and not to an unrelated variant carried by the same patient.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"experimental_models\": [{\"name\": \"Patient fibroblasts with wild-type NDUFB7 complementation\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"The complementation arm is the causality argument for this disease. It tests the candidate gene against the biochemical phenotype inside the patient\u0027s own genetic background, so it is not vulnerable to the objection that some other variant in that genome caused the enzyme defect.\"}]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe congenital lactic acidosis, the biochemical hallmark of the bioenergetic block. Present from the neonatal period in the index patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003128\"}}, {\"id\": \"NDUFB7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NDUFB7\"], \"gene_terms\": [{\"label\": \"NDUFB7\", \"id\": \"hgnc:7702\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Patient fibroblasts with wild-type NDUFB7 complementation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Skin fibroblasts from the index patient, carrying the homozygous intronic variant, in which complex I activity was measured before and after expression of wild-type NDUFB7. Function normalised on complementation.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Reduced NDUFB7 Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accessory subunit falls in abundance. NDUFB7 is one of the thirty-one accessory subunits of the forty-five-subunit human enzyme, and is not among the fourteen core subunits shared with bacterial complex I that carry catalysis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Supportive and Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-modifying therapy for MC1DN39, and none for nuclear complex I deficiency generally. Management is symptomatic: treating the lactic acidosis, the hypertrophic cardiomyopathy and the encephalopathy as they present.\\nThis block records the state of the field rather than anything reported for a MC1DN39 patient. No treatment or treatment response was described for the index case, and with one patient no disease-specific management claim is possible.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Intronic NDUFB7 Variant\", \"target\": \"Aberrant NDUFB7 Messenger RNA Splicing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant NDUFB7 Messenger RNA Splicing\", \"target\": \"Reduced NDUFB7 Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced NDUFB7 Protein\", \"target\": \"Destabilised Assembly of the Complex I Membrane Arm\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilised Assembly of the Complex I Membrane Arm\", \"target\": \"Isolated Complex I Enzyme Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Enzyme Deficiency\", \"target\": \"Bioenergetic Failure in High-Demand Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bioenergetic Failure in High-Demand Tissues\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bioenergetic Failure in High-Demand Tissues\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bioenergetic Failure in High-Demand Tissues\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Bioenergetic Failure in High-Demand Tissues\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Empiric Mitochondrial Cofactor Supplementation\", \"target\": \"Isolated Complex I Enzyme Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient fibroblasts with wild-type NDUFB7 complementation\", \"target\": \"Isolated Complex I Enzyme Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"The complementation arm is the causality argument for this disease. It tests the candidate gene against the biochemical phenotype inside the patient\u0027s own genetic background, so it is not vulnerable to the objection that some other variant in that genome caused the enzyme defect.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts, not heart or brain, so nothing about tissue selectivity or about the cardiomyopathy is testable here. The rescue also establishes that NDUFB7 is limiting for complex I activity in these cells, not the assembly-level mechanism by which it is limiting; no complexome profile or assembly-intermediate analysis has been reported for this patient.\"}, {\"source\": \"NDUFB7\", \"target\": \"Biallelic Intronic NDUFB7 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5340,6 +5441,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5354,6 +5458,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +5522,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5431,6 +5539,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5512,6 +5621,9 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5526,6 +5638,7 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5589,6 +5702,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5603,6 +5719,7 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5666,6 +5783,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5680,6 +5800,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5704,6 +5825,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5802,6 +5924,9 @@ This disease-associated gene is NDUFB7 (hgnc:7702). hgnc:7702 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5816,6 +5941,7 @@ This disease-associated gene is NDUFB7 (hgnc:7702). hgnc:7702 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5947,6 +6073,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5957,6 +6086,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6003,6 +6135,7 @@ This block records the state of the field rather than anything reported for a MC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6125,6 +6258,9 @@ This treatment uses carnitine (CHEBI:17126). CHEBI:17126 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6135,6 +6271,9 @@ This treatment uses carnitine (CHEBI:17126). CHEBI:17126 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -6184,6 +6323,7 @@ Riboflavin has a mechanistic rationale specific to complex I, since flavin monon
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6205,6 +6345,7 @@ Riboflavin has a mechanistic rationale specific to complex I, since flavin monon
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6270,6 +6411,7 @@ Riboflavin has a mechanistic rationale specific to complex I, since flavin monon
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6291,6 +6433,7 @@ Riboflavin has a mechanistic rationale specific to complex I, since flavin monon
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6505,7 @@ The practical consequence for a patient with unexplained isolated complex I defi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6383,6 +6527,7 @@ The practical consequence for a patient with unexplained isolated complex I defi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,6 +6602,7 @@ The practical consequence for a patient with unexplained isolated complex I defi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6617,6 +6763,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6656,6 +6803,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7616,6 +7764,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Mitochondrial Complex I Deficiency, Nuclear Type 39 (MC1DN39, NDUFB7)</strong> · 2026-09-04T14:30:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_39/2026-09-04T143052Z-claude-code-8fb11f.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MC1DN39 (MONDO:0859320, OMIM:620135, NDUFB7). Deep research: one OpenScientist run, committed as research/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_39-deep-research-openscientist.md. This run did emit both reference_validation and term_validation frontmatter blocks and both report sections (11/11 references resolved, 8/11 on topic; 37 terms checked, 1 obsolete, 4 labels mismatched). Three of those four label mismatches are false positives from the report&#39;s phenotype table, where the validator read the table&#39;s Type column as the term label, so HP:0001639 was reported as Sign/imaging and HP:0001903 as Lab abnormality; the CURIEs themselves are correct and are used. Entry content is built on PMID:33502047 (Correia 2021, the index patient with genome sequencing, RNA sequencing, protein and enzyme measurement and a wild-type NDUFB7 complementation rescue), PMID:27626371 (Stroud 2016, the accessory-subunit knockout screen) and PMID:22644603 (Koene 2012, 130 nuclear complex I deficiency cases). Two nodes carry mechanism_confidence PROVISIONAL: the assembly-destabilisation step, because the cached record of the knockout screen states the module principle across accessory subunits without naming NDUFB7&#39;s individual result, and the tissue-selectivity step, which is standard mitochondrial-medicine inference rather than a measurement in this patient. The complementation rescue is curated as a RESCUES modeled_mechanisms link on the patient fibroblast model, since it is the causality argument for the whole entry. Three knowledge gaps record the single-patient prognosis problem, the generic provenance of the module mechanism, and the ascertainment bias created by the causal variant being deep intronic. One schema constraint was hit and is documented in the prognosis discussion rather than worked around: the patient&#39;s fatal outcome could not be curated as a phenotype because HP:0003811 Neonatal death sits in HPO&#39;s mortality branch and is outside the PhenotypeTerm dynamic enum. Validation: just validate passed with 25/25 snippets verified; check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-snippet-boundaries, check-snippet-length, check-title-snippets, check-folded-hyphens, check-snippet-grading and check-enum-values all clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

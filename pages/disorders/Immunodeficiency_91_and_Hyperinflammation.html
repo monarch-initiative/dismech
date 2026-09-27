@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4111,6 +4179,7 @@ Two things distinguish it from familial HLH, and both are curated here as eviden
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4132,6 +4201,7 @@ Two things distinguish it from familial HLH, and both are curated here as eviden
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4559,6 +4629,13 @@ The mismatch is therefore not that the model fails to reproduce a human finding,
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-znfx1-loss-of-function" data-dismech-node="Biallelic ZNFX1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ZNFX1 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The primary lesion is biallelic damage to ZNFX1, encoding a large interferon-stimulated helicase. Reported alleles include nonsense, frameshift and missense changes; the founding cohort carried 11 biallelic variants across eight kindreds, five truncating and six missense. Protein is undetectable in cells from patients carrying two truncating alleles, so for that allele class the functional consequence is absence of protein rather than a hypomorph.</div>
 
 
@@ -4654,6 +4731,7 @@ This pathophysiological event involves ZNFX1 (hgnc:29271). hgnc:29271 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4675,6 +4753,7 @@ This pathophysiological event involves ZNFX1 (hgnc:29271). hgnc:29271 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4700,6 +4779,13 @@ This pathophysiological event involves ZNFX1 (hgnc:29271). hgnc:29271 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cytosolic-double-stranded-nucleic-acid-surveillance" data-dismech-node="Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ZNFX1 is an interferon-stimulated double-stranded RNA sensor that binds viral RNA and signals through the mitochondrial antiviral signalling protein MAVS, independently of the two other MAVS-associated sensors RIG-I and MDA5. Its expression is low in resting cells and is rapidly induced by viral infection and type I interferon, so the lesion is one of a stress-induced surveillance arm rather than of a constitutively required housekeeping pathway. In patient cells the protein is also recruited to, and can induce, cytoplasmic stress granules.</div>
 
@@ -4866,6 +4952,7 @@ This pathophysiological event involves cytoplasmic stress granule (GO:0010494). 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4887,6 +4974,7 @@ This pathophysiological event involves cytoplasmic stress granule (GO:0010494). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4914,6 +5002,7 @@ This pathophysiological event involves cytoplasmic stress granule (GO:0010494). 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4936,6 +5025,13 @@ This pathophysiological event involves cytoplasmic stress granule (GO:0010494). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-interferon-stimulated-gene-induction" data-dismech-node="Dysregulated Interferon-Stimulated Gene Induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Interferon-Stimulated Gene Induction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The defect is dysregulation, not simple loss. Patient cells stimulated with intracellular double-stranded nucleic acid over-express interferon-stimulated genes, and the half-life of ISG mRNA is altered; baseline ISG expression in patient blood is higher than in controls. Yet the same cells respond poorly to soluble poly(I:C) and clear virus less well. Curating this node as &#34;reduced interferon response&#34; would misstate the finding: the pathology is an unbalanced response whose direction depends on how the nucleic acid is presented.</div>
 
@@ -5057,6 +5153,7 @@ This pathophysiological event involves type I interferon-mediated signaling path
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5078,6 +5175,7 @@ This pathophysiological event involves type I interferon-mediated signaling path
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5103,6 +5201,13 @@ This pathophysiological event involves type I interferon-mediated signaling path
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepression-of-the-nlrp3-inflammasome" data-dismech-node="Derepression of the NLRP3 Inflammasome" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepression of the NLRP3 Inflammasome</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Independently of its sensing role, ZNFX1 restrains the NLRP3 inflammasome by holding NLRP3 in the cytoplasm and preventing its accumulation on trans-Golgi-network vesicles in the resting state. Loss of that restraint releases caspase-1 activation and IL-1-family cytokine maturation. Two features make this the most attractive current explanation for the hyperinflammatory pole of the disease: it is a licensing defect rather than a signalling deficiency, and human pathogenic ZNFX1 variants fail to rescue it where wild-type ZNFX1 does.
 It is nonetheless graded provisional. The work is in cell lines and mice; no patient-derived tissue has been shown to carry a derepressed NLRP3 inflammasome, and no patient has been reported to respond to NLRP3-directed therapy in a way that would close the loop.</div>
@@ -5195,6 +5300,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5216,6 +5322,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5241,6 +5348,13 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-monocyte-clearance-of-virus" data-dismech-node="Impaired Monocyte Clearance of Virus" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Monocyte Clearance of Virus</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">After prestimulation with transfected poly(I:C), patient monocytes cleared vesicular stomatitis virus less efficiently than control monocytes. This is the cellular correlate of the clinical susceptibility to RNA and DNA viruses, and it locates the defect in a myeloid cell rather than in the lymphoid compartment.</div>
 
@@ -5366,6 +5480,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5388,6 +5503,13 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-driven-cytokine-excess" data-dismech-node="Macrophage-Driven Cytokine Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage-Driven Cytokine Excess</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Macrophages are the proposed effector of the inflammatory phase. In the Znfx1-mutant mouse, mutant macrophages infiltrate the liver more heavily after infection and produce more cytokine in vitro even without stimulation, which points at a cell-intrinsic hair-trigger rather than at a stronger upstream signal.</div>
 
@@ -5475,6 +5597,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5497,6 +5620,13 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-virally-triggered-hyperinflammatory-episode" data-dismech-node="Virally Triggered Hyperinflammatory Episode" data-dismech-type="pathophysiology">
                 <div class="item-name">Virally Triggered Hyperinflammatory Episode</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical event that defines the disease: a systemic inflammatory episode precipitated by infection, with cytopenia and hepatitis, meeting HLH criteria in half of the affected patients in the founding cohort. Two negative findings are load-bearing for the mechanism. NK-cell degranulation and cytotoxicity were normal in every patient with HLH, so this is not the cytotoxicity defect of familial HLH. And the episodes are accompanied by leukocytosis, which the authors note is much less common in classical HLH.
 Episodes are not always infection-locked: some patients progressed after the virus had been cleared, and some in the apparent absence of any infectious agent, which is difficult to reconcile with a purely trigger-driven model and is one reason the inflammasome arm is attractive.</div>
@@ -5556,6 +5686,7 @@ Episodes are not always infection-locked: some patients progressed after the vir
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5577,6 +5708,7 @@ Episodes are not always infection-locked: some patients progressed after the vir
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5604,6 +5736,7 @@ Episodes are not always infection-locked: some patients progressed after the vir
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5626,6 +5759,13 @@ Episodes are not always infection-locked: some patients progressed after the vir
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-monocyte-homeostasis-and-antimycobacterial-defence" data-dismech-node="Impaired Monocyte Homeostasis and Antimycobacterial Defence" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Monocyte Homeostasis and Antimycobacterial Defence</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The second pole of the disease, from the second founding cohort: intermittent monocytosis with mycobacterial disease, in patients with normal lymphocyte subsets who produce IFN-gamma normally and whose cells respond normally to it. That set of normal results is what makes the finding interesting - it places ZNFX1 outside the IFN-gamma circuit that explains most Mendelian susceptibility to mycobacterial disease, and leaves the effector mechanism unidentified.</div>
 
@@ -5718,6 +5858,7 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5739,6 +5880,7 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5801,6 +5943,7 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5848,6 +5991,7 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5890,7 +6034,7 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only reported intervention that has altered the course of the disease. One patient transplanted at age 3 was in good health five years later, and his cerebral white-matter changes stabilised and then regressed after transplant - which is the most direct evidence available that the neurological injury is driven by the haematopoietic compartment rather than being an independent, cell-autonomous consequence of ZNFX1 loss in brain.\\nThis rests on a single transplanted patient. It is a strong mechanistic hint and a weak efficacy claim, and it should not be quoted as an established indication.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic ZNFX1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to ZNFX1, encoding a large interferon-stimulated helicase. Reported alleles include nonsense, frameshift and missense changes; the founding cohort carried 11 biallelic variants across eight kindreds, five truncating and six missense. Protein is undetectable in cells from patients carrying two truncating alleles, so for that allele class the functional consequence is absence of protein rather than a hypomorph.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZNFX1\"], \"gene_terms\": [{\"label\": \"ZNFX1\", \"id\": \"hgnc:29271\"}]}}, {\"id\": \"Derepression of the NLRP3 Inflammasome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independently of its sensing role, ZNFX1 restrains the NLRP3 inflammasome by holding NLRP3 in the cytoplasm and preventing its accumulation on trans-Golgi-network vesicles in the resting state. Loss of that restraint releases caspase-1 activation and IL-1-family cytokine maturation. Two features make this the most attractive current explanation for the hyperinflammatory pole of the disease: it is a licensing defect rather than a signalling deficiency, and human pathogenic ZNFX1 variants fail to rescue it where wild-type ZNFX1 does.\\nIt is nonetheless graded provisional. The work is in cell lines and mice; no patient-derived tissue has been shown to carry a derepressed NLRP3 inflammasome, and no patient has been reported to respond to NLRP3-directed therapy in a way that would close the loop.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"]}}, {\"id\": \"Dysregulated Interferon-Stimulated Gene Induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defect is dysregulation, not simple loss. Patient cells stimulated with intracellular double-stranded nucleic acid over-express interferon-stimulated genes, and the half-life of ISG mRNA is altered; baseline ISG expression in patient blood is higher than in controls. Yet the same cells respond poorly to soluble poly(I:C) and clear virus less well. Curating this node as \\\"reduced interferon response\\\" would misstate the finding: the pathology is an unbalanced response whose direction depends on how the nucleic acid is presented.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"type I interferon-mediated signaling pathway\"]}}, {\"id\": \"Impaired Monocyte Clearance of Virus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After prestimulation with transfected poly(I:C), patient monocytes cleared vesicular stomatitis virus less efficiently than control monocytes. This is the cellular correlate of the clinical susceptibility to RNA and DNA viruses, and it locates the defect in a myeloid cell rather than in the lymphoid compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\"], \"biological_processes\": [\"defense response to virus\"]}}, {\"id\": \"Impaired Monocyte Homeostasis and Antimycobacterial Defence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second pole of the disease, from the second founding cohort: intermittent monocytosis with mycobacterial disease, in patients with normal lymphocyte subsets who produce IFN-gamma normally and whose cells respond normally to it. That set of normal results is what makes the finding interesting - it places ZNFX1 outside the IFN-gamma circuit that explains most Mendelian susceptibility to mycobacterial disease, and leaves the effector mechanism unidentified.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\"], \"animal_models\": [{\"name\": \"Znfx1-knockout mouse infected with Mycobacterium tuberculosis\", \"species\": \"Mouse\", \"genotype\": \"Znfx1 knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Znfx1-knockout mice show increased mycobacterial burden and progressive lung injury, matching the direction of the human mycobacterial phenotype.\"}]}}, {\"id\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZNFX1 is an interferon-stimulated double-stranded RNA sensor that binds viral RNA and signals through the mitochondrial antiviral signalling protein MAVS, independently of the two other MAVS-associated sensors RIG-I and MDA5. Its expression is low in resting cells and is rapidly induced by viral infection and type I interferon, so the lesion is one of a stress-induced surveillance arm rather than of a constitutively required housekeeping pathway. In patient cells the protein is also recruited to, and can induce, cytoplasmic stress granules.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cellular response to exogenous double-stranded RNA\"], \"molecular_functions\": [\"double-stranded RNA binding\"]}}, {\"id\": \"Macrophage-Driven Cytokine Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages are the proposed effector of the inflammatory phase. In the Znfx1-mutant mouse, mutant macrophages infiltrate the liver more heavily after infection and produce more cytokine in vitro even without stimulation, which points at a cell-intrinsic hair-trigger rather than at a stronger upstream signal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"]}}, {\"id\": \"Virally Triggered Hyperinflammatory Episode\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical event that defines the disease: a systemic inflammatory episode precipitated by infection, with cytopenia and hepatitis, meeting HLH criteria in half of the affected patients in the founding cohort. Two negative findings are load-bearing for the mechanism. NK-cell degranulation and cytotoxicity were normal in every patient with HLH, so this is not the cytotoxicity defect of familial HLH. And the episodes are accompanied by leukocytosis, which the authors note is much less common in classical HLH.\\nEpisodes are not always infection-locked: some patients progressed after the virus had been cleared, and some in the apparent absence of any infectious agent, which is difficult to reconcile with a purely trigger-driven model and is one reason the inflammasome arm is attractive.\", \"meta\": {\"evidence_count\": 3, \"animal_models\": [{\"name\": \"Znfx1-mutant mouse infected with LCMV\", \"species\": \"Mouse\", \"genotype\": \"Znfx1mut\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"LCMV-infected Znfx1-mutant mice show hallmark features of HLH-like inflammation, with more pronounced T-cell expansion and Th1 polarisation than infected controls.\"}]}}, {\"id\": \"ZNFX1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZNFX1\"], \"gene_terms\": [{\"label\": \"ZNFX1\", \"id\": \"hgnc:29271\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Znfx1-knockout mouse infected with Mycobacterium tuberculosis\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A separate model addressing the mycobacterial pole of the disease. It offers a candidate mechanism the human work does not: ZNFX1 stabilises the mRNA encoding an AMPK catalytic subunit, and its loss impairs autophagic control of M. tuberculosis in macrophages.\"}, {\"id\": \"Znfx1-mutant mouse infected with LCMV\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A mouse model built specifically to reproduce the HLH-like arm of the human disease, using lymphocytic choriomeningitis virus as the trigger. It is the first model to pair the genotype with a viral challenge rather than characterising the knockout at rest.\"}], \"edges\": [{\"source\": \"Biallelic ZNFX1 Loss of Function\", \"target\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or non-functional ZNFX1 removes the sensor itself, which is the proximate functional lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"target\": \"Dysregulated Interferon-Stimulated Gene Induction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Losing the sensor deranges the transcriptional programme it normally shapes downstream of MAVS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"target\": \"Derepression of the NLRP3 Inflammasome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A second, non-sensing function of the same protein. Shown in cell lines and mice rather than in patient tissue, so the edge is graded provisional.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"target\": \"Impaired Monocyte Homeostasis and Antimycobacterial Defence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from loss of the sensor to monocytosis and mycobacterial susceptibility is not established. The second founding cohort showed that it does not run through IFN-gamma, but did not identify what it does run through.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Interferon-Stimulated Gene Induction\", \"target\": \"Impaired Monocyte Clearance of Virus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unbalanced ISG programme leaves monocytes unable to complete an antiviral defence programme after nucleic-acid stimulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of the NLRP3 Inflammasome\", \"target\": \"Macrophage-Driven Cytokine Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained inflammasome activity yields caspase-1-dependent maturation of IL-1-family cytokines.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Monocyte Clearance of Virus\", \"target\": \"Virally Triggered Hyperinflammatory Episode\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to clear the trigger sustains the stimulus that drives the inflammatory episode.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Macrophage-Driven Cytokine Excess\", \"target\": \"Virally Triggered Hyperinflammatory Episode\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine excess from activated macrophages is the proximate cause of the systemic episode.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Macrophage-Driven Cytokine Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Znfx1-mutant mouse infected with LCMV\", \"target\": \"Virally Triggered Hyperinflammatory Episode\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"LCMV-infected Znfx1-mutant mice show hallmark features of HLH-like inflammation, with more pronounced T-cell expansion and Th1 polarisation than infected controls.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"LCMV is not among the viruses that trigger episodes in patients, so the trigger is a laboratory surrogate rather than the human exposure. The model reproduces the inflammatory phenotype but has not been shown to reproduce the renal, pulmonary or neurological injury that dominates the human disease, and the mouse Znfx1 literature describes it primarily as an antiviral dsRNA sensor - a role the second human cohort does not support.\"}, {\"source\": \"Znfx1-knockout mouse infected with Mycobacterium tuberculosis\", \"target\": \"Impaired Monocyte Homeostasis and Antimycobacterial Defence\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Znfx1-knockout mice show increased mycobacterial burden and progressive lung injury, matching the direction of the human mycobacterial phenotype.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The model reproduces susceptibility but not the defining human feature of this arm, which is monocytosis; and the proposed AMPK-autophagy mechanism has not been tested in patient cells. Human patients presented with BCG-osis and disseminated tuberculosis rather than with the chronic pulmonary disease modelled here. Fidelity is graded LOW for that reason rather than because the murine work is weak.\"}, {\"source\": \"ZNFX1\", \"target\": \"Biallelic ZNFX1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only reported intervention that has altered the course of the disease. One patient transplanted at age 3 was in good health five years later, and his cerebral white-matter changes stabilised and then regressed after transplant - which is the most direct evidence available that the neurological injury is driven by the haematopoietic compartment rather than being an independent, cell-autonomous consequence of ZNFX1 loss in brain.\\nThis rests on a single transplanted patient. It is a strong mechanistic hint and a weak efficacy claim, and it should not be quoted as an established indication.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic ZNFX1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to ZNFX1, encoding a large interferon-stimulated helicase. Reported alleles include nonsense, frameshift and missense changes; the founding cohort carried 11 biallelic variants across eight kindreds, five truncating and six missense. Protein is undetectable in cells from patients carrying two truncating alleles, so for that allele class the functional consequence is absence of protein rather than a hypomorph.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZNFX1\"], \"gene_terms\": [{\"label\": \"ZNFX1\", \"id\": \"hgnc:29271\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Derepression of the NLRP3 Inflammasome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independently of its sensing role, ZNFX1 restrains the NLRP3 inflammasome by holding NLRP3 in the cytoplasm and preventing its accumulation on trans-Golgi-network vesicles in the resting state. Loss of that restraint releases caspase-1 activation and IL-1-family cytokine maturation. Two features make this the most attractive current explanation for the hyperinflammatory pole of the disease: it is a licensing defect rather than a signalling deficiency, and human pathogenic ZNFX1 variants fail to rescue it where wild-type ZNFX1 does.\\nIt is nonetheless graded provisional. The work is in cell lines and mice; no patient-derived tissue has been shown to carry a derepressed NLRP3 inflammasome, and no patient has been reported to respond to NLRP3-directed therapy in a way that would close the loop.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Dysregulated Interferon-Stimulated Gene Induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defect is dysregulation, not simple loss. Patient cells stimulated with intracellular double-stranded nucleic acid over-express interferon-stimulated genes, and the half-life of ISG mRNA is altered; baseline ISG expression in patient blood is higher than in controls. Yet the same cells respond poorly to soluble poly(I:C) and clear virus less well. Curating this node as \\\"reduced interferon response\\\" would misstate the finding: the pathology is an unbalanced response whose direction depends on how the nucleic acid is presented.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"biological_processes\": [\"type I interferon-mediated signaling pathway\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Monocyte Clearance of Virus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After prestimulation with transfected poly(I:C), patient monocytes cleared vesicular stomatitis virus less efficiently than control monocytes. This is the cellular correlate of the clinical susceptibility to RNA and DNA viruses, and it locates the defect in a myeloid cell rather than in the lymphoid compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\"], \"biological_processes\": [\"defense response to virus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Monocyte Homeostasis and Antimycobacterial Defence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second pole of the disease, from the second founding cohort: intermittent monocytosis with mycobacterial disease, in patients with normal lymphocyte subsets who produce IFN-gamma normally and whose cells respond normally to it. That set of normal results is what makes the finding interesting - it places ZNFX1 outside the IFN-gamma circuit that explains most Mendelian susceptibility to mycobacterial disease, and leaves the effector mechanism unidentified.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Znfx1-knockout mouse infected with Mycobacterium tuberculosis\", \"species\": \"Mouse\", \"genotype\": \"Znfx1 knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Znfx1-knockout mice show increased mycobacterial burden and progressive lung injury, matching the direction of the human mycobacterial phenotype.\"}]}}, {\"id\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZNFX1 is an interferon-stimulated double-stranded RNA sensor that binds viral RNA and signals through the mitochondrial antiviral signalling protein MAVS, independently of the two other MAVS-associated sensors RIG-I and MDA5. Its expression is low in resting cells and is rapidly induced by viral infection and type I interferon, so the lesion is one of a stress-induced surveillance arm rather than of a constitutively required housekeeping pathway. In patient cells the protein is also recruited to, and can induce, cytoplasmic stress granules.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cellular response to exogenous double-stranded RNA\"], \"molecular_functions\": [\"double-stranded RNA binding\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Macrophage-Driven Cytokine Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages are the proposed effector of the inflammatory phase. In the Znfx1-mutant mouse, mutant macrophages infiltrate the liver more heavily after infection and produce more cytokine in vitro even without stimulation, which points at a cell-intrinsic hair-trigger rather than at a stronger upstream signal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Virally Triggered Hyperinflammatory Episode\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical event that defines the disease: a systemic inflammatory episode precipitated by infection, with cytopenia and hepatitis, meeting HLH criteria in half of the affected patients in the founding cohort. Two negative findings are load-bearing for the mechanism. NK-cell degranulation and cytotoxicity were normal in every patient with HLH, so this is not the cytotoxicity defect of familial HLH. And the episodes are accompanied by leukocytosis, which the authors note is much less common in classical HLH.\\nEpisodes are not always infection-locked: some patients progressed after the virus had been cleared, and some in the apparent absence of any infectious agent, which is difficult to reconcile with a purely trigger-driven model and is one reason the inflammasome arm is attractive.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Znfx1-mutant mouse infected with LCMV\", \"species\": \"Mouse\", \"genotype\": \"Znfx1mut\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"LCMV-infected Znfx1-mutant mice show hallmark features of HLH-like inflammation, with more pronounced T-cell expansion and Th1 polarisation than infected controls.\"}]}}, {\"id\": \"ZNFX1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZNFX1\"], \"gene_terms\": [{\"label\": \"ZNFX1\", \"id\": \"hgnc:29271\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Znfx1-knockout mouse infected with Mycobacterium tuberculosis\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A separate model addressing the mycobacterial pole of the disease. It offers a candidate mechanism the human work does not: ZNFX1 stabilises the mRNA encoding an AMPK catalytic subunit, and its loss impairs autophagic control of M. tuberculosis in macrophages.\"}, {\"id\": \"Znfx1-mutant mouse infected with LCMV\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A mouse model built specifically to reproduce the HLH-like arm of the human disease, using lymphocytic choriomeningitis virus as the trigger. It is the first model to pair the genotype with a viral challenge rather than characterising the knockout at rest.\"}], \"edges\": [{\"source\": \"Biallelic ZNFX1 Loss of Function\", \"target\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or non-functional ZNFX1 removes the sensor itself, which is the proximate functional lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"target\": \"Dysregulated Interferon-Stimulated Gene Induction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Losing the sensor deranges the transcriptional programme it normally shapes downstream of MAVS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"target\": \"Derepression of the NLRP3 Inflammasome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A second, non-sensing function of the same protein. Shown in cell lines and mice rather than in patient tissue, so the edge is graded provisional.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance\", \"target\": \"Impaired Monocyte Homeostasis and Antimycobacterial Defence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from loss of the sensor to monocytosis and mycobacterial susceptibility is not established. The second founding cohort showed that it does not run through IFN-gamma, but did not identify what it does run through.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Interferon-Stimulated Gene Induction\", \"target\": \"Impaired Monocyte Clearance of Virus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unbalanced ISG programme leaves monocytes unable to complete an antiviral defence programme after nucleic-acid stimulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of the NLRP3 Inflammasome\", \"target\": \"Macrophage-Driven Cytokine Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained inflammasome activity yields caspase-1-dependent maturation of IL-1-family cytokines.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Monocyte Clearance of Virus\", \"target\": \"Virally Triggered Hyperinflammatory Episode\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to clear the trigger sustains the stimulus that drives the inflammatory episode.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Macrophage-Driven Cytokine Excess\", \"target\": \"Virally Triggered Hyperinflammatory Episode\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine excess from activated macrophages is the proximate cause of the systemic episode.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Macrophage-Driven Cytokine Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Znfx1-mutant mouse infected with LCMV\", \"target\": \"Virally Triggered Hyperinflammatory Episode\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"LCMV-infected Znfx1-mutant mice show hallmark features of HLH-like inflammation, with more pronounced T-cell expansion and Th1 polarisation than infected controls.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"LCMV is not among the viruses that trigger episodes in patients, so the trigger is a laboratory surrogate rather than the human exposure. The model reproduces the inflammatory phenotype but has not been shown to reproduce the renal, pulmonary or neurological injury that dominates the human disease, and the mouse Znfx1 literature describes it primarily as an antiviral dsRNA sensor - a role the second human cohort does not support.\"}, {\"source\": \"Znfx1-knockout mouse infected with Mycobacterium tuberculosis\", \"target\": \"Impaired Monocyte Homeostasis and Antimycobacterial Defence\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Znfx1-knockout mice show increased mycobacterial burden and progressive lung injury, matching the direction of the human mycobacterial phenotype.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The model reproduces susceptibility but not the defining human feature of this arm, which is monocytosis; and the proposed AMPK-autophagy mechanism has not been tested in patient cells. Human patients presented with BCG-osis and disseminated tuberculosis rather than with the chronic pulmonary disease modelled here. Fidelity is graded LOW for that reason rather than because the murine work is weak.\"}, {\"source\": \"ZNFX1\", \"target\": \"Biallelic ZNFX1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5909,17 +6053,21 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5929,12 +6077,12 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemophagocytosis" data-dismech-node="Hemophagocytosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Thrombocytopenia
+                        Hemophagocytosis
 
 
 
@@ -5946,15 +6094,18 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012156</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5974,6 +6125,153 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"6 met the diagnostic criteria for hemophagocytic lymphohistiocytosis (HLH), including hemophagocytosis in bone marrow aspirates"</div>
+
+
+                <div class="evidence-explanation">Documents marrow hemophagocytosis in the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-monocyte-count" data-dismech-node="Increased Monocyte Count" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Monocyte Count
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased total monocyte count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012311</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Monocytosis, annotated with Increased total monocyte count (HP:0012311). HP:0012311 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33876776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33876776" target="_blank">PMID:33876776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report four patients from two unrelated kindreds with intermittent monocytosis and mycobacterial disease"</div>
+
+
+                <div class="evidence-explanation">Establishes monocytosis as a defining feature of the second cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thrombocytopenia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001873</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6014,15 +6312,18 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001903</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6042,6 +6343,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6082,15 +6384,18 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0040223</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0040223</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6110,6 +6415,7 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6154,15 +6460,18 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001974</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Leukocytosis, annotated with Increased total leukocyte count (HP:0001974). HP:0001974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6182,6 +6491,7 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6206,6 +6516,7 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6250,15 +6561,18 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coagulopathy, annotated with Abnormality of the coagulation cascade (HP:0003256). HP:0003256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6278,6 +6592,7 @@ This clinical feature is Coagulopathy, annotated with Abnormality of the coagula
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6329,15 +6644,18 @@ This clinical feature is Coagulopathy, annotated with Abnormality of the coagula
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6357,6 +6675,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6401,15 +6720,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0006554</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6429,6 +6751,7 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6460,6 +6783,434 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-syndrome" data-dismech-node="Nephrotic Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nephrotic Syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We variously observed hemolytic uremic syndrome (P2.1), membranoproliferative glomerulonephritis (P6.1), nephrotic syndrome"</div>
+
+
+                <div class="evidence-explanation">Enumerates the renal presentations observed, including nephrotic syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemolytic-uremic-syndrome" data-dismech-node="Hemolytic Uremic Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hemolytic Uremic Syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005575" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0005575</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemolytic-uremic syndrome (HP:0005575). HP:0005575 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We variously observed hemolytic uremic syndrome (P2.1)"</div>
+
+
+                <div class="evidence-explanation">Names hemolytic uremic syndrome in a specific patient. The thrombotic microangiopathy sentence quoted here previously supports the TMA claim in the description but never says HUS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was evidence of renal involvement in 12 patients, including histologically proven thrombotic microangiopathy (TMA)"</div>
+
+
+                <div class="evidence-explanation">The histologically proven thrombotic microangiopathy that underlies the renal presentations, kept as a separate item for the separate claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-respiratory-distress-syndrome" data-dismech-node="Acute Respiratory Distress Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acute Respiratory Distress Syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0033677</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:0033677 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Acute respiratory distress syndrome occurred in 7 patients and was mostly associated with viral infections."</div>
+
+
+                <div class="evidence-explanation">Frequency and trigger association for ARDS in the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-viral-infections" data-dismech-node="Recurrent Viral Infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent Viral Infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patients were abnormally susceptible to viral infections"</div>
+
+
+                <div class="evidence-explanation">The susceptibility claim itself, stated directly by the source.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is noteworthy that live virus vaccines also caused severe vaccine strain infections in 2 patients"</div>
+
+
+                <div class="evidence-explanation">Documents vaccine-strain disease, which matters clinically and shows the susceptibility extends to attenuated organisms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-mycobacterial-infections" data-dismech-node="Recurrent Mycobacterial Infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent Mycobacterial Infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011274</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:0011274 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33876776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33876776" target="_blank">PMID:33876776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mycobacterial disease, including bacillus Calmette-Guérin-osis and disseminated tuberculosis"</div>
+
+
+                <div class="evidence-explanation">The specific mycobacterial presentations reported.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
@@ -6480,15 +7231,18 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6508,6 +7262,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6536,7 +7291,90 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-calcification" data-dismech-node="Cerebral Calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral Calcification
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002514</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuroimaging showed evidence of multiple focal calcifications in 3 patients"</div>
+
+
+                <div class="evidence-explanation">The imaging finding and its count.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6557,15 +7395,18 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6585,6 +7426,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6625,15 +7467,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6653,6 +7498,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6697,15 +7543,18 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002500</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6725,6 +7574,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6753,227 +7603,12 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
                     <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-respiratory-distress-syndrome" data-dismech-node="Acute Respiratory Distress Syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acute Respiratory Distress Syndrome
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0033677</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:0033677 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Acute respiratory distress syndrome occurred in 7 patients and was mostly associated with viral infections."</div>
-
-
-                <div class="evidence-explanation">Frequency and trigger association for ARDS in the cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hemophagocytosis" data-dismech-node="Hemophagocytosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hemophagocytosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012156</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"6 met the diagnostic criteria for hemophagocytic lymphohistiocytosis (HLH), including hemophagocytosis in bone marrow aspirates"</div>
-
-
-                <div class="evidence-explanation">Documents marrow hemophagocytosis in the cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-monocyte-count" data-dismech-node="Increased Monocyte Count" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Monocyte Count
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased total monocyte count</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012311</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Monocytosis, annotated with Increased total monocyte count (HP:0012311). HP:0012311 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33876776" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33876776" target="_blank">PMID:33876776</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report four patients from two unrelated kindreds with intermittent monocytosis and mycobacterial disease"</div>
-
-
-                <div class="evidence-explanation">Establishes monocytosis as a defining feature of the second cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-pneumonitis" data-dismech-node="Interstitial Pneumonitis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6989,15 +7624,18 @@ This clinical feature is Monocytosis, annotated with Increased total monocyte co
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0006515</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0006515</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7020,6 +7658,7 @@ This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7028,396 +7667,6 @@ This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a 
 
 
                 <div class="evidence-explanation">A single well-characterised case establishing interstitial pneumonitis in this disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-syndrome" data-dismech-node="Nephrotic Syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nephrotic Syndrome
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000100</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We variously observed hemolytic uremic syndrome (P2.1), membranoproliferative glomerulonephritis (P6.1), nephrotic syndrome"</div>
-
-
-                <div class="evidence-explanation">Enumerates the renal presentations observed, including nephrotic syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hemolytic-uremic-syndrome" data-dismech-node="Hemolytic Uremic Syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hemolytic Uremic Syndrome
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005575" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005575</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hemolytic-uremic syndrome (HP:0005575). HP:0005575 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We variously observed hemolytic uremic syndrome (P2.1)"</div>
-
-
-                <div class="evidence-explanation">Names hemolytic uremic syndrome in a specific patient. The thrombotic microangiopathy sentence quoted here previously supports the TMA claim in the description but never says HUS.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"There was evidence of renal involvement in 12 patients, including histologically proven thrombotic microangiopathy (TMA)"</div>
-
-
-                <div class="evidence-explanation">The histologically proven thrombotic microangiopathy that underlies the renal presentations, kept as a separate item for the separate claim.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-calcification" data-dismech-node="Cerebral Calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebral Calcification
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002514</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neuroimaging showed evidence of multiple focal calcifications in 3 patients"</div>
-
-
-                <div class="evidence-explanation">The imaging finding and its count.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-viral-infections" data-dismech-node="Recurrent Viral Infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent Viral Infections
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patients were abnormally susceptible to viral infections"</div>
-
-
-                <div class="evidence-explanation">The susceptibility claim itself, stated directly by the source.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33872655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33872655" target="_blank">PMID:33872655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It is noteworthy that live virus vaccines also caused severe vaccine strain infections in 2 patients"</div>
-
-
-                <div class="evidence-explanation">Documents vaccine-strain disease, which matters clinically and shows the susceptibility extends to attenuated organisms.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-mycobacterial-infections" data-dismech-node="Recurrent Mycobacterial Infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent Mycobacterial Infections
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011274</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:0011274 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33876776" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33876776" target="_blank">PMID:33876776</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"mycobacterial disease, including bacillus Calmette-Guérin-osis and disseminated tuberculosis"</div>
-
-
-                <div class="evidence-explanation">The specific mycobacterial presentations reported.</div>
 
 
 
@@ -7505,6 +7754,9 @@ This disease-associated gene is ZNFX1 (hgnc:29271). hgnc:29271 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7519,6 +7771,7 @@ This disease-associated gene is ZNFX1 (hgnc:29271). hgnc:29271 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7543,6 +7796,7 @@ This disease-associated gene is ZNFX1 (hgnc:29271). hgnc:29271 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7629,6 +7883,9 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7639,6 +7896,9 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
     </div>
+
+
+
 
 
 
@@ -7676,6 +7936,7 @@ This rests on a single transplanted patient. It is a strong mechanistic hint and
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7722,6 +7983,7 @@ This rests on a single transplanted patient. It is a strong mechanistic hint and
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7743,6 +8005,7 @@ This rests on a single transplanted patient. It is a strong mechanistic hint and
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7831,6 +8094,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7841,6 +8107,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7868,6 +8137,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7956,6 +8226,9 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7966,6 +8239,9 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7993,6 +8269,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -8055,6 +8332,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8124,6 +8402,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8175,6 +8454,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8252,14 +8532,15 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"ZNFX1) mutations have been described in 28 patients from 17 families"</div>
+                <div class="evidence-snippet">"Recently, NFX1-type zinc finger-containing 1 (ZNFX1) mutations have been described in 28 patients from 17 families with a type I IFN inborn error of immunity ... These patients are reported to have recurrent viral and mycobacterial infections as well as monocytosis, thrombocytopenia,..."</div>
 
 
-                <div class="evidence-explanation">A published tally of reported patients and kindreds as of 2023.</div>
+                <div class="evidence-explanation">The paper summarizes 28 patients from 17 families with ZNFX1-related inborn errors of immunity and describes infection and hyperinflammatory manifestations. This is a literature count, not a population prevalence.</div>
 
 
 
@@ -8318,6 +8599,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8339,6 +8621,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8424,6 +8707,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8445,6 +8729,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8500,6 +8785,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8649,6 +8935,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8708,6 +8995,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8747,6 +9035,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8884,6 +9173,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8923,6 +9213,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9067,8 +9358,16 @@ prevalence:
     reference_title: ZNFX1 Deficiency in a Child with Interstitial Pneumonitis and Peripheral Monocytosis.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ZNFX1) mutations have been described in 28 patients from 17 families&#34;
-    explanation: A published tally of reported patients and kindreds as of 2023.
+    snippet: &gt;-
+      Recently, NFX1-type zinc finger-containing 1 (ZNFX1) mutations have been described in 28
+      patients from 17 families with a type I IFN inborn error of immunity ... These patients are
+      reported to have recurrent viral and mycobacterial infections as well as monocytosis,
+      thrombocytopenia, hepatosplenomegaly, and hemophagocytic lymphohistiocytosis (HLH) or HLH-like
+      manifestations.
+    explanation: &gt;-
+      The paper summarizes 28 patients from 17 families with ZNFX1-related inborn errors of immunity
+      and describes infection and hyperinflammatory manifestations. This is a literature count, not
+      a population prevalence.
 pathophysiology:
 - name: Biallelic ZNFX1 Loss of Function
   biological_scale: MOLECULAR
@@ -10321,7 +10620,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Immunodeficiency 91 and Hyperinflammation", "mondoId": "MONDO:0030491", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_91_and_Hyperinflammation", "yamlRevision": "97bd470ceffc"};
+        const OS_CONFIG = {"diseaseName": "Immunodeficiency 91 and Hyperinflammation", "mondoId": "MONDO:0030491", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_91_and_Hyperinflammation", "yamlRevision": "5eb682b7ad5f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

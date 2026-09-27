@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4434,6 +4502,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4468,6 +4537,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-activating-truncal-driver-alteration" data-dismech-node="MAPK-Activating Truncal Driver Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">MAPK-Activating Truncal Driver Alteration</div>
+
 
                 <div class="item-desc">ATC commonly arises from a pre-existing follicular-cell-derived thyroid carcinoma that already carries a truncal MAPK-pathway driver alteration. This initiating event establishes the core oncogenic signaling axis that is later exploited therapeutically in molecularly selected tumors.</div>
 
@@ -4602,6 +4672,8 @@ This pathophysiological event involves RET (hgnc:9967). hgnc:9967 is a gene from
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4610,6 +4682,9 @@ This pathophysiological event involves RET (hgnc:9967). hgnc:9967 is a gene from
 
 
     </div>
+
+
+
 
 
 
@@ -4740,6 +4815,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4761,6 +4837,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4786,6 +4863,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-loss-and-p53-mediated-dna-damage-response-failure" data-dismech-node="TP53 Loss and p53-Mediated DNA Damage Response Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53 Loss and p53-Mediated DNA Damage Response Failure</div>
+
 
                 <div class="item-desc">Progression to ATC commonly includes late TP53 alteration, which weakens p53-mediated DNA damage control and permits genomically unstable evolution toward highly aggressive undifferentiated disease.</div>
 
@@ -4920,6 +4998,7 @@ This pathophysiological event involves decreased DNA damage response, signal tra
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4942,6 +5021,7 @@ This pathophysiological event involves decreased DNA damage response, signal tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tert-reactivation-and-telomere-maintenance" data-dismech-node="TERT Reactivation and Telomere Maintenance" data-dismech-type="pathophysiology">
                 <div class="item-name">TERT Reactivation and Telomere Maintenance</div>
+
 
                 <div class="item-desc">TERT promoter mutation is a late progression event that reactivates telomerase, enabling telomere maintenance and sustained clonal expansion in advanced follicular-cell-derived thyroid carcinoma.</div>
 
@@ -5076,6 +5156,7 @@ This pathophysiological event involves increased telomere maintenance via telome
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5098,6 +5179,7 @@ This pathophysiological event involves increased telomere maintenance via telome
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-survival-signaling" data-dismech-node="PI3K-AKT Survival Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K-AKT Survival Signaling</div>
+
 
                 <div class="item-desc">Aberrant PI3K-PTEN-AKT signaling provides a parallel survival and growth pathway during ATC progression, helping aggressive clones persist despite loss of differentiated thyroid-cell features.</div>
 
@@ -5189,6 +5271,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5211,6 +5294,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-swi-snf-chromatin-remodeling-complex-inactivation" data-dismech-node="SWI/SNF Chromatin Remodeling Complex Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">SWI/SNF Chromatin Remodeling Complex Inactivation</div>
+
 
                 <div class="item-desc">A substantial subset of anaplastic thyroid carcinomas acquires inactivating mutations in subunits of the SWI/SNF ATP-dependent chromatin remodeling complex, most often ARID1A, ARID2, or SMARCB1. These mutations are enriched in ATC relative to less advanced thyroid cancers and collapse chromatin accessibility at thyroid lineage-specification genes, reinforcing the dedifferentiated, radioiodine-refractory state and rendering tumors insensitive to MAPK-inhibitor-based redifferentiation.</div>
 
@@ -5357,6 +5441,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5378,6 +5463,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5403,6 +5489,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dedifferentiation-and-loss-of-thyroid-identity" data-dismech-node="Dedifferentiation and Loss of Thyroid Identity" data-dismech-type="pathophysiology">
                 <div class="item-name">Dedifferentiation and Loss of Thyroid Identity</div>
+
 
                 <div class="item-desc">As follicular-cell-derived thyroid carcinoma dedifferentiates into ATC, it loses thyroid-specific transcriptional programs and iodide-handling functions. This transition is a major reason ATC is radioiodine refractory and clinically far more aggressive than differentiated thyroid cancer.</div>
 
@@ -5502,6 +5589,7 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5523,6 +5611,7 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5548,6 +5637,7 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-mesenchymal-transition" data-dismech-node="Epithelial-Mesenchymal Transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial-Mesenchymal Transition</div>
+
 
                 <div class="item-desc">During progression to ATC, tumor cells activate an epithelial-mesenchymal transition (EMT) program: they lose the epithelial adhesion molecule E-cadherin and gain mesenchymal markers such as vimentin together with the EMT transcription factor ZEB1. This phenotypic switch underlies the migratory, invasive, and metastatic behavior that characterizes anaplastic thyroid carcinoma.</div>
 
@@ -5639,6 +5729,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5660,6 +5751,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5685,6 +5777,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-matrix-metalloproteinase-dysregulation-and-invasion" data-dismech-node="Matrix Metalloproteinase Dysregulation and Invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Matrix Metalloproteinase Dysregulation and Invasion</div>
+
 
                 <div class="item-desc">ATC exhibits marked dysregulation of matrix metalloproteinase-related programs, remodeling the extracellular environment to support migration, local tissue destruction, and distant spread.</div>
 
@@ -5856,6 +5949,7 @@ This pathophysiological event involves increased positive regulation of cell mig
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -5878,6 +5972,7 @@ This pathophysiological event involves increased positive regulation of cell mig
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adaptive-immune-resistance-and-immunosuppressive-microenvironment" data-dismech-node="Adaptive Immune Resistance and Immunosuppressive Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">Adaptive Immune Resistance and Immunosuppressive Microenvironment</div>
+
 
                 <div class="item-desc">ATC frequently upregulates tumor-cell PD-L1 within an immune-infiltrated microenvironment. The majority of ATCs are PD-L1-positive and contain abundant CD3+/CD8+ tumor-infiltrating lymphocytes and tumor-associated macrophages, indicating an &#34;immune-adapted&#34; tumor in which pre-existing anti-tumor immunity is actively suppressed through the PD-1/PD-L1 axis. PD-L1 positivity is enriched in BRAF V600E-mutant ATC and is considered predictive of response to anti-PD-1/PD-L1 therapy.</div>
 
@@ -6018,6 +6113,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6042,6 +6138,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6063,6 +6160,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6125,6 +6223,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6146,6 +6245,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6196,6 +6296,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6240,6 +6341,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6310,15 +6412,17 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Voice<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Voice<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Neoplasm<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6359,6 +6463,9 @@ This clinical feature is lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6373,6 +6480,7 @@ This clinical feature is lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6438,6 +6546,9 @@ This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6452,6 +6563,7 @@ This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6517,6 +6629,9 @@ This clinical feature is thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6531,6 +6646,7 @@ This clinical feature is thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6562,13 +6678,13 @@ This clinical feature is thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">3</span>
+                    Nervous System
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vocal-cord-paralysis" data-dismech-node="Vocal cord paralysis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Dyspnea
+                        Vocal cord paralysis
 
 
 
@@ -6580,15 +6696,18 @@ This clinical feature is thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001605" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001605</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is vocal cord paralysis (HP:0001605). HP:0001605 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6608,6 +6727,88 @@ This clinical feature is dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ATC presents with a rapidly growing fixed and hard neck mass, often metastatic local lymph nodes appreciable on examination and/or vocal paralysis."</div>
+
+
+                <div class="evidence-explanation">Directly reports vocal paralysis in the typical clinical presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dyspnea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22783225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22783225" target="_blank">PMID:22783225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6650,15 +6851,18 @@ This clinical feature is dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0010307</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010307</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is stridor (HP:0010307). HP:0010307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6678,6 +6882,7 @@ This clinical feature is stridor (HP:0010307). HP:0010307 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6718,15 +6923,18 @@ This clinical feature is stridor (HP:0010307). HP:0010307 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002781</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002781</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is upper airway obstruction (HP:0002781). HP:0002781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6746,6 +6954,7 @@ This clinical feature is upper airway obstruction (HP:0002781). HP:0002781 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6774,7 +6983,7 @@ This clinical feature is upper airway obstruction (HP:0002781). HP:0002781 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Voice
@@ -6797,15 +7006,18 @@ This clinical feature is upper airway obstruction (HP:0002781). HP:0002781 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001609</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001609</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6825,6 +7037,7 @@ This clinical feature is hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6853,7 +7066,90 @@ This clinical feature is hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neck-pain" data-dismech-node="Neck pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neck pain
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030833" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0030833</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is neck pain (HP:0030833). HP:0030833 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22783225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22783225" target="_blank">PMID:22783225</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Regional symptoms included a noticeable lymph node mass (54%) and neck pain (26%)."</div>
+
+
+                <div class="evidence-explanation">Directly reports neck pain in 26% of patients, supporting the OCCASIONAL category.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6874,15 +7170,18 @@ This clinical feature is hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6902,6 +7201,7 @@ This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6930,7 +7230,7 @@ This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Neoplasm
@@ -6953,15 +7253,18 @@ This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100526</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100526</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6981,6 +7284,7 @@ This clinical feature is neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6992,153 +7296,6 @@ This clinical feature is neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
                 <div class="evidence-explanation">Directly identifies pulmonary metastases as a systemic manifestation of advanced ATC while the HPO term captures neoplastic lung involvement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neck-pain" data-dismech-node="Neck pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neck pain
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030833" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030833</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is neck pain (HP:0030833). HP:0030833 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22783225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22783225" target="_blank">PMID:22783225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Regional symptoms included a noticeable lymph node mass (54%) and neck pain (26%)."</div>
-
-
-                <div class="evidence-explanation">Directly reports neck pain in 26% of patients, supporting the OCCASIONAL category.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-vocal-cord-paralysis" data-dismech-node="Vocal cord paralysis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Vocal cord paralysis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001605" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001605</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is vocal cord paralysis (HP:0001605). HP:0001605 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22783225" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22783225" target="_blank">PMID:22783225</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ATC presents with a rapidly growing fixed and hard neck mass, often metastatic local lymph nodes appreciable on examination and/or vocal paralysis."</div>
-
-
-                <div class="evidence-explanation">Directly reports vocal paralysis in the typical clinical presentation.</div>
 
 
 
@@ -7230,6 +7387,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7244,6 +7404,7 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7305,6 +7466,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7319,6 +7483,7 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7380,6 +7545,9 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7394,6 +7562,7 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7455,6 +7624,9 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7469,6 +7641,7 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7555,6 +7728,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7565,6 +7741,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7595,6 +7774,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7616,6 +7796,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7683,6 +7864,9 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7693,6 +7877,9 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -7720,6 +7907,7 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7843,6 +8031,9 @@ This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7853,6 +8044,9 @@ This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7883,6 +8077,7 @@ This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7904,6 +8099,7 @@ This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8015,6 +8211,12 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Combined BRAF and MEK inhibition provides substantial clinical benefit in BRAF V600E-mutant ATC and is a core systemic option for molecularly selected patients.</div>
 
 
@@ -8045,6 +8247,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8091,6 +8294,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8112,6 +8316,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8218,6 +8423,9 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8228,6 +8436,9 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -8264,6 +8475,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8310,6 +8522,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8331,6 +8544,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8396,6 +8610,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8440,6 +8655,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8544,6 +8760,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8565,6 +8782,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8657,6 +8875,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8721,6 +8940,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8803,6 +9023,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8824,6 +9045,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8892,6 +9114,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8997,6 +9220,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9069,6 +9293,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9146,6 +9371,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9217,6 +9443,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9295,6 +9522,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9370,6 +9598,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9441,6 +9670,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9578,6 +9808,7 @@ This clinical trial targets thyroid carcinoma (HP:0002890). HP:0002890 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9650,6 +9881,7 @@ This clinical trial targets thyroid carcinoma (HP:0002890). HP:0002890 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9749,6 +9981,7 @@ This clinical trial targets thyroid carcinoma (HP:0002890). HP:0002890 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11827,6 +12060,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Publication-readiness review: Anaplastic Thyroid Carcinoma</strong> · 2026-08-05T07:05:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Anaplastic_Thyroid_Carcinoma/2026-08-05T070509Z-codex-87f734.yaml">View source</a></p>
+                        <p class="research-review-text">Independent full-disorder review against primary studies, current clinicopathologic evidence, and the 2021 ATA guideline. Corrected evidence overreach and source classification; added diagnostic workup, stage framing, differentials, phenotypes, cytotoxic chemotherapy, animal-model limitations, and ontology-backed gene wiring. Repository-managed deep-research providers were attempted but unavailable (retired model, quota failure, and a stalled provider); all promoted sources were independently verified. Scoped schema, term, reference/snippet, compliance, graph, and connectivity validation completed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

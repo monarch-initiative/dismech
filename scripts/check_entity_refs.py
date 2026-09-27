@@ -84,6 +84,11 @@ EXCLUDED_ROOTS = {
     # Surrogate-endpoint records, likewise a separate schema with no
     # reference-bearing slots.
     "kb/surrogate_endpoints": "separate schema; no entity-ref slots",
+    # Curated pathograph node-class tree plus its GO seed table: plain text
+    # and TSV, not YAML, so there are no entity-ref slots to sweep. The tree's
+    # own `[Disease_Entry] Node name` examples are checked instead by
+    # `just node-classes --verify-kb`, which runs ungated in main.yaml.
+    "kb/node_classes": "plain-text class tree + TSV seed; no YAML",
 }
 
 

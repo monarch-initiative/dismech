@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4230,6 +4298,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4276,6 +4345,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-farsb-variants" data-dismech-node="Biallelic FARSB Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic FARSB Variants</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The primary lesion is biallelic damage to FARSB, encoding the beta subunit of the cytoplasmic phenylalanyl-tRNA synthetase heterotetramer. Reported alleles include start-loss and missense changes carried in trans.</div>
 
@@ -4370,6 +4446,7 @@ This pathophysiological event involves FARSB (hgnc:17800). hgnc:17800 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4392,6 +4469,13 @@ This pathophysiological event involves FARSB (hgnc:17800). hgnc:17800 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cytoplasmic-phenylalanyl-trna-synthetase-activity" data-dismech-node="Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The heterotetramer retains partial activity: roughly a quarter of control aminoacylation in patient fibroblasts. Because the enzyme catalyses the committed step that charges phenylalanine onto tRNA-Phe, the deficit is upstream of all cytoplasmic protein synthesis rather than of one pathway.</div>
 
@@ -4525,6 +4609,7 @@ This pathophysiological event involves decreased phenylalanyl-tRNA synthetase ac
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4547,6 +4632,13 @@ This pathophysiological event involves decreased phenylalanyl-tRNA synthetase ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-temperature-sensitive-collapse-of-residual-aminoacylation" data-dismech-node="Temperature-Sensitive Collapse of Residual Aminoacylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Temperature-Sensitive Collapse of Residual Aminoacylation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The residual enzyme is thermolabile. Aminoacylation in patient fibroblasts does not merely sit low at 37 degrees Celsius; it falls further on warming, reaching zero at 40 degrees in the characterised FARSB patient. This is the mechanistic account of why these children decompensate during febrile illness, when body temperature and translational demand rise together, and it is the same behaviour documented in LARS1 deficiency.</div>
 
@@ -4598,6 +4690,7 @@ This pathophysiological event involves decreased phenylalanyl-tRNA synthetase ac
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4619,6 +4712,7 @@ This pathophysiological event involves decreased phenylalanyl-tRNA synthetase ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4644,6 +4738,13 @@ This pathophysiological event involves decreased phenylalanyl-tRNA synthetase ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-translation-failure-under-phenylalanine-limitation" data-dismech-node="Translation Failure Under Phenylalanine Limitation" data-dismech-type="pathophysiology">
                 <div class="item-name">Translation Failure Under Phenylalanine Limitation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">With a crippled synthetase, cytoplasmic translation becomes conditional on phenylalanine supply. Patient fibroblasts grow normally when phenylalanine is plentiful and fail dose-dependently as it falls, whereas control cells do not - so the cellular lesion is not a fixed translational deficit but a loss of reserve. Tissues with the highest secretory protein throughput and the fastest growth would therefore be expected to fail first. That last sentence is an inference from the conditional-reserve result, not a finding: none of the cited sources reports tissue tropism directly.</div>
 
@@ -4771,6 +4872,7 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4793,6 +4895,13 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-lipoproteinaceous-accumulation" data-dismech-node="Alveolar Lipoproteinaceous Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Lipoproteinaceous Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The lung lesion of FARSB deficiency is described as pulmonary alveolar proteinosis - accumulation of lipoproteinaceous material in the alveolar space - presenting radiologically as interstitial lung disease. It is near universal in this branch of the ARS1 family and is the usual cause of death. Note the entry does NOT assert a specific surfactant-handling mechanism for the accumulation; no cached source establishes one for FARSB, and the step from failed translational reserve to alveolar filling is recorded here as indirect for that reason.</div>
 
@@ -4854,6 +4963,7 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4876,6 +4986,13 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-somatic-growth" data-dismech-node="Impaired Somatic Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Somatic Growth</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Growth restriction is one of the three features in the disease&#39;s clinical triad and is common across the multisystem ARS1 cluster to which FARSB belongs.</div>
 
@@ -4933,6 +5050,7 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4978,7 +5096,7 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alveolar Lipoproteinaceous Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lung lesion of FARSB deficiency is described as pulmonary alveolar proteinosis - accumulation of lipoproteinaceous material in the alveolar space - presenting radiologically as interstitial lung disease. It is near universal in this branch of the ARS1 family and is the usual cause of death. Note the entry does NOT assert a specific surfactant-handling mechanism for the accumulation; no cached source establishes one for FARSB, and the step from failed translational reserve to alveolar filling is recorded here as indirect for that reason.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic FARSB Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to FARSB, encoding the beta subunit of the cytoplasmic phenylalanyl-tRNA synthetase heterotetramer. Reported alleles include start-loss and missense changes carried in trans.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FARSB\"], \"gene_terms\": [{\"label\": \"FARSB\", \"id\": \"hgnc:17800\"}]}}, {\"id\": \"Cerebral Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial calcification, characteristically basal ganglia, is the feature that names the disease. IMPORTANT - see the entry `notes`: no reference cited by this entry makes this claim about FARSB specifically. The evidence attached below is a cross-ARS1 frequency and is graded INDIRECT for exactly that reason. This phenotype needs re-evidencing from the FARSB primary literature before it should be relied on.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002514\"}}, {\"id\": \"FARSB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FARSB\"], \"gene_terms\": [{\"label\": \"FARSB\", \"id\": \"hgnc:17800\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 5}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive, in the treated cohort severe enough to require tube feeding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is part of the multisystem presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth Restriction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth and failure to thrive, typically from infancy. No `frequency` is recorded: the only available figure is a 50-100% band spanning eleven ARS1 genes, which straddles the FREQUENT/VERY_FREQUENT boundary and is not a FARSB point estimate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Impaired Somatic Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Growth restriction is one of the three features in the disease\u0027s clinical triad and is common across the multisystem ARS1 cluster to which FARSB belongs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Interstitial Lung Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-universal interstitial lung disease, characterised in the cited source as pulmonary alveolar proteinosis presenting as interstitial lung disease. It is usually what brings the child to attention and what determines survival. The bilateral ground-glass and subpleural-cyst appearance conventionally described for this disease is NOT asserted here; no cached reference states it for FARSB (see entry `notes`).\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006530\"}}, {\"id\": \"Intraalveolar Phospholipid Accumulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The histopathological substrate of the lung disease, reported as pulmonary alveolar proteinosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006517\"}}, {\"id\": \"L-Phenylalanine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supplementation with the cognate amino acid, the rationale being that the hypomorphic synthetase is substrate-limited rather than absent, so raising phenylalanine availability should recover aminoacylation flux. Patient fibroblasts supply the direct rationale: they fail dose-dependently as phenylalanine falls. The evidence in patients is early and must not be overstated - the reported FARSB patient received 40-100 mg/kg/day and died soon after starting, of complications of liver failure that predated treatment. The cohort-level reports of improvement pool several ARS1 genotypes and are not FARSB-specific outcome data.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"L-phenylalanine\"]}}, {\"id\": \"Liver Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver involvement, which in the characterised FARSB patient progressed to fatal liver failure. NOTE a discrepancy inside this entry\u0027s principal source, surfaced here rather than resolved: that paper\u0027s per-symptom sentence lists the liver-disease-prone ARS1 genes and FARSB is NOT among them, while the same paper\u0027s clustering analysis places FARSB in a cluster whose shared features include liver disease. Both statements are cited below. The FARSB patient in the treatment study did die of liver failure, which favours the cluster reading, but the frequency in FARSB deficiency should be treated as unsettled until the primary literature is available.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001392\"}}, {\"id\": \"Microcytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia, mostly microcytic where characterised, is common in FARSB deficiency. No `frequency` is recorded: the source gives a 47-82% band shared across FARSB, LARS1 and YARS1 deficiency, which straddles the FREQUENT/VERY_FREQUENT boundary and is not a FARSB point estimate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001935\"}}, {\"id\": \"Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heterotetramer retains partial activity: roughly a quarter of control aminoacylation in patient fibroblasts. Because the enzyme catalyses the committed step that charges phenylalanine onto tRNA-Phe, the deficit is upstream of all cytoplasmic protein synthesis rather than of one pathway.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phenylalanyl-tRNA aminoacylation\"], \"molecular_functions\": [\"phenylalanyl-tRNA synthetase activity\"]}}, {\"id\": \"Supportive Respiratory Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oxygen supplementation and general supportive care for the interstitial lung disease. The cohort description records oxygen dependency as a treated endpoint.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Temperature-Sensitive Collapse of Residual Aminoacylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The residual enzyme is thermolabile. Aminoacylation in patient fibroblasts does not merely sit low at 37 degrees Celsius; it falls further on warming, reaching zero at 40 degrees in the characterised FARSB patient. This is the mechanistic account of why these children decompensate during febrile illness, when body temperature and translational demand rise together, and it is the same behaviour documented in LARS1 deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Translation Failure Under Phenylalanine Limitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With a crippled synthetase, cytoplasmic translation becomes conditional on phenylalanine supply. Patient fibroblasts grow normally when phenylalanine is plentiful and fail dose-dependently as it falls, whereas control cells do not - so the cellular lesion is not a fixed translational deficit but a loss of reserve. Tissues with the highest secretory protein throughput and the fastest growth would therefore be expected to fail first. That last sentence is an inference from the conditional-reserve result, not a finding: none of the cited sources reports tissue tropism directly.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cytoplasmic translation\"]}}, {\"id\": \"c.1118G\u003eC p.Gly373Ala\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele, in trans with the start-loss above.\"}, {\"id\": \"c.3G\u003eT p.Met1?\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Start-loss allele, in trans with c.1118G\u003eC in the patient whose fibroblasts give the 28% residual-activity and thermolability measurements cited here. This is the one allele pair in this entry that carries a verified quote.\"}, {\"id\": \"c.767C\u003eT p.Thr256Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele reported compound heterozygous with a frameshift (c.1486delCinsAA p.His496LysfsTer14) in the patient showing ~97% reduction of FARSB protein and ~66% of FARSA. Recorded without evidence for the same reason as above (PMID:29573043 is uncached).\"}, {\"id\": \"c.848+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice-donor allele. Recorded without evidence for the same reason (PMID:29979980 is uncached).\"}, {\"id\": \"c.853G\u003eA p.Glu285Lys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous founder allele reported in an extended consanguineous Omani kindred. Recorded WITHOUT evidence: the reporting paper (PMID:30014610) is not in this repository\u0027s reference cache, so no quote can be verified against it. See `notes`.\"}], \"edges\": [{\"source\": \"Biallelic FARSB Variants\", \"target\": \"Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity\", \"target\": \"Temperature-Sensitive Collapse of Residual Aminoacylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity\", \"target\": \"Translation Failure Under Phenylalanine Limitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Temperature-Sensitive Collapse of Residual Aminoacylation\", \"target\": \"Translation Failure Under Phenylalanine Limitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Alveolar Lipoproteinaceous Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Impaired Somatic Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Liver Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the parallel organ branches. No cited source traces a mechanism from translational insufficiency to hepatocellular injury in FARSB deficiency, and the frequency of liver disease in this genotype is itself disputed within the source (see the Liver Disease phenotype), so the edge is typed as having unknown intermediates and carries no evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A parallel organ branch with no established intermediate steps in this disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Microcytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A parallel organ branch. Anemia is well documented across this ARS1 cluster but no cited source explains how the translational lesion produces it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Cerebral Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The weakest branch in this entry and marked as such. Nothing available to this entry cites explains, or even directly documents, calcification in FARSB deficiency; the edge records that the disease\u0027s defining CNS feature hangs off the same initiating lesion, and nothing more.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Alveolar Lipoproteinaceous Accumulation\", \"target\": \"Interstitial Lung Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alveolar filling process is what the clinical and radiological diagnosis of interstitial lung disease reports on in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Lipoproteinaceous Accumulation\", \"target\": \"Intraalveolar Phospholipid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lesion seen histologically rather than radiologically; the phenotype node is what a lung biopsy reports.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Somatic Growth\", \"target\": \"Growth Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Somatic Growth\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-Phenylalanine Supplementation\", \"target\": \"Translation Failure Under Phenylalanine Limitation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive Respiratory Care\", \"target\": \"Interstitial Lung Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FARSB\", \"target\": \"Biallelic FARSB Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.3G\u003eT p.Met1?\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1118G\u003eC p.Gly373Ala\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.853G\u003eA p.Glu285Lys\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.767C\u003eT p.Thr256Met\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.848+1G\u003eA\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alveolar Lipoproteinaceous Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lung lesion of FARSB deficiency is described as pulmonary alveolar proteinosis - accumulation of lipoproteinaceous material in the alveolar space - presenting radiologically as interstitial lung disease. It is near universal in this branch of the ARS1 family and is the usual cause of death. Note the entry does NOT assert a specific surfactant-handling mechanism for the accumulation; no cached source establishes one for FARSB, and the step from failed translational reserve to alveolar filling is recorded here as indirect for that reason.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Biallelic FARSB Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to FARSB, encoding the beta subunit of the cytoplasmic phenylalanyl-tRNA synthetase heterotetramer. Reported alleles include start-loss and missense changes carried in trans.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FARSB\"], \"gene_terms\": [{\"label\": \"FARSB\", \"id\": \"hgnc:17800\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cerebral Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial calcification, characteristically basal ganglia, is the feature that names the disease. IMPORTANT - see the entry `notes`: no reference cited by this entry makes this claim about FARSB specifically. The evidence attached below is a cross-ARS1 frequency and is graded INDIRECT for exactly that reason. This phenotype needs re-evidencing from the FARSB primary literature before it should be relied on.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002514\"}}, {\"id\": \"FARSB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FARSB\"], \"gene_terms\": [{\"label\": \"FARSB\", \"id\": \"hgnc:17800\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 5}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive, in the treated cohort severe enough to require tube feeding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is part of the multisystem presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth Restriction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth and failure to thrive, typically from infancy. No `frequency` is recorded: the only available figure is a 50-100% band spanning eleven ARS1 genes, which straddles the FREQUENT/VERY_FREQUENT boundary and is not a FARSB point estimate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Impaired Somatic Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Growth restriction is one of the three features in the disease\u0027s clinical triad and is common across the multisystem ARS1 cluster to which FARSB belongs.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Interstitial Lung Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-universal interstitial lung disease, characterised in the cited source as pulmonary alveolar proteinosis presenting as interstitial lung disease. It is usually what brings the child to attention and what determines survival. The bilateral ground-glass and subpleural-cyst appearance conventionally described for this disease is NOT asserted here; no cached reference states it for FARSB (see entry `notes`).\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006530\"}}, {\"id\": \"Intraalveolar Phospholipid Accumulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The histopathological substrate of the lung disease, reported as pulmonary alveolar proteinosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006517\"}}, {\"id\": \"L-Phenylalanine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supplementation with the cognate amino acid, the rationale being that the hypomorphic synthetase is substrate-limited rather than absent, so raising phenylalanine availability should recover aminoacylation flux. Patient fibroblasts supply the direct rationale: they fail dose-dependently as phenylalanine falls. The evidence in patients is early and must not be overstated - the reported FARSB patient received 40-100 mg/kg/day and died soon after starting, of complications of liver failure that predated treatment. The cohort-level reports of improvement pool several ARS1 genotypes and are not FARSB-specific outcome data.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"L-phenylalanine\"]}}, {\"id\": \"Liver Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver involvement, which in the characterised FARSB patient progressed to fatal liver failure. NOTE a discrepancy inside this entry\u0027s principal source, surfaced here rather than resolved: that paper\u0027s per-symptom sentence lists the liver-disease-prone ARS1 genes and FARSB is NOT among them, while the same paper\u0027s clustering analysis places FARSB in a cluster whose shared features include liver disease. Both statements are cited below. The FARSB patient in the treatment study did die of liver failure, which favours the cluster reading, but the frequency in FARSB deficiency should be treated as unsettled until the primary literature is available.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001392\"}}, {\"id\": \"Microcytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia, mostly microcytic where characterised, is common in FARSB deficiency. No `frequency` is recorded: the source gives a 47-82% band shared across FARSB, LARS1 and YARS1 deficiency, which straddles the FREQUENT/VERY_FREQUENT boundary and is not a FARSB point estimate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001935\"}}, {\"id\": \"Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heterotetramer retains partial activity: roughly a quarter of control aminoacylation in patient fibroblasts. Because the enzyme catalyses the committed step that charges phenylalanine onto tRNA-Phe, the deficit is upstream of all cytoplasmic protein synthesis rather than of one pathway.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phenylalanyl-tRNA aminoacylation\"], \"molecular_functions\": [\"phenylalanyl-tRNA synthetase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Supportive Respiratory Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oxygen supplementation and general supportive care for the interstitial lung disease. The cohort description records oxygen dependency as a treated endpoint.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Temperature-Sensitive Collapse of Residual Aminoacylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The residual enzyme is thermolabile. Aminoacylation in patient fibroblasts does not merely sit low at 37 degrees Celsius; it falls further on warming, reaching zero at 40 degrees in the characterised FARSB patient. This is the mechanistic account of why these children decompensate during febrile illness, when body temperature and translational demand rise together, and it is the same behaviour documented in LARS1 deficiency.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Translation Failure Under Phenylalanine Limitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With a crippled synthetase, cytoplasmic translation becomes conditional on phenylalanine supply. Patient fibroblasts grow normally when phenylalanine is plentiful and fail dose-dependently as it falls, whereas control cells do not - so the cellular lesion is not a fixed translational deficit but a loss of reserve. Tissues with the highest secretory protein throughput and the fastest growth would therefore be expected to fail first. That last sentence is an inference from the conditional-reserve result, not a finding: none of the cited sources reports tissue tropism directly.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cytoplasmic translation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"c.1118G\u003eC p.Gly373Ala\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele, in trans with the start-loss above.\"}, {\"id\": \"c.3G\u003eT p.Met1?\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Start-loss allele, in trans with c.1118G\u003eC in the patient whose fibroblasts give the 28% residual-activity and thermolability measurements cited here. This is the one allele pair in this entry that carries a verified quote.\"}, {\"id\": \"c.767C\u003eT p.Thr256Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele reported compound heterozygous with a frameshift (c.1486delCinsAA p.His496LysfsTer14) in the patient showing ~97% reduction of FARSB protein and ~66% of FARSA. Recorded without evidence for the same reason as above (PMID:29573043 is uncached).\"}, {\"id\": \"c.848+1G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice-donor allele. Recorded without evidence for the same reason (PMID:29979980 is uncached).\"}, {\"id\": \"c.853G\u003eA p.Glu285Lys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous founder allele reported in an extended consanguineous Omani kindred. Recorded WITHOUT evidence: the reporting paper (PMID:30014610) is not in this repository\u0027s reference cache, so no quote can be verified against it. See `notes`.\"}], \"edges\": [{\"source\": \"Biallelic FARSB Variants\", \"target\": \"Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity\", \"target\": \"Temperature-Sensitive Collapse of Residual Aminoacylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Cytoplasmic Phenylalanyl-tRNA Synthetase Activity\", \"target\": \"Translation Failure Under Phenylalanine Limitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Temperature-Sensitive Collapse of Residual Aminoacylation\", \"target\": \"Translation Failure Under Phenylalanine Limitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Alveolar Lipoproteinaceous Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Impaired Somatic Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Liver Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the parallel organ branches. No cited source traces a mechanism from translational insufficiency to hepatocellular injury in FARSB deficiency, and the frequency of liver disease in this genotype is itself disputed within the source (see the Liver Disease phenotype), so the edge is typed as having unknown intermediates and carries no evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A parallel organ branch with no established intermediate steps in this disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Microcytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A parallel organ branch. Anemia is well documented across this ARS1 cluster but no cited source explains how the translational lesion produces it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Translation Failure Under Phenylalanine Limitation\", \"target\": \"Cerebral Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The weakest branch in this entry and marked as such. Nothing available to this entry cites explains, or even directly documents, calcification in FARSB deficiency; the edge records that the disease\u0027s defining CNS feature hangs off the same initiating lesion, and nothing more.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Alveolar Lipoproteinaceous Accumulation\", \"target\": \"Interstitial Lung Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alveolar filling process is what the clinical and radiological diagnosis of interstitial lung disease reports on in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Lipoproteinaceous Accumulation\", \"target\": \"Intraalveolar Phospholipid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lesion seen histologically rather than radiologically; the phenotype node is what a lung biopsy reports.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Somatic Growth\", \"target\": \"Growth Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Somatic Growth\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-Phenylalanine Supplementation\", \"target\": \"Translation Failure Under Phenylalanine Limitation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive Respiratory Care\", \"target\": \"Interstitial Lung Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FARSB\", \"target\": \"Biallelic FARSB Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.3G\u003eT p.Met1?\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1118G\u003eC p.Gly373Ala\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.853G\u003eA p.Glu285Lys\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.767C\u003eT p.Thr256Met\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.848+1G\u003eA\", \"target\": \"FARSB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4997,19 +5115,324 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcytic-anemia" data-dismech-node="Microcytic Anemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Microcytic Anemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001935" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0001935</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is microcytic anemia (HP:0001935). HP:0001935 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anemia (not always further specified, but when reported, mostly microcytic) is very common in FARSB‐, LARS1‐, and YARS1‐deficiencies (47%–82%)"</div>
+
+
+                <div class="evidence-explanation">Gives both the microcytic character and the 47-82% frequency band including FARSB deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-liver-disease" data-dismech-node="Liver Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Liver Disease
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the liver</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is liver disease, annotated with Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39702998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39702998" target="_blank">PMID:39702998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ranged from dysmaturity, failure to thrive requiring tube feeding and oxygen supply, anemia, liver disease, global developmental delay, and interstitial lung disease."</div>
+
+
+                <div class="evidence-explanation">Records liver disease among the cohort&#39;s presenting features.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One cluster of remarkably similar, multisystemic phenotypes comprises FARSA‐, FARSB‐, IARS1‐, LARS1‐, MARS1‐, and YARS1‐deficient patients, who present with growth abnormalities (intra‐uterine as well as later in life for IARS1‐ and LARS1‐deficiency), liver disease, hypoalbuminemia, and..."</div>
+
+
+                <div class="evidence-explanation">The clustering analysis that does place FARSB deficiency among the ARS1 deficiencies sharing liver disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Liver disease is very common in patients with CARS1‐, FARSA‐, IARS1‐, LARS1‐, MARS1‐, and YARS1‐deficiency (50%–100%), and much less or not at all in other ARS1 deficiencies"</div>
+
+
+                <div class="evidence-explanation">The same paper&#39;s per-symptom sentence, which omits FARSB from the liver-disease-prone genes and so places it in the &#34;much less or not at all&#34; remainder. Recorded as REFUTE against liver disease being a frequent FARSB feature; it is the other half of the discrepancy named in the description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-calcification" data-dismech-node="Cerebral Calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral Calcification
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002514</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is intracranial calcification, annotated with Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"includes, for example, abnormal cerebral white matter morphology, cerebral/cerebellar atrophy/dysplasia, cerebral calcification, CNS demyelination"</div>
+
+
+                <div class="evidence-explanation">Establishes only that cerebral calcification is among the CNS imaging abnormalities seen across the ARS1 deficiencies. It does not name FARSB, so it supports this phenotype at one inferential remove and no further.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -5030,15 +5453,18 @@ This pathophysiological event involves decreased cytoplasmic translation (GO:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5061,6 +5487,7 @@ This clinical feature is global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5088,11 +5515,11 @@ This clinical feature is global developmental delay (HP:0001263). HP:0001263 is 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-lung-disease" data-dismech-node="Interstitial Lung Disease" data-dismech-type="phenotype">
@@ -5113,15 +5540,18 @@ This clinical feature is global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006530" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0006530</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006530" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0006530</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is interstitial lung disease, annotated with Abnormal pulmonary interstitial morphology (HP:0006530). HP:0006530 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5141,6 +5571,7 @@ This clinical feature is interstitial lung disease, annotated with Abnormal pulm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5168,6 +5599,7 @@ This clinical feature is interstitial lung disease, annotated with Abnormal pulm
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5191,9 +5623,81 @@ This clinical feature is interstitial lung disease, annotated with Abnormal pulm
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intraalveolar-phospholipid-accumulation" data-dismech-node="Intraalveolar Phospholipid Accumulation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intraalveolar Phospholipid Accumulation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0006517</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is pulmonary alveolar proteinosis, annotated with Intraalveolar phospholipid accumulation (HP:0006517). HP:0006517 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Respiratory symptoms, mainly consisting of pulmonary alveolar proteinosis (interstitial lung disease), are extremely common in FARSA‐, FARSB‐, and MARS1‐deficiency (86%–100%)"</div>
+
+
+                <div class="evidence-explanation">Names pulmonary alveolar proteinosis as the respiratory lesion in FARSB deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -5216,15 +5720,18 @@ This clinical feature is interstitial lung disease, annotated with Abnormal pulm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5244,6 +5751,7 @@ This clinical feature is growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5284,10 +5792,10 @@ This clinical feature is growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5298,6 +5806,9 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5315,6 +5826,7 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5325,343 +5837,6 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Lists failure to thrive requiring tube feeding among the presenting features of the cohort that includes the FARSB patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intraalveolar-phospholipid-accumulation" data-dismech-node="Intraalveolar Phospholipid Accumulation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intraalveolar Phospholipid Accumulation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0006517</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is pulmonary alveolar proteinosis, annotated with Intraalveolar phospholipid accumulation (HP:0006517). HP:0006517 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Respiratory symptoms, mainly consisting of pulmonary alveolar proteinosis (interstitial lung disease), are extremely common in FARSA‐, FARSB‐, and MARS1‐deficiency (86%–100%)"</div>
-
-
-                <div class="evidence-explanation">Names pulmonary alveolar proteinosis as the respiratory lesion in FARSB deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-calcification" data-dismech-node="Cerebral Calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebral Calcification
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002514</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is intracranial calcification, annotated with Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"includes, for example, abnormal cerebral white matter morphology, cerebral/cerebellar atrophy/dysplasia, cerebral calcification, CNS demyelination"</div>
-
-
-                <div class="evidence-explanation">Establishes only that cerebral calcification is among the CNS imaging abnormalities seen across the ARS1 deficiencies. It does not name FARSB, so it supports this phenotype at one inferential remove and no further.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-microcytic-anemia" data-dismech-node="Microcytic Anemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Microcytic Anemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001935" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001935</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is microcytic anemia (HP:0001935). HP:0001935 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Anemia (not always further specified, but when reported, mostly microcytic) is very common in FARSB‐, LARS1‐, and YARS1‐deficiencies (47%–82%)"</div>
-
-
-                <div class="evidence-explanation">Gives both the microcytic character and the 47-82% frequency band including FARSB deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-liver-disease" data-dismech-node="Liver Disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Liver Disease
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the liver</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001392</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is liver disease, annotated with Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39702998" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39702998" target="_blank">PMID:39702998</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ranged from dysmaturity, failure to thrive requiring tube feeding and oxygen supply, anemia, liver disease, global developmental delay, and interstitial lung disease."</div>
-
-
-                <div class="evidence-explanation">Records liver disease among the cohort&#39;s presenting features.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"One cluster of remarkably similar, multisystemic phenotypes comprises FARSA‐, FARSB‐, IARS1‐, LARS1‐, MARS1‐, and YARS1‐deficient patients, who present with growth abnormalities (intra‐uterine as well as later in life for IARS1‐ and LARS1‐deficiency), liver disease, hypoalbuminemia, and..."</div>
-
-
-                <div class="evidence-explanation">The clustering analysis that does place FARSB deficiency among the ARS1 deficiencies sharing liver disease.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40044141" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40044141" target="_blank">PMID:40044141</a>
-                    </span>
-
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Liver disease is very common in patients with CARS1‐, FARSA‐, IARS1‐, LARS1‐, MARS1‐, and YARS1‐deficiency (50%–100%), and much less or not at all in other ARS1 deficiencies"</div>
-
-
-                <div class="evidence-explanation">The same paper&#39;s per-symptom sentence, which omits FARSB from the liver-disease-prone genes and so places it in the &#34;much less or not at all&#34; remainder. Recorded as REFUTE against liver disease being a frequent FARSB feature; it is the other half of the discrepancy named in the description.</div>
 
 
 
@@ -5749,6 +5924,9 @@ This disease-associated gene is FARSB (hgnc:17800). hgnc:17800 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5763,6 +5941,7 @@ This disease-associated gene is FARSB (hgnc:17800). hgnc:17800 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5797,6 +5976,12 @@ This disease-associated gene is FARSB (hgnc:17800). hgnc:17800 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Start-loss allele, in trans with c.1118G&gt;C in the patient whose fibroblasts give the 28% residual-activity and thermolability measurements cited here. This is the one allele pair in this entry that carries a verified quote.</div>
 
 
@@ -5819,6 +6004,12 @@ This disease-associated gene is FARSB (hgnc:17800). hgnc:17800 is a gene from th
         c.1118G&gt;C p.Gly373Ala
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Missense allele, in trans with the start-loss above.</div>
@@ -5845,6 +6036,12 @@ This disease-associated gene is FARSB (hgnc:17800). hgnc:17800 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous founder allele reported in an extended consanguineous Omani kindred. Recorded WITHOUT evidence: the reporting paper (PMID:30014610) is not in this repository&#39;s reference cache, so no quote can be verified against it. See `notes`.</div>
 
 
@@ -5869,6 +6066,12 @@ This disease-associated gene is FARSB (hgnc:17800). hgnc:17800 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense allele reported compound heterozygous with a frameshift (c.1486delCinsAA p.His496LysfsTer14) in the patient showing ~97% reduction of FARSB protein and ~66% of FARSA. Recorded without evidence for the same reason as above (PMID:29573043 is uncached).</div>
 
 
@@ -5891,6 +6094,12 @@ This disease-associated gene is FARSB (hgnc:17800). hgnc:17800 is a gene from th
         c.848+1G&gt;A
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Splice-donor allele. Recorded without evidence for the same reason (PMID:29979980 is uncached).</div>
@@ -5996,6 +6205,9 @@ This treatment uses L-phenylalanine (CHEBI:17295). CHEBI:17295 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6006,6 +6218,9 @@ This treatment uses L-phenylalanine (CHEBI:17295). CHEBI:17295 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -6042,6 +6257,7 @@ This treatment uses L-phenylalanine (CHEBI:17295). CHEBI:17295 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6088,6 +6304,7 @@ This treatment uses L-phenylalanine (CHEBI:17295). CHEBI:17295 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6114,6 +6331,7 @@ This treatment uses L-phenylalanine (CHEBI:17295). CHEBI:17295 is a therapeutic 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6135,6 +6353,7 @@ This treatment uses L-phenylalanine (CHEBI:17295). CHEBI:17295 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6209,6 +6428,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oxygen supplementation and general supportive care for the interstitial lung disease. The cohort description records oxygen dependency as a treated endpoint.</div>
 
 
@@ -6251,6 +6476,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7372,6 +7598,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Rajab Interstitial Lung Disease With Brain Calcifications 1</strong> · 2026-09-06T00:47:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Rajab_Interstitial_Lung_Disease_With_Brain_Calcifications_1/2026-09-06T004717Z-claude-code-d61111.yaml">View source</a></p>
+                        <p class="research-review-text">Created the FARSB entity (RILDBC1) from the stubs/ queue; the stub is deleted in the same change. Deep research: the requested provider (falcon/Edison) could NOT run - this sandbox&#39;s network egress policy returns 403 for api.futurehouse.org, so Edison authentication failed. The provider actually used was claude_code (research/Rajab_Interstitial_Lung_Disease_With_Brain_Calcifications_1-deep-research-claude_code.md), which works here because it drives server-side WebSearch rather than an external provider API: 40 web searches, 48 turns, 23 citations, 414s. No --fallback flag was used because the fallback would have hit the same egress policy for every other external provider (openscientist, asta, perplexity, openai are all blocked); claude_code was selected deliberately, not by automatic fallback, and this note is the record of that substitution. The report carries no reference_validation or term_validation frontmatter block because both of those checks also require blocked hosts (eutils, OLS). CRITICAL LIMITATION on the evidence base: NCBI E-utilities is blocked, so just fetch-reference could cache no new reference at all (verified: PMID:29979980 returns &#39;Tunnel connection failed: 403 Forbidden&#39;). Every citation in the entry is therefore drawn from the pre-existing references_cache/, which holds no FARSB-specific primary paper. The three cited references are ARS1-family papers that do carry genuine FARSB-specific data - PMID:40044141 (438-patient cross-ARS1 phenotype/treatment review, full text), PMID:34194004 (the aminoacylation/thermostability/amino-acid treatment study whose FARSB patient is individually characterised, full text) and PMID:39702998 (tRNA therapeutics review covering the same treated cohort, full text). The disease-defining primary literature (PMID:29979980 Xu 2018 AJHG, PMID:30014610 Zadjali 2018, PMID:29573043 Antonellis 2018, PMID:19161147 Rajab 2009, Schuch 2021) is cited nowhere and is named in the entry notes as the fetch-first list for the next curator. The named consequence, disclosed in the entry: the brain calcification that names the disease carries only a cross-ARS1 CNS-imaging frequency graded directness INDIRECT, and cholesterol pneumonitis plus the variant spectrum are omitted entirely, because no cached source states them for FARSB. Cross-ARS1 cohort frequencies are labelled as such in the explanations rather than being presented as RILDBC1 figures. Validation actually run and passed: just validate schema step (No issues found); just count-verified-snippets 29/29 verified; check-entity-refs OK; check-causal-targets OK; check-duplicate-keys OK; check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-enum-values, check-qualifier-terms all OK. A pre-PR red-team review pass then found and fixed: a folded-scalar hyphen split on &#39;Aicardi-Goutieres&#39; that had turned check-folded-hyphens red; two snippets truncated immediately before the clause their explanation relied on (the FARSB thermolability figure and the ARS1 cluster sentence), both re-quoted in full; one evidence item that made two opposite claims in a single sentence, split into a SUPPORT for tolerability and two REFUTE items including the paper&#39;s own negative conclusion; inconsistent directness grading, with the four other cross-cohort claims now marked INDIRECT like the calcification one; a calcification snippet that never mentioned calcification, replaced; and a duplicate description key introduced while wiring the graph. Also surfaced a discrepancy inside the principal source, whose per-symptom sentence omits FARSB from the liver-disease-prone genes while its own clustering analysis includes it - both sentences are now cited against the Liver Disease phenotype as SUPPORT and REFUTE and the tension is recorded rather than resolved. The pathograph is now fully connected: every phenotype has an incoming edge, with the organ branches typed INDIRECT_UNKNOWN_INTERMEDIATES and uncited, since no cited source traces those mechanisms. Validation NOT passed: the term-validation step cannot complete - OLS returns 403 through the proxy. Run offline against the committed cache, exactly two distinct CURIEs fail and both only because they are new to this repo: MONDO:0100215 (disease term) and hgnc:17800 (FARSB). Every other binding (all HP, GO, NCIT terms) validates offline. Those two are corroborated by the MONDO-derived stub record and by the deep-research report, but are NOT machine-verified and must be re-validated with network access before this entry should be trusted or merged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

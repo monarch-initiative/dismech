@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4217,6 +4285,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4238,6 +4307,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4313,6 +4383,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4337,6 +4408,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4358,6 +4430,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4444,6 +4517,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4468,6 +4542,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4489,6 +4564,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4579,6 +4655,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4603,6 +4680,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4624,6 +4702,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4809,6 +4888,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4833,6 +4913,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4854,6 +4935,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5027,6 +5109,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5051,6 +5134,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5072,6 +5156,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5240,6 +5325,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5264,6 +5350,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5285,6 +5372,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5418,6 +5506,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5442,6 +5531,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5463,6 +5553,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5500,6 +5591,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemizygous-mecp2-loss-of-function-variant" data-dismech-node="Hemizygous MECP2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Hemizygous MECP2 Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">A pathogenic MECP2 variant on the single X chromosome of a 46,XY male. Reported variant classes include nonsense and frameshift changes truncating the transcription-repression domain, splice-disrupting deletions, small insertions causing frameshift, and methyl-CpG-binding-domain missense substitutions such as T158M. Variants may be de novo, which is the majority situation, or inherited from a heterozygous mother with favorably skewed X-chromosome inactivation.</div>
 
@@ -5642,6 +5734,7 @@ This pathophysiological event involves dysregulated epigenetic regulation of gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5663,6 +5756,7 @@ This pathophysiological event involves dysregulated epigenetic regulation of gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5690,6 +5784,7 @@ This pathophysiological event involves dysregulated epigenetic regulation of gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5714,6 +5809,7 @@ This pathophysiological event involves dysregulated epigenetic regulation of gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-mosaic-rescue-by-x-chromosome-inactivation" data-dismech-node="Absence of Mosaic Rescue by X-Chromosome Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of Mosaic Rescue by X-Chromosome Inactivation</div>
+
 
                 <div class="item-desc">The mechanistic pivot of this entity. A heterozygous female inactivates one X per cell, so roughly half of her neurons express wild-type MeCP2 and buffer the mutant population, and her phenotype accordingly permits an initial period of normal development. A non-mosaic hemizygous male has no such population. The clinical proof of this node is inverted rather than direct. Males who do have a wild-type-expressing cell population, because of post-zygotic somatic mosaicism or a supernumerary X in 47,XXY Klinefelter syndrome, present instead with a recognizable Rett phenotype and survive.</div>
 
@@ -5882,6 +5978,7 @@ This pathophysiological event involves absent dosage compensation by inactivatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5903,6 +6000,7 @@ This pathophysiological event involves absent dosage compensation by inactivatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5930,6 +6028,7 @@ This pathophysiological event involves absent dosage compensation by inactivatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5954,6 +6053,7 @@ This pathophysiological event involves absent dosage compensation by inactivatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mecp2-methyl-cpg-binding-and-chromocenter-clustering" data-dismech-node="Impaired MeCP2 Methyl-CpG Binding and Chromocenter Clustering" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired MeCP2 Methyl-CpG Binding and Chromocenter Clustering</div>
+
 
                 <div class="item-desc">MeCP2 binds chromocentric DNA through its methyl-CpG-binding domain. Variants at the MBD-DNA interface impair the MeCP2-DNA interaction, while more distal MBD variants impair chromatin clustering, and binding and mobility dynamics degrade in a graded fashion depending on amino-acid properties and MBD tertiary structure. In hemizygous males, where X-inactivation does not confound the comparison, the degree of functional impairment correlates directly with clinical severity across a range that runs from neonatal encephalopathy at the severe extreme to mild psychiatric abnormalities at the mild extreme. This node therefore explains the residual severity gradient within the male spectrum, given the shared absence of mosaic rescue.</div>
 
@@ -6142,6 +6242,7 @@ This pathophysiological event involves decreased methyl-CpG binding (GO:0008327)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6163,6 +6264,7 @@ This pathophysiological event involves decreased methyl-CpG binding (GO:0008327)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6190,6 +6292,7 @@ This pathophysiological event involves decreased methyl-CpG binding (GO:0008327)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6212,6 +6315,7 @@ This pathophysiological event involves decreased methyl-CpG binding (GO:0008327)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variant-dependent-severity-within-the-male-mecp2-spectrum" data-dismech-node="Variant-Dependent Severity Within the Male MECP2 Spectrum" data-dismech-type="pathophysiology">
                 <div class="item-name">Variant-Dependent Severity Within the Male MECP2 Spectrum</div>
+
 
                 <div class="item-desc">Given hemizygosity, the residual determinant of which male MECP2 phenotype results is the functional severity of the variant. Three phenotypes are seen in males with a single copy of MECP2 carrying a pathogenic variant, namely severe neonatal encephalopathy at the severe end, X-linked intellectual deficiency 13 in the middle, and pyramidal signs with parkinsonism and macroorchidism (PPM-X) at the mild end. Clinical severity across this range correlates directly with the measured functional impairment of MeCP2. Within the severe end, specific recurrent alleles may define recognizable sub-entities: two brothers with T158M followed a near identical lethal course, and the reporting authors proposed that T158M males might constitute a clinical-genetic entity within the male congenital encephalopathies, whereas an R294X boy had a more protracted course with survival past four years.</div>
 
@@ -6308,6 +6412,7 @@ This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6329,6 +6434,7 @@ This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6356,6 +6462,7 @@ This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6380,6 +6487,7 @@ This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uniform-neuronal-and-glial-mecp2-deficiency" data-dismech-node="Uniform Neuronal and Glial MeCP2 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Uniform Neuronal and Glial MeCP2 Deficiency</div>
+
 
                 <div class="item-desc">Every neuron and every glial cell lacks functional MeCP2. Note the two different kinds of warrant behind that statement. The HUMAN claim is genetic rather than histological: MECP2 is X-linked, so a non-mosaic 46,XY male carries the variant in every cell with no wild-type allele anywhere, and uniform deficiency follows by deduction from hemizygosity. No human study has demonstrated MeCP2 protein loss in glia specifically; that demonstration comes from the Rett MOUSE model, in which MeCP2 is absent from astrocytes as well as neurons. The consequence asserted here, that the deficiency affects both compartments simultaneously and so removes the possibility of MeCP2-competent astrocytes supporting MeCP2-deficient neurons, is therefore a human-genetic inference supported by a model-organism observation, and is flagged as such rather than presented as human autopsy data.</div>
 
@@ -6607,6 +6715,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6628,6 +6737,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6655,6 +6765,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6679,6 +6790,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preferential-de-repression-of-long-neuronal-genes" data-dismech-node="Preferential De-Repression of Long Neuronal Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Preferential De-Repression of Long Neuronal Genes</div>
+
 
                 <div class="item-desc">The best-characterized transcriptional signature of MeCP2 loss, and the step that explains why neuronal connectivity programs specifically are hit rather than gene expression being perturbed at random. Profiling discrete neuronal subtypes rather than brain homogenates (which had shown only subtle changes because of a dilution problem) reveals that the genes up-regulated on loss of MeCP2 are biased toward longer genes, while down-regulated genes show no such bias, implying that MeCP2 selectively represses long genes. Because cell-adhesion and cell-cell-signalling genes governing neuronal connectivity and communication are themselves enriched among long genes, their de-repression is the proposed route from a generic chromatin defect to specifically miswired circuits. In a hemizygous male this de-repression is unbuffered, since no neuron retains a wild-type allele. Evidence is model-organism (Mecp2 knock-out mouse neuronal subtypes); no equivalent cell-type-resolved transcriptomic dataset exists for an affected human male.</div>
 
@@ -6889,6 +7001,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6910,6 +7023,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6937,6 +7051,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6959,6 +7074,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-activity-dependent-neuronal-gene-expression" data-dismech-node="Dysregulated Activity-Dependent Neuronal Gene Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Activity-Dependent Neuronal Gene Expression</div>
+
 
                 <div class="item-desc">MeCP2 regulates the expression of a wide range of neuronal genes and can act as both a repressor and an activator. Its complete absence changes the expression levels of thousands of genes, disrupting the activity-dependent transcriptional programs that drive neuronal maturation.</div>
 
@@ -7084,6 +7200,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7105,6 +7222,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7130,6 +7248,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-cell-autonomous-astrocytic-failure-to-support-dendritic-morphology" data-dismech-node="Non-Cell-Autonomous Astrocytic Failure to Support Dendritic Morphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Cell-Autonomous Astrocytic Failure to Support Dendritic Morphology</div>
+
 
                 <div class="item-desc">MeCP2-null astrocytes, and their conditioned medium alone, fail to support normal dendritic morphology in either wild-type or mutant hippocampal neurons, implicating aberrant secretion of soluble factors. In a hemizygous male, where astrocytes are also uniformly MeCP2-deficient, this non-cell-autonomous insult is unmitigated and compounds the cell-autonomous neuronal defect.</div>
 
@@ -7285,6 +7404,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7306,6 +7426,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7331,6 +7452,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-dendritic-arborization-and-synaptogenesis" data-dismech-node="Failure of Dendritic Arborization and Synaptogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Dendritic Arborization and Synaptogenesis</div>
+
 
                 <div class="item-desc">The pivotal cellular lesion, documented directly in human autopsy material from an affected male rather than inferred. Golgi staining of pyramidal neurons from cortical layers III and V of the frontal and temporal lobes shows drastically diminished dendritic trees, and synaptophysin staining of synaptic vesicles is greatly reduced in cerebellar and spinal cord sections, indicating that the failure is not confined to cortex. The hemizygous mutant male mouse supplies the quantitative counterpart and shows the deficit is compartment-specific, with spine density reduced by 47.4% in the apical tuft and 54.5% in secondary apical dendrites of layer 5 motor cortical neurons while primary apical and proximal basal dendrites are spared.</div>
 
@@ -7631,6 +7753,7 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7652,6 +7775,7 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7679,6 +7803,7 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7703,6 +7828,7 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-brain-growth-with-frontotemporal-predominance" data-dismech-node="Reduced Brain Growth With Frontotemporal Predominance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Brain Growth With Frontotemporal Predominance</div>
+
 
                 <div class="item-desc">At autopsy the brain of an affected male is small with disproportionate reduction of the frontal and temporal lobes, matching the regions where the dendritic deficit was measured. In the Mecp2-null mouse, brain weight and neuronal cell size are substantially reduced without obvious structural defects or signs of neurodegeneration, indicating that reduced brain volume reflects failed neuronal growth rather than loss of previously formed neurons.</div>
 
@@ -7857,6 +7983,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7878,6 +8005,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7903,6 +8031,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-malformation-with-perisylvian-polymicrogyria" data-dismech-node="Cortical Malformation With Perisylvian Polymicrogyria" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Malformation With Perisylvian Polymicrogyria</div>
+
 
                 <div class="item-desc">In at least one autopsied affected male the developmental disturbance produced overt cortical malformation, namely bilateral polymicrogyria in the perisylvian region, visibly more severe than previously described in females with Rett syndrome or in another male with a MECP2 mutation. This places part of the pathogenesis prenatally, during cortical development, and motivated the recommendation that MECP2 be screened in bilateral perisylvian polymicrogyria syndromes.</div>
 
@@ -8031,6 +8160,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8052,6 +8182,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8077,6 +8208,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brainstem-respiratory-network-failure" data-dismech-node="Brainstem Respiratory Network Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Brainstem Respiratory Network Failure</div>
+
 
                 <div class="item-desc">Failure of synaptic organization in brainstem and spinal respiratory circuitry destabilizes ventilatory control, producing hypoventilation and irregular breathing from the neonatal period, apnea, and ultimately central respiratory failure. This is the proximate cause of death in autopsied cases.</div>
 
@@ -8247,6 +8379,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8268,6 +8401,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8295,6 +8429,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8317,6 +8452,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-hypoventilation-and-irregular-breathing" data-dismech-node="Central Hypoventilation and Irregular Breathing" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Hypoventilation and Irregular Breathing</div>
+
 
                 <div class="item-desc">Sustained inadequate ventilation with an irregular breathing pattern, present from the neonatal period and driven centrally rather than by intrinsic lung disease.</div>
 
@@ -8416,6 +8552,7 @@ This pathophysiological event involves decreased regulation of respiratory gaseo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8437,6 +8574,7 @@ This pathophysiological event involves decreased regulation of respiratory gaseo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8462,6 +8600,7 @@ This pathophysiological event involves decreased regulation of respiratory gaseo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-central-hypoxia" data-dismech-node="Chronic Central Hypoxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Central Hypoxia</div>
+
 
                 <div class="item-desc">Chronic hypoxia of central (ventilatory) origin, evidenced not by blood gases alone but by its structural footprint in skeletal muscle. On muscle biopsy the type II fibers are reduced in diameter, which the reporting authors interpret as indicating central hypoxia. This gives the entity an objective, biopsy-level marker of the systemic consequence of its brainstem lesion.</div>
 
@@ -8582,6 +8721,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8604,6 +8744,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-death-in-infancy-from-central-respiratory-failure" data-dismech-node="Death in Infancy From Central Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Death in Infancy From Central Respiratory Failure</div>
+
 
                 <div class="item-desc">The terminal node. Death often occurs before age two years, most commonly from central respiratory failure; reported ages at death across individual cases include 13 months, 15 months, 17 months, 1 year 8 months, 30 months and 3 years 1 month. This is modeled as a pathophysiology node rather than as a phenotypes entry because HP:0001522 (Death in infancy) sits in the HPO mortality branch outside HP:0000118 phenotypic abnormality and is therefore not bindable in phenotype_term. The competing cardiac mode of death is captured separately by the Sudden Death phenotype and the mechanism_of_sudden_death discussion.</div>
 
@@ -8642,6 +8783,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8663,6 +8805,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8690,6 +8833,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8714,6 +8858,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability" data-dismech-node="Cortical Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability</div>
+
 
                 <div class="item-desc">Failed synaptic and dendritic maturation, compounded where present by polymicrogyric cortex, produces an epileptogenic network. Clinically this is expressed as severe, often intractable seizures with accompanying electroencephalographic abnormality, and in reported males as prolonged periods of epileptic myoclonus.</div>
 
@@ -8876,6 +9021,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8897,6 +9043,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8924,6 +9071,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8946,6 +9094,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-motor-control-circuitry" data-dismech-node="Impaired Motor Control Circuitry" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Motor Control Circuitry</div>
+
 
                 <div class="item-desc">Failed maturation of motor and extrapyramidal circuitry yields generalized hypotonia that later shifts to abnormal and fluctuating tone, with involuntary movements including tremor and dystonic extension of the trunk and legs, and, in reported cases, ocular and oropharyngeal dyskinesia. No motor milestones are attained.</div>
 
@@ -9119,6 +9268,7 @@ This pathophysiological event involves dysregulated regulation of muscle contrac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9140,6 +9290,7 @@ This pathophysiological event involves dysregulated regulation of muscle contrac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9167,6 +9318,7 @@ This pathophysiological event involves dysregulated regulation of muscle contrac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9189,6 +9341,7 @@ This pathophysiological event involves dysregulated regulation of muscle contrac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-autonomic-conduction-instability" data-dismech-node="Cardiac Autonomic Conduction Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Autonomic Conduction Instability</div>
+
 
                 <div class="item-desc">A clinically consequential and under-recognized arm. In a familial pair of affected brothers, severe bradycardia preceded sudden death from sick sinus syndrome at 17 and 30 months. Across MECP2 disorders, QTc prolongation is a recognized surveillance target and QT-prolonging drugs are agents to avoid, so cardiac conduction instability is an actionable node rather than an incidental observation.</div>
 
@@ -9342,6 +9495,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9366,6 +9520,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9387,6 +9542,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9454,7 +9610,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
@@ -9462,17 +9618,15 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(12)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -9482,7 +9636,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bradycardia" data-dismech-node="Bradycardia" data-dismech-type="phenotype">
@@ -9533,6 +9687,9 @@ This clinical feature is Bradycardia (HP:0001662), qualified as severity severe.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9547,6 +9704,7 @@ This clinical feature is Bradycardia (HP:0001662), qualified as severity severe.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9574,6 +9732,7 @@ This clinical feature is Bradycardia (HP:0001662), qualified as severity severe.
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9582,6 +9741,80 @@ This clinical feature is Bradycardia (HP:0001662), qualified as severity severe.
 
 
                 <div class="evidence-explanation">Documents recurrence of severe bradycardia in the affected brother.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sick-sinus-syndrome" data-dismech-node="Sick Sinus Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sick Sinus Syndrome
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0011704</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29631775" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He developed severe apnea, epilepsy, and psychomotor developmental delay and died suddenly of sick sinus syndrome at 17 months of age."</div>
+
+
+                <div class="evidence-explanation">Directly documents sick sinus syndrome as the cause of sudden death.</div>
 
 
 
@@ -9611,15 +9844,18 @@ This clinical feature is Bradycardia (HP:0001662), qualified as severity severe.
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001657</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9639,6 +9875,7 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9690,10 +9927,10 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Feeding difficulties (HP:0011968), qualified as course progressive; severity severe. HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9724,6 +9961,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9738,6 +9978,7 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as course 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9765,6 +10006,7 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as course 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9786,6 +10028,7 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as course 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9839,15 +10082,18 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as course 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000496</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000496</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ocular dyskinesia, annotated with Abnormality of eye movement (HP:0000496). HP:0000496 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9867,6 +10113,7 @@ This clinical feature is Ocular dyskinesia, annotated with Abnormality of eye mo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9918,10 +10165,10 @@ This clinical feature is Ocular dyskinesia, annotated with Abnormality of eye mo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252), qualified as course progressive. HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9950,6 +10197,9 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9964,6 +10214,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9988,6 +10239,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10035,6 +10287,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
             </div>
 
 
+
             <div class="context-notes">Progressive/acquired pattern documented longitudinally, with head-growth deceleration from six months of age.</div>
 
 
@@ -10053,6 +10306,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10087,7 +10341,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hypotonia" data-dismech-node="Generalized Hypotonia" data-dismech-type="phenotype">
@@ -10106,15 +10360,18 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001290</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10134,6 +10391,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10161,6 +10419,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10184,18 +10443,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-involuntary-movements" data-dismech-node="Involuntary Movements" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-muscle-tone" data-dismech-node="Abnormal Muscle Tone" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Involuntary Movements
+                        Abnormal Muscle Tone
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -10209,337 +10459,18 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0004305</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301670" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Males: Severe neonatal-onset encephalopathy, the most common phenotype in affected males, is characterized by a relentless clinical course that follows a metabolic-degenerative type of pattern, abnormal tone, involuntary movements, severe seizures, and breathing abnormalities. Death often occurs..."</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists involuntary movements among the characterizing features.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He developed abnormal movements, seizures and electroencephalogram abnormalities."</div>
-
-
-                <div class="evidence-explanation">Case-level documentation of abnormal movements.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dystonia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0003808</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
 
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He had prolonged periods with tremor and epileptic myoclonus, shifting tonus, and dystonic extension of the trunk and legs, bruxism, and irregular breathing."</div>
-
-
-                <div class="evidence-explanation">Documents dystonic extension of the trunk and legs in an affected male.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tremor" data-dismech-node="Tremor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tremor
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001337</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He had prolonged periods with tremor and epileptic myoclonus, shifting tonus, and dystonic extension of the trunk and legs, bruxism, and irregular breathing."</div>
-
-
-                <div class="evidence-explanation">Documents prolonged tremor in an affected male.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myoclonus" data-dismech-node="Myoclonus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myoclonus
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001336</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He had prolonged periods with tremor and epileptic myoclonus, shifting tonus, and dystonic extension of the trunk and legs, bruxism, and irregular breathing."</div>
-
-
-                <div class="evidence-explanation">Documents epileptic myoclonus in an affected male.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Severity: SEVERE</span>
-
-
-
-
-                    </div>
 
 
 
@@ -10562,6 +10493,7 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10569,7 +10501,7 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
                 <div class="evidence-snippet">"Males: Severe neonatal-onset encephalopathy, the most common phenotype in affected males, is characterized by a relentless clinical course that follows a metabolic-degenerative type of pattern, abnormal tone, involuntary movements, severe seizures, and breathing abnormalities. Death often occurs..."</div>
 
 
-                <div class="evidence-explanation">GeneReviews lists severe seizures among the characterizing features, supporting both the phenotype and its SEVERE qualifier.</div>
+                <div class="evidence-explanation">GeneReviews lists abnormal tone among the four characterizing features.</div>
 
 
 
@@ -10583,6 +10515,7 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10593,7 +10526,7 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
                 <div class="evidence-snippet">"MECP2 mutations should be assessed in boys with progressive encephalopathy and one or more of respiratory insufficiency, abnormal movements or tone, and intractable seizures."</div>
 
 
-                <div class="evidence-explanation">Documents intractability of the seizures in the male phenotype.</div>
+                <div class="evidence-explanation">Confirms abnormal tone as a recognized feature across the reported case set.</div>
 
 
 
@@ -10609,9 +10542,9 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-abnormality" data-dismech-node="EEG Abnormality" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-type-2-muscle-fiber-atrophy" data-dismech-node="Type 2 Muscle Fiber Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        EEG Abnormality
+                        Type 2 Muscle Fiber Atrophy
 
 
 
@@ -10623,15 +10556,18 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002353</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0003554</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Type 2 muscle fiber atrophy (HP:0003554). HP:0003554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10654,296 +10590,15 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He developed abnormal movements, seizures and electroencephalogram abnormalities."</div>
-
-
-                <div class="evidence-explanation">Direct case documentation of electroencephalogram abnormalities.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-global-developmental-delay" data-dismech-node="Severe Global Developmental Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe Global Developmental Delay
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0011344</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe global developmental delay (HP:0011344). HP:0011344 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"He failed to thrive and to reach any motor milestones and died at 15 months from central respiratory failure without a diagnosis."</div>
+                <div class="evidence-snippet">"In a muscle biopsy, type II fibers were reduced in diameter, indicating central hypoxia."</div>
 
 
-                <div class="evidence-explanation">Documents complete failure of motor milestone attainment.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37537631" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37537631" target="_blank">PMID:37537631</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient presented with severe encephalopathy in the neonatal period, accompanied by severe development backwardness, hypotonia, and ocular and oropharyngeal dyskinesia."</div>
-
-
-                <div class="evidence-explanation">Independent documentation of severe developmental impairment.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He had a rapid deterioration period at 2 years and lost sitting and hand grasping functions."</div>
-
-
-                <div class="evidence-explanation">Documents the less common protracted variant of the course, in which limited milestones are attained and then lost.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-polymicrogyria" data-dismech-node="Polymicrogyria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Polymicrogyria
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002126</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11930274" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Post mortem examination revealed bilateral polymicrogyria in the perisylvian region."</div>
-
-
-                <div class="evidence-explanation">Direct neuropathological documentation of polymicrogyria in an affected male.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11930274" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We conclude that MECP2 screening should be considered in males with severe neonatal encephalopathy and in males and females with a bilateral polymicrogyria syndrome."</div>
-
-
-                <div class="evidence-explanation">The authors&#39; own recommendation, which treats the polymicrogyria association as strong enough to change testing practice.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep Disturbance
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002360</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Two brothers with T158M mutations and normal karyotype had a severe early onset encephalopathy, progressive microcephaly, severe feeding problems, breathing and sleep disturbances."</div>
-
-
-                <div class="evidence-explanation">Documents sleep disturbance in an affected brother pair.</div>
+                <div class="evidence-explanation">Direct biopsy documentation of reduced type II fiber diameter and its interpretation.</div>
 
 
 
@@ -10961,312 +10616,11 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory Insufficiency
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0002093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093), qualified as course progressive. HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16832102" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Common features include failure to thrive, respiratory insufficiency, microcephaly, and abnormal motor control."</div>
-
-
-                <div class="evidence-explanation">Case-series statement that respiratory insufficiency is a common feature, which is the basis for the FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He failed to thrive and to reach any motor milestones and died at 15 months from central respiratory failure without a diagnosis."</div>
-
-
-                <div class="evidence-explanation">Documents progression of respiratory insufficiency to fatal central respiratory failure.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-death" data-dismech-node="Sudden Death" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sudden Death
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001699" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0001699</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sudden death (HP:0001699). HP:0001699 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29631775" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This familial case might help to clarify the causes of sudden death in cases of MECP2 mutations."</div>
-
-
-                <div class="evidence-explanation">The authors frame their case as informing the mechanism of sudden death in MECP2 mutation carriers.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to Thrive
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16832102" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Common features include failure to thrive, respiratory insufficiency, microcephaly, and abnormal motor control."</div>
-
-
-                <div class="evidence-explanation">Case-series statement that failure to thrive is a common feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He failed to thrive and to reach any motor milestones and died at 15 months from central respiratory failure without a diagnosis."</div>
-
-
-                <div class="evidence-explanation">Case-level documentation of failure to thrive.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
+                    Nervous System
+                    <span class="cat-count">12</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-encephalopathy" data-dismech-node="Congenital Encephalopathy" data-dismech-type="phenotype">
@@ -11285,10 +10639,10 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0007239</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0007239</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital encephalopathy (HP:0007239), qualified as temporality chronic; course progressive. HP:0007239 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11319,6 +10673,9 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -11333,6 +10690,7 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11360,6 +10718,7 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11381,6 +10740,7 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11438,6 +10798,7 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11452,6 +10813,7 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11480,9 +10842,9 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-muscle-tone" data-dismech-node="Abnormal Muscle Tone" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-involuntary-movements" data-dismech-node="Involuntary Movements" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormal Muscle Tone
+                        Involuntary Movements
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -11496,15 +10858,18 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0003808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0004305</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11527,6 +10892,7 @@ This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11534,7 +10900,346 @@ This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phen
                 <div class="evidence-snippet">"Males: Severe neonatal-onset encephalopathy, the most common phenotype in affected males, is characterized by a relentless clinical course that follows a metabolic-degenerative type of pattern, abnormal tone, involuntary movements, severe seizures, and breathing abnormalities. Death often occurs..."</div>
 
 
-                <div class="evidence-explanation">GeneReviews lists abnormal tone among the four characterizing features.</div>
+                <div class="evidence-explanation">GeneReviews lists involuntary movements among the characterizing features.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He developed abnormal movements, seizures and electroencephalogram abnormalities."</div>
+
+
+                <div class="evidence-explanation">Case-level documentation of abnormal movements.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dystonia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He had prolonged periods with tremor and epileptic myoclonus, shifting tonus, and dystonic extension of the trunk and legs, bruxism, and irregular breathing."</div>
+
+
+                <div class="evidence-explanation">Documents dystonic extension of the trunk and legs in an affected male.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tremor" data-dismech-node="Tremor" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tremor
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001337</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He had prolonged periods with tremor and epileptic myoclonus, shifting tonus, and dystonic extension of the trunk and legs, bruxism, and irregular breathing."</div>
+
+
+                <div class="evidence-explanation">Documents prolonged tremor in an affected male.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myoclonus" data-dismech-node="Myoclonus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myoclonus
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0001336</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He had prolonged periods with tremor and epileptic myoclonus, shifting tonus, and dystonic extension of the trunk and legs, bruxism, and irregular breathing."</div>
+
+
+                <div class="evidence-explanation">Documents epileptic myoclonus in an affected male.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizures
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Severity: SEVERE</span>
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301670" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Males: Severe neonatal-onset encephalopathy, the most common phenotype in affected males, is characterized by a relentless clinical course that follows a metabolic-degenerative type of pattern, abnormal tone, involuntary movements, severe seizures, and breathing abnormalities. Death often occurs..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists severe seizures among the characterizing features, supporting both the phenotype and its SEVERE qualifier.</div>
 
 
 
@@ -11551,6 +11256,7 @@ This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11558,7 +11264,648 @@ This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phen
                 <div class="evidence-snippet">"MECP2 mutations should be assessed in boys with progressive encephalopathy and one or more of respiratory insufficiency, abnormal movements or tone, and intractable seizures."</div>
 
 
-                <div class="evidence-explanation">Confirms abnormal tone as a recognized feature across the reported case set.</div>
+                <div class="evidence-explanation">Documents intractability of the seizures in the male phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-abnormality" data-dismech-node="EEG Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        EEG Abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0002353</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He developed abnormal movements, seizures and electroencephalogram abnormalities."</div>
+
+
+                <div class="evidence-explanation">Direct case documentation of electroencephalogram abnormalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-global-developmental-delay" data-dismech-node="Severe Global Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe Global Developmental Delay
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0011344</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe global developmental delay (HP:0011344). HP:0011344 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He failed to thrive and to reach any motor milestones and died at 15 months from central respiratory failure without a diagnosis."</div>
+
+
+                <div class="evidence-explanation">Documents complete failure of motor milestone attainment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37537631" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37537631" target="_blank">PMID:37537631</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient presented with severe encephalopathy in the neonatal period, accompanied by severe development backwardness, hypotonia, and ocular and oropharyngeal dyskinesia."</div>
+
+
+                <div class="evidence-explanation">Independent documentation of severe developmental impairment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He had a rapid deterioration period at 2 years and lost sitting and hand grasping functions."</div>
+
+
+                <div class="evidence-explanation">Documents the less common protracted variant of the course, in which limited milestones are attained and then lost.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inability-to-walk" data-dismech-node="Inability to Walk" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inability to Walk
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0002540</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He failed to thrive and to reach any motor milestones and died at 15 months from central respiratory failure without a diagnosis."</div>
+
+
+                <div class="evidence-explanation">Marked PARTIAL because the source states that no motor milestones were reached, from which inability to walk follows, rather than reporting ambulation status.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polymicrogyria" data-dismech-node="Polymicrogyria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Polymicrogyria
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0002126</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11930274" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Post mortem examination revealed bilateral polymicrogyria in the perisylvian region."</div>
+
+
+                <div class="evidence-explanation">Direct neuropathological documentation of polymicrogyria in an affected male.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11930274" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conclude that MECP2 screening should be considered in males with severe neonatal encephalopathy and in males and females with a bilateral polymicrogyria syndrome."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own recommendation, which treats the polymicrogyria association as strong enough to change testing practice.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sleep Disturbance
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two brothers with T158M mutations and normal karyotype had a severe early onset encephalopathy, progressive microcephaly, severe feeding problems, breathing and sleep disturbances."</div>
+
+
+                <div class="evidence-explanation">Documents sleep disturbance in an affected brother pair.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bruxism" data-dismech-node="Bruxism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bruxism
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0003763</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bruxism (HP:0003763). HP:0003763 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He had prolonged periods with tremor and epileptic myoclonus, shifting tonus, and dystonic extension of the trunk and legs, bruxism, and irregular breathing."</div>
+
+
+                <div class="evidence-explanation">Documents bruxism in an affected male.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory Insufficiency
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093), qualified as course progressive. HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16832102" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common features include failure to thrive, respiratory insufficiency, microcephaly, and abnormal motor control."</div>
+
+
+                <div class="evidence-explanation">Case-series statement that respiratory insufficiency is a common feature, which is the basis for the FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He failed to thrive and to reach any motor milestones and died at 15 months from central respiratory failure without a diagnosis."</div>
+
+
+                <div class="evidence-explanation">Documents progression of respiratory insufficiency to fatal central respiratory failure.</div>
 
 
 
@@ -11588,15 +11935,18 @@ This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002791" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0002791</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002791" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0002791</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoventilation (HP:0002791). HP:0002791 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11616,6 +11966,7 @@ This clinical feature is Hypoventilation (HP:0002791). HP:0002791 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11640,6 +11991,7 @@ This clinical feature is Hypoventilation (HP:0002791). HP:0002791 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11680,10 +12032,10 @@ This clinical feature is Hypoventilation (HP:0002791). HP:0002791 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0002871</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0002871</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Central apnea (HP:0002871), qualified as severity severe. HP:0002871 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11712,6 +12064,9 @@ This clinical feature is Central apnea (HP:0002871), qualified as severity sever
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11726,6 +12081,7 @@ This clinical feature is Central apnea (HP:0002871), qualified as severity sever
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11752,9 +12108,18 @@ This clinical feature is Central apnea (HP:0002871), qualified as severity sever
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inability-to-walk" data-dismech-node="Inability to Walk" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-death" data-dismech-node="Sudden Death" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Inability to Walk
+                        Sudden Death
 
 
 
@@ -11766,155 +12131,18 @@ This clinical feature is Central apnea (HP:0002871), qualified as severity sever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0002540</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He failed to thrive and to reach any motor milestones and died at 15 months from central respiratory failure without a diagnosis."</div>
-
-
-                <div class="evidence-explanation">Marked PARTIAL because the source states that no motor milestones were reached, from which inability to walk follows, rather than reporting ambulation status.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bruxism" data-dismech-node="Bruxism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bruxism
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0003763</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bruxism (HP:0003763). HP:0003763 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17236109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He had prolonged periods with tremor and epileptic myoclonus, shifting tonus, and dystonic extension of the trunk and legs, bruxism, and irregular breathing."</div>
-
-
-                <div class="evidence-explanation">Documents bruxism in an affected male.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sick-sinus-syndrome" data-dismech-node="Sick Sinus Syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sick Sinus Syndrome
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0011704</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001699" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0001699</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Sudden death (HP:0001699). HP:0001699 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11937,14 +12165,15 @@ This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"He developed severe apnea, epilepsy, and psychomotor developmental delay and died suddenly of sick sinus syndrome at 17 months of age."</div>
+                <div class="evidence-snippet">"This familial case might help to clarify the causes of sudden death in cases of MECP2 mutations."</div>
 
 
-                <div class="evidence-explanation">Directly documents sick sinus syndrome as the cause of sudden death.</div>
+                <div class="evidence-explanation">The authors frame their case as informing the mechanism of sudden death in MECP2 mutation carriers.</div>
 
 
 
@@ -11960,9 +12189,20 @@ This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-type-2-muscle-fiber-atrophy" data-dismech-node="Type 2 Muscle Fiber Atrophy" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Type 2 Muscle Fiber Atrophy
+                        Failure to Thrive
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -11974,12 +12214,12 @@ This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0003554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0001508</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Type 2 muscle fiber atrophy (HP:0003554). HP:0003554 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11988,11 +12228,39 @@ This clinical feature is Type 2 muscle fiber atrophy (HP:0003554). HP:0003554 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16832102" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common features include failure to thrive, respiratory insufficiency, microcephaly, and abnormal motor control."</div>
+
+
+                <div class="evidence-explanation">Case-series statement that failure to thrive is a common feature.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -12005,14 +12273,15 @@ This clinical feature is Type 2 muscle fiber atrophy (HP:0003554). HP:0003554 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"In a muscle biopsy, type II fibers were reduced in diameter, indicating central hypoxia."</div>
+                <div class="evidence-snippet">"He failed to thrive and to reach any motor milestones and died at 15 months from central respiratory failure without a diagnosis."</div>
 
 
-                <div class="evidence-explanation">Direct biopsy documentation of reduced type II fiber diameter and its interpretation.</div>
+                <div class="evidence-explanation">Case-level documentation of failure to thrive.</div>
 
 
 
@@ -12102,6 +12371,9 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked inheritance</span>
@@ -12124,6 +12396,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12151,6 +12424,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12172,6 +12446,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12210,6 +12485,12 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Nonsense and frameshift variants that truncate MeCP2 within or before the transcription-repression domain. The prototype is 806delG (V288X), which in a single family produced a minimally affected skewed-XCI carrier mother, classic Rett syndrome in heterozygous relatives, and lethal congenital encephalopathy in the hemizygous son. The recurrent nonsense allele R294X has also been reported in an affected male, with a more protracted course.</div>
 
 
@@ -12237,6 +12518,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12261,6 +12543,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12282,6 +12565,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12320,6 +12604,12 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A de novo 9-nucleotide deletion spanning the intron 3 to exon 4 splice junction creates a new splice site; the aberrantly spliced transcript loses seven nucleotides, causing a frameshift and premature termination codon.</div>
 
 
@@ -12347,6 +12637,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12368,6 +12659,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12404,6 +12696,12 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense substitutions in and around the methyl-CpG-binding domain, of which T158M is the recurrent allele reported in affected males. In hemizygous males these produce a graded phenotype, with the most functionally damaging variants at the neonatal-encephalopathy end of the spectrum, because X-inactivation does not confound the genotype-phenotype comparison. T158M males have been proposed to form a recognizable clinical-genetic sub-entity.</div>
 
 
@@ -12431,6 +12729,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12455,6 +12754,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12476,6 +12776,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12613,6 +12914,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy. Treatment is mainly symptomatic and focuses on optimizing the individual&#39;s abilities through a multidisciplinary approach that also includes psychosocial support for family members.</div>
 
 
@@ -12634,6 +12941,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12728,6 +13036,12 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Antiseizure treatment per standard care. Seizures in this phenotype are frequently intractable, so epilepsy-specialist involvement is expected.</div>
 
 
@@ -12758,6 +13072,7 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12826,6 +13141,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12847,6 +13163,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12919,6 +13236,12 @@ This treatment is serial electrocardiography with QTc assessment, annotated with
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Regular assessment of QTc for evidence of prolongation, with avoidance of drugs known to prolong the QT interval. This is the one actionable, potentially death-preventing intervention specific to the cardiac node, and it is reinforced by the documented sudden deaths from sick sinus syndrome and severe bradycardia in affected brothers.</div>
 
 
@@ -12949,6 +13272,7 @@ This treatment is serial electrocardiography with QTc assessment, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13034,6 +13358,7 @@ This treatment targets Sudden death (HP:0001699). HP:0001699 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13055,6 +13380,7 @@ This treatment targets Sudden death (HP:0001699). HP:0001699 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13143,6 +13469,9 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -13153,6 +13482,9 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -13205,6 +13537,7 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13226,6 +13559,7 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13284,6 +13618,12 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -13360,6 +13700,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13381,6 +13722,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13452,6 +13794,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling covers the X-linked mode, the greater than 99% simplex rate across MECP2 disorders, the possibility of parental germline mosaicism, and the possibility of a minimally affected transmitting mother with favorably skewed X-chromosome inactivation. Because of possible parental germline mosaicism, prenatal diagnosis is appropriate to offer regardless of whether a parental variant was found.</div>
 
 
@@ -13476,6 +13824,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13497,6 +13846,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13598,6 +13948,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13622,6 +13973,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13643,6 +13995,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13715,6 +14068,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13767,6 +14121,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13788,6 +14143,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13843,6 +14199,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13867,6 +14224,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13888,6 +14246,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13959,6 +14318,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13980,6 +14340,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14036,6 +14397,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14060,6 +14422,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14081,6 +14444,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14195,6 +14559,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14219,6 +14584,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14240,6 +14606,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14327,6 +14694,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14351,6 +14719,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14372,6 +14741,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14455,6 +14825,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14479,6 +14850,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14500,6 +14872,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14584,6 +14957,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14608,6 +14982,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14629,6 +15004,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14712,6 +15088,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14789,6 +15166,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14810,6 +15188,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14917,6 +15296,7 @@ This clinical trial targets Prolonged QT interval (HP:0001657). HP:0001657 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15061,6 +15441,7 @@ This experimental model concerns MECP2 (hgnc:6990). hgnc:6990 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15085,6 +15466,7 @@ This experimental model concerns MECP2 (hgnc:6990). hgnc:6990 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -15106,6 +15488,7 @@ This experimental model concerns MECP2 (hgnc:6990). hgnc:6990 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15233,6 +15616,7 @@ This experimental model concerns MECP2 (hgnc:6990). hgnc:6990 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -19240,6 +19624,33 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Severe Neonatal-Onset Encephalopathy With Microcephaly (MECP2, MONDO:0010397)</strong> · 2026-08-01T17:36:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Severe_Neonatal-Onset_Encephalopathy_With_Microcephaly/2026-08-01T173646Z-claude-code-88d873.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of the X-linked MECP2 phenotype seen in hemizygous 46,XY males, curated as an entity distinct from Rett_Syndrome (heterozygous female, mosaic loss) and MECP2_Duplication_Syndrome (Xq28 copy-number gain).
+
+Deep research: falcon and openscientist providers both run; reports committed under research/. NEC preflight against MONDO:0010397 passed on all three anchors - MECP2 dominates gene mentions in both reports (falcon 87 vs CDKL5 1 / FOXG1 1; openscientist 48 vs CDKL5 3 / FOXG1 3), MONDO:0010397 used consistently (18 mentions in falcon), and no competing OMIM identity asserted. GeneReviews PMID:20301670 (MECP2 Disorders) used as the clinical baseline.
+
+Central mechanistic claim: the severity difference from Rett syndrome is not a difference in the MECP2 lesion but the absence of mosaic rescue by X-chromosome inactivation. 16-node single-root pathophysiology DAG runs from the hemizygous loss-of-function variant through absence of mosaic rescue and impaired MBD DNA binding / chromocenter clustering, to uniform neuronal AND glial MeCP2 deficiency, then to failed dendritic arborization and synaptogenesis (documented directly in human autopsy material, not inferred), branching to reduced brain growth, perisylvian polymicrogyria, brainstem respiratory network failure with chronic central hypoxia, cortical network hyperexcitability, impaired motor control, and cardiac autonomic conduction instability.
+
+29 HPO-bound phenotypes. Death in infancy modeled as a terminal pathophysiology node rather than a phenotypes entry because HP:0001522 sits in the HPO mortality branch outside HP:0000118 (convention already used by Isolated_Sulfite_Oxidase_Deficiency and Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_I).
+
+Four discussions: a KNOWLEDGE_GAP on whether the microcephaly has a prenatal component in addition to the documented postnatal deceleration; a HUMAN_MODEL_MISMATCH on the Mecp2-null male mouse being the genotypically correct but temporally wrong model (asymptomatic to 5-6 weeks vs human encephalopathy from birth); a KNOWLEDGE_GAP on the structural exclusion of males from trofinetide and AAV-MECP2 development; and a KNOWLEDGE_GAP on cardiac vs respiratory mode of death.
+
+Six differential diagnoses, all MONDO-bound, including neonatal hypoxic-ischemic encephalopathy as the documented real-world misdiagnosis.
+
+Validation: schema clean, term validation clean, 194/194 evidence snippets verified verbatim against cached references. Two DR-suggested HPO bindings were rejected during term verification as hallucinated labels (HP:0001298 proposed as &#34;Neonatal encephalopathy&#34; but is actually &#34;Encephalopathy&#34;; HP:0000251 proposed as &#34;Deceleration of head growth&#34; does not exist).
+
+ORPHA:209370 recorded in external_assertions but NOT cited as evidence: the pinned Orphadata snapshot in data/orphadata/MANIFEST.yaml no longer matches upstream (sha256 mismatch on en_product1.xml), so no ORPHA cache record could be built by the sanctioned tooling. Should be added when the Orphadata pin is refreshed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

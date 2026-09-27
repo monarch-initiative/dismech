@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4271,6 +4339,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4496,6 +4565,7 @@ This subtype is caused by variation in TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4520,6 +4590,7 @@ This subtype is caused by variation in TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4541,6 +4612,7 @@ This subtype is caused by variation in TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4627,6 +4699,7 @@ This subtype is caused by variation in TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4651,6 +4724,7 @@ This subtype is caused by variation in TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4672,6 +4746,7 @@ This subtype is caused by variation in TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4749,6 +4824,7 @@ This subtype is caused by variation in TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4770,6 +4846,7 @@ This subtype is caused by variation in TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5510,6 +5587,7 @@ This readout is measured by single-cell transcriptomic profiling.</span>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5531,6 +5609,7 @@ This readout is measured by single-cell transcriptomic profiling.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5568,6 +5647,7 @@ This readout is measured by single-cell transcriptomic profiling.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-beta-tubulin-tubb2a-tubb2b-function" data-dismech-node="Altered Beta-Tubulin (TUBB2A/TUBB2B) Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Beta-Tubulin (TUBB2A/TUBB2B) Function</div>
+
 
                 <div class="item-desc">Pathogenic TUBB2A or TUBB2B variants alter beta-tubulin isotypes that pair with alpha-tubulin in heterodimers and co-assemble into microtubules. The shared molecular lesion is therefore not an MRI-defined malformation label, but beta-tubulin/microtubule apparatus dysfunction during cortical development. TUBB2B has stronger published evidence; TUBB2A is retained in the same entry because the available cases fit the same beta-tubulin heterodimer and cortical dysplasia skeleton rather than a distinct pathograph.</div>
 
@@ -5731,6 +5811,8 @@ This pathophysiological event involves TUBB2B (hgnc:30829). hgnc:30829 is a gene
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -5746,6 +5828,9 @@ This pathophysiological event involves TUBB2B (hgnc:30829). hgnc:30829 is a gene
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Disease alleles are heterozygous, predominantly de novo missense substitutions. What is directly evidenced for both genes is impaired alpha/beta-tubulin heterodimer formation - shown for two TUBB2B disease-associated mutations in the founding study, and modeled for the recurrent TUBB2A Arg391 E-site hotspot. That finding alone does not discriminate the mechanism class: reduced formation of functional heterodimers is compatible both with a dominant-negative subunit that poisons the polymer (the mechanism resolved for TUBA1A Arg402 and inferred for TUBB3) and with a mutant subunit that simply fails to contribute, lowering the functional heterodimer pool. UNKNOWN records that the question was examined and is unresolved for these two isotypes, rather than that it was never annotated. See the gap_tubb2ab_functional_impact_class discussion.</div>
 
@@ -5901,6 +5986,7 @@ This pathophysiological event involves dysregulated microtubule-based process (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5922,6 +6008,7 @@ This pathophysiological event involves dysregulated microtubule-based process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5947,6 +6034,7 @@ This pathophysiological event involves dysregulated microtubule-based process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-microtubule-dependent-neuronal-migration-and-organization" data-dismech-node="Impaired Microtubule-Dependent Neuronal Migration and Organization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Microtubule-Dependent Neuronal Migration and Organization</div>
+
 
                 <div class="item-desc">Microtubules provide the cytoskeletal machinery for neuronal migration, cortical laminar organization, and projection outgrowth. In TUBB2B and probably TUBB2A disease, altered beta-tubulin function disrupts these microtubule-dependent processes and produces a cortical organization defect that is closer to polymicrogyria-like cortical dysplasia than to classic postmigrational polymicrogyria.</div>
 
@@ -6140,6 +6228,7 @@ This pathophysiological event involves dysregulated microtubule-based movement (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6161,6 +6250,7 @@ This pathophysiological event involves dysregulated microtubule-based movement (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6186,6 +6276,7 @@ This pathophysiological event involves dysregulated microtubule-based movement (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tubulinopathy-associated-dysgyria-and-extracortical-malformation-pattern" data-dismech-node="Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern</div>
+
 
                 <div class="item-desc">The cortical endpoint is a recognizable tubulinopathy-associated dysgyria spectrum, especially in TUBB2B: focal perisylvian or generalized abnormal gyral organization previously described as polymicrogyria-like cortical dysplasia, sometimes extending toward lissencephalic or pachygyric phenotypes. The associated extracortical pattern includes dysmorphic basal ganglia/internal capsule abnormalities, ventriculomegaly, corpus callosum abnormalities, and cerebellar or brainstem involvement. This node is the main justification for lumping TUBB2A and TUBB2B together while keeping them separate from the broader tubulinopathy label.</div>
 
@@ -6481,6 +6572,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6505,6 +6597,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6526,6 +6619,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6574,7 +6668,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered Beta-Tubulin (TUBB2A/TUBB2B) Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic TUBB2A or TUBB2B variants alter beta-tubulin isotypes that pair with alpha-tubulin in heterodimers and co-assemble into microtubules. The shared molecular lesion is therefore not an MRI-defined malformation label, but beta-tubulin/microtubule apparatus dysfunction during cortical development. TUBB2B has stronger published evidence; TUBB2A is retained in the same entry because the available cases fit the same beta-tubulin heterodimer and cortical dysplasia skeleton rather than a distinct pathograph.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical progenitor and migrating neuron\", \"radial glial cell\"], \"biological_processes\": [\"tubulin heterodimer assembly\", \"microtubule cytoskeleton organization\", \"microtubule-based process\"], \"genes\": [\"TUBB2A\", \"TUBB2B\"], \"gene_terms\": [{\"label\": \"TUBB2A\", \"id\": \"hgnc:12412\"}, {\"label\": \"TUBB2B\", \"id\": \"hgnc:30829\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Disease alleles are heterozygous, predominantly de novo missense substitutions. What is directly evidenced for both genes is impaired alpha/beta-tubulin heterodimer formation - shown for two TUBB2B disease-associated mutations in the founding study, and modeled for the recurrent TUBB2A Arg391 E-site hotspot. That finding alone does not discriminate the mechanism class: reduced formation of functional heterodimers is compatible both with a dominant-negative subunit that poisons the polymer (the mechanism resolved for TUBA1A Arg402 and inferred for TUBB3) and with a mutant subunit that simply fails to contribute, lowering the functional heterodimer pool. UNKNOWN records that the question was examined and is unresolved for these two isotypes, rather than that it was never annotated. See the gap_tubb2ab_functional_impact_class discussion.\"}, \"role\": \"TRIGGER\"}}, {\"id\": \"Brainstem Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brainstem hypoplasia is an extracortical malformation in the TUBB2B cohort and was associated with epilepsy; no population frequency is inferred.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0002365\"}}, {\"id\": \"Cerebellar Vermis Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar-vermis dysplasia is part of the TUBB2B cortical-dysgyria imaging pattern; no frequency is assigned because the cited figure is illustrative.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0002334\"}}, {\"id\": \"Corpus Callosum Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum hypoplasia, dysmorphism, or agenesis is part of the shared tubulinopathy-associated extracortical pattern and is specifically reported in TUBB2A cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001273\"}}, {\"id\": \"Dysmorphic Basal Ganglia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmorphic basal ganglia, often with internal capsule abnormality, are a recurrent extracortical hallmark of beta-tubulin cortical malformation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0002134\"}}, {\"id\": \"Epilepsy / Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are common across the beta-tubulin cortical malformation spectrum. In the TUBB2B meta-cohort, epilepsy was reported in slightly more than half of individuals, with infantile onset common and variable severity.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a frequent clinical manifestation, including TUBB2A-reported global developmental delay and TUBB2B developmental delay in the natural-history meta-cohort.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Gross Motor Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gross motor impairment is common in the TUBB2B branch, but less prevalent than in TUBA1A disease; the natural-history study stratified this clinical variable using the Gross Motor Function Classification System.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007015\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was shared by the three reported individuals with the recurrent TUBB2A p.Gly98Arg pathogenic variant; no broader TUBB2A frequency is inferred.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2A\"], \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Microtubule-Dependent Neuronal Migration and Organization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microtubules provide the cytoskeletal machinery for neuronal migration, cortical laminar organization, and projection outgrowth. In TUBB2B and probably TUBB2A disease, altered beta-tubulin function disrupts these microtubule-dependent processes and produces a cortical organization defect that is closer to polymicrogyria-like cortical dysplasia than to classic postmigrational polymicrogyria.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"migrating cortical neuron\"], \"biological_processes\": [\"neuron migration\", \"cerebral cortex development\", \"microtubule-based movement\"], \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability was shared by the three reported individuals with the recurrent TUBB2A p.Gly98Arg pathogenic variant; severity across the full TUBB2A allelic series is not quantified here.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2A\"], \"term_id\": \"HP:0001249\"}}, {\"id\": \"Internal Capsule Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmorphism, hypoplasia, branching, or absence of the anterior internal capsule accompanies the characteristic basal-ganglia malformation pattern.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0012502\"}}, {\"id\": \"Lissencephaly / Pachygyria Spectrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Although less common than in TUBA1A disease, TUBB2B can present with a lissencephalic or pachygyric malformation, supporting a spectrum from smooth-brain phenotypes to polymicrogyria-like cortical dysplasia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0001339\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is common in the TUBB2B natural-history cohort, although primary and progressive microcephaly are more characteristic of TUBA1A disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus is one of the most common ocular-motility findings in the TUBB2B cohort.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0000639\"}}, {\"id\": \"Ocular Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular abnormalities affect 65.2% of the TUBB2B natural-history cohort. Strabismus and nystagmus are the most common ocular motility manifestations, while congenital fibrosis of the extraocular muscles is rare. The broader parent term is used because the cohort percentage covers all ocular abnormalities rather than eye-movement findings alone.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"TUBB2B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000478\"}}, {\"id\": \"Olfactory Bulb Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Olfactory-bulb agenesis is enriched among severely affected individuals with TUBB2B tubulinopathy; no overall frequency is inferred.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0040327\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is one of the most common ocular-motility findings in the TUBB2B cohort.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0000486\"}}, {\"id\": \"TUBB2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TUBB2A\"], \"gene_terms\": [{\"label\": \"TUBB2A\", \"id\": \"hgnc:12412\"}], \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"TUBB2A p.Gly98Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent heterozygous pathogenic missense variant reported in three individuals with intellectual disability, hypotonia, global developmental delay, and variable cortical malformation and seizure history.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"TUBB2B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TUBB2B\"], \"gene_terms\": [{\"label\": \"TUBB2B\", \"id\": \"hgnc:30829\"}], \"association\": \"Causative\"}}, {\"id\": \"Tubulinopathy-Associated Dysgyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal perisylvian or generalized dysgyria is the core TUBB2B imaging phenotype. Older reports called the coarse, irregular gyral pattern polymicrogyria-like cortical dysplasia, but it is not classical polymicrogyria and is curated to the broader HPO dysgyria term.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0032398\"}}, {\"id\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cortical endpoint is a recognizable tubulinopathy-associated dysgyria spectrum, especially in TUBB2B: focal perisylvian or generalized abnormal gyral organization previously described as polymicrogyria-like cortical dysplasia, sometimes extending toward lissencephalic or pachygyric phenotypes. The associated extracortical pattern includes dysmorphic basal ganglia/internal capsule abnormalities, ventriculomegaly, corpus callosum abnormalities, and cerebellar or brainstem involvement. This node is the main justification for lumping TUBB2A and TUBB2B together while keeping them separate from the broader tubulinopathy label.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"cerebral cortex development\", \"neuron migration\"], \"role\": \"ENDPOINT\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventriculomegaly is a frequent extracortical imaging feature in the TUBB2B branch and part of the basal-ganglia/ventricular dysgenesis pattern that distinguishes TUBB2B from the TUBA1A-predominant lissencephaly branch.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002119\"}}], \"edges\": [{\"source\": \"Altered Beta-Tubulin (TUBB2A/TUBB2B) Function\", \"target\": \"Impaired Microtubule-Dependent Neuronal Migration and Organization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In vivo TUBB2B depletion directly impairs neuronal migration. The same route is plausible but not directly demonstrated for TUBB2A, so the shared-entry edge preserves that isotype-specific uncertainty.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Microtubule-Dependent Neuronal Migration and Organization\", \"target\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed microtubule-dependent cortical development produces polymicrogyria-like cortical dysplasia, less commonly lissencephalic patterns, and extracortical abnormalities of basal ganglia, internal capsule, corpus callosum, ventricles, cerebellum, and brainstem.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disrupted cortical laminar organization\", \"neuronal overmigration and ectopia\"]}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Tubulinopathy-Associated Dysgyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level cortical dysgyria node directly represents this imaging phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Lissencephaly / Pachygyria Spectrum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rare severe TUBB2B alleles extend the dysgyria spectrum toward lissencephaly or pachygyria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Dysmorphic Basal Ganglia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-ganglia and internal-capsule dysmorphism accompany the cortical dysgyria pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Internal Capsule Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Internal-capsule dysmorphism accompanies the basal-ganglia malformation pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular dysgenesis, especially ventriculomegaly, is part of the TUBB2B extracortical pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Cerebellar Vermis Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar-vermis dysplasia accompanies TUBB2B cortical dysgyria.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Brainstem Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem hypoplasia is an extracortical TUBB2B malformation associated with epilepsy in the meta-cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Olfactory Bulb Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Olfactory-bulb agenesis occurs particularly in the severe TUBB2B subgroup.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Corpus Callosum Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal dysmorphism or agenesis accompanies the cortical and extracortical malformation pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The congenital malformation pattern produces developmental impairment through distributed network dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability accompanies TUBB2A cortical dysplasia through unresolved network-level intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is a recurrent TUBB2A manifestation associated with the cortical-malformation phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microcephaly accompanies the developmental cortical-malformation process in TUBB2B disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Gross Motor Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed cortical and motor-system malformation produces gross-motor impairment through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Ocular Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular abnormalities, predominantly strabismus and nystagmus, accompany the TUBB2B pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Strabismus is a common ocular-motility manifestation associated with the TUBB2B malformation pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nystagmus is a common ocular-motility manifestation associated with the TUBB2B malformation pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Epilepsy / Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical dysgyria can create an epileptogenic substrate through unresolved circuit-level intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TUBB2A\", \"target\": \"Altered Beta-Tubulin (TUBB2A/TUBB2B) Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TUBB2B\", \"target\": \"Altered Beta-Tubulin (TUBB2A/TUBB2B) Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TUBB2A p.Gly98Arg\", \"target\": \"TUBB2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered Beta-Tubulin (TUBB2A/TUBB2B) Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic TUBB2A or TUBB2B variants alter beta-tubulin isotypes that pair with alpha-tubulin in heterodimers and co-assemble into microtubules. The shared molecular lesion is therefore not an MRI-defined malformation label, but beta-tubulin/microtubule apparatus dysfunction during cortical development. TUBB2B has stronger published evidence; TUBB2A is retained in the same entry because the available cases fit the same beta-tubulin heterodimer and cortical dysplasia skeleton rather than a distinct pathograph.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical progenitor and migrating neuron\", \"radial glial cell\"], \"biological_processes\": [\"tubulin heterodimer assembly\", \"microtubule cytoskeleton organization\", \"microtubule-based process\"], \"genes\": [\"TUBB2A\", \"TUBB2B\"], \"gene_terms\": [{\"label\": \"TUBB2A\", \"id\": \"hgnc:12412\"}, {\"label\": \"TUBB2B\", \"id\": \"hgnc:30829\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Disease alleles are heterozygous, predominantly de novo missense substitutions. What is directly evidenced for both genes is impaired alpha/beta-tubulin heterodimer formation - shown for two TUBB2B disease-associated mutations in the founding study, and modeled for the recurrent TUBB2A Arg391 E-site hotspot. That finding alone does not discriminate the mechanism class: reduced formation of functional heterodimers is compatible both with a dominant-negative subunit that poisons the polymer (the mechanism resolved for TUBA1A Arg402 and inferred for TUBB3) and with a mutant subunit that simply fails to contribute, lowering the functional heterodimer pool. UNKNOWN records that the question was examined and is unresolved for these two isotypes, rather than that it was never annotated. See the gap_tubb2ab_functional_impact_class discussion.\"}, \"role\": \"TRIGGER\"}}, {\"id\": \"Brainstem Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brainstem hypoplasia is an extracortical malformation in the TUBB2B cohort and was associated with epilepsy; no population frequency is inferred.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0002365\"}}, {\"id\": \"Cerebellar Vermis Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar-vermis dysplasia is part of the TUBB2B cortical-dysgyria imaging pattern; no frequency is assigned because the cited figure is illustrative.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0002334\"}}, {\"id\": \"Corpus Callosum Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum hypoplasia, dysmorphism, or agenesis is part of the shared tubulinopathy-associated extracortical pattern and is specifically reported in TUBB2A cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001273\"}}, {\"id\": \"Dysmorphic Basal Ganglia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmorphic basal ganglia, often with internal capsule abnormality, are a recurrent extracortical hallmark of beta-tubulin cortical malformation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0002134\"}}, {\"id\": \"Epilepsy / Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are common across the beta-tubulin cortical malformation spectrum. In the TUBB2B meta-cohort, epilepsy was reported in slightly more than half of individuals, with infantile onset common and variable severity.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is a frequent clinical manifestation, including TUBB2A-reported global developmental delay and TUBB2B developmental delay in the natural-history meta-cohort.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Gross Motor Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gross motor impairment is common in the TUBB2B branch, but less prevalent than in TUBA1A disease; the natural-history study stratified this clinical variable using the Gross Motor Function Classification System.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007015\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was shared by the three reported individuals with the recurrent TUBB2A p.Gly98Arg pathogenic variant; no broader TUBB2A frequency is inferred.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2A\"], \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Microtubule-Dependent Neuronal Migration and Organization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microtubules provide the cytoskeletal machinery for neuronal migration, cortical laminar organization, and projection outgrowth. In TUBB2B and probably TUBB2A disease, altered beta-tubulin function disrupts these microtubule-dependent processes and produces a cortical organization defect that is closer to polymicrogyria-like cortical dysplasia than to classic postmigrational polymicrogyria.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"migrating cortical neuron\"], \"biological_processes\": [\"neuron migration\", \"cerebral cortex development\", \"microtubule-based movement\"], \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability was shared by the three reported individuals with the recurrent TUBB2A p.Gly98Arg pathogenic variant; severity across the full TUBB2A allelic series is not quantified here.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2A\"], \"term_id\": \"HP:0001249\"}}, {\"id\": \"Internal Capsule Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmorphism, hypoplasia, branching, or absence of the anterior internal capsule accompanies the characteristic basal-ganglia malformation pattern.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0012502\"}}, {\"id\": \"Lissencephaly / Pachygyria Spectrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Although less common than in TUBA1A disease, TUBB2B can present with a lissencephalic or pachygyric malformation, supporting a spectrum from smooth-brain phenotypes to polymicrogyria-like cortical dysplasia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0001339\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is common in the TUBB2B natural-history cohort, although primary and progressive microcephaly are more characteristic of TUBA1A disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus is one of the most common ocular-motility findings in the TUBB2B cohort.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0000639\"}}, {\"id\": \"Ocular Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular abnormalities affect 65.2% of the TUBB2B natural-history cohort. Strabismus and nystagmus are the most common ocular motility manifestations, while congenital fibrosis of the extraocular muscles is rare. The broader parent term is used because the cohort percentage covers all ocular abnormalities rather than eye-movement findings alone.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"TUBB2B\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000478\"}}, {\"id\": \"Olfactory Bulb Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Olfactory-bulb agenesis is enriched among severely affected individuals with TUBB2B tubulinopathy; no overall frequency is inferred.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0040327\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is one of the most common ocular-motility findings in the TUBB2B cohort.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0000486\"}}, {\"id\": \"TUBB2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TUBB2A\"], \"gene_terms\": [{\"label\": \"TUBB2A\", \"id\": \"hgnc:12412\"}], \"subtypes\": [\"TUBB2A\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"TUBB2A p.Gly98Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent heterozygous pathogenic missense variant reported in three individuals with intellectual disability, hypotonia, global developmental delay, and variable cortical malformation and seizure history.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"TUBB2B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TUBB2B\"], \"gene_terms\": [{\"label\": \"TUBB2B\", \"id\": \"hgnc:30829\"}], \"subtypes\": [\"TUBB2B\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Tubulinopathy-Associated Dysgyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal perisylvian or generalized dysgyria is the core TUBB2B imaging phenotype. Older reports called the coarse, irregular gyral pattern polymicrogyria-like cortical dysplasia, but it is not classical polymicrogyria and is curated to the broader HPO dysgyria term.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"TUBB2B\"], \"term_id\": \"HP:0032398\"}}, {\"id\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cortical endpoint is a recognizable tubulinopathy-associated dysgyria spectrum, especially in TUBB2B: focal perisylvian or generalized abnormal gyral organization previously described as polymicrogyria-like cortical dysplasia, sometimes extending toward lissencephalic or pachygyric phenotypes. The associated extracortical pattern includes dysmorphic basal ganglia/internal capsule abnormalities, ventriculomegaly, corpus callosum abnormalities, and cerebellar or brainstem involvement. This node is the main justification for lumping TUBB2A and TUBB2B together while keeping them separate from the broader tubulinopathy label.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"cerebral cortex development\", \"neuron migration\"], \"role\": \"ENDPOINT\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventriculomegaly is a frequent extracortical imaging feature in the TUBB2B branch and part of the basal-ganglia/ventricular dysgenesis pattern that distinguishes TUBB2B from the TUBA1A-predominant lissencephaly branch.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"TUBB2B\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002119\"}}], \"edges\": [{\"source\": \"Altered Beta-Tubulin (TUBB2A/TUBB2B) Function\", \"target\": \"Impaired Microtubule-Dependent Neuronal Migration and Organization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In vivo TUBB2B depletion directly impairs neuronal migration. The same route is plausible but not directly demonstrated for TUBB2A, so the shared-entry edge preserves that isotype-specific uncertainty.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Microtubule-Dependent Neuronal Migration and Organization\", \"target\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed microtubule-dependent cortical development produces polymicrogyria-like cortical dysplasia, less commonly lissencephalic patterns, and extracortical abnormalities of basal ganglia, internal capsule, corpus callosum, ventricles, cerebellum, and brainstem.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disrupted cortical laminar organization\", \"neuronal overmigration and ectopia\"]}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Tubulinopathy-Associated Dysgyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level cortical dysgyria node directly represents this imaging phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Lissencephaly / Pachygyria Spectrum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rare severe TUBB2B alleles extend the dysgyria spectrum toward lissencephaly or pachygyria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Dysmorphic Basal Ganglia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-ganglia and internal-capsule dysmorphism accompany the cortical dysgyria pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Internal Capsule Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Internal-capsule dysmorphism accompanies the basal-ganglia malformation pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular dysgenesis, especially ventriculomegaly, is part of the TUBB2B extracortical pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Cerebellar Vermis Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar-vermis dysplasia accompanies TUBB2B cortical dysgyria.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Brainstem Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem hypoplasia is an extracortical TUBB2B malformation associated with epilepsy in the meta-cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Olfactory Bulb Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Olfactory-bulb agenesis occurs particularly in the severe TUBB2B subgroup.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Corpus Callosum Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal dysmorphism or agenesis accompanies the cortical and extracortical malformation pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The congenital malformation pattern produces developmental impairment through distributed network dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability accompanies TUBB2A cortical dysplasia through unresolved network-level intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is a recurrent TUBB2A manifestation associated with the cortical-malformation phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microcephaly accompanies the developmental cortical-malformation process in TUBB2B disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Gross Motor Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed cortical and motor-system malformation produces gross-motor impairment through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Ocular Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular abnormalities, predominantly strabismus and nystagmus, accompany the TUBB2B pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Strabismus is a common ocular-motility manifestation associated with the TUBB2B malformation pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nystagmus is a common ocular-motility manifestation associated with the TUBB2B malformation pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulinopathy-Associated Dysgyria and Extracortical Malformation Pattern\", \"target\": \"Epilepsy / Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical dysgyria can create an epileptogenic substrate through unresolved circuit-level intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TUBB2A\", \"target\": \"Altered Beta-Tubulin (TUBB2A/TUBB2B) Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TUBB2B\", \"target\": \"Altered Beta-Tubulin (TUBB2A/TUBB2B) Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TUBB2A p.Gly98Arg\", \"target\": \"TUBB2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6593,15 +6687,13 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(7)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(14)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6611,1664 +6703,8 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Strabismus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000486</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Strabismus and nystagmus were the most common ocular motility disorders."</div>
-
-
-                <div class="evidence-explanation">Directly identifies strabismus among the predominant ocular-motility manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nystagmus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000639</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Strabismus and nystagmus were the most common ocular motility disorders."</div>
-
-
-                <div class="evidence-explanation">Directly identifies nystagmus among the predominant ocular-motility manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Microcephaly
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000252</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Microcephaly had a similar prevalence in both cohorts (74.3% vs. 67.4%)."</div>
-
-
-                <div class="evidence-explanation">Quantifies microcephaly as a frequent TUBB2B clinical feature; the second value is TUBB2B.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-    <details class="phenotype-contexts">
-        <summary class="phenotype-contexts-toggle">
-            Context-specific annotations (1)
-        </summary>
-
-        <div class="context-card">
-            <div class="context-header">
-
-
-
-
-
-
-
-
-
-
-                <span class="context-label context-label-subtype">TUBB2B</span>
-
-
-
-                <span class="context-freq">67.4%</span>
-
-
-
-            </div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Microcephaly had a similar prevalence in both cohorts (74.3% vs. 67.4%)."</div>
-
-
-                <div class="evidence-explanation">Records the exact TUBB2B cohort frequency for microcephaly.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-        </div>
-
-    </details>
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypotonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001252</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They presented similarly with intellectual disability, hypotonia, and global developmental delay"</div>
-
-
-                <div class="evidence-explanation">Documents hypotonia in the TUBB2A p.Gly98Arg case series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysmorphic-basal-ganglia" data-dismech-node="Dysmorphic Basal Ganglia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysmorphic Basal Ganglia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal basal ganglia morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002134</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002134 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23361065" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23361065" target="_blank">PMID:23361065</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Dysmorphic basal ganglia with an abnormal internal capsule were the most consistent feature."</div>
-
-
-                <div class="evidence-explanation">Directly identifies basal-ganglia/internal-capsule dysmorphism as the most consistent imaging feature in the cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ventriculomegaly" data-dismech-node="Ventriculomegaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ventriculomegaly
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002119</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In return, TUBB2B tubulinopathy showed significant differences concerning the occurrence of basal ganglia (63.6% vs. 84.6%; P = 0.02) and ventricular dysgenesis, especially ventriculomegaly (44.3% vs. 88.0%; P &lt; 0.001)."</div>
-
-
-                <div class="evidence-explanation">Quantifies ventriculomegaly as a very frequent TUBB2B extracortical imaging feature; the second value in each comparison is TUBB2B.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-    <details class="phenotype-contexts">
-        <summary class="phenotype-contexts-toggle">
-            Context-specific annotations (1)
-        </summary>
-
-        <div class="context-card">
-            <div class="context-header">
-
-
-
-
-
-
-
-
-
-
-                <span class="context-label context-label-subtype">TUBB2B</span>
-
-
-
-                <span class="context-freq">88.0%</span>
-
-
-
-            </div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In return, TUBB2B tubulinopathy showed significant differences concerning the occurrence of basal ganglia (63.6% vs. 84.6%; P = 0.02) and ventricular dysgenesis, especially ventriculomegaly (44.3% vs. 88.0%; P &lt; 0.001)."</div>
-
-
-                <div class="evidence-explanation">Records the exact TUBB2B cohort frequency for ventriculomegaly.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-        </div>
-
-    </details>
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corpus-callosum-abnormality" data-dismech-node="Corpus Callosum Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Corpus Callosum Abnormality
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal corpus callosum morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001273</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"common manifestations including, but not limited to, global developmental delay, seizures, cortical dysplasia, and dysmorphic corpus callosum."</div>
-
-
-                <div class="evidence-explanation">Supports dysmorphic corpus callosum as a recurrent TUBB2A manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global Developmental Delay
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They presented similarly with intellectual disability, hypotonia, and global developmental delay"</div>
-
-
-                <div class="evidence-explanation">Documents global developmental delay in the TUBB2A p.Gly98Arg case series.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"global development (95.7% vs. 76.7%; P = 0.005), speech (98.9% vs. 88.6%; P = 0.020), and motor development (97.8% vs. 83.8%; P = 0.007)"</div>
-
-
-                <div class="evidence-explanation">Quantifies developmental delay domains in the TUBA1A versus TUBB2B natural-history cohort; the second value in each comparison is TUBB2B.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-    <details class="phenotype-contexts">
-        <summary class="phenotype-contexts-toggle">
-            Context-specific annotations (1)
-        </summary>
-
-        <div class="context-card">
-            <div class="context-header">
-
-
-
-
-
-
-
-
-
-
-                <span class="context-label context-label-subtype">TUBB2B</span>
-
-
-
-                <span class="context-freq">76.7%</span>
-
-
-
-            </div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"global development (95.7% vs. 76.7%; P = 0.005), speech (98.9% vs. 88.6%; P = 0.020), and motor development (97.8% vs. 83.8%; P = 0.007)"</div>
-
-
-                <div class="evidence-explanation">Records the exact TUBB2B cohort frequency for global developmental delay.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-        </div>
-
-    </details>
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual Disability
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001249</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They presented similarly with intellectual disability, hypotonia, and global developmental delay"</div>
-
-
-                <div class="evidence-explanation">Documents intellectual disability in the TUBB2A p.Gly98Arg case series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epilepsy-seizures" data-dismech-node="Epilepsy / Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epilepsy / Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Epilepsy was common in both cohorts: 65.9% (TUBA1A) and 54.8% (TUBB2B) of individuals developed seizures during the observation period."</div>
-
-
-                <div class="evidence-explanation">Quantifies epilepsy prevalence in the TUBB2B natural-history cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"common manifestations including, but not limited to, global developmental delay, seizures, cortical dysplasia, and dysmorphic corpus callosum."</div>
-
-
-                <div class="evidence-explanation">Documents seizures among common TUBB2A manifestations.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42472988" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42472988" target="_blank">PMID:42472988</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Notably, one patient with TUBB2A-related tubulinopathy experienced a probable sudden unexpected death in epilepsy (SUDEP)."</div>
-
-
-                <div class="evidence-explanation">The first report of probable SUDEP in this disorder, and the reason the epilepsy here should be counselled and monitored as a mortality risk rather than only as a seizure burden. Note the authors&#39; own hedge - &#34;probable&#34; - and that this is a single patient in a 15-patient cohort, so it establishes that the risk exists, not its magnitude.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-movement-disorder" data-dismech-node="Movement Disorder" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Movement Disorder
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Dystonia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001332</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42472988" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42472988" target="_blank">PMID:42472988</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Movement disorders were observed in 33.3% of the cohort, including dystonia and mirror movements."</div>
-
-
-                <div class="evidence-explanation">Establishes movement disorders as part of the tubulinopathy phenotype in a cohort that includes TUBB2A and TUBB2B patients; the percentage is cross-gene, which is why no per-gene frequency is claimed.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tubulinopathy-associated-dysgyria" data-dismech-node="Tubulinopathy-Associated Dysgyria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tubulinopathy-Associated Dysgyria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0032398</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tubulinopathy-associated dysgyria, annotated with Dysgyria (HP:0032398). HP:0032398 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"PMG and PMG-like CD, with their microscopic correlate of neuronal overmigration, and abnormalities of the basal ganglia and ventricles are predominant neuroradiological and histopathological features."</div>
-
-
-                <div class="evidence-explanation">Establishes polymicrogyria and polymicrogyria-like cortical dysplasia as predominant TUBB2B features.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Note: Dysgyria was previously referred to as &#34;simplified gyral pattern&#34; or &#34;polymicrogyria-like cortical dysplasia&#34;; these terms are potentially confusing."</div>
-
-
-                <div class="evidence-explanation">GeneReviews supports dysgyria as the preferred term and explains why the older polymicrogyria-like label should not be coded as classical polymicrogyria.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lissencephaly-pachygyria-spectrum" data-dismech-node="Lissencephaly / Pachygyria Spectrum" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lissencephaly / Pachygyria Spectrum
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001339" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001339</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23361065" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23361065" target="_blank">PMID:23361065</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"One of the patients with a TUBB2B mutation had a lissencephalic phenotype, similar to that previously associated with a TUBA1A mutation."</div>
-
-
-                <div class="evidence-explanation">Documents a TUBB2B-associated lissencephalic phenotype within the broader cortical dysplasia spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-internal-capsule-abnormality" data-dismech-node="Internal Capsule Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Internal Capsule Abnormality
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the internal capsule</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0012502</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Internal capsule abnormality, annotated with Abnormality of the internal capsule (HP:0012502). HP:0012502 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23361065" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23361065" target="_blank">PMID:23361065</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Dysmorphic basal ganglia with an abnormal internal capsule were the most consistent feature."</div>
-
-
-                <div class="evidence-explanation">Directly supports internal-capsule abnormality in the TUBB2B imaging cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-vermis-abnormality" data-dismech-node="Cerebellar Vermis Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebellar Vermis Abnormality
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal cerebellar vermis morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002334</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar vermis abnormality, annotated with Abnormal cerebellar vermis morphology (HP:0002334). HP:0002334 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cortical dysgyria resembling polymicrogyria is associated with complete agenesis of the corpus callosum (A). The basal ganglia are hypertrophic and fused; the lateral ventricles are dysmorphic (B). The cerebellar vermis is dysplastic"</div>
-
-
-                <div class="evidence-explanation">The GeneReviews TUBB2B figure directly documents cerebellar-vermis dysplasia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-brainstem-hypoplasia" data-dismech-node="Brainstem Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Brainstem Hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypoplasia of the brainstem</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002365</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Brainstem hypoplasia, annotated with Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In the TUBB2B cohort, epilepsy was associated with complete agenesis of the CC and brainstem hypoplasia"</div>
-
-
-                <div class="evidence-explanation">Directly documents brainstem hypoplasia in the TUBB2B cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-olfactory-bulb-abnormality" data-dismech-node="Olfactory Bulb Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Olfactory Bulb Abnormality
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal morphology of the olfactory bulb</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0040327</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Olfactory bulb abnormality, annotated with Abnormal morphology of the olfactory bulb (HP:0040327). HP:0040327 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In the TUBB2B cohort, agenesis of the olfactory bulb was significantly more prevalent in severely affected individuals"</div>
-
-
-                <div class="evidence-explanation">Directly supports the severe-subgroup olfactory-bulb phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gross-motor-impairment" data-dismech-node="Gross Motor Impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gross Motor Impairment
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Poor gross motor coordination</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0007015</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Gross motor impairment, annotated with Poor gross motor coordination (HP:0007015). HP:0007015 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Gross motor function was more commonly affected in the TUBA1A (97.3%) than in the TUBB2B cohort (73.1%; P = 0.001) whereas normal motor function was significantly more prevalent in the TUBB2B cohort (19.2% vs. 2.9%; P = 0.012)."</div>
-
-
-                <div class="evidence-explanation">Quantifies gross motor impairment as frequent in the TUBB2B cohort; the second affected-function value is TUBB2B.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-    <details class="phenotype-contexts">
-        <summary class="phenotype-contexts-toggle">
-            Context-specific annotations (1)
-        </summary>
-
-        <div class="context-card">
-            <div class="context-header">
-
-
-
-
-
-
-
-
-
-
-                <span class="context-label context-label-subtype">TUBB2B</span>
-
-
-
-                <span class="context-freq">73.1%</span>
-
-
-
-            </div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Gross motor function was more commonly affected in the TUBA1A (97.3%) than in the TUBB2B cohort (73.1%; P = 0.001) whereas normal motor function was significantly more prevalent in the TUBB2B cohort (19.2% vs. 2.9%; P = 0.012)."</div>
-
-
-                <div class="evidence-explanation">Records the exact TUBB2B cohort frequency for gross motor impairment.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-        </div>
-
-    </details>
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ocular-abnormality" data-dismech-node="Ocular Abnormality" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8288,15 +6724,18 @@ This clinical feature is Gross motor impairment, annotated with Poor gross motor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000478</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000478</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ocular abnormality, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8316,6 +6755,7 @@ This clinical feature is Ocular abnormality, annotated with Abnormality of the e
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8340,6 +6780,7 @@ This clinical feature is Ocular abnormality, annotated with Abnormality of the e
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8393,6 +6834,7 @@ This clinical feature is Ocular abnormality, annotated with Abnormality of the e
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8407,6 +6849,7 @@ This clinical feature is Ocular abnormality, annotated with Abnormality of the e
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8431,6 +6874,1737 @@ This clinical feature is Ocular abnormality, annotated with Abnormality of the e
         </div>
 
     </details>
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Strabismus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000486</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Strabismus and nystagmus were the most common ocular motility disorders."</div>
+
+
+                <div class="evidence-explanation">Directly identifies strabismus among the predominant ocular-motility manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nystagmus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000639</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Strabismus and nystagmus were the most common ocular motility disorders."</div>
+
+
+                <div class="evidence-explanation">Directly identifies nystagmus among the predominant ocular-motility manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Microcephaly
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Microcephaly had a similar prevalence in both cohorts (74.3% vs. 67.4%)."</div>
+
+
+                <div class="evidence-explanation">Quantifies microcephaly as a frequent TUBB2B clinical feature; the second value is TUBB2B.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+    <details class="phenotype-contexts">
+        <summary class="phenotype-contexts-toggle">
+            Context-specific annotations (1)
+        </summary>
+
+        <div class="context-card">
+            <div class="context-header">
+
+
+
+
+
+
+
+
+
+
+                <span class="context-label context-label-subtype">TUBB2B</span>
+
+
+
+                <span class="context-freq">67.4%</span>
+
+
+
+            </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Microcephaly had a similar prevalence in both cohorts (74.3% vs. 67.4%)."</div>
+
+
+                <div class="evidence-explanation">Records the exact TUBB2B cohort frequency for microcephaly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </details>
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypotonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They presented similarly with intellectual disability, hypotonia, and global developmental delay"</div>
+
+
+                <div class="evidence-explanation">Documents hypotonia in the TUBB2A p.Gly98Arg case series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">14</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tubulinopathy-associated-dysgyria" data-dismech-node="Tubulinopathy-Associated Dysgyria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tubulinopathy-Associated Dysgyria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0032398</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tubulinopathy-associated dysgyria, annotated with Dysgyria (HP:0032398). HP:0032398 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PMG and PMG-like CD, with their microscopic correlate of neuronal overmigration, and abnormalities of the basal ganglia and ventricles are predominant neuroradiological and histopathological features."</div>
+
+
+                <div class="evidence-explanation">Establishes polymicrogyria and polymicrogyria-like cortical dysplasia as predominant TUBB2B features.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Note: Dysgyria was previously referred to as &#34;simplified gyral pattern&#34; or &#34;polymicrogyria-like cortical dysplasia&#34;; these terms are potentially confusing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports dysgyria as the preferred term and explains why the older polymicrogyria-like label should not be coded as classical polymicrogyria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lissencephaly-pachygyria-spectrum" data-dismech-node="Lissencephaly / Pachygyria Spectrum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lissencephaly / Pachygyria Spectrum
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001339" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001339</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23361065" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23361065" target="_blank">PMID:23361065</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One of the patients with a TUBB2B mutation had a lissencephalic phenotype, similar to that previously associated with a TUBA1A mutation."</div>
+
+
+                <div class="evidence-explanation">Documents a TUBB2B-associated lissencephalic phenotype within the broader cortical dysplasia spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysmorphic-basal-ganglia" data-dismech-node="Dysmorphic Basal Ganglia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysmorphic Basal Ganglia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal basal ganglia morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002134</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002134 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23361065" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23361065" target="_blank">PMID:23361065</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dysmorphic basal ganglia with an abnormal internal capsule were the most consistent feature."</div>
+
+
+                <div class="evidence-explanation">Directly identifies basal-ganglia/internal-capsule dysmorphism as the most consistent imaging feature in the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-internal-capsule-abnormality" data-dismech-node="Internal Capsule Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Internal Capsule Abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the internal capsule</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012502</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Internal capsule abnormality, annotated with Abnormality of the internal capsule (HP:0012502). HP:0012502 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23361065" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23361065" target="_blank">PMID:23361065</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dysmorphic basal ganglia with an abnormal internal capsule were the most consistent feature."</div>
+
+
+                <div class="evidence-explanation">Directly supports internal-capsule abnormality in the TUBB2B imaging cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ventriculomegaly" data-dismech-node="Ventriculomegaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ventriculomegaly
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In return, TUBB2B tubulinopathy showed significant differences concerning the occurrence of basal ganglia (63.6% vs. 84.6%; P = 0.02) and ventricular dysgenesis, especially ventriculomegaly (44.3% vs. 88.0%; P &lt; 0.001)."</div>
+
+
+                <div class="evidence-explanation">Quantifies ventriculomegaly as a very frequent TUBB2B extracortical imaging feature; the second value in each comparison is TUBB2B.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+    <details class="phenotype-contexts">
+        <summary class="phenotype-contexts-toggle">
+            Context-specific annotations (1)
+        </summary>
+
+        <div class="context-card">
+            <div class="context-header">
+
+
+
+
+
+
+
+
+
+
+                <span class="context-label context-label-subtype">TUBB2B</span>
+
+
+
+                <span class="context-freq">88.0%</span>
+
+
+
+            </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In return, TUBB2B tubulinopathy showed significant differences concerning the occurrence of basal ganglia (63.6% vs. 84.6%; P = 0.02) and ventricular dysgenesis, especially ventriculomegaly (44.3% vs. 88.0%; P &lt; 0.001)."</div>
+
+
+                <div class="evidence-explanation">Records the exact TUBB2B cohort frequency for ventriculomegaly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </details>
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-vermis-abnormality" data-dismech-node="Cerebellar Vermis Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebellar Vermis Abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal cerebellar vermis morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002334</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar vermis abnormality, annotated with Abnormal cerebellar vermis morphology (HP:0002334). HP:0002334 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK350554/pdf/Bookshelf_NBK350554.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cortical dysgyria resembling polymicrogyria is associated with complete agenesis of the corpus callosum (A). The basal ganglia are hypertrophic and fused; the lateral ventricles are dysmorphic (B). The cerebellar vermis is dysplastic"</div>
+
+
+                <div class="evidence-explanation">The GeneReviews TUBB2B figure directly documents cerebellar-vermis dysplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-brainstem-hypoplasia" data-dismech-node="Brainstem Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Brainstem Hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplasia of the brainstem</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brainstem hypoplasia, annotated with Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the TUBB2B cohort, epilepsy was associated with complete agenesis of the CC and brainstem hypoplasia"</div>
+
+
+                <div class="evidence-explanation">Directly documents brainstem hypoplasia in the TUBB2B cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-olfactory-bulb-abnormality" data-dismech-node="Olfactory Bulb Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Olfactory Bulb Abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal morphology of the olfactory bulb</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0040327</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Olfactory bulb abnormality, annotated with Abnormal morphology of the olfactory bulb (HP:0040327). HP:0040327 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the TUBB2B cohort, agenesis of the olfactory bulb was significantly more prevalent in severely affected individuals"</div>
+
+
+                <div class="evidence-explanation">Directly supports the severe-subgroup olfactory-bulb phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corpus-callosum-abnormality" data-dismech-node="Corpus Callosum Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Corpus Callosum Abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal corpus callosum morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001273</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"common manifestations including, but not limited to, global developmental delay, seizures, cortical dysplasia, and dysmorphic corpus callosum."</div>
+
+
+                <div class="evidence-explanation">Supports dysmorphic corpus callosum as a recurrent TUBB2A manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global Developmental Delay
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They presented similarly with intellectual disability, hypotonia, and global developmental delay"</div>
+
+
+                <div class="evidence-explanation">Documents global developmental delay in the TUBB2A p.Gly98Arg case series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"global development (95.7% vs. 76.7%; P = 0.005), speech (98.9% vs. 88.6%; P = 0.020), and motor development (97.8% vs. 83.8%; P = 0.007)"</div>
+
+
+                <div class="evidence-explanation">Quantifies developmental delay domains in the TUBA1A versus TUBB2B natural-history cohort; the second value in each comparison is TUBB2B.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+    <details class="phenotype-contexts">
+        <summary class="phenotype-contexts-toggle">
+            Context-specific annotations (1)
+        </summary>
+
+        <div class="context-card">
+            <div class="context-header">
+
+
+
+
+
+
+
+
+
+
+                <span class="context-label context-label-subtype">TUBB2B</span>
+
+
+
+                <span class="context-freq">76.7%</span>
+
+
+
+            </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"global development (95.7% vs. 76.7%; P = 0.005), speech (98.9% vs. 88.6%; P = 0.020), and motor development (97.8% vs. 83.8%; P = 0.007)"</div>
+
+
+                <div class="evidence-explanation">Records the exact TUBB2B cohort frequency for global developmental delay.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </details>
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intellectual Disability
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They presented similarly with intellectual disability, hypotonia, and global developmental delay"</div>
+
+
+                <div class="evidence-explanation">Documents intellectual disability in the TUBB2A p.Gly98Arg case series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gross-motor-impairment" data-dismech-node="Gross Motor Impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gross Motor Impairment
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Poor gross motor coordination</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0007015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gross motor impairment, annotated with Poor gross motor coordination (HP:0007015). HP:0007015 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Gross motor function was more commonly affected in the TUBA1A (97.3%) than in the TUBB2B cohort (73.1%; P = 0.001) whereas normal motor function was significantly more prevalent in the TUBB2B cohort (19.2% vs. 2.9%; P = 0.012)."</div>
+
+
+                <div class="evidence-explanation">Quantifies gross motor impairment as frequent in the TUBB2B cohort; the second affected-function value is TUBB2B.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+    <details class="phenotype-contexts">
+        <summary class="phenotype-contexts-toggle">
+            Context-specific annotations (1)
+        </summary>
+
+        <div class="context-card">
+            <div class="context-header">
+
+
+
+
+
+
+
+
+
+
+                <span class="context-label context-label-subtype">TUBB2B</span>
+
+
+
+                <span class="context-freq">73.1%</span>
+
+
+
+            </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Gross motor function was more commonly affected in the TUBA1A (97.3%) than in the TUBB2B cohort (73.1%; P = 0.001) whereas normal motor function was significantly more prevalent in the TUBB2B cohort (19.2% vs. 2.9%; P = 0.012)."</div>
+
+
+                <div class="evidence-explanation">Records the exact TUBB2B cohort frequency for gross motor impairment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </details>
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epilepsy-seizures" data-dismech-node="Epilepsy / Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Epilepsy / Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33082561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33082561" target="_blank">PMID:33082561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epilepsy was common in both cohorts: 65.9% (TUBA1A) and 54.8% (TUBB2B) of individuals developed seizures during the observation period."</div>
+
+
+                <div class="evidence-explanation">Quantifies epilepsy prevalence in the TUBB2B natural-history cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33776625" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33776625" target="_blank">PMID:33776625</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"common manifestations including, but not limited to, global developmental delay, seizures, cortical dysplasia, and dysmorphic corpus callosum."</div>
+
+
+                <div class="evidence-explanation">Documents seizures among common TUBB2A manifestations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42472988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42472988" target="_blank">PMID:42472988</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notably, one patient with TUBB2A-related tubulinopathy experienced a probable sudden unexpected death in epilepsy (SUDEP)."</div>
+
+
+                <div class="evidence-explanation">The first report of probable SUDEP in this disorder, and the reason the epilepsy here should be counselled and monitored as a mortality risk rather than only as a seizure burden. Note the authors&#39; own hedge - &#34;probable&#34; - and that this is a single patient in a 15-patient cohort, so it establishes that the risk exists, not its magnitude.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-movement-disorder" data-dismech-node="Movement Disorder" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Movement Disorder
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Dystonia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42472988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42472988" target="_blank">PMID:42472988</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Movement disorders were observed in 33.3% of the cohort, including dystonia and mirror movements."</div>
+
+
+                <div class="evidence-explanation">Establishes movement disorders as part of the tubulinopathy phenotype in a cohort that includes TUBB2A and TUBB2B patients; the percentage is cross-gene, which is why no per-gene frequency is claimed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
 
 
                 </div>
@@ -8501,8 +8675,13 @@ This disease-associated gene is TUBB2A (hgnc:12412). hgnc:12412 is a gene from t
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -8521,6 +8700,7 @@ This disease-associated gene is TUBB2A (hgnc:12412). hgnc:12412 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8557,6 +8737,12 @@ This disease-associated gene is TUBB2A (hgnc:12412). hgnc:12412 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent heterozygous pathogenic missense variant reported in three individuals with intellectual disability, hypotonia, global developmental delay, and variable cortical malformation and seizure history.</div>
 
 
@@ -8581,6 +8767,7 @@ This disease-associated gene is TUBB2A (hgnc:12412). hgnc:12412 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8637,8 +8824,13 @@ This disease-associated gene is TUBB2B (hgnc:30829). hgnc:30829 is a gene from t
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -8657,6 +8849,7 @@ This disease-associated gene is TUBB2B (hgnc:30829). hgnc:30829 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8681,6 +8874,7 @@ This disease-associated gene is TUBB2B (hgnc:30829). hgnc:30829 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8772,6 +8966,12 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Symptomatic anti-seizure pharmacotherapy is used when epilepsy is present. No disease-modifying therapy for the underlying beta-tubulin cortical malformation mechanism is established.</div>
 
 
@@ -8793,6 +8993,7 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8865,6 +9066,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Supportive developmental, physical, occupational, speech, vision, and feeding care is the practical management backbone for developmental delay, hypotonia, motor impairment, visual/ocular findings, and epilepsy-related morbidity.</div>
 
 
@@ -8886,6 +9093,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8957,6 +9165,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should cover de novo dominant inheritance as the common pattern, the possibility of parental mosaicism in apparently sporadic disease, prenatal imaging findings, and recurrence-risk uncertainty.</div>
 
 
@@ -8981,6 +9195,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9002,6 +9217,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9112,6 +9328,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9201,6 +9418,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9280,6 +9498,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9341,6 +9560,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9387,6 +9607,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10635,6 +10856,8 @@ phenotypes:
 genetic:
 - name: TUBB2A
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: TUBB2A
   gene_term:
     preferred_term: TUBB2A
     term:
@@ -10669,6 +10892,8 @@ genetic:
       explanation: Directly documents the recurrent pathogenic TUBB2A p.Gly98Arg variant.
 - name: TUBB2B
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: TUBB2B
   gene_term:
     preferred_term: TUBB2B
     term:
@@ -11430,6 +11655,18 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entry created from cortical-malformation epic 4098 (issue 4084), seeded from Romero, Bahi-Buisson &amp; Francis 2018 and refined with Falcon deep research. The entry boundary follows the dismech mechanism-skeleton rule: TUBB2A and TUBB2B are curated together only because the available evidence supports a coherent beta-tubulin heterodimer/microtubule apparatus skeleton with cortical migration/organization failure and overlapping cortical-plus-extracortical malformation endpoints. This is narrower than &#34;tubulinopathy&#34; and should not be used to absorb TUBA1A, TUBB3, TUBB5/TUBB, or TUBG1 without checking whether their disease skeletons match. TUBB2A remains the thinner branch, and the `gap_tubb2ab_lumping_boundary` discussion is intentionally open. The Falcon report did not identify TUBB2A/TUBB2B-specific organoid or iPSC evidence; the proposed organoid experiment is included as an organoid/iPSC translatability knowledge gap, not as existing disease evidence.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11849,7 +12086,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "TUBB2A/TUBB2B-related Cortical Malformation", "mondoId": "MONDO:0018763", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TUBB2A_TUBB2B-related_Cortical_Malformation", "yamlRevision": "5f0fe32bfa1d"};
+        const OS_CONFIG = {"diseaseName": "TUBB2A/TUBB2B-related Cortical Malformation", "mondoId": "MONDO:0018763", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TUBB2A_TUBB2B-related_Cortical_Malformation", "yamlRevision": "f388fc082561"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

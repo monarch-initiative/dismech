@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hypomyelinating%20Leukodystrophy%2010"
@@ -4001,7 +4069,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4191,6 +4259,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4212,6 +4281,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4310,6 +4380,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4331,6 +4402,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4455,6 +4527,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4476,6 +4549,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4553,6 +4627,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4577,6 +4652,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4598,6 +4674,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4635,6 +4712,7 @@ The allelic spectrum extends beyond the classical severe phenotype. A homozygous
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pycr2-loss-of-function" data-dismech-node="Biallelic PYCR2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PYCR2 Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic PYCR2 variants - nonsense, splice-site and missense - reduce the amount or the catalytic competence of pyrroline-5-carboxylate reductase 2. Missense alleles act by two demonstrated routes. Some (p.Arg119Cys, p.Arg251Cys) leave mitochondrial targeting intact but lower steady-state protein levels and severely reduce catalytic efficiency, and p.Arg251Cys in addition carries a pronounced folding defect. Others cluster in the dimerisation domain and impair multimerisation of the obligate-oligomeric enzyme; the p.Gly249Val allele lies directly at the dimer interface.</div>
 
@@ -4688,6 +4766,8 @@ This genetic context concerns PYCR2 (hgnc:30262). hgnc:30262 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4700,6 +4780,9 @@ This genetic context concerns PYCR2 (hgnc:30262). hgnc:30262 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4839,6 +4922,7 @@ This pathophysiological event involves decreased pyrroline-5-carboxylate reducta
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4860,6 +4944,7 @@ This pathophysiological event involves decreased pyrroline-5-carboxylate reducta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4887,6 +4972,7 @@ This pathophysiological event involves decreased pyrroline-5-carboxylate reducta
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4911,6 +4997,13 @@ This pathophysiological event involves decreased pyrroline-5-carboxylate reducta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-bulk-proline-supply-by-paralogue-redundancy" data-dismech-node="Preserved Bulk Proline Supply by Paralogue Redundancy" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Bulk Proline Supply by Paralogue Redundancy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Despite the enzymatic block, proline itself is not depleted. Plasma and CSF proline are normal in patients, routine metabolic screens are unremarkable, and serum proline is not reduced in Pycr2-null mice. PYCR1 is largely functionally redundant with PYCR2 for bulk proline supply, so proline auxotrophy is not the central disease mechanism. The cytosolic third paralogue PYCR3 sits in a different compartment and is fed P5C from ornithine by ornithine aminotransferase rather than from glutamate; it was not tested for redundancy and is deliberately not part of this claim. Proline is nonetheless semi-essential in the mutant state: a proline-free diet worsens the mouse phenotype. This node is curated explicitly because it constrains every downstream mechanistic claim and rules out a metabolite-replacement rationale.</div>
 
@@ -5007,6 +5100,7 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5028,6 +5122,7 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5055,6 +5150,7 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5079,6 +5175,7 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-oxidative-stress-susceptibility" data-dismech-node="Mitochondrial Dysfunction and Oxidative Stress Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction and Oxidative Stress Susceptibility</div>
+
 
                 <div class="item-desc">PYCR2 is a mitochondrial matrix enzyme, and its loss is felt as a mitochondrial rather than a metabolite-supply defect. PYCR2-deficient cells show decreased mitochondrial membrane potential and markedly increased apoptosis under oxidative stress. In an oligodendroglial cell model, the disease missense proteins additionally shift the fusion-fission balance towards fusion, producing abnormally large mitochondria with decreased activity.</div>
 
@@ -5365,6 +5462,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5386,6 +5484,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5413,6 +5512,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5435,6 +5535,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shmt2-upregulation-and-cerebral-glycine-accumulation" data-dismech-node="SHMT2 Upregulation and Cerebral Glycine Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">SHMT2 Upregulation and Cerebral Glycine Accumulation</div>
+
 
                 <div class="item-desc">Loss of PYCR2 upregulates serine hydroxymethyltransferase 2 (SHMT2), the mitochondrial one-carbon enzyme responsible for glycine synthesis, and cerebral glycine rises in both Pycr2-null mice and patients. The excess glycine is not a bystander: knocking down SHMT2 partially reverses it and rescues the axonal beading and shortened neurites of cultured Pycr2-knockout neurons, identifying the glycine pathway as the leading candidate intervention point. Elevated brain glycine is detectable non-invasively as an MR-spectroscopy glycine peak, including in the mild spastic-paraplegia-only phenotype where white matter is normally myelinated.</div>
 
@@ -5618,6 +5719,7 @@ This pathophysiological event involves increased glycine hydroxymethyltransferas
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5639,6 +5741,7 @@ This pathophysiological event involves increased glycine hydroxymethyltransferas
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5666,6 +5769,7 @@ This pathophysiological event involves increased glycine hydroxymethyltransferas
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5690,6 +5794,7 @@ This pathophysiological event involves increased glycine hydroxymethyltransferas
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-oligodendroglial-differentiation-and-cns-hypomyelination" data-dismech-node="Impaired Oligodendroglial Differentiation and CNS Hypomyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Oligodendroglial Differentiation and CNS Hypomyelination</div>
+
 
                 <div class="item-desc">Oligodendroglial cells expressing the HLD10 missense proteins fail to undergo the morphological differentiation that precedes myelination, with reduced expression of differentiation and myelin marker proteins. Because myelination is highly energy-dependent, the enlarged, hypoactive mitochondria provide a direct link from the enzymatic lesion to the white-matter phenotype. The resulting CNS hypomyelination and reduced cerebral white-matter volume are the imaging hallmark of the disease.</div>
 
@@ -5917,6 +6022,7 @@ This pathophysiological event occurs in white matter of the central nervous syst
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5938,6 +6044,7 @@ This pathophysiological event occurs in white matter of the central nervous syst
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5965,6 +6072,7 @@ This pathophysiological event occurs in white matter of the central nervous syst
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5987,6 +6095,7 @@ This pathophysiological event occurs in white matter of the central nervous syst
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neuronal-loss-and-brain-atrophy" data-dismech-node="Progressive Neuronal Loss and Brain Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neuronal Loss and Brain Atrophy</div>
+
 
                 <div class="item-desc">Alongside the white-matter defect there is a primary neuronal process. Patients are born with normal or only mildly reduced head circumference and then acquire microcephaly postnatally, with progressive global brain atrophy, ventriculomegaly and a thinning corpus callosum, while cerebellum and brainstem are relatively spared. The combination of early-onset intellectual disability, epilepsy and atrophy has been read by the original cohort authors as primary neuronal dysfunction with secondary hypomyelination - which is why HLD10 is sometimes placed among the genetic leukoencephalopathies rather than the classical hypomyelinating leukodystrophies.</div>
 
@@ -6153,6 +6262,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6174,6 +6284,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6201,6 +6312,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6223,6 +6335,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-neurodevelopmental-impairment-and-early-mortality" data-dismech-node="Severe Neurodevelopmental Impairment and Early Mortality" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Neurodevelopmental Impairment and Early Mortality</div>
+
 
                 <div class="item-desc">The clinical convergence point. Affected children stagnate at roughly a 4-to-5-month developmental level, never acquire meaningful language, fine motor skills or independent ambulation, and develop failure to thrive by one year of age. In the largest cohort no patient survived beyond the first decade, with death from pulmonary infection, fever of unknown origin or failure to thrive.</div>
 
@@ -6281,6 +6394,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6305,6 +6419,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6326,6 +6441,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6374,7 +6490,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticonvulsant medication for the focal myoclonic and generalized tonic-clonic seizures. In the largest cohort seizures were controlled with anticonvulsants, making this the single symptomatic intervention with documented efficacy in HLD10.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Biallelic PYCR2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PYCR2 variants - nonsense, splice-site and missense - reduce the amount or the catalytic competence of pyrroline-5-carboxylate reductase 2. Missense alleles act by two demonstrated routes. Some (p.Arg119Cys, p.Arg251Cys) leave mitochondrial targeting intact but lower steady-state protein levels and severely reduce catalytic efficiency, and p.Arg251Cys in addition carries a pronounced folding defect. Others cluster in the dimerisation domain and impair multimerisation of the obligate-oligomeric enzyme; the p.Gly249Val allele lies directly at the dimer interface.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"L-proline biosynthetic process\"], \"molecular_functions\": [\"pyrroline-5-carboxylate reductase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"PYCR2\", \"id\": \"hgnc:30262\"}]}}}, {\"id\": \"CRISPR-Cas9 PYCR2-deficient HEK293FT cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"An isogenic PYCR2 knockout generated by CRISPR-Cas9 in HEK293FT cells, showing decreased mitochondrial membrane potential and increased apoptosis under oxidative stress.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:25865492\"}}, {\"id\": \"FBD-102b oligodendroglial differentiation model expressing HLD10 PYCR2 variants\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The FBD-102b oligodendroglial differentiation model expressing the HLD10 missense proteins p.Arg119Cys and p.Arg251Cys. Mutant-expressing cells form abnormally large mitochondria with increased fusion, decreased fission and decreased mitochondrial activity, and fail to undergo morphological differentiation with the associated rise in differentiation marker proteins.\", \"meta\": {\"cell_types\": [\"oligodendrocyte\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:36548190\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth parameters are normal at birth, with failure to thrive established by one year of age; weight falls to -4 to -9 SD and height to -2 to -5 SD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Impaired Oligodendroglial Differentiation and CNS Hypomyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oligodendroglial cells expressing the HLD10 missense proteins fail to undergo the morphological differentiation that precedes myelination, with reduced expression of differentiation and myelin marker proteins. Because myelination is highly energy-dependent, the enlarged, hypoactive mitochondria provide a direct link from the enzymatic lesion to the white-matter phenotype. The resulting CNS hypomyelination and reduced cerebral white-matter volume are the imaging hallmark of the disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte\", \"oligodendrocyte precursor cell\"], \"biological_processes\": [\"oligodendrocyte differentiation\", \"central nervous system myelination\"], \"locations\": [\"white matter of the central nervous system\"], \"experimental_models\": [{\"name\": \"FBD-102b oligodendroglial differentiation model expressing HLD10 PYCR2 variants\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Provides the direct cellular link from the PYCR2 lesion to a failure of oligodendroglial differentiation, the proximate cause of hypomyelination.\"}]}}, {\"id\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PYCR2 is a mitochondrial matrix enzyme, and its loss is felt as a mitochondrial rather than a metabolite-supply defect. PYCR2-deficient cells show decreased mitochondrial membrane potential and markedly increased apoptosis under oxidative stress. In an oligodendroglial cell model, the disease missense proteins additionally shift the fusion-fission balance towards fusion, producing abnormally large mitochondria with decreased activity.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"regulation of mitochondrial membrane potential\", \"mitochondrial fusion\", \"mitochondrial fission\", \"cellular response to oxidative stress\", \"apoptotic process\"], \"experimental_models\": [{\"name\": \"CRISPR-Cas9 PYCR2-deficient HEK293FT cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Isogenic loss-of-function evidence isolating the mitochondrial and apoptotic consequences of PYCR2 loss from genetic background.\"}]}}, {\"id\": \"No Disease-Modifying Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recorded explicitly as a negative: there is no specific, disease-modifying or curative treatment for HLD10. Management is entirely supportive. The SHMT2 or glycine axis is the leading proposed intervention point but has not been tested in patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nutritional Support for Failure to Thrive\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional support, including gastrostomy feeding where dysphagia is severe, for the universal failure to thrive. Failure to thrive is itself among the listed causes of death in the reference cohort, which is the rationale.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Physical Therapy and Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy, positioning and orthotic management for spasticity, contracture prevention and mobility in a population that does not achieve independent sitting or ambulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Preserved Bulk Proline Supply by Paralogue Redundancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite the enzymatic block, proline itself is not depleted. Plasma and CSF proline are normal in patients, routine metabolic screens are unremarkable, and serum proline is not reduced in Pycr2-null mice. PYCR1 is largely functionally redundant with PYCR2 for bulk proline supply, so proline auxotrophy is not the central disease mechanism. The cytosolic third paralogue PYCR3 sits in a different compartment and is fed P5C from ornithine by ornithine aminotransferase rather than from glutamate; it was not tested for redundancy and is deliberately not part of this claim. Proline is nonetheless semi-essential in the mutant state: a proline-free diet worsens the mouse phenotype. This node is curated explicitly because it constrains every downstream mechanistic claim and rules out a metabolite-replacement rationale.\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"L-proline biosynthetic process\"], \"animal_models\": [{\"name\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"species\": \"Mouse\", \"genotype\": \"Pycr2 c.2T\u003eC (p.Met1Thr) homozygous, chemically induced null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse reproduces the defining negative finding of the human disease - an enzymatic block without proline depletion - and adds the dietary manipulation that shows proline is semi-essential rather than irrelevant.\"}]}}, {\"id\": \"Progressive Neuronal Loss and Brain Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside the white-matter defect there is a primary neuronal process. Patients are born with normal or only mildly reduced head circumference and then acquire microcephaly postnatally, with progressive global brain atrophy, ventriculomegaly and a thinning corpus callosum, while cerebellum and brainstem are relatively spared. The combination of early-onset intellectual disability, epilepsy and atrophy has been read by the original cohort authors as primary neuronal dysfunction with secondary hypomyelination - which is why HLD10 is sometimes placed among the genetic leukoencephalopathies rather than the classical hypomyelinating leukodystrophies.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"brain\"], \"animal_models\": [{\"name\": \"pycr1b morpholino knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"pycr1b morpholino knockdown (PYCR2 orthologue)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces reduced head and brain size, the developmental counterpart of the human microcephaly, with allele-specific rescue confirming specificity.\"}]}}, {\"id\": \"Pycr2 knockout mouse (Escande-Beillard)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A Pycr2 knockout reported to phenocopy the human disorder, in which in situ neurotransmitter quantification revealed excessive cerebral glycine and secondary depletion of PYCR1 in neural lineages. Cultured knockout neurons show axonal beading and shortened neurites that are rescued by SHMT2 knockdown.\"}, {\"id\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A chemically induced start-codon mutation abolishing the 34 kDa PYCR2 protein in brain, spinal cord and muscle while leaving Pycr2 mRNA intact. Mutant mice show weight loss, progressive kyphosis, hind-limb clasping, reduced grip strength, severe subcutaneous fat loss, mild peripheral axonal atrophy, reduced white blood cell counts and altered lipid metabolism.\"}, {\"id\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PYCR2 upregulates serine hydroxymethyltransferase 2 (SHMT2), the mitochondrial one-carbon enzyme responsible for glycine synthesis, and cerebral glycine rises in both Pycr2-null mice and patients. The excess glycine is not a bystander: knocking down SHMT2 partially reverses it and rescues the axonal beading and shortened neurites of cultured Pycr2-knockout neurons, identifying the glycine pathway as the leading candidate intervention point. Elevated brain glycine is detectable non-invasively as an MR-spectroscopy glycine peak, including in the mild spastic-paraplegia-only phenotype where white matter is normally myelinated.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"glycine biosynthetic process\", \"glycine metabolic process\"], \"molecular_functions\": [\"glycine hydroxymethyltransferase activity\"], \"animal_models\": [{\"name\": \"Pycr2 knockout mouse (Escande-Beillard)\", \"species\": \"Mouse\", \"genotype\": \"Pycr2 knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Excess cerebral glycine was measured in the mutant mouse brain and in patients in the same study, and the SHMT2 knockdown rescue establishes the mechanism rather than merely the association.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal myoclonic and generalized tonic-clonic seizures, with onset usually before one year of age and generally controllable with anticonvulsants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe Neurodevelopmental Impairment and Early Mortality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical convergence point. Affected children stagnate at roughly a 4-to-5-month developmental level, never acquire meaningful language, fine motor skills or independent ambulation, and develop failure to thrive by one year of age. In the largest cohort no patient survived beyond the first decade, with death from pulmonary infection, fever of unknown origin or failure to thrive.\", \"meta\": {\"evidence_count\": 3, \"animal_models\": [{\"name\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"species\": \"Mouse\", \"genotype\": \"Pycr2 c.2T\u003eC (p.Met1Thr) homozygous, chemically induced null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse develops a neurological and neuromuscular syndrome - kyphosis, hind-limb clasping, weight loss, reduced grip strength - consistent with the human neurological impairment.\"}]}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb spasticity with hyperreflexia. Spasticity is also the presenting and, in the mildest reported families, the only feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"pycr1b morpholino knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Morpholino knockdown of the zebrafish PYCR2 orthologue pycr1b reproduces microcephaly, rescued by wild-type but not mutant human PYCR2 mRNA. The allele-specific rescue is the functional evidence for pathogenicity of the founding variants.\"}], \"edges\": [{\"source\": \"Biallelic PYCR2 Loss of Function\", \"target\": \"Preserved Bulk Proline Supply by Paralogue Redundancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PYCR2 does not deplete measurable proline pools, because the mitochondrial paralogue PYCR1 can carry out the same reduction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic PYCR2 Loss of Function\", \"target\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PYCR2 impairs mitochondrial membrane potential and morphology and sensitises cells to oxidative-stress-induced apoptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic PYCR2 Loss of Function\", \"target\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PYCR2 upregulates SHMT2, diverting one-carbon metabolism towards glycine synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"target\": \"Impaired Oligodendroglial Differentiation and CNS Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in oligodendroglial cells blocks the morphological differentiation required to produce myelin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"target\": \"Progressive Neuronal Loss and Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial function and increased apoptotic susceptibility in neural lineages contribute to postnatal neurodegeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"target\": \"Progressive Neuronal Loss and Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycine-driven encephalopathy contributes to the neuronal injury underlying progressive microcephaly and brain atrophy; SHMT2 knockdown rescues axonal beading and neurite length in Pycr2-knockout neurons.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Oligodendroglial Differentiation and CNS Hypomyelination\", \"target\": \"Severe Neurodevelopmental Impairment and Early Mortality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient myelination of the cerebral white matter contributes to the profound neurodevelopmental impairment. INDIRECT because the relative contribution of the white-matter and neuronal arms is unsettled - see the leukodystrophy-versus-leukoencephalopathy discussion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Neuronal Loss and Brain Atrophy\", \"target\": \"Severe Neurodevelopmental Impairment and Early Mortality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive loss of cerebral tissue underlies the developmental stagnation, failure to thrive and reduced survival.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional Support for Failure to Thrive\", \"target\": \"Failure to Thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Spasticity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"No Disease-Modifying Therapy\", \"target\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FBD-102b oligodendroglial differentiation model expressing HLD10 PYCR2 variants\", \"target\": \"Impaired Oligodendroglial Differentiation and CNS Hypomyelination\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides the direct cellular link from the PYCR2 lesion to a failure of oligodendroglial differentiation, the proximate cause of hypomyelination.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A murine cell line with heterologous overexpression of mutant protein rather than patient-derived cells at endogenous expression levels; morphological differentiation and marker expression are surrogates for myelination, which is not measured.\"}, {\"source\": \"CRISPR-Cas9 PYCR2-deficient HEK293FT cell line\", \"target\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Isogenic loss-of-function evidence isolating the mitochondrial and apoptotic consequences of PYCR2 loss from genetic background.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A non-neural embryonic kidney line; the readouts establish that PYCR2 loss has these consequences in principle, not that they occur in patient oligodendrocytes or neurons.\"}, {\"source\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"target\": \"Preserved Bulk Proline Supply by Paralogue Redundancy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse reproduces the defining negative finding of the human disease - an enzymatic block without proline depletion - and adds the dietary manipulation that shows proline is semi-essential rather than irrelevant.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Serum and fibroblast measurements only; brain proline was not the reported readout, so tissue-specific depletion in the CNS is not excluded.\"}, {\"source\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"target\": \"Severe Neurodevelopmental Impairment and Early Mortality\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse develops a neurological and neuromuscular syndrome - kyphosis, hind-limb clasping, weight loss, reduced grip strength - consistent with the human neurological impairment.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The reported characterisation does not establish frank microcephaly or CNS hypomyelination, the two defining human features, so the correspondence is to the neurological syndrome in general rather than to leukodystrophy. See the HUMAN_MODEL_MISMATCH discussion.\"}, {\"source\": \"Pycr2 knockout mouse (Escande-Beillard)\", \"target\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Excess cerebral glycine was measured in the mutant mouse brain and in patients in the same study, and the SHMT2 knockdown rescue establishes the mechanism rather than merely the association.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue was performed in cultured knockout neurons, not in vivo, so whether lowering glycine improves the organismal phenotype is untested.\"}, {\"source\": \"pycr1b morpholino knockdown zebrafish\", \"target\": \"Progressive Neuronal Loss and Brain Atrophy\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces reduced head and brain size, the developmental counterpart of the human microcephaly, with allele-specific rescue confirming specificity.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Transient whole-embryo morpholino knockdown models a developmental reduction in brain size, not the postnatal progressive degeneration of the human disease, and does not model hypomyelination.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticonvulsant medication for the focal myoclonic and generalized tonic-clonic seizures. In the largest cohort seizures were controlled with anticonvulsants, making this the single symptomatic intervention with documented efficacy in HLD10.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Biallelic PYCR2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PYCR2 variants - nonsense, splice-site and missense - reduce the amount or the catalytic competence of pyrroline-5-carboxylate reductase 2. Missense alleles act by two demonstrated routes. Some (p.Arg119Cys, p.Arg251Cys) leave mitochondrial targeting intact but lower steady-state protein levels and severely reduce catalytic efficiency, and p.Arg251Cys in addition carries a pronounced folding defect. Others cluster in the dimerisation domain and impair multimerisation of the obligate-oligomeric enzyme; the p.Gly249Val allele lies directly at the dimer interface.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"L-proline biosynthetic process\"], \"molecular_functions\": [\"pyrroline-5-carboxylate reductase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"PYCR2\", \"id\": \"hgnc:30262\"}]}}}, {\"id\": \"CRISPR-Cas9 PYCR2-deficient HEK293FT cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"An isogenic PYCR2 knockout generated by CRISPR-Cas9 in HEK293FT cells, showing decreased mitochondrial membrane potential and increased apoptosis under oxidative stress.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:25865492\"}}, {\"id\": \"FBD-102b oligodendroglial differentiation model expressing HLD10 PYCR2 variants\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The FBD-102b oligodendroglial differentiation model expressing the HLD10 missense proteins p.Arg119Cys and p.Arg251Cys. Mutant-expressing cells form abnormally large mitochondria with increased fusion, decreased fission and decreased mitochondrial activity, and fail to undergo morphological differentiation with the associated rise in differentiation marker proteins.\", \"meta\": {\"cell_types\": [\"oligodendrocyte\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:36548190\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth parameters are normal at birth, with failure to thrive established by one year of age; weight falls to -4 to -9 SD and height to -2 to -5 SD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Impaired Oligodendroglial Differentiation and CNS Hypomyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oligodendroglial cells expressing the HLD10 missense proteins fail to undergo the morphological differentiation that precedes myelination, with reduced expression of differentiation and myelin marker proteins. Because myelination is highly energy-dependent, the enlarged, hypoactive mitochondria provide a direct link from the enzymatic lesion to the white-matter phenotype. The resulting CNS hypomyelination and reduced cerebral white-matter volume are the imaging hallmark of the disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte\", \"oligodendrocyte precursor cell\"], \"biological_processes\": [\"oligodendrocyte differentiation\", \"central nervous system myelination\"], \"locations\": [\"white matter of the central nervous system\"], \"experimental_models\": [{\"name\": \"FBD-102b oligodendroglial differentiation model expressing HLD10 PYCR2 variants\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Provides the direct cellular link from the PYCR2 lesion to a failure of oligodendroglial differentiation, the proximate cause of hypomyelination.\"}]}}, {\"id\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PYCR2 is a mitochondrial matrix enzyme, and its loss is felt as a mitochondrial rather than a metabolite-supply defect. PYCR2-deficient cells show decreased mitochondrial membrane potential and markedly increased apoptosis under oxidative stress. In an oligodendroglial cell model, the disease missense proteins additionally shift the fusion-fission balance towards fusion, producing abnormally large mitochondria with decreased activity.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"regulation of mitochondrial membrane potential\", \"mitochondrial fusion\", \"mitochondrial fission\", \"cellular response to oxidative stress\", \"apoptotic process\"], \"experimental_models\": [{\"name\": \"CRISPR-Cas9 PYCR2-deficient HEK293FT cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Isogenic loss-of-function evidence isolating the mitochondrial and apoptotic consequences of PYCR2 loss from genetic background.\"}]}}, {\"id\": \"No Disease-Modifying Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recorded explicitly as a negative: there is no specific, disease-modifying or curative treatment for HLD10. Management is entirely supportive. The SHMT2 or glycine axis is the leading proposed intervention point but has not been tested in patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nutritional Support for Failure to Thrive\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional support, including gastrostomy feeding where dysphagia is severe, for the universal failure to thrive. Failure to thrive is itself among the listed causes of death in the reference cohort, which is the rationale.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PYCR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"PYCR2\"], \"gene_terms\": [{\"label\": \"PYCR2\", \"id\": \"hgnc:30262\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Physical Therapy and Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy, positioning and orthotic management for spasticity, contracture prevention and mobility in a population that does not achieve independent sitting or ambulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Preserved Bulk Proline Supply by Paralogue Redundancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite the enzymatic block, proline itself is not depleted. Plasma and CSF proline are normal in patients, routine metabolic screens are unremarkable, and serum proline is not reduced in Pycr2-null mice. PYCR1 is largely functionally redundant with PYCR2 for bulk proline supply, so proline auxotrophy is not the central disease mechanism. The cytosolic third paralogue PYCR3 sits in a different compartment and is fed P5C from ornithine by ornithine aminotransferase rather than from glutamate; it was not tested for redundancy and is deliberately not part of this claim. Proline is nonetheless semi-essential in the mutant state: a proline-free diet worsens the mouse phenotype. This node is curated explicitly because it constrains every downstream mechanistic claim and rules out a metabolite-replacement rationale.\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"L-proline biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"species\": \"Mouse\", \"genotype\": \"Pycr2 c.2T\u003eC (p.Met1Thr) homozygous, chemically induced null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse reproduces the defining negative finding of the human disease - an enzymatic block without proline depletion - and adds the dietary manipulation that shows proline is semi-essential rather than irrelevant.\"}]}}, {\"id\": \"Progressive Neuronal Loss and Brain Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside the white-matter defect there is a primary neuronal process. Patients are born with normal or only mildly reduced head circumference and then acquire microcephaly postnatally, with progressive global brain atrophy, ventriculomegaly and a thinning corpus callosum, while cerebellum and brainstem are relatively spared. The combination of early-onset intellectual disability, epilepsy and atrophy has been read by the original cohort authors as primary neuronal dysfunction with secondary hypomyelination - which is why HLD10 is sometimes placed among the genetic leukoencephalopathies rather than the classical hypomyelinating leukodystrophies.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"brain\"], \"animal_models\": [{\"name\": \"pycr1b morpholino knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"pycr1b morpholino knockdown (PYCR2 orthologue)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces reduced head and brain size, the developmental counterpart of the human microcephaly, with allele-specific rescue confirming specificity.\"}]}}, {\"id\": \"Pycr2 knockout mouse (Escande-Beillard)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A Pycr2 knockout reported to phenocopy the human disorder, in which in situ neurotransmitter quantification revealed excessive cerebral glycine and secondary depletion of PYCR1 in neural lineages. Cultured knockout neurons show axonal beading and shortened neurites that are rescued by SHMT2 knockdown.\"}, {\"id\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A chemically induced start-codon mutation abolishing the 34 kDa PYCR2 protein in brain, spinal cord and muscle while leaving Pycr2 mRNA intact. Mutant mice show weight loss, progressive kyphosis, hind-limb clasping, reduced grip strength, severe subcutaneous fat loss, mild peripheral axonal atrophy, reduced white blood cell counts and altered lipid metabolism.\"}, {\"id\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PYCR2 upregulates serine hydroxymethyltransferase 2 (SHMT2), the mitochondrial one-carbon enzyme responsible for glycine synthesis, and cerebral glycine rises in both Pycr2-null mice and patients. The excess glycine is not a bystander: knocking down SHMT2 partially reverses it and rescues the axonal beading and shortened neurites of cultured Pycr2-knockout neurons, identifying the glycine pathway as the leading candidate intervention point. Elevated brain glycine is detectable non-invasively as an MR-spectroscopy glycine peak, including in the mild spastic-paraplegia-only phenotype where white matter is normally myelinated.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"glycine biosynthetic process\", \"glycine metabolic process\"], \"molecular_functions\": [\"glycine hydroxymethyltransferase activity\"], \"animal_models\": [{\"name\": \"Pycr2 knockout mouse (Escande-Beillard)\", \"species\": \"Mouse\", \"genotype\": \"Pycr2 knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Excess cerebral glycine was measured in the mutant mouse brain and in patients in the same study, and the SHMT2 knockdown rescue establishes the mechanism rather than merely the association.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal myoclonic and generalized tonic-clonic seizures, with onset usually before one year of age and generally controllable with anticonvulsants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe Neurodevelopmental Impairment and Early Mortality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical convergence point. Affected children stagnate at roughly a 4-to-5-month developmental level, never acquire meaningful language, fine motor skills or independent ambulation, and develop failure to thrive by one year of age. In the largest cohort no patient survived beyond the first decade, with death from pulmonary infection, fever of unknown origin or failure to thrive.\", \"meta\": {\"evidence_count\": 3, \"animal_models\": [{\"name\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"species\": \"Mouse\", \"genotype\": \"Pycr2 c.2T\u003eC (p.Met1Thr) homozygous, chemically induced null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse develops a neurological and neuromuscular syndrome - kyphosis, hind-limb clasping, weight loss, reduced grip strength - consistent with the human neurological impairment.\"}]}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb spasticity with hyperreflexia. Spasticity is also the presenting and, in the mildest reported families, the only feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"pycr1b morpholino knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Morpholino knockdown of the zebrafish PYCR2 orthologue pycr1b reproduces microcephaly, rescued by wild-type but not mutant human PYCR2 mRNA. The allele-specific rescue is the functional evidence for pathogenicity of the founding variants.\"}], \"edges\": [{\"source\": \"Biallelic PYCR2 Loss of Function\", \"target\": \"Preserved Bulk Proline Supply by Paralogue Redundancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PYCR2 does not deplete measurable proline pools, because the mitochondrial paralogue PYCR1 can carry out the same reduction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic PYCR2 Loss of Function\", \"target\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PYCR2 impairs mitochondrial membrane potential and morphology and sensitises cells to oxidative-stress-induced apoptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic PYCR2 Loss of Function\", \"target\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PYCR2 upregulates SHMT2, diverting one-carbon metabolism towards glycine synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"target\": \"Impaired Oligodendroglial Differentiation and CNS Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in oligodendroglial cells blocks the morphological differentiation required to produce myelin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"target\": \"Progressive Neuronal Loss and Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial function and increased apoptotic susceptibility in neural lineages contribute to postnatal neurodegeneration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"target\": \"Progressive Neuronal Loss and Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycine-driven encephalopathy contributes to the neuronal injury underlying progressive microcephaly and brain atrophy; SHMT2 knockdown rescues axonal beading and neurite length in Pycr2-knockout neurons.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Oligodendroglial Differentiation and CNS Hypomyelination\", \"target\": \"Severe Neurodevelopmental Impairment and Early Mortality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient myelination of the cerebral white matter contributes to the profound neurodevelopmental impairment. INDIRECT because the relative contribution of the white-matter and neuronal arms is unsettled - see the leukodystrophy-versus-leukoencephalopathy discussion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Neuronal Loss and Brain Atrophy\", \"target\": \"Severe Neurodevelopmental Impairment and Early Mortality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive loss of cerebral tissue underlies the developmental stagnation, failure to thrive and reduced survival.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional Support for Failure to Thrive\", \"target\": \"Failure to Thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Spasticity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"No Disease-Modifying Therapy\", \"target\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FBD-102b oligodendroglial differentiation model expressing HLD10 PYCR2 variants\", \"target\": \"Impaired Oligodendroglial Differentiation and CNS Hypomyelination\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides the direct cellular link from the PYCR2 lesion to a failure of oligodendroglial differentiation, the proximate cause of hypomyelination.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A murine cell line with heterologous overexpression of mutant protein rather than patient-derived cells at endogenous expression levels; morphological differentiation and marker expression are surrogates for myelination, which is not measured.\"}, {\"source\": \"CRISPR-Cas9 PYCR2-deficient HEK293FT cell line\", \"target\": \"Mitochondrial Dysfunction and Oxidative Stress Susceptibility\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Isogenic loss-of-function evidence isolating the mitochondrial and apoptotic consequences of PYCR2 loss from genetic background.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A non-neural embryonic kidney line; the readouts establish that PYCR2 loss has these consequences in principle, not that they occur in patient oligodendrocytes or neurons.\"}, {\"source\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"target\": \"Preserved Bulk Proline Supply by Paralogue Redundancy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse reproduces the defining negative finding of the human disease - an enzymatic block without proline depletion - and adds the dietary manipulation that shows proline is semi-essential rather than irrelevant.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Serum and fibroblast measurements only; brain proline was not the reported readout, so tissue-specific depletion in the CNS is not excluded.\"}, {\"source\": \"Pycr2 loss-of-function mouse (chemically induced p.Met1Thr)\", \"target\": \"Severe Neurodevelopmental Impairment and Early Mortality\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse develops a neurological and neuromuscular syndrome - kyphosis, hind-limb clasping, weight loss, reduced grip strength - consistent with the human neurological impairment.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The reported characterisation does not establish frank microcephaly or CNS hypomyelination, the two defining human features, so the correspondence is to the neurological syndrome in general rather than to leukodystrophy. See the HUMAN_MODEL_MISMATCH discussion.\"}, {\"source\": \"Pycr2 knockout mouse (Escande-Beillard)\", \"target\": \"SHMT2 Upregulation and Cerebral Glycine Accumulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Excess cerebral glycine was measured in the mutant mouse brain and in patients in the same study, and the SHMT2 knockdown rescue establishes the mechanism rather than merely the association.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue was performed in cultured knockout neurons, not in vivo, so whether lowering glycine improves the organismal phenotype is untested.\"}, {\"source\": \"pycr1b morpholino knockdown zebrafish\", \"target\": \"Progressive Neuronal Loss and Brain Atrophy\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces reduced head and brain size, the developmental counterpart of the human microcephaly, with allele-specific rescue confirming specificity.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Transient whole-embryo morpholino knockdown models a developmental reduction in brain size, not the postnatal progressive degeneration of the human disease, and does not model hypomyelination.\"}, {\"source\": \"PYCR2\", \"target\": \"Biallelic PYCR2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6395,19 +6511,19 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6447,6 +6563,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">29% (4/14) in PMID:27130255.</div>
 
 
@@ -6466,6 +6585,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6497,8 +6617,91 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
+                    Ear
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-sensorineural-hearing-impairment" data-dismech-node="Bilateral Sensorineural Hearing Impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bilateral Sensorineural Hearing Impairment
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0008619</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619). HP:0008619 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">frequency is deliberately omitted. PMID:27130255 reports hearing loss only in those patients where audiology was available, giving no denominator, so no band can be justified.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27130255" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130255" target="_blank">PMID:27130255</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Audiology evaluation, wherever available, showed bilateral mild to severe hearing loss."</div>
+
+
+                <div class="evidence-explanation">Documents bilateral hearing loss while making explicit that testing was not universal, which is why no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
@@ -6517,15 +6720,18 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000639</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">21% (3/14) in PMID:27130255.</div>
@@ -6547,6 +6753,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6573,14 +6780,209 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cortical-blindness" data-dismech-node="Cortical Blindness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cortical Blindness
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Cerebral visual impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100704</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cortical blindness, annotated with Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">frequency omitted. PMID:27860360 groups this among phenotypes that &#34;were less consistent among patients&#34; without giving a numerator.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27860360" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27860360" target="_blank">PMID:27860360</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional phenotypes that were less consistent among patients included seizures or seizure-like movements, spasticity and ataxic gait, recurrent vomiting, cortical blindness, dysmorphic features, joint contractures, and irritability."</div>
+
+
+                <div class="evidence-explanation">Lists cortical blindness among the less consistent features of the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive Microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Microcephaly
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000253</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive microcephaly (HP:0000253), qualified as course progressive. HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Reported in all patients in every cohort. PMID:34037307 states across the 35 previously reported patients that &#34;All patients had microcephaly and developmental delay&#34;. In PMID:27130255 (n=14) head circumference at birth was available for 10 of 14 and already 1.8 to 3 SD below the mean, falling to -3 to -6 SD.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27860360" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27860360" target="_blank">PMID:27860360</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All patients presented with postnatally acquired microcephaly, moderate to profound global developmental delay, and failure to thrive."</div>
+
+
+                <div class="evidence-explanation">Documents postnatally acquired microcephaly in all patients of this cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34037307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34037307" target="_blank">PMID:34037307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All patients had microcephaly and developmental delay."</div>
+
+
+                <div class="evidence-explanation">Supports the VERY_FREQUENT band across the 35 previously reported patients reviewed in this paper.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-triangular-face" data-dismech-node="Triangular Face" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6598,15 +7000,18 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000325</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000325</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Triangular face (HP:0000325). HP:0000325 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Described in &#34;most of the patients&#34; in PMID:27130255 (n=14) without an explicit numerator.</div>
@@ -6628,6 +7033,7 @@ This clinical feature is Triangular face (HP:0000325). HP:0000325 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6670,15 +7076,18 @@ This clinical feature is Triangular face (HP:0000325). HP:0000325 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Malar flattening (HP:0000272). HP:0000272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Same &#34;most of the patients&#34; source figure as the other gestalt components (PMID:27130255, n=14).</div>
@@ -6700,6 +7109,7 @@ This clinical feature is Malar flattening (HP:0000272). HP:0000272 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6742,15 +7152,18 @@ This clinical feature is Malar flattening (HP:0000272). HP:0000272 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000414</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000414</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Same &#34;most of the patients&#34; source figure as the other gestalt components (PMID:27130255, n=14).</div>
@@ -6772,6 +7185,7 @@ This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6814,15 +7228,18 @@ This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000343</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000343</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Same &#34;most of the patients&#34; source figure as the other gestalt components (PMID:27130255, n=14).</div>
@@ -6844,6 +7261,7 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6872,7 +7290,7 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -6895,15 +7313,18 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001166</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">4/14 patients in PMID:27130255 (29%).</div>
@@ -6925,6 +7346,7 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6953,12 +7375,113 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia-with-appendicular-spasticity" data-dismech-node="Axial Hypotonia with Appendicular Spasticity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Axial Hypotonia with Appendicular Spasticity
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0008936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Band set from the hypotonia figure itself, not from the spastic component: PMID:27130255 reports truncal hypotonia with hyperreflexia in &#34;most patients&#34; of the 14-patient cohort, which maps to FREQUENT. The 57% appendicular spasticity figure belongs to the sibling Spasticity entry and is cited there.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27130255" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130255" target="_blank">PMID:27130255</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients presented with profound psychomotor delay, microcephaly, truncal hypotonia with variable appendicular spasticity, and failure to thrive from the ages of 2 months to 1 year."</div>
+
+
+                <div class="evidence-explanation">Describes the dissociated axial-hypotonia/appendicular-spasticity pattern and its age of onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27130255" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130255" target="_blank">PMID:27130255</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Truncal hypotonia with hyperreflexia was seen in most patients."</div>
+
+
+                <div class="evidence-explanation">Gives the qualitative frequency for the hypotonia itself, which is what this entry&#39;s band is derived from.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6976,15 +7499,18 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">57% (8/14) in PMID:27130255; described as common across the 35-patient review in PMID:34037307.</div>
@@ -7009,6 +7535,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7030,6 +7557,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7072,15 +7600,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003202</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Present in 13/14 patients in PMID:27130255 (all except one named patient).</div>
@@ -7105,6 +7636,7 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7126,6 +7658,7 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,15 +7701,18 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000768</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000768</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">2/14 patients in PMID:27130255 (14%).</div>
@@ -7198,6 +7734,7 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7238,10 +7775,10 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001258</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001258</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spastic paraplegia (HP:0001258), qualified as course progressive. HP:0001258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7267,6 +7804,9 @@ This clinical feature is Spastic paraplegia (HP:0001258), qualified as course pr
                     </div>
 
 
+
+
+
                     <div class="item-desc">frequency is deliberately omitted at the disease level. This presentation is confined to two related families (5 patients, homozygous p.Val128Ala) in PMID:37141741 and is not a feature of the classical HLD10 cohorts, so a disease-wide band would be misleading.</div>
 
 
@@ -7286,6 +7826,7 @@ This clinical feature is Spastic paraplegia (HP:0001258), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7310,6 +7851,7 @@ This clinical feature is Spastic paraplegia (HP:0001258), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7350,15 +7892,18 @@ This clinical feature is Spastic paraplegia (HP:0001258), qualified as course pr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0034392</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0034392</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">frequency omitted for the same reason as the other features in this list from PMID:27860360 - no numerator is given.</div>
@@ -7380,6 +7925,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7408,11 +7954,11 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -7431,15 +7977,18 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported in 14/14 in PMID:27130255 and in all 35 reviewed patients in PMID:34037307.</div>
@@ -7464,6 +8013,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7485,6 +8035,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7527,15 +8078,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">57% (8/14) in PMID:27130255.</div>
@@ -7560,6 +8114,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7568,6 +8123,82 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                 <div class="evidence-explanation">Gives the frequency, semiology, onset and treatment responsiveness of the seizures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkinetic-movements" data-dismech-node="Hyperkinetic Movements" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperkinetic Movements
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002487</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Described as present in &#34;the majority of patients&#34; in PMID:27130255 (n=14) without an explicit numerator; FREQUENT is the band that &#34;majority&#34; maps to.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27130255" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130255" target="_blank">PMID:27130255</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The majority of patients demonstrated hyperkinetic movements of upper and lower extremities, along with spontaneous mouth chewing and head titubation"</div>
+
+
+                <div class="evidence-explanation">Documents the hyperkinetic movement disorder and its qualitative frequency.</div>
 
 
 
@@ -7597,15 +8228,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002080</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002080</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">frequency omitted at the disease level for the same reason as Spastic Paraplegia: reported in 4/5 patients of two related families with the p.Val128Ala allele (PMID:37141741), not a feature of the classical HLD10 cohorts.</div>
@@ -7627,6 +8261,7 @@ This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7669,15 +8304,18 @@ This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxic gait, annotated with Gait ataxia (HP:0002066). HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">frequency omitted - PMID:27860360 gives no numerator, and most patients in the severe cohorts never ambulate at all, so the denominator is unclear.</div>
@@ -7699,6 +8337,7 @@ This clinical feature is Ataxic gait, annotated with Gait ataxia (HP:0002066). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7739,15 +8378,18 @@ This clinical feature is Ataxic gait, annotated with Gait ataxia (HP:0002066). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000737</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000737</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">frequency omitted; no numerator given in PMID:27860360.</div>
@@ -7769,6 +8411,7 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7797,7 +8440,7 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -7820,15 +8463,18 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Present in all 14 patients of PMID:27130255 and in all patients of PMID:27860360.</div>
@@ -7853,6 +8499,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7861,439 +8508,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Documents universal onset of failure to thrive during the first year.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive Microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Microcephaly
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive microcephaly (HP:0000253), qualified as course progressive. HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-                    <div class="item-desc">Reported in all patients in every cohort. PMID:34037307 states across the 35 previously reported patients that &#34;All patients had microcephaly and developmental delay&#34;. In PMID:27130255 (n=14) head circumference at birth was available for 10 of 14 and already 1.8 to 3 SD below the mean, falling to -3 to -6 SD.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27860360" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27860360" target="_blank">PMID:27860360</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All patients presented with postnatally acquired microcephaly, moderate to profound global developmental delay, and failure to thrive."</div>
-
-
-                <div class="evidence-explanation">Documents postnatally acquired microcephaly in all patients of this cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34037307" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34037307" target="_blank">PMID:34037307</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All patients had microcephaly and developmental delay."</div>
-
-
-                <div class="evidence-explanation">Supports the VERY_FREQUENT band across the 35 previously reported patients reviewed in this paper.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia-with-appendicular-spasticity" data-dismech-node="Axial Hypotonia with Appendicular Spasticity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Axial Hypotonia with Appendicular Spasticity
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0008936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Band set from the hypotonia figure itself, not from the spastic component: PMID:27130255 reports truncal hypotonia with hyperreflexia in &#34;most patients&#34; of the 14-patient cohort, which maps to FREQUENT. The 57% appendicular spasticity figure belongs to the sibling Spasticity entry and is cited there.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27130255" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130255" target="_blank">PMID:27130255</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients presented with profound psychomotor delay, microcephaly, truncal hypotonia with variable appendicular spasticity, and failure to thrive from the ages of 2 months to 1 year."</div>
-
-
-                <div class="evidence-explanation">Describes the dissociated axial-hypotonia/appendicular-spasticity pattern and its age of onset.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27130255" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130255" target="_blank">PMID:27130255</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Truncal hypotonia with hyperreflexia was seen in most patients."</div>
-
-
-                <div class="evidence-explanation">Gives the qualitative frequency for the hypotonia itself, which is what this entry&#39;s band is derived from.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkinetic-movements" data-dismech-node="Hyperkinetic Movements" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperkinetic Movements
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002487</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Described as present in &#34;the majority of patients&#34; in PMID:27130255 (n=14) without an explicit numerator; FREQUENT is the band that &#34;majority&#34; maps to.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27130255" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130255" target="_blank">PMID:27130255</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The majority of patients demonstrated hyperkinetic movements of upper and lower extremities, along with spontaneous mouth chewing and head titubation"</div>
-
-
-                <div class="evidence-explanation">Documents the hyperkinetic movement disorder and its qualitative frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-sensorineural-hearing-impairment" data-dismech-node="Bilateral Sensorineural Hearing Impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bilateral Sensorineural Hearing Impairment
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0008619</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619). HP:0008619 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">frequency is deliberately omitted. PMID:27130255 reports hearing loss only in those patients where audiology was available, giving no denominator, so no band can be justified.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27130255" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130255" target="_blank">PMID:27130255</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Audiology evaluation, wherever available, showed bilateral mild to severe hearing loss."</div>
-
-
-                <div class="evidence-explanation">Documents bilateral hearing loss while making explicit that testing was not universal, which is why no frequency band is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cortical-blindness" data-dismech-node="Cortical Blindness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cortical Blindness
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Cerebral visual impairment</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0100704</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cortical blindness, annotated with Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">frequency omitted. PMID:27860360 groups this among phenotypes that &#34;were less consistent among patients&#34; without giving a numerator.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27860360" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27860360" target="_blank">PMID:27860360</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Additional phenotypes that were less consistent among patients included seizures or seizure-like movements, spasticity and ataxic gait, recurrent vomiting, cortical blindness, dysmorphic features, joint contractures, and irritability."</div>
-
-
-                <div class="evidence-explanation">Lists cortical blindness among the less consistent features of the cohort.</div>
 
 
 
@@ -8381,6 +8595,9 @@ This disease-associated gene is PYCR2 (hgnc:30262). hgnc:30262 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -8395,6 +8612,7 @@ This disease-associated gene is PYCR2 (hgnc:30262). hgnc:30262 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8422,6 +8640,7 @@ This disease-associated gene is PYCR2 (hgnc:30262). hgnc:30262 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8443,6 +8662,7 @@ This disease-associated gene is PYCR2 (hgnc:30262). hgnc:30262 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8552,6 +8772,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8562,6 +8785,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -8611,6 +8837,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8682,6 +8909,12 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Nutritional support, including gastrostomy feeding where dysphagia is severe, for the universal failure to thrive. Failure to thrive is itself among the listed causes of death in the reference cohort, which is the rationale.</div>
 
 
@@ -8725,6 +8958,7 @@ This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8791,6 +9025,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8801,6 +9038,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -8850,6 +9090,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8921,6 +9162,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counselling for families, with carrier and prenatal or preimplantation testing once the familial PYCR2 variants are known. Particularly relevant given the high rate of consanguinity and the identified Thai founder allele.</div>
 
 
@@ -8942,6 +9189,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8969,6 +9217,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-name">
                     No Disease-Modifying Therapy
                 </div>
+
+
+
+
+
+
 
 
 
@@ -9015,6 +9269,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9058,6 +9313,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9079,6 +9335,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9148,6 +9405,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9172,6 +9430,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9193,6 +9452,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9247,6 +9507,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9268,6 +9529,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9319,6 +9581,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9388,6 +9651,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9409,6 +9673,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9528,6 +9793,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9549,6 +9815,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9689,6 +9956,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9790,6 +10058,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9895,6 +10164,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9959,6 +10229,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10006,6 +10277,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10061,6 +10333,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10082,6 +10355,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10153,6 +10427,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10174,6 +10449,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10283,6 +10559,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10361,6 +10638,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10382,6 +10660,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10461,6 +10740,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10482,6 +10762,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10618,6 +10899,7 @@ This experimental model uses oligodendrocyte (CL:0000128). CL:0000128 is a cell 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10722,6 +11004,7 @@ This experimental model uses oligodendrocyte (CL:0000128). CL:0000128 is a cell 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10853,6 +11136,7 @@ This experimental model uses oligodendrocyte (CL:0000128). CL:0000128 is a cell 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10907,6 +11191,7 @@ This experimental model uses oligodendrocyte (CL:0000128). CL:0000128 is a cell 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10948,6 +11233,7 @@ This experimental model uses oligodendrocyte (CL:0000128). CL:0000128 is a cell 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11053,6 +11339,7 @@ This experimental model uses oligodendrocyte (CL:0000128). CL:0000128 is a cell 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11094,6 +11381,7 @@ This experimental model uses oligodendrocyte (CL:0000128). CL:0000128 is a cell 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11196,6 +11484,7 @@ This experimental model uses oligodendrocyte (CL:0000128). CL:0000128 is a cell 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13476,6 +13765,62 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Named-entity-confusion guardrail. This entry is anchored strictly on MONDO:0014632 / OMIM:616420 / PYCR2 (hgnc:30262). &#34;Hypomyelinating leukodystrophy N&#34; is a numbered series (HLD1-HLD13) whose members share nothing but the numeral, so the anchor was fixed before curation with `uv run runoak -i sqlite:obo:mondo info MONDO:0014632 -O obo`, which returns `relationship: RO:0004003 HGNC:30262 ! PYCR2` and `xref: OMIM:616420`. `just preflight-dr` on the deep-research report returned PASS (PYCR2 mentioned 44 times, next-most-mentioned gene PYCR1 at 6; report OMIM 616420 matches the MONDO xref).
+Two deep-research reports were run and both are in `research/`: `claude_code` (14 web searches, 10/10 citations resolved, 0 unresolved) and `openscientist` (14/14 citations resolved, 0 unresolved). Falcon was attempted first and failed with HTTP 402 (the Edison account is out of credit), so it is absent by circumstance rather than by choice. `just preflight-dr` returned PASS on the claude_code report and WARN on the openscientist one; the WARN is a false positive of the rival-gene heuristic, since the &#34;rival&#34; it flags is SHMT2 at 26 mentions against PYCR2 at 60, and SHMT2 is this disease&#39;s own downstream mechanism gene (PMID:32330411), not a second disease entity. Both reports agree on OMIM 616420.
+Neither report&#39;s identifiers were trusted. The claude_code report asserted &#34;PYCR2, HGNC:23364&#34; - that CURIE is ST6GALNAC6, not PYCR2, confirmed by `uv run runoak -i sqlite:obo:hgnc info hgnc:23364`. The openscientist report gave the disease as MONDO:0014635, which is not this entity. The bindings used here - hgnc:30262 and MONDO:0014632 - come from the MONDO record and were independently confirmed with OAK. Beyond those two: the great majority of the PYCR2 literature is cancer biology in which PYCR2 is OVEREXPRESSED and its INHIBITION is the proposed therapy - the mechanistic opposite of this recessive loss-of-function disorder. A PubMed query for `PYCR2[tiab] OR &#34;hypomyelinating leukodystrophy 10&#34;[tiab] OR &#34;HLD10&#34;[tiab]` run on 2026-08-19 returned 59 records, of which roughly two thirds are oncology or unrelated. None of those is cited here and no PYCR2 inhibitor is curated as a treatment.
+The paralogue PYCR1 is the third confusable. PYCR1 deficiency causes autosomal recessive cutis laxa type 2B (MONDO:0013051) and is a different disease despite acting at the same pathway step; it is recorded here only as a differential diagnosis. Note that PYCR1-related ARCL2B is NOT itself curated in dismech - the existing `ALDH18A1_Cutis_Laxa` and `ALDH18A1_De_Barsy_Spectrum` entries are keyed on ALDH18A1/P5CS, one step upstream, which is a different gene again. Claims about PYCR1 are never used as evidence for PYCR2 disease.
+No GeneReviews chapter exists for PYCR2 or HLD10. Searched on 2026-08-19 with `PYCR2 GeneReviews[All Fields]` and `hypomyelinating leukodystrophy 10 GeneReviews[All Fields]`; both returned zero records. The phenotype baseline is therefore taken from the primary cohort literature (PMID:27130255, 14 patients from 11 families; PMID:27860360, 5 patients from 3 families; PMID:34037307, which additionally reviews all 35 patients reported to that date).
+No `datasets:` block is curated, deliberately. HLD10 has roughly 38 published patients and no omics resource of its own, while PYCR2 is a heavily studied cancer gene - so a gene-keyed accession search returns colorectal, hepatocellular and renal-carcinoma series that would resolve perfectly and be about the wrong disease. That is exactly the Named Entity Confusion reached through dataset search that the curation SOP warns about, and an empty block is the honest result rather than an oversight.
+Frequency discipline. Bands are asserted only where a published cohort gives an explicit numerator or percentage, and every such phenotype carries the source figure in its `notes:`. Percentages are quoted from PMID:27130255 (n=14) unless stated otherwise. Where a feature is described only as &#34;common&#34; or &#34;in some patients&#34;, `frequency:` is omitted rather than guessed. Three features (progressive microcephaly, global developmental delay, failure to thrive) are reported in 100 percent of patients in every cohort and would map to `OBLIGATE`; they are deliberately banded one step down at `VERY_FREQUENT`, because the whole published denominator is about 38 patients drawn from consanguineous pedigrees ascertained on exactly those features - too small and too ascertainment-biased to support an obligate claim.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hypomyelinating Leukodystrophy 10 (PYCR2, MONDO:0014632)</strong> · 2026-08-19T09:45:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypomyelinating_Leukodystrophy_10/2026-08-19T094524Z-claude-code-4d17d6.yaml">View source</a></p>
+                        <p class="research-review-text">De novo creation of the HLD10 (PYCR2) entry.
+
+DEEP RESEARCH. Two providers were run and both reports are committed under research/. falcon was attempted first per the default and failed with HTTP 402 Payment Required from the Edison API (account out of credit), so claude_code and openscientist were used instead. claude_code: 14 web searches, reference_validation reported 10/10 references resolved, 0 unresolved, 0 off topic. openscientist: 14/14 resolved, 0 unresolved. Neither report carried unresolved_references, so nothing was curated from an unresolvable identifier.
+
+NEC PREFLIGHT. HLD10 sits in a numbered series (HLD1-HLD13) whose members share only the numeral, so the anchor was fixed with OAK before curation: runoak -i sqlite:obo:mondo info MONDO:0014632 -O obo returns RO:0004003 HGNC:30262 PYCR2 and xref OMIM:616420. just preflight-dr returned PASS on the claude_code report (PYCR2 44 mentions vs PYCR1 6; report OMIM 616420 matches the MONDO xref) and WARN on the openscientist report. The WARN was assessed and judged a false positive of the rival-gene heuristic: the flagged rival is SHMT2 (26 mentions vs PYCR2 60), which is this disease&#39;s own downstream mechanism gene per PMID:32330411, not a second disease entity.
+
+IDENTIFIER ERRORS CAUGHT IN THE REPORTS. Neither report&#39;s identifiers were trusted. The claude_code report asserted PYCR2 = HGNC:23364; runoak -i sqlite:obo:hgnc info hgnc:23364 returns ST6GALNAC6, so that binding was rejected. The openscientist report gave the disease as MONDO:0014635, not this entity. The bindings used in the entry (hgnc:30262, MONDO:0014632) come from the MONDO record and were confirmed independently with OAK. Both errors are recorded in the entry notes.
+
+GENEREVIEWS. No GeneReviews chapter exists. PubMed esearch for &#39;PYCR2 GeneReviews[All Fields]&#39; and &#39;hypomyelinating leukodystrophy 10 GeneReviews[All Fields]&#39; both returned zero records, and just tag-references found 0 GeneReviews citations. The phenotype baseline was taken instead from the primary cohort literature: PMID:27130255 (14 patients / 11 families), PMID:27860360 (5 patients / 3 families) and PMID:34037307 (which also reviews all 35 patients reported to that date).
+
+WHAT WAS CURATED. A six-node pathophysiology chain from biallelic PYCR2 loss of function through three parallel consequences: preserved bulk proline supply by PYCR1/PYCR3 paralogue redundancy (curated as an explicit node because it rules out proline auxotrophy and any metabolite-replacement rationale), mitochondrial dysfunction with oxidative-stress apoptosis susceptibility, and SHMT2 upregulation with cerebral glycine accumulation; converging on impaired oligodendroglial differentiation with CNS hypomyelination, progressive neuronal loss with brain atrophy, and severe neurodevelopmental impairment with early mortality. Plus 17 phenotypes, 4 imaging findings including the MRS glycine peak (HP:0034893), 3 biochemical entries (two of them negative findings), the PYCR2 gene entry with its allelic spectrum and the Thai founder haplotype, PYCR1 recorded as DISPUTED/ABSENT to make the paralogue separation auditable, prevalence as CASES_IN_LITERATURE, progression, diagnosis, 2 differential diagnoses, 5 treatments including an explicit no-disease-modifying-therapy entry, 3 animal models and 2 experimental models with modeled_mechanisms links, and 3 discussions (KNOWLEDGE_GAP on what is actually lost if proline is not depleted; HUMAN_MODEL_MISMATCH on whether Pycr2-null mice reproduce hypomyelination and microcephaly at all; CONTROVERSY on leukodystrophy vs genetic leukoencephalopathy).
+
+FREQUENCY DISCIPLINE. Bands are asserted only where a published cohort gives an explicit numerator or percentage, and each such phenotype carries its source figure in notes. frequency is deliberately omitted for hearing loss (no denominator: audiology was performed only where available), for spastic paraplegia and intention tremor (confined to two related families with the p.Val128Ala allele, so a disease-wide band would mislead), and for the MRS glycine peak (MRS was not performed systematically in the classical cohorts).
+
+DATASETS. No datasets block, deliberately, and the reason is recorded in the entry notes: with about 38 published patients and no disease-specific omics resource, a gene-keyed accession search on PYCR2 returns colorectal, hepatocellular and renal-carcinoma series, which is the Named Entity Confusion reached through dataset search that the SOP warns about.
+
+VALIDATION. just validate passes in full: schema clean, term validation passed, and reference validation reports 104/104 snippets verified against cached references. just compliance reports 94.4 percent global / 94.8 percent weighted, the residual being the deliberately absent datasets block. reference_title values were backfilled from the local cache with scripts/add_pmid_titles.py; the five AnimalModel/ExperimentalModel publication fields that the script converted to nested objects were reverted to plain strings, since that slot takes a string. Two ontology labels initially guessed from memory were wrong and were corrected against OAK before the entry validated: MONDO:0013035 (which is orofaciodigital syndrome XI) was replaced by MONDO:0013051 for the PYCR1 cutis laxa differential, and MONDO:0010714 carries the label &#39;Pelizaeus-Merzbacher spectrum disorder&#39;.
+
+RED-TEAM REVIEW BEFORE PR. A fresh-context review pass was run against the dismech-pr-review skill before opening any PR. It returned no CRITICAL findings and ten IMPORTANT ones, all of which were fixed, plus minors. The substantive corrections were:
+- PYCR3 had been swept into the paralogue-redundancy claim, but the cited source (PMID:33734376) scopes redundancy to Pycr1 and Pycr2 only, and its full text puts PYCR3 in the cytosol drawing P5C from ornithine. The claim was narrowed to PYCR1 in all three places and the PYCR3 distinction is now stated explicitly.
+- The PYCR1 genetic entry carried relationship_type DISPUTED, which would have exported a machine-readable PYCR1-to-HLD10 gene-disease edge that no source proposes. The entry was removed; PYCR1 remains as a differential diagnosis, and its two mechanistically real evidence items (no compensatory PYCR1 upregulation in patient cells; reciprocal PYCR1 depletion in Pycr2-null neural lineages) were relocated to the paralogue-redundancy pathophysiology node where they actually bear, the second as PARTIAL because it bounds rather than supports the claim.
+- The notes asserted PYCR1-related cutis laxa was already curated in dismech. It is not: the existing ALDH18A1_Cutis_Laxa and ALDH18A1_De_Barsy_Spectrum entries are keyed on ALDH18A1/P5CS, a different gene one step upstream. Corrected.
+- Cerebral atrophy carried VERY_FREQUENT with no numerator, contradicted by the entry&#39;s own quoted evidence that imaging severity was variable. frequency removed.
+- Axial hypotonia derived its band from the spasticity numerator. Re-derived from the hypotonia sentence itself, and the 57 percent spasticity figure moved to the sibling Spasticity entry that it belongs to.
+- Skeletal muscle atrophy cited a discussion sentence carrying no count while claiming 13/14 in notes. The actual numerator sentence was added as evidence.
+- Genetic Counseling cited a founder-allele sentence as SUPPORT; downgraded to PARTIAL, matching how the other rationale-not-efficacy treatments were already handled.
+- The hypomyelination node, the disease&#39;s namesake, had no downstream edge and was a dead end in the pathograph. An INDIRECT_KNOWN_INTERMEDIATES edge to the clinical convergence node was added, and all seven causal edges now carry their own evidence.
+- p.Glu10Ter was listed among missense alleles; it is a stop-gain. Moved. p.Val128Ala was missing from the allele list; added.
+- The HSP-only presentation was scoped as confined to one family group; PMID:32920934 independently reports spastic paraplegia as the sole symptom in two adult-onset patients with a different variant. The scoping was softened. That reference is title-only in the cache so it is cited in prose, not as an evidence snippet.
+
+Also added on review: a mappings.mondo_mappings block; four less-consistent phenotypes from PMID:27860360 that had been missed (cortical blindness, joint contractures, ataxic gait, irritability), each with frequency deliberately omitted since the source gives no numerator; an AGC1/SLC25A12 deficiency differential (PMID:31403263), which is the closest mechanistic analogue of this entry&#39;s own primary-versus-secondary hypomyelination controversy; and a target_mechanisms link from the no-disease-modifying-therapy entry to the glycine node, so the proposed intervention point is machine-readable without asserting a treatment.
+
+POST-REVIEW VALIDATION. just validate passes: schema clean, terms clean, 120/120 snippets verified. just compliance rose from 94.4 to 97.7 percent global (98.1 weighted). just check-duplicate-keys, just check-title-snippets, just check-term-cache-integrity and just check-reference-cache-frontmatter all pass. Note for reviewers: tests/test_data.py has one pre-existing unrelated failure, test_evidence_items_have_references on Travelers_Diarrhea.yaml, which carries 24 bare-URL references on origin/main and is untouched by this work.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

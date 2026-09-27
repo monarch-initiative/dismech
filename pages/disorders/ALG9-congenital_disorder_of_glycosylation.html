@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4104,6 +4172,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4125,6 +4194,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4645,6 +4715,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4666,6 +4737,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4760,6 +4832,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4797,6 +4870,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alg9-alpha-1-2-mannosyltransferase-deficiency" data-dismech-node="ALG9 alpha-1,2-mannosyltransferase deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ALG9 alpha-1,2-mannosyltransferase deficiency</div>
+
 
                 <div class="item-desc">Pathogenic ALG9 variants impair an alpha-1,2-mannosyltransferase required for lipid-linked oligosaccharide assembly in the endoplasmic reticulum.</div>
 
@@ -5012,6 +5086,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5034,6 +5109,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-truncated-lipid-linked-oligosaccharide-accumulation" data-dismech-node="Truncated lipid-linked oligosaccharide accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Truncated lipid-linked oligosaccharide accumulation</div>
+
 
                 <div class="item-desc">The ALG9 enzymatic block causes the distinct precursor lesion: accumulation of DolPP-linked Man6GlcNAc2 and Man8GlcNAc2 intermediates before their transfer to nascent proteins.</div>
 
@@ -5147,6 +5223,7 @@ This pathophysiological event involves abnormal dolichol-linked oligosaccharide 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5169,6 +5246,7 @@ This pathophysiological event involves abnormal dolichol-linked oligosaccharide 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-hypoglycosylation" data-dismech-node="Protein hypoglycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein hypoglycosylation</div>
+
 
                 <div class="item-desc">Transfer of incomplete ALG9-associated oligosaccharides produces proteins bearing truncated N-glycans. Serum transferrin isoelectric focusing detects the resulting type I protein-hypoglycosylation pattern.</div>
 
@@ -5308,6 +5386,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5329,6 +5408,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5354,6 +5434,13 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-glycoprotein-quality-control-and-enhanced-degradation" data-dismech-node="ER glycoprotein quality-control and enhanced degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">ER glycoprotein quality-control and enhanced degradation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Truncated Man6GlcNAc2- and Man8GlcNAc2-bearing glycoproteins enter the ER folding-quality-control cycle, and misfolded glycoproteins are degraded at an increased rate in the studied patient&#39;s cells. The contribution of this response to human manifestations remains unknown.</div>
 
@@ -5413,6 +5500,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5435,6 +5523,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-glycoprotein-dysfunction" data-dismech-node="Multisystem glycoprotein dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem glycoprotein dysfunction</div>
+
 
                 <div class="item-desc">Defective N-glycosylation manifests as neurodevelopmental disease, congenital anomalies, renal cystic disease, pericardial effusion, and severe skeletal dysplasia in the most severe fetal presentations.</div>
 
@@ -5624,6 +5713,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5645,6 +5735,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5670,6 +5761,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-brain-involvement" data-dismech-node="Neurodevelopmental and brain involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental and brain involvement</div>
+
 
                 <div class="item-desc">Liveborn ALG9-CDG includes neurodevelopmental delay, hypotonia, seizures, microcephaly, delayed myelination, and cerebral/cerebellar volume loss.</div>
 
@@ -5918,6 +6010,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5939,6 +6032,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5964,6 +6058,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-hepatic-and-renal-involvement" data-dismech-node="Growth, hepatic, and renal involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth, hepatic, and renal involvement</div>
+
 
                 <div class="item-desc">ALG9-CDG liveborn presentations include failure to thrive, hepatic enlargement or cysts, and renal cystic disease.</div>
 
@@ -6098,6 +6193,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6119,6 +6215,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6144,6 +6241,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prenatal-skeletal-and-hydrops-involvement" data-dismech-node="Prenatal skeletal and hydrops involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Prenatal skeletal and hydrops involvement</div>
+
 
                 <div class="item-desc">Severe prenatal ALG9-CDG can present with lethal skeletal dysplasia with visceral malformations, and ALG9 has been reported among CDG genes associated with nonimmune hydrops fetalis.</div>
 
@@ -6259,6 +6357,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6280,6 +6379,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6305,6 +6405,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-and-pericardial-involvement" data-dismech-node="Cardiac and pericardial involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac and pericardial involvement</div>
+
 
                 <div class="item-desc">ALG9-CDG can include cardiovascular findings, including pericardial effusion reported in an affected infant.</div>
 
@@ -6420,6 +6521,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6442,6 +6544,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysmorphic-involvement" data-dismech-node="Dysmorphic involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysmorphic involvement</div>
+
 
                 <div class="item-desc">Dysmorphic manifestations are part of the reported ALG9-CDG spectrum; inverted nipples were documented in an affected infant.</div>
 
@@ -6517,6 +6620,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6562,7 +6666,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALG9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALG9\"], \"gene_terms\": [{\"label\": \"ALG9\", \"id\": \"hgnc:15672\"}], \"association\": \"Biallelic loss-of-function variants\"}}, {\"id\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic ALG9 variants impair an alpha-1,2-mannosyltransferase required for lipid-linked oligosaccharide assembly in the endoplasmic reticulum.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"], \"molecular_functions\": [\"mannosyltransferase activity\"], \"genes\": [\"ALG9\"], \"gene_terms\": [{\"label\": \"ALG9\", \"id\": \"hgnc:15672\"}]}}, {\"id\": \"Abnormal heart morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orphanet records abnormal heart morphology as a frequent cardiovascular manifestation of ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Accumulated DolPP-GlcNAc2Man6 and DolPP-GlcNAc2Man8\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"term_id\": \"CHEBI:59520\", \"term_label\": \"N-glycan\", \"readouts\": [{\"target\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Accumulation of DolPP-GlcNAc2Man6 and DolPP-GlcNAc2Man8 reports the ALG9-dependent mannosyltransferase block in lipid-linked oligosaccharide assembly.\"}]}}, {\"id\": \"Cardiac and pericardial involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG9-CDG can include cardiovascular findings, including pericardial effusion reported in an affected infant.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart\"]}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss has been reported on brain MRI in ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral-hemisphere volume loss has been reported on brain MRI in ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002059\"}}, {\"id\": \"Delayed myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination has been documented on brain MRI in ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012448\"}}, {\"id\": \"Dysmorphic involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysmorphic manifestations are part of the reported ALG9-CDG spectrum; inverted nipples were documented in an affected infant.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ER glycoprotein quality-control and enhanced degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncated Man6GlcNAc2- and Man8GlcNAc2-bearing glycoproteins enter the ER folding-quality-control cycle, and misfolded glycoproteins are degraded at an increased rate in the studied patient\u0027s cells. The contribution of this response to human manifestations remains unknown.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive is reported in liveborn ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay and intellectual disability are recurrent neurologic manifestations of liveborn ALG9-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth, hepatic, and renal involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG9-CDG liveborn presentations include failure to thrive, hepatic enlargement or cysts, and renal cystic disease.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is part of the ALG9-CDG multisystem phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hydrops fetalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nonimmune hydrops fetalis has been reported in ALG9-CDG families reviewed in a systematic literature synthesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001789\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is repeatedly reported in liveborn ALG9-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a very frequent neurodevelopmental manifestation in Orphanet\u0027s ALG9-CDG record.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Inverted nipples\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inverted nipples were reported in a liveborn individual with ALG9-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003186\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is part of the liveborn ALG9-CDG neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Multisystem glycoprotein dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective N-glycosylation manifests as neurodevelopmental disease, congenital anomalies, renal cystic disease, pericardial effusion, and severe skeletal dysplasia in the most severe fetal presentations.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Neurodevelopmental and brain involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liveborn ALG9-CDG includes neurodevelopmental delay, hypotonia, seizures, microcephaly, delayed myelination, and cerebral/cerebellar volume loss.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Pericardial effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pericardial effusion is a reported cardiovascular manifestation of ALG9-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001698\"}}, {\"id\": \"Prenatal skeletal and hydrops involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe prenatal ALG9-CDG can present with lethal skeletal dysplasia with visceral malformations, and ALG9 has been reported among CDG genes associated with nonimmune hydrops fetalis.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"skeletal system\"]}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orphanet records progressive microcephaly as a frequent ALG9-CDG manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000253\"}}, {\"id\": \"Protein hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transfer of incomplete ALG9-associated oligosaccharides produces proteins bearing truncated N-glycans. Serum transferrin isoelectric focusing detects the resulting type I protein-hypoglycosylation pattern.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Renal cyst\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal cysts and cystic renal disease are recurrent ALG9-CDG findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000107\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in liveborn ALG9-CDG and can accompany failure to thrive and congenital anomalies.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Skeletal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some ALG9 variants cause a severe prenatal skeletal dysplasia with polycystic kidneys and multiple malformations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002652\"}}, {\"id\": \"Truncated lipid-linked oligosaccharide accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ALG9 enzymatic block causes the distinct precursor lesion: accumulation of DolPP-linked Man6GlcNAc2 and Man8GlcNAc2 intermediates before their transfer to nascent proteins.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"]}}, {\"id\": \"Type I carbohydrate-deficient transferrin pattern\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"term_id\": \"CHEBI:59520\", \"term_label\": \"N-glycan\", \"readouts\": [{\"target\": \"Protein hypoglycosylation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A type I carbohydrate-deficient transferrin pattern directly reports hypoglycosylation of a serum glycoprotein; it is not ALG9-specific.\"}]}}], \"edges\": [{\"source\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"target\": \"Truncated lipid-linked oligosaccharide accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ALG9 activity causes accumulation of incomplete DolPP-linked oligosaccharides.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Truncated lipid-linked oligosaccharide accumulation\", \"target\": \"Protein hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oligosaccharyltransferase-mediated transfer of the incomplete Man6GlcNAc2 and Man8GlcNAc2 precursors produces proteins bearing truncated N-glycans and the type I hypoglycosylation pattern.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Transfer of incomplete lipid-linked oligosaccharides to nascent proteins.\"]}, {\"source\": \"Protein hypoglycosylation\", \"target\": \"Multisystem glycoprotein dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread abnormal N-glycosylation is associated with neurologic, visceral, renal, cardiac, and skeletal manifestations, while the affected client proteins and tissue-specific intermediates remain unresolved.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Protein hypoglycosylation\", \"target\": \"ER glycoprotein quality-control and enhanced degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycoproteins bearing truncated Man6GlcNAc2 and Man8GlcNAc2 glycans enter the ER quality-control cycle, and patient cells show increased degradation of misfolded glycoproteins; clinical contribution is not established.\", \"hypothesis_groups\": [\"emerging_er_quality_control_degradation_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Entry of truncated glycoproteins into the ER glucosylation-deglucosylation quality-control cycle before degradation of misfolded glycoproteins.\"]}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Neurodevelopmental and brain involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALG9-CDG glycoprotein dysfunction is associated with developmental delay, hypotonia, seizures, microcephaly, and brain MRI abnormalities.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Growth, hepatic, and renal involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Liveborn ALG9-CDG patients frequently show failure to thrive and hepatic or renal involvement.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Prenatal skeletal and hydrops involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe prenatal ALG9-CDG spectrum includes lethal skeletal dysplasia and ALG9 has been reported among CDG genes associated with nonimmune hydrops fetalis.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Cardiac and pericardial involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALG9-CDG can include cardiovascular findings, particularly pericardial effusion in the reported infant case.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Dysmorphic involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem ALG9-CDG includes dysmorphic findings such as inverted nipples, but the client proteins and developmental intermediates are unresolved.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental delay is a reported liveborn ALG9-CDG manifestation.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is a recurrent neurologic manifestation of ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures are part of the liveborn ALG9-CDG neurologic spectrum.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microcephaly is reported among liveborn ALG9-CDG patients.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records progressive microcephaly as a frequent ALG9-CDG phenotype.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability is a very frequent neurodevelopmental manifestation in Orphanet\u0027s ALG9-CDG record.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Delayed myelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed myelination is a reported brain MRI finding in ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral volume loss is a reported brain MRI finding in ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss is a reported brain MRI finding in ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Growth, hepatic, and renal involvement\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to thrive is a recurrent liveborn ALG9-CDG feature.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Growth, hepatic, and renal involvement\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatomegaly or hepatosplenomegaly is part of the visceral ALG9-CDG phenotype.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Growth, hepatic, and renal involvement\", \"target\": \"Renal cyst\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal cysts or cystic renal disease are recurrent ALG9-CDG findings.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal skeletal and hydrops involvement\", \"target\": \"Skeletal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal dysplasia is the defining severe prenatal ALG9-CDG phenotype.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal skeletal and hydrops involvement\", \"target\": \"Hydrops fetalis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALG9 is reported among CDG genes associated with nonimmune hydrops fetalis.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac and pericardial involvement\", \"target\": \"Pericardial effusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericardial effusion is the reported cardiovascular manifestation.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac and pericardial involvement\", \"target\": \"Abnormal heart morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records abnormal heart morphology as a frequent cardiovascular phenotype in ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysmorphic involvement\", \"target\": \"Inverted nipples\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inverted nipples were reported as a dysmorphic ALG9-CDG finding.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Protein hypoglycosylation\", \"target\": \"Type I carbohydrate-deficient transferrin pattern\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A type I carbohydrate-deficient transferrin pattern directly reports hypoglycosylation of a serum glycoprotein; it is not ALG9-specific.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"target\": \"Accumulated DolPP-GlcNAc2Man6 and DolPP-GlcNAc2Man8\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Accumulation of DolPP-GlcNAc2Man6 and DolPP-GlcNAc2Man8 reports the ALG9-dependent mannosyltransferase block in lipid-linked oligosaccharide assembly.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ALG9\", \"target\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALG9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALG9\"], \"gene_terms\": [{\"label\": \"ALG9\", \"id\": \"hgnc:15672\"}], \"association\": \"Biallelic loss-of-function variants\"}}, {\"id\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic ALG9 variants impair an alpha-1,2-mannosyltransferase required for lipid-linked oligosaccharide assembly in the endoplasmic reticulum.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"], \"molecular_functions\": [\"mannosyltransferase activity\"], \"genes\": [\"ALG9\"], \"gene_terms\": [{\"label\": \"ALG9\", \"id\": \"hgnc:15672\"}]}}, {\"id\": \"Abnormal heart morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orphanet records abnormal heart morphology as a frequent cardiovascular manifestation of ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Accumulated DolPP-GlcNAc2Man6 and DolPP-GlcNAc2Man8\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"term_id\": \"CHEBI:59520\", \"term_label\": \"N-glycan\", \"readouts\": [{\"target\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Accumulation of DolPP-GlcNAc2Man6 and DolPP-GlcNAc2Man8 reports the ALG9-dependent mannosyltransferase block in lipid-linked oligosaccharide assembly.\"}]}}, {\"id\": \"Cardiac and pericardial involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG9-CDG can include cardiovascular findings, including pericardial effusion reported in an affected infant.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"heart\"]}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss has been reported on brain MRI in ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral-hemisphere volume loss has been reported on brain MRI in ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002059\"}}, {\"id\": \"Delayed myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination has been documented on brain MRI in ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012448\"}}, {\"id\": \"Dysmorphic involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysmorphic manifestations are part of the reported ALG9-CDG spectrum; inverted nipples were documented in an affected infant.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ER glycoprotein quality-control and enhanced degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncated Man6GlcNAc2- and Man8GlcNAc2-bearing glycoproteins enter the ER folding-quality-control cycle, and misfolded glycoproteins are degraded at an increased rate in the studied patient\u0027s cells. The contribution of this response to human manifestations remains unknown.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive is reported in liveborn ALG9-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay and intellectual disability are recurrent neurologic manifestations of liveborn ALG9-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth, hepatic, and renal involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG9-CDG liveborn presentations include failure to thrive, hepatic enlargement or cysts, and renal cystic disease.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is part of the ALG9-CDG multisystem phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hydrops fetalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nonimmune hydrops fetalis has been reported in ALG9-CDG families reviewed in a systematic literature synthesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001789\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is repeatedly reported in liveborn ALG9-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a very frequent neurodevelopmental manifestation in Orphanet\u0027s ALG9-CDG record.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Inverted nipples\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inverted nipples were reported in a liveborn individual with ALG9-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003186\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is part of the liveborn ALG9-CDG neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Multisystem glycoprotein dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective N-glycosylation manifests as neurodevelopmental disease, congenital anomalies, renal cystic disease, pericardial effusion, and severe skeletal dysplasia in the most severe fetal presentations.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Neurodevelopmental and brain involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liveborn ALG9-CDG includes neurodevelopmental delay, hypotonia, seizures, microcephaly, delayed myelination, and cerebral/cerebellar volume loss.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Pericardial effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pericardial effusion is a reported cardiovascular manifestation of ALG9-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001698\"}}, {\"id\": \"Prenatal skeletal and hydrops involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe prenatal ALG9-CDG can present with lethal skeletal dysplasia with visceral malformations, and ALG9 has been reported among CDG genes associated with nonimmune hydrops fetalis.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"skeletal system\"]}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orphanet records progressive microcephaly as a frequent ALG9-CDG manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000253\"}}, {\"id\": \"Protein hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transfer of incomplete ALG9-associated oligosaccharides produces proteins bearing truncated N-glycans. Serum transferrin isoelectric focusing detects the resulting type I protein-hypoglycosylation pattern.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Renal cyst\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal cysts and cystic renal disease are recurrent ALG9-CDG findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000107\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in liveborn ALG9-CDG and can accompany failure to thrive and congenital anomalies.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Skeletal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some ALG9 variants cause a severe prenatal skeletal dysplasia with polycystic kidneys and multiple malformations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002652\"}}, {\"id\": \"Truncated lipid-linked oligosaccharide accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ALG9 enzymatic block causes the distinct precursor lesion: accumulation of DolPP-linked Man6GlcNAc2 and Man8GlcNAc2 intermediates before their transfer to nascent proteins.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"]}}, {\"id\": \"Type I carbohydrate-deficient transferrin pattern\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"term_id\": \"CHEBI:59520\", \"term_label\": \"N-glycan\", \"readouts\": [{\"target\": \"Protein hypoglycosylation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A type I carbohydrate-deficient transferrin pattern directly reports hypoglycosylation of a serum glycoprotein; it is not ALG9-specific.\"}]}}], \"edges\": [{\"source\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"target\": \"Truncated lipid-linked oligosaccharide accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ALG9 activity causes accumulation of incomplete DolPP-linked oligosaccharides.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Truncated lipid-linked oligosaccharide accumulation\", \"target\": \"Protein hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oligosaccharyltransferase-mediated transfer of the incomplete Man6GlcNAc2 and Man8GlcNAc2 precursors produces proteins bearing truncated N-glycans and the type I hypoglycosylation pattern.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Transfer of incomplete lipid-linked oligosaccharides to nascent proteins.\"]}, {\"source\": \"Protein hypoglycosylation\", \"target\": \"Multisystem glycoprotein dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread abnormal N-glycosylation is associated with neurologic, visceral, renal, cardiac, and skeletal manifestations, while the affected client proteins and tissue-specific intermediates remain unresolved.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Protein hypoglycosylation\", \"target\": \"ER glycoprotein quality-control and enhanced degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycoproteins bearing truncated Man6GlcNAc2 and Man8GlcNAc2 glycans enter the ER quality-control cycle, and patient cells show increased degradation of misfolded glycoproteins; clinical contribution is not established.\", \"hypothesis_groups\": [\"emerging_er_quality_control_degradation_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Entry of truncated glycoproteins into the ER glucosylation-deglucosylation quality-control cycle before degradation of misfolded glycoproteins.\"]}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Neurodevelopmental and brain involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALG9-CDG glycoprotein dysfunction is associated with developmental delay, hypotonia, seizures, microcephaly, and brain MRI abnormalities.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Growth, hepatic, and renal involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Liveborn ALG9-CDG patients frequently show failure to thrive and hepatic or renal involvement.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Prenatal skeletal and hydrops involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe prenatal ALG9-CDG spectrum includes lethal skeletal dysplasia and ALG9 has been reported among CDG genes associated with nonimmune hydrops fetalis.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Cardiac and pericardial involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALG9-CDG can include cardiovascular findings, particularly pericardial effusion in the reported infant case.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem glycoprotein dysfunction\", \"target\": \"Dysmorphic involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem ALG9-CDG includes dysmorphic findings such as inverted nipples, but the client proteins and developmental intermediates are unresolved.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental delay is a reported liveborn ALG9-CDG manifestation.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is a recurrent neurologic manifestation of ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures are part of the liveborn ALG9-CDG neurologic spectrum.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microcephaly is reported among liveborn ALG9-CDG patients.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records progressive microcephaly as a frequent ALG9-CDG phenotype.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability is a very frequent neurodevelopmental manifestation in Orphanet\u0027s ALG9-CDG record.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Delayed myelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed myelination is a reported brain MRI finding in ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral volume loss is a reported brain MRI finding in ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and brain involvement\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss is a reported brain MRI finding in ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Growth, hepatic, and renal involvement\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to thrive is a recurrent liveborn ALG9-CDG feature.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Growth, hepatic, and renal involvement\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatomegaly or hepatosplenomegaly is part of the visceral ALG9-CDG phenotype.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Growth, hepatic, and renal involvement\", \"target\": \"Renal cyst\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal cysts or cystic renal disease are recurrent ALG9-CDG findings.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal skeletal and hydrops involvement\", \"target\": \"Skeletal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal dysplasia is the defining severe prenatal ALG9-CDG phenotype.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal skeletal and hydrops involvement\", \"target\": \"Hydrops fetalis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALG9 is reported among CDG genes associated with nonimmune hydrops fetalis.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac and pericardial involvement\", \"target\": \"Pericardial effusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericardial effusion is the reported cardiovascular manifestation.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac and pericardial involvement\", \"target\": \"Abnormal heart morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records abnormal heart morphology as a frequent cardiovascular phenotype in ALG9-CDG.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysmorphic involvement\", \"target\": \"Inverted nipples\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inverted nipples were reported as a dysmorphic ALG9-CDG finding.\", \"hypothesis_groups\": [\"canonical_alg9_cdg_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Protein hypoglycosylation\", \"target\": \"Type I carbohydrate-deficient transferrin pattern\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A type I carbohydrate-deficient transferrin pattern directly reports hypoglycosylation of a serum glycoprotein; it is not ALG9-specific.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"target\": \"Accumulated DolPP-GlcNAc2Man6 and DolPP-GlcNAc2Man8\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Accumulation of DolPP-GlcNAc2Man6 and DolPP-GlcNAc2Man8 reports the ALG9-dependent mannosyltransferase block in lipid-linked oligosaccharide assembly.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ALG9\", \"target\": \"ALG9 alpha-1,2-mannosyltransferase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6581,23 +6685,23 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Breast<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6606,9 +6710,216 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
+                    Breast
                     <span class="cat-count">1</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inverted-nipples" data-dismech-node="Inverted nipples" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inverted nipples
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003186" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003186</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inverted nipples (HP:0003186). HP:0003186 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15945070" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15945070" target="_blank">PMID:15945070</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The female infant&#39;s features included psychomotor retardation, seizures, hypotonia, diffuse brain atrophy with delayed myelination, failure to thrive, pericardial effusion, cystic renal disease, hepatosplenomegaly, esotropia, and inverted nipples."</div>
+
+
+                <div class="evidence-explanation">The second reported infant had inverted nipples.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:79328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:79328" target="_blank">ORPHA:79328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003186 | Inverted nipples | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports inverted nipples as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pericardial-effusion" data-dismech-node="Pericardial effusion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pericardial effusion
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001698</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15945070" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15945070" target="_blank">PMID:15945070</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The female infant&#39;s features included psychomotor retardation, seizures, hypotonia, diffuse brain atrophy with delayed myelination, failure to thrive, pericardial effusion, cystic renal disease, hepatosplenomegaly, esotropia, and inverted nipples."</div>
+
+
+                <div class="evidence-explanation">The second reported infant had pericardial effusion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:79328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:79328" target="_blank">ORPHA:79328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001698 | Pericardial effusion | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports pericardial effusion as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-heart-morphology" data-dismech-node="Abnormal heart morphology" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6626,15 +6937,18 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6654,6 +6968,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6682,7 +6997,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
@@ -6705,15 +7020,18 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6733,6 +7051,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6757,6 +7076,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6785,7 +7105,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
@@ -6806,15 +7126,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000107</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6834,6 +7157,7 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6862,11 +7186,11 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
@@ -6883,15 +7207,18 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6911,6 +7238,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6937,9 +7265,83 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive microcephaly
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000253</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:79328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:79328" target="_blank">ORPHA:79328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000253 | Progressive microcephaly | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports progressive microcephaly as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -6960,15 +7362,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6988,6 +7393,7 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7016,7 +7422,7 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -7039,15 +7445,18 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7067,6 +7476,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7091,6 +7501,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7133,15 +7544,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002652</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002652</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7161,6 +7575,7 @@ This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7185,6 +7600,7 @@ This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7213,7 +7629,7 @@ This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -7236,15 +7652,18 @@ This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7264,6 +7683,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7288,6 +7708,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7330,15 +7751,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7358,6 +7782,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7382,6 +7807,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7424,15 +7850,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7452,6 +7881,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7492,15 +7922,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012448</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7520,6 +7953,7 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7560,15 +7994,18 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7588,6 +8025,7 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7628,15 +8066,18 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7656,6 +8097,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7684,7 +8126,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -7705,15 +8147,18 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7736,6 +8181,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7744,273 +8190,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">The review identifies failure to thrive as a recurrent liveborn ALG9-CDG manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inverted-nipples" data-dismech-node="Inverted nipples" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Inverted nipples
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003186" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003186</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Inverted nipples (HP:0003186). HP:0003186 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15945070" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15945070" target="_blank">PMID:15945070</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The female infant&#39;s features included psychomotor retardation, seizures, hypotonia, diffuse brain atrophy with delayed myelination, failure to thrive, pericardial effusion, cystic renal disease, hepatosplenomegaly, esotropia, and inverted nipples."</div>
-
-
-                <div class="evidence-explanation">The second reported infant had inverted nipples.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:79328" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:79328" target="_blank">ORPHA:79328</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003186 | Inverted nipples | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports inverted nipples as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive microcephaly
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:79328" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:79328" target="_blank">ORPHA:79328</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000253 | Progressive microcephaly | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports progressive microcephaly as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pericardial-effusion" data-dismech-node="Pericardial effusion" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pericardial effusion
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001698</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15945070" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15945070" target="_blank">PMID:15945070</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The female infant&#39;s features included psychomotor retardation, seizures, hypotonia, diffuse brain atrophy with delayed myelination, failure to thrive, pericardial effusion, cystic renal disease, hepatosplenomegaly, esotropia, and inverted nipples."</div>
-
-
-                <div class="evidence-explanation">The second reported infant had pericardial effusion.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:79328" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:79328" target="_blank">ORPHA:79328</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001698 | Pericardial effusion | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports pericardial effusion as frequent.</div>
 
 
 
@@ -8098,6 +8277,9 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8112,6 +8294,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8136,6 +8319,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8237,6 +8421,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8276,6 +8461,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8352,6 +8538,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8391,6 +8578,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8495,6 +8683,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8584,6 +8773,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8670,6 +8860,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8818,6 +9009,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8948,6 +9140,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9084,6 +9277,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9146,6 +9340,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9167,6 +9362,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9235,6 +9431,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9316,6 +9513,7 @@ This disease-associated gene is ALG9 (hgnc:15672). hgnc:15672 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11165,6 +11363,8 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

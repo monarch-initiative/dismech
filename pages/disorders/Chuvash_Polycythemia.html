@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4128,6 +4196,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4149,6 +4218,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4327,6 +4397,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4394,6 +4465,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4418,6 +4490,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4439,6 +4512,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4526,6 +4600,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4547,6 +4622,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4669,6 +4745,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4738,6 +4815,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4813,6 +4891,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4847,6 +4926,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pvhl-binding-to-hydroxylated-hif-alpha" data-dismech-node="Impaired pVHL Binding to Hydroxylated HIF-alpha" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired pVHL Binding to Hydroxylated HIF-alpha</div>
+
 
                 <div class="item-desc">pVHL is the substrate-recognition subunit of a Cullin-2 RING E3 ubiquitin ligase. Under normal oxygen tension, prolyl hydroxylases hydroxylate conserved prolines in HIF-1-alpha and HIF-2-alpha, pVHL binds the hydroxyproline, and the HIF-alpha subunit is polyubiquitinated and destroyed by the proteasome. The Arg200Trp substitution weakens that interaction. It does not abolish it, and that distinction carries the whole disease: a hypomorph produces a chronically mis-set oxygen thermostat, where a null would produce the tumor syndrome.</div>
 
@@ -5037,6 +5117,7 @@ This pathophysiological event involves decreased HIF-alpha ubiquitination, annot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5058,6 +5139,7 @@ This pathophysiological event involves decreased HIF-alpha ubiquitination, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5083,6 +5165,7 @@ This pathophysiological event involves decreased HIF-alpha ubiquitination, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-normoxic-hif-alpha-stabilization" data-dismech-node="Normoxic HIF-alpha Stabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Normoxic HIF-alpha Stabilization</div>
+
 
                 <div class="item-desc">HIF-1-alpha and HIF-2-alpha accumulate and dimerize with HIF-1-beta at normal oxygen tension. The cell believes it is short of oxygen while sitting in ordinary room air, which is why the whole phenotype reads as permanent altitude acclimatization. Both isoforms are elevated in patients, but they are not interchangeable: mouse genetics show heterozygosity for Hif2a, and not Hif1a, suppresses both the polycythemia and the pulmonary hypertension, so HIF-2-alpha is the dominant effector for the erythroid and pulmonary-vascular arms.</div>
 
@@ -5235,6 +5318,7 @@ This pathophysiological event involves normoxic hypoxia response, annotated with
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5256,6 +5340,7 @@ This pathophysiological event involves normoxic hypoxia response, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5281,6 +5366,7 @@ This pathophysiological event involves normoxic hypoxia response, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hif-target-gene-program-activation" data-dismech-node="HIF Target Gene Program Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">HIF Target Gene Program Activation</div>
+
 
                 <div class="item-desc">The stabilized HIF dimers transcribe the full hypoxia-response program at normal oxygen: erythropoietin, the glucose transporter SLC2A1, transferrin and its receptor, vascular endothelial growth factor, and endothelin-1. This is the fan-out point of the disease, and it is why a single amino-acid change produces phenotypes in blood, lung, vasculature, iron handling, and muscle metabolism at once. Note that hypoxic regulation itself remains intact and correctly shaped; only the setpoint has moved.</div>
 
@@ -5437,6 +5523,7 @@ This pathophysiological event involves increased cellular response to hypoxia (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5458,6 +5545,7 @@ This pathophysiological event involves increased cellular response to hypoxia (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5483,6 +5571,7 @@ This pathophysiological event involves increased cellular response to hypoxia (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythropoietin-excess-and-erythroid-expansion" data-dismech-node="Erythropoietin Excess and Erythroid Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythropoietin Excess and Erythroid Expansion</div>
+
 
                 <div class="item-desc">Circulating erythropoietin is roughly tenfold higher than in matched controls after adjusting for hemoglobin, yet the response to acute hypoxia is identical to normal, so the axis is intact and merely reset. Erythroid progenitors expand in marrow and, at least in the mouse model, in spleen. Erythroid progenitors from R200W homozygotes are additionally hypersensitive to erythropoietin, an asymmetry that is not shared by the Croatian H191D genotype. Note the discriminator from polycythemia vera: white cell and platelet counts are normal, indeed often lower than controls, rather than expanded.</div>
 
@@ -5708,6 +5797,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5729,6 +5819,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5756,6 +5847,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5778,6 +5870,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prothrombotic-state" data-dismech-node="Prothrombotic State" data-dismech-type="pathophysiology">
                 <div class="item-name">Prothrombotic State</div>
+
 
                 <div class="item-desc">Thrombosis is the leading cause of morbidity and mortality, and this node is where the disease defies the obvious intuition. The reflex reading is high hematocrit, viscous blood, clots. In Chuvash erythrocytosis that is wrong. In 155 patients followed prospectively against 154 matched controls for eleven years, thrombotic risk rose 8.9-fold, and erythropoietin elevation, not hematocrit and not ferritin, is what correlated with it. Elevated transferrin was, unexpectedly, protective. Contributory mediators include raised plasminogen activator inhibitor-1, vascular endothelial growth factor, and endothelin-1, with a broadly prothrombotic transcriptional milieu. Model the causal edge as HIF and erythropoietin signaling to the prothrombotic state, with erythrocytosis as a parallel consequence rather than the intermediate.</div>
 
@@ -5885,6 +5978,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5906,6 +6000,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5933,6 +6028,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5955,6 +6051,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-vascular-tone-and-remodeling" data-dismech-node="Pulmonary Vascular Tone and Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Vascular Tone and Remodeling</div>
+
 
                 <div class="item-desc">Basal pulmonary vascular tone is elevated and the hypoxic pulmonary vasoconstrictive response is greatly exaggerated, alongside raised basal ventilation, a physiological picture indistinguishable from acclimatization to high altitude. Roughly a third of patients have mild pulmonary hypertension by echocardiography, and tricuspid regurgitation velocity remains elevated after adjusting for blood-volume surrogates, so this is not simply a volume effect. The mouse model settles the causal question: pulmonary hypertension develops independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, all suppressed by Hif2a heterozygosity. Endothelin-1 is elevated in patients and is a HIF target.</div>
 
@@ -6129,6 +6226,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6150,6 +6248,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6177,6 +6276,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6201,6 +6301,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepcidin-suppression-and-iron-mobilization" data-dismech-node="Hepcidin Suppression and Iron Mobilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepcidin Suppression and Iron Mobilization</div>
+
 
                 <div class="item-desc">Hepcidin, the master regulator of iron export, is suppressed roughly threefold in homozygotes, and the suppression survives adjustment for both erythropoietin and ferritin, so it is a direct consequence of the raised hypoxic response rather than a downstream effect of accelerated erythropoiesis. Transferrin and transferrin receptor are induced as HIF targets. The clinically important interaction is iatrogenic: therapeutic phlebotomy drives iron deficiency on top of this program, and lower ferritin independently predicts higher pulmonary artery pressure.</div>
 
@@ -6262,6 +6363,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6283,6 +6385,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6308,6 +6411,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metabolic-reprogramming-toward-glycolysis" data-dismech-node="Metabolic Reprogramming Toward Glycolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Reprogramming Toward Glycolysis</div>
+
 
                 <div class="item-desc">Raised HIF activity induces glycolytic enzymes and pyruvate dehydrogenase kinase, shifting substrate use away from oxidative phosphorylation. During exercise this shows up as early phosphocreatine depletion and acidosis in skeletal muscle, greater blood lactate accumulation, and reduced maximum exercise capacity, with elevated muscle transcripts for pyruvate dehydrogenase kinase, phosphofructokinase, and muscle pyruvate kinase. This is the physiological substrate of the fatigue and exercise limitation patients report, and it is a rare opportunity to observe HIF-driven metabolic regulation at whole-organism level in humans.</div>
 
@@ -6407,6 +6511,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6428,6 +6533,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6453,6 +6559,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-solid-organ-size" data-dismech-node="Increased Solid Organ Size" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Solid Organ Size</div>
+
 
                 <div class="item-desc">Liver, spleen, and kidney volumes relative to body mass are larger in homozygotes than in matched Chuvash controls. The proposed mechanism runs through the opposing effects of the two HIF isoforms on proliferation: HIF-1-alpha induces the cyclin-dependent kinase inhibitor p21, while HIF-2-alpha promotes MYC activity and proliferation, and mouse data implicate raised hepatic HIF-2-alpha with reduced p21.</div>
 
@@ -6527,6 +6634,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6548,6 +6656,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6615,13 +6724,17 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6630,8 +6743,330 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">4</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-hemoglobin-concentration" data-dismech-node="Increased Circulating Hemoglobin Concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Circulating Hemoglobin Concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001900</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating hemoglobin concentration (HP:0001900). HP:0001900 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9058738" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9058738" target="_blank">PMID:9058738</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hemoglobins were markedly elevated in the index subjects"</div>
+
+
+                <div class="evidence-explanation">Documents marked hemoglobin elevation in affected subjects under 20 years old. The reported mean of 22.6 g/dL immediately follows in the abstract but is bracketed by an abbreviation the snippet validator strips, so the quote stops short of it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-hematocrit" data-dismech-node="Increased Hematocrit" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Hematocrit
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001899" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001899</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased hematocrit (HP:0001899). HP:0001899 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37435906" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37435906" target="_blank">PMID:37435906</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Homozygous VHLR200W results in accumulation of HIFs that increase transcription of the erythropoietin gene and raise hematocrit."</div>
+
+
+                <div class="evidence-explanation">States the mechanistic route from the genotype to the raised hematocrit.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-thrombosis" data-dismech-node="Arterial Thrombosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arterial Thrombosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004420</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16673284" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16673284" target="_blank">PMID:16673284</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These studies have also shown associations with arterial and venous thrombosis, major bleeding episodes, cerebral vascular events, and premature mortality."</div>
+
+
+                <div class="evidence-explanation">Documents arterial thrombosis among the vascular complications established by matched-cohort and case-control analysis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-venous-thrombosis" data-dismech-node="Venous Thrombosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Venous Thrombosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16673284" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16673284" target="_blank">PMID:16673284</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These studies have also shown associations with arterial and venous thrombosis, major bleeding episodes, cerebral vascular events, and premature mortality."</div>
+
+
+                <div class="evidence-explanation">Documents venous thrombosis among the established vascular complications.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37435906" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37435906" target="_blank">PMID:37435906</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During 11 years of follow-up, risk of thrombosis increased 8.9-fold in patients versus controls."</div>
+
+
+                <div class="evidence-explanation">Quantifies the prospective thrombotic risk against matched controls.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-stroke" data-dismech-node="Stroke" data-dismech-type="phenotype">
@@ -6648,15 +7083,18 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6676,6 +7114,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6718,15 +7157,18 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002092</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002092</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6746,6 +7188,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6770,6 +7213,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6810,15 +7254,18 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002619</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002619</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Varicose veins (HP:0002619). HP:0002619 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6838,6 +7285,7 @@ This clinical feature is Varicose veins (HP:0002619). HP:0002619 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6878,15 +7326,18 @@ This clinical feature is Varicose veins (HP:0002619). HP:0002619 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vertebral hemangioma, annotated with Hemangioma (HP:0001028). HP:0001028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6909,6 +7360,7 @@ This clinical feature is Vertebral hemangioma, annotated with Hemangioma (HP:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6917,6 +7369,78 @@ This clinical feature is Vertebral hemangioma, annotated with Hemangioma (HP:000
 
 
                 <div class="evidence-explanation">Documents vertebral hemangiomas as a genotype-associated finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-low-to-normal-blood-pressure" data-dismech-node="Low-To-Normal Blood Pressure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Low-To-Normal Blood Pressure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002632" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002632</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Low-to-normal blood pressure (HP:0002632). HP:0002632 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16769575" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16769575" target="_blank">PMID:16769575</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Plasma endothelin-1 (p=0.010), VEGF (p=0.022) and erythropoietin (p&lt;0.0005) concentrations and Doppler-estimated systolic pulmonary artery pressures (p&lt;0.0005) were higher in the patients while systolic systemic blood pressures were lower (p=0.001)."</div>
+
+
+                <div class="evidence-explanation">Reports significantly lower systolic systemic blood pressures in patients.</div>
 
 
 
@@ -6946,15 +7470,18 @@ This clinical feature is Vertebral hemangioma, annotated with Hemangioma (HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6974,6 +7501,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7002,7 +7530,194 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-erythropoietin-concentration" data-dismech-node="Elevated Circulating Erythropoietin Concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated Circulating Erythropoietin Concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0033644</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating erythropoietin concentration (HP:0033644). HP:0033644 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14726398" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14726398" target="_blank">PMID:14726398</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although hemoglobin-adjusted serum erythropoietin concentrations were approximately 10-fold higher in VHL 598C&gt;T homozygotes than in controls, erythropoietin response to hypoxia was identical."</div>
+
+
+                <div class="evidence-explanation">Quantifies the erythropoietin elevation against matched controls.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-ferritin-concentration" data-dismech-node="Decreased Circulating Ferritin Concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased Circulating Ferritin Concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012343</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased circulating ferritin concentration (HP:0012343). HP:0012343 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37435906" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37435906" target="_blank">PMID:37435906</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Baseline transferrin was elevated, and ferritin reduced in patients."</div>
+
+
+                <div class="evidence-explanation">Documents reduced ferritin with elevated transferrin at steady state.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21993671" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21993671" target="_blank">PMID:21993671</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among VHL(R200W) homozygotes, phlebotomy therapy was associated with lower serum ferritin concentration, and low ferritin independently predicted higher tricuspid regurgitation velocity (standardized beta=0.29; P=0.009)."</div>
+
+
+                <div class="evidence-explanation">Attributes the ferritin fall to phlebotomy and links it to raised pulmonary artery pressure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -7023,10 +7738,10 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315), qualified as temporality chronic. HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7055,6 +7770,9 @@ This clinical feature is Headache (HP:0002315), qualified as temporality chronic
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7069,6 +7787,7 @@ This clinical feature is Headache (HP:0002315), qualified as temporality chronic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7097,7 +7816,7 @@ This clinical feature is Headache (HP:0002315), qualified as temporality chronic
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -7118,15 +7837,18 @@ This clinical feature is Headache (HP:0002315), qualified as temporality chronic
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7146,6 +7868,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7186,10 +7909,10 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic. HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7218,6 +7941,9 @@ This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7235,6 +7961,7 @@ This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic.
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7243,539 +7970,6 @@ This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic.
 
 
                 <div class="evidence-explanation">Provides the objective metabolic substrate for exertional fatigue. PARTIAL because fatigue as a reported symptom is not itself measured here.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-hemoglobin-concentration" data-dismech-node="Increased Circulating Hemoglobin Concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Circulating Hemoglobin Concentration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001900</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating hemoglobin concentration (HP:0001900). HP:0001900 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:9058738" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9058738" target="_blank">PMID:9058738</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Hemoglobins were markedly elevated in the index subjects"</div>
-
-
-                <div class="evidence-explanation">Documents marked hemoglobin elevation in affected subjects under 20 years old. The reported mean of 22.6 g/dL immediately follows in the abstract but is bracketed by an abbreviation the snippet validator strips, so the quote stops short of it.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-hematocrit" data-dismech-node="Increased Hematocrit" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Hematocrit
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001899" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001899</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased hematocrit (HP:0001899). HP:0001899 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37435906" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37435906" target="_blank">PMID:37435906</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Homozygous VHLR200W results in accumulation of HIFs that increase transcription of the erythropoietin gene and raise hematocrit."</div>
-
-
-                <div class="evidence-explanation">States the mechanistic route from the genotype to the raised hematocrit.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-erythropoietin-concentration" data-dismech-node="Elevated Circulating Erythropoietin Concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated Circulating Erythropoietin Concentration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0033644</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating erythropoietin concentration (HP:0033644). HP:0033644 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:14726398" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14726398" target="_blank">PMID:14726398</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Although hemoglobin-adjusted serum erythropoietin concentrations were approximately 10-fold higher in VHL 598C&gt;T homozygotes than in controls, erythropoietin response to hypoxia was identical."</div>
-
-
-                <div class="evidence-explanation">Quantifies the erythropoietin elevation against matched controls.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-thrombosis" data-dismech-node="Arterial Thrombosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arterial Thrombosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004420</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16673284" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16673284" target="_blank">PMID:16673284</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These studies have also shown associations with arterial and venous thrombosis, major bleeding episodes, cerebral vascular events, and premature mortality."</div>
-
-
-                <div class="evidence-explanation">Documents arterial thrombosis among the vascular complications established by matched-cohort and case-control analysis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-venous-thrombosis" data-dismech-node="Venous Thrombosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Venous Thrombosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16673284" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16673284" target="_blank">PMID:16673284</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These studies have also shown associations with arterial and venous thrombosis, major bleeding episodes, cerebral vascular events, and premature mortality."</div>
-
-
-                <div class="evidence-explanation">Documents venous thrombosis among the established vascular complications.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37435906" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37435906" target="_blank">PMID:37435906</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"During 11 years of follow-up, risk of thrombosis increased 8.9-fold in patients versus controls."</div>
-
-
-                <div class="evidence-explanation">Quantifies the prospective thrombotic risk against matched controls.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-low-to-normal-blood-pressure" data-dismech-node="Low-To-Normal Blood Pressure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Low-To-Normal Blood Pressure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002632" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002632</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Low-to-normal blood pressure (HP:0002632). HP:0002632 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16769575" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16769575" target="_blank">PMID:16769575</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Plasma endothelin-1 (p=0.010), VEGF (p=0.022) and erythropoietin (p&lt;0.0005) concentrations and Doppler-estimated systolic pulmonary artery pressures (p&lt;0.0005) were higher in the patients while systolic systemic blood pressures were lower (p=0.001)."</div>
-
-
-                <div class="evidence-explanation">Reports significantly lower systolic systemic blood pressures in patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-ferritin-concentration" data-dismech-node="Decreased Circulating Ferritin Concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased Circulating Ferritin Concentration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012343</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased circulating ferritin concentration (HP:0012343). HP:0012343 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37435906" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37435906" target="_blank">PMID:37435906</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Baseline transferrin was elevated, and ferritin reduced in patients."</div>
-
-
-                <div class="evidence-explanation">Documents reduced ferritin with elevated transferrin at steady state.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21993671" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21993671" target="_blank">PMID:21993671</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Among VHL(R200W) homozygotes, phlebotomy therapy was associated with lower serum ferritin concentration, and low ferritin independently predicted higher tricuspid regurgitation velocity (standardized beta=0.29; P=0.009)."</div>
-
-
-                <div class="evidence-explanation">Attributes the ferritin fall to phlebotomy and links it to raised pulmonary artery pressure.</div>
 
 
 
@@ -7865,6 +8059,9 @@ This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7879,6 +8076,7 @@ This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7903,6 +8101,7 @@ This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7962,6 +8161,9 @@ This disease-associated gene is EPO (hgnc:3415). hgnc:3415 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7976,6 +8178,7 @@ This disease-associated gene is EPO (hgnc:3415). hgnc:3415 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8035,6 +8238,9 @@ This disease-associated gene is TF (hgnc:11740). hgnc:11740 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8049,6 +8255,7 @@ This disease-associated gene is TF (hgnc:11740). hgnc:11740 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8135,6 +8342,9 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8145,6 +8355,9 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
 
 
     </div>
+
+
+
 
 
 
@@ -8193,6 +8406,7 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8217,6 +8431,7 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8238,6 +8453,7 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8328,6 +8544,9 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8338,6 +8557,9 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
 
     </div>
+
+
+
 
 
 
@@ -8368,6 +8590,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8389,6 +8612,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8456,6 +8680,9 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8466,6 +8693,9 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -8493,6 +8723,7 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8581,6 +8812,9 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8591,6 +8825,9 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8639,6 +8876,7 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8660,6 +8898,7 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8726,6 +8965,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8736,6 +8978,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8784,6 +9029,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8805,6 +9051,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8874,6 +9121,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8925,6 +9173,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8946,6 +9195,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9015,6 +9265,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9036,6 +9287,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9093,6 +9345,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9117,6 +9370,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9138,6 +9392,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9194,6 +9449,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9262,14 +9518,15 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12 first-degree family members."</div>
+                <div class="evidence-snippet">"Familial and congenital polycythemia, not due to high oxygen affinity hemoglobin or reduced 2,3-diphosphoglycerate in erythrocytes, is common in the Chuvash population of the Russian Federation. Hundreds of individuals appear to be affected in an autosomal recessive pattern. We studied six..."</div>
 
 
-                <div class="evidence-explanation">Establishes that the phenotype is present and detectable in childhood and adolescence.</div>
+                <div class="evidence-explanation">Connects the six young Chuvash patients to familial congenital polycythemia. Enrollment before twenty does not itself measure onset or establish an insidious presentation.</div>
 
 
 
@@ -9309,6 +9566,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9385,6 +9643,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9435,6 +9694,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9504,6 +9764,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9525,6 +9786,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9614,6 +9876,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9681,6 +9944,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9754,6 +10018,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9821,6 +10086,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9948,6 +10214,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9999,6 +10266,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11150,10 +11418,15 @@ progression:
     reference_title: Congenital polycythemia in Chuvashia.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12 first-degree family members.&#34;
+    snippet: &gt;-
+      Familial and congenital polycythemia, not due to high oxygen affinity hemoglobin or reduced
+      2,3-diphosphoglycerate in erythrocytes, is common in the Chuvash population of the Russian
+      Federation. Hundreds of individuals appear to be affected in an autosomal recessive pattern.
+      We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12
+      first-degree family members.
     explanation: &gt;-
-      Establishes that the phenotype is present and detectable in childhood and
-      adolescence.
+      Connects the six young Chuvash patients to familial congenital polycythemia. Enrollment before
+      twenty does not itself measure onset or establish an insidious presentation.
 - phase: Adult event-driven course
   notes: &gt;-
     Hematologically the disease is stable or slowly progressive; clinically it is
@@ -12233,6 +12506,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">The hematocrit point is the load-bearing one. The intuitive causal chain, high hematocrit to viscous blood to clots, is wrong in this disease, and the pathograph is built to say so: the edge to the prothrombotic state runs from HIF target gene activation directly, in parallel with the erythroid arm rather than through it. Erythropoietin elevation, not hematocrit and not ferritin, is what correlated with thrombosis over eleven years of prospective follow-up.
+Belzutifan. There is a published human case of response to belzutifan in VHL-related congenital polycythemia (PMID:39113647), but two things keep it out of the evidence blocks. The patient was a compound heterozygote (R200W plus c.562C&gt;G), not a Chuvash R200W homozygote, and the cached record for that report has no retrievable abstract text, so there is nothing quotable. The treatment entry therefore carries only the mouse evidence and says so.
+Two further sources could not be quoted for the same reason. PMID:31289208, the letter whose title states outright that thrombotic risk is not associated with elevated hematocrit, caches with no content, so that claim is carried by PMID:30872370 and PMID:37435906 instead, which state it in their abstracts.
+Module conformance. The pulmonary node declares conformance to pulmonary_vascular_remodeling. Conformance to thrombogenesis was considered and deliberately not declared: the evidence here is for elevated plasminogen activator inhibitor-1, vascular endothelial growth factor, and endothelin-1 with a prothrombotic transcriptional milieu, which is not the same claim as the module&#39;s coagulation-cascade and thrombin-driven fibrin node, and asserting it would overstate what the cited abstracts establish.
+Prevalence. Orphanet records worldwide prevalence as unknown and not yet validated. The endemic allele frequencies (0.070 Ischia, 0.057 Chuvashia) are recorded as a carrier-frequency measure rather than converted to a homozygote prevalence, because that conversion would be Hardy-Weinberg arithmetic rather than a published figure.
+Deep research. Curated from a claude_code deep-research report (research/Chuvash_Polycythemia-deep-research-claude_code.md), whose own reference validation reported 52/52 references verified, 15/15 quotes valid, and a confabulation rate of 0.0. Every snippet used here was independently re-verified against the cached PubMed record.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Chuvash Polycythemia</strong> · 2026-08-15T14:35:20Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Chuvash_Polycythemia/2026-08-15T143520Z-claude-code-2897b9.yaml">View source</a></p>
+                        <p class="research-review-text">New KB entry for Chuvash polycythemia (MONDO:0009892), the first recognized congenital disorder of oxygen sensing, curated from a claude_code deep-research report (research/Chuvash_Polycythemia-deep-research-claude_code.md), whose own reference validation reported 52/52 references verified, 15/15 quotes valid, confabulation rate 0.0. Nine pathophysiology nodes from impaired pVHL binding to hydroxylated HIF-alpha through normoxic HIF stabilization and HIF target gene activation, fanning out to erythroid expansion, the prothrombotic state, pulmonary vascular tone and remodeling, hepcidin suppression, glycolytic reprogramming, and increased solid organ size. STRUCTURAL DECISION: the edge to the prothrombotic state runs from HIF target gene activation directly, in parallel with the erythroid arm rather than through it, because prospective cohort data show erythropoietin elevation and not hematocrit correlates with thrombotic risk; phlebotomy is modeled with INHIBITS on the erythroid node plus two REFUTE evidence items for its harms. Two mechanistic_hypotheses recorded: canonical_hif_stabilization (CANONICAL) and vhl_socs1_jak2_dysregulation (ALTERNATIVE) with the contradicting human H191D progenitor data attached as REFUTE. Fifteen phenotypes, two biochemical markers, one animal model with two modeled_mechanisms links, four discussions including the mechanism of the absent tumor phenotype. Declares conforms_to pulmonary_vascular_remodeling on the pulmonary node; conformance to thrombogenesis was considered and deliberately NOT declared because the cited evidence is for PAI-1/VEGF/endothelin-1 elevation rather than the module&#39;s coagulation-cascade node. HONESTY NOTES: PMID:39113647 (belzutifan human case) and PMID:31289208 (hematocrit letter) both cache with content_type unavailable, so neither is cited for a snippet; the belzutifan treatment carries only mouse evidence and the human case is recorded in notes with its compound-heterozygote caveat. Worldwide prevalence recorded as UNKNOWN per Orphanet rather than derived by Hardy-Weinberg from endemic allele frequencies. Validated: just validate passed (schema + terms) and just count-verified-snippets reported 83/83 verified against cached references. Three snippets were trimmed during verification because a square-bracketed abbreviation in the PMID:9058738 abstract is stripped by the snippet validator; the affected explanations state the omitted figure rather than quoting it.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13461,7 +13757,7 @@ Mouse: TG101209 "reversed the disease phenotype in Vhl(R200W/R200W) knock-in mic
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chuvash Polycythemia", "mondoId": "MONDO:0009892", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chuvash_Polycythemia", "yamlRevision": "0a5a0e17e5fb"};
+        const OS_CONFIG = {"diseaseName": "Chuvash Polycythemia", "mondoId": "MONDO:0009892", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chuvash_Polycythemia", "yamlRevision": "816645253abf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

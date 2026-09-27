@@ -26,7 +26,7 @@ Classification (per changed path):
   outputs (``references_cache/**``, ``history/**``, ``cache/**``,
   ``kb/groupings/**`` [separate workflow], ``docs/**``, ``mkdocs.yml``,
   ``pages/**``, ``dashboard/**``, ``elements/**``, ``app/**``, ``.github/**``,
-  ``scripts/**``, ``*.history.yaml``, top-level ``*.md``).
+  ``scripts/**``, ``extension/**``, ``*.history.yaml``, top-level ``*.md``).
 
 A deletion (``D``) or rename (``R``) of a LOCAL page input forces full so stale
 pages are removed.
@@ -112,6 +112,7 @@ NEUTRAL_PREFIXES = (
     "history/",
     "kb/groupings/",
     "docs/",
+    "extension/",
     "pages/",
     "dashboard/",
     "elements/",

@@ -661,8 +661,8 @@ unqualified by a module prefix are `Liver_Cirrhosis` pathophysiology nodes.
 |---|---|---|---|---|---|
 | 244 | Alkylation, Protein *(MIE)* | Molecular | — | — | none — see below |
 | 55 | Increase, Cell injury/death | Cellular | albumin ↓ | Hepatocyte Injury and Death | yes |
-| 1492 | Tissue resident cell activation | Cellular | ALOX5AP, TREM2 ↑ | Kupffer Cell and Inflammatory Response | partial — THP-1 is not tissue-resident |
-| 1493 | Increased Pro-inflammatory mediators | Tissue | PAI-1, TGF-β1 ↑ | *(same node)* | partial — confounded with the stimulus |
+| 1492 | Tissue resident cell activation | Cellular | ALOX5AP, TREM2 ↑ | Kupffer Cell Activation | partial — THP-1 is not tissue-resident |
+| 1493 | Increased Pro-inflammatory mediators | Tissue | PAI-1, TGF-β1 ↑ | Hepatic Pro-Inflammatory Mediator Release | partial — confounded with the stimulus |
 | 265 | Increase, Hepatic stellate cell activation | Cellular | ACTA2, COL1A1, COL3A1, FN1 ↑ | Hepatic Stellate Cell Activation → `fibrotic_response#Mesenchymal Cell Activation` | yes |
 | 68 | Increase, Collagen accumulation | Tissue | Pro-Collagen 1A1, CTGF ↑ | `fibrotic_response#Excessive ECM Deposition` | yes — but the readout is curated on the KE 265 node |
 | 344 | Increase, Liver fibrosis *(AO)* | Organ | — | — | none — `Liver_Cirrhosis` is a later event, see below |
@@ -796,7 +796,8 @@ correspondence checkable:
 | `Liver_Cirrhosis` Hepatocyte Injury and Death | `CELLULAR` | KE 55 Cellular |
 | `Liver_Cirrhosis` Hepatic Stellate Cell Activation | `CELLULAR` | KE 265 Cellular |
 | `Liver_Cirrhosis` TGF-beta Signaling in Fibrogenesis | `MOLECULAR` | — (the stimulus arm; no KE) |
-| `Liver_Cirrhosis` Kupffer Cell and Inflammatory Response | *left unset* | KE 1492 Cellular **and** KE 1493 Tissue |
+| `Liver_Cirrhosis` Kupffer Cell Activation | `CELLULAR` | KE 1492 Cellular |
+| `Liver_Cirrhosis` Hepatic Pro-Inflammatory Mediator Release | `TISSUE` | KE 1493 Tissue |
 | `fibrotic_response` Tissue Injury | `TISSUE` | KE 55's module counterpart |
 | `fibrotic_response` Inflammatory Recruitment and Amplification | `TISSUE` | KE 1493 Tissue |
 | `fibrotic_response` Mesenchymal Cell Activation | `CELLULAR` | KE 265 Cellular |
@@ -805,13 +806,15 @@ correspondence checkable:
 
 Two things fell out of doing it.
 
-**One node was left unset, and the reason is the finding.** `Kupffer Cell and
-Inflammatory Response` maps to two Events at two different levels — KE 1492 is Cellular
-and KE 1493 is Tissue — so no single value describes it. `biological_scale` is
+**One node was left unset, and the reason is the finding — since acted on.** `Kupffer
+Cell and Inflammatory Response` mapped to two Events at two different levels — KE 1492
+Cellular and KE 1493 Tissue — so no single `biological_scale` value described it, and
+guessing one would have hidden exactly what the mapping exposed. `biological_scale` is
 single-valued by design, and CLAUDE.md reads a node that would naturally take two as a
-signal that it bundles two mechanistic claims. Guessing one would have hidden exactly
-what the mapping exposed. Splitting the node is a curation change with evidence and
-`modeled_mechanisms` readouts attached to it and is not made here.
+signal that it bundles two mechanistic claims. That finding motivated a curation change
+(#10314): the node has since been split into `Kupffer Cell Activation` (`CELLULAR`, KE
+1492) and `Hepatic Pro-Inflammatory Mediator Release` (`TISSUE`, KE 1493), each with its
+own evidence and `modeled_mechanisms` readouts.
 
 **AOP's Organ level is not the gap it looks like.** `BiologicalScaleEnum` has no `ORGAN`
 value, but `TISSUE` is defined as "tissue / organ scale" and its description names organ
@@ -920,6 +923,24 @@ assessment needs — and Not Specified accounts for ~34% of weight-of-evidence g
 way: the toxicokinetic steps in a dismech chain have to be separated from the key
 events, species applicability and a population level have no dismech counterpart, and a
 disease-anchored graph has to be cut stressor-agnostic before it is an AOP.
+
+### First attempt at seeding
+
+Two files take that second direction from the abstract to a worked case:
+
+- [`docs/reports/aop-derivable-measurable-chains-2026-09-10.md`](../docs/reports/aop-derivable-measurable-chains-2026-09-10.md)
+  asks how many entries even hold a chain worth deriving. Requiring a readout on every node
+  and a citation on every edge leaves 38 entries at three nodes and one at five. Its main
+  result is that the scarce input is `modeled_mechanisms` coverage rather than literature:
+  edge evidence is about thirty-five times more available than node measurability.
+  Regenerate with `just aop-chain-census`.
+- [`AOP_EMOD_ALIGNMENT/putative-aops-from-dismech-2026-09-10.md`](AOP_EMOD_ALIGNMENT/putative-aops-from-dismech-2026-09-10.md)
+  works `Left_Ventricular_Noncompaction_8` and `Skeletal_Fluorosis` through into AOP form.
+
+They sharpen the first divergence listed above rather than resolving it. `Skeletal_Fluorosis`
+reproduces the `Lead_Poisoning` toxicokinetic result exactly — all five exposures land on an
+intake node two hops upstream of the first molecular event — so that is now a pattern across
+two independently curated entries, not an observation about one file.
 
 <!--
 ## Not yet included

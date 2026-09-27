@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4113,6 +4181,7 @@ Electrophysiologically the neuropathy is intermediate: nerve conduction studies 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4134,6 +4203,7 @@ Electrophysiologically the neuropathy is intermediate: nerve conduction studies 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4240,6 +4310,7 @@ What that does not explain is the intrafamilial variability, and it is worth bei
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4264,6 +4335,7 @@ What that does not explain is the intrafamilial variability, and it is worth bei
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4285,6 +4357,7 @@ What that does not explain is the intrafamilial variability, and it is worth bei
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4371,6 +4444,7 @@ What that does not explain is the intrafamilial variability, and it is worth bei
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4405,6 +4479,7 @@ What that does not explain is the intrafamilial variability, and it is worth bei
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inf2-diaphanous-inhibitory-domain-variant" data-dismech-node="INF2 Diaphanous-Inhibitory-Domain Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">INF2 Diaphanous-Inhibitory-Domain Variant</div>
+
 
                 <div class="item-desc">A heterozygous variant in the amino-terminal region of INF2. In the founding CMT-plus-FSGS series every allele lay in exons 2 and 3, which encode the diaphanous inhibitory domain, and a systematic review of the whole pathogenic allele set a decade later reached the same conclusion for INF2 disease as a whole. Missense substitutions dominate, but the spectrum also includes a cryptic splicing allele (c.271C&gt;G, p.Arg91Gly) whose real consequence is an in-frame 40-amino-acid deletion inside the same domain.</div>
 
@@ -4465,6 +4540,8 @@ This pathophysiological event involves INF2 (hgnc:23791). hgnc:23791 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense, and one cryptic splice allele producing an in-frame 40-residue deletion</span>
 
 
@@ -4480,6 +4557,9 @@ This pathophysiological event involves INF2 (hgnc:23791). hgnc:23791 is a gene f
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Categorised as gain of function on two independent lines: disease-associated INF2 mutants escape inhibition by the CAP-KAc-actin complex in vitro, and in mice a disease point mutation confers susceptibility to glomerular disease where the knockout does not.
 The two lines differ in allele coverage. The biochemistry tested both ranges - R218Q, an FSGS allele, and L77R, which the source calls a CMTD mutant and which sits at residue 77, inside the 57-184 CMT-associated span this entry describes - and found reduced CAP-KAc-actin inhibition of both, so that line bears on CMT alleles directly. The mouse work uses R218Q alone, so it is the in vivo line whose inference to CMT-range alleles is stated rather than assumed. It is drawn here and not for the nephrin route because the two claims have different scopes. Gain versus loss of function is a property of the *domain*: every pathogenic INF2 allele sits in the DID, the biochemical escape from CAP-KAc-actin inhibition was measured across disease mutants rather than on one, and the knockout-versus-point-mutant comparison tests the class of mechanism, not a residue. The nephrin route is the opposite - a specific molecular pathway, in one cell type, demonstrated for one allele - so it stays allele-local. Every evidence item on both is graded INDIRECT regardless.</div>
@@ -4528,6 +4608,7 @@ The two lines differ in allele coverage. The biochemistry tested both ranges - R
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4549,6 +4630,7 @@ The two lines differ in allele coverage. The biochemistry tested both ranges - R
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4576,6 +4658,7 @@ The two lines differ in allele coverage. The biochemistry tested both ranges - R
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4600,6 +4683,7 @@ The two lines differ in allele coverage. The biochemistry tested both ranges - R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-facilitated-autoinhibition-of-inf2" data-dismech-node="Loss of Facilitated Autoinhibition of INF2" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Facilitated Autoinhibition of INF2</div>
+
 
                 <div class="item-desc">Wild-type INF2 is not autoinhibited when purified; it accelerates actin polymerisation from monomers as efficiently as a construct lacking the DID entirely. The brake is supplied in trans by a complex of cyclase-associated protein with lysine-acetylated actin, and that inhibition requires the DID. Disease-associated INF2 mutants are poorly inhibited by this complex, so a DID variant releases the formin from an externally imposed control rather than crippling it - which is why this node is tagged GAIN_OF_FUNCTION rather than INCREASED.</div>
 
@@ -4749,6 +4833,7 @@ This pathophysiological event involves actin binding (GO:0003779). GO:0003779 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4770,6 +4855,7 @@ This pathophysiological event involves actin binding (GO:0003779). GO:0003779 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4797,6 +4883,7 @@ This pathophysiological event involves actin binding (GO:0003779). GO:0003779 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4821,6 +4908,7 @@ This pathophysiological event involves actin binding (GO:0003779). GO:0003779 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disruption-of-the-inf2-mal-cdc42-pathway-in-schwann-cells" data-dismech-node="Disruption of the INF2-MAL-CDC42 Pathway in Schwann Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Disruption of the INF2-MAL-CDC42 Pathway in Schwann Cells</div>
+
 
                 <div class="item-desc">INF2 is strongly expressed in Schwann-cell cytoplasm, where it colocalises and interacts with myelin and lymphocyte protein (MAL) and engages the Rho-family GTPase CDC42 - both of them proteins implicated in myelination and myelin maintenance. Mutant INF2 perturbs this three-way pathway: the cytoskeleton is disorganised, INF2 binding to CDC42 is enhanced, and INF2, MAL and CDC42 are all mislocalised.</div>
 
@@ -4978,6 +5066,7 @@ This pathophysiological event involves abnormal regulation of actin cytoskeleton
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4999,6 +5088,7 @@ This pathophysiological event involves abnormal regulation of actin cytoskeleton
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5026,6 +5116,7 @@ This pathophysiological event involves abnormal regulation of actin cytoskeleton
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5048,6 +5139,7 @@ This pathophysiological event involves abnormal regulation of actin cytoskeleton
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-schwann-cell-myelin-maintenance-failure" data-dismech-node="Schwann Cell Myelin Maintenance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Schwann Cell Myelin Maintenance Failure</div>
+
 
                 <div class="item-desc">MAL and CDC42 are implicated in essential steps of myelination and myelin maintenance, so the pathway disruption above translates into a failure of the Schwann cell to build and keep a normal myelin sheath. The non-myelinating Schwann cell compartment is affected too, taking on supernumerary elongated extensions around unmyelinated fibres.</div>
 
@@ -5171,6 +5263,7 @@ This pathophysiological event involves decreased myelination in peripheral nervo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5192,6 +5285,7 @@ This pathophysiological event involves decreased myelination in peripheral nervo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5217,6 +5311,7 @@ This pathophysiological event involves decreased myelination in peripheral nervo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-demyelination-with-onion-bulbs-and-secondary-axonal-loss" data-dismech-node="Demyelination with Onion Bulbs and Secondary Axonal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Demyelination with Onion Bulbs and Secondary Axonal Loss</div>
+
 
                 <div class="item-desc">The nerve-level lesion. Sural nerve biopsy shows moderate-to-severe loss of myelinated fibres with onion bulbs and regeneration clusters, the histological signature of repeated demyelination and remyelination with axonal dropout. Clinically and electrophysiologically this reads as an intermediate neuropathy, with demyelinating and axonal features present together rather than one or the other.</div>
 
@@ -5324,6 +5419,7 @@ This pathophysiological event involves decreased myelination in peripheral nervo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5345,6 +5441,7 @@ This pathophysiological event involves decreased myelination in peripheral nervo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5372,6 +5469,7 @@ This pathophysiological event involves decreased myelination in peripheral nervo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5396,6 +5494,7 @@ This pathophysiological event involves decreased myelination in peripheral nervo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-schwann-cell-actinopathy" data-dismech-node="Schwann Cell Actinopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Schwann Cell Actinopathy</div>
+
 
                 <div class="item-desc">The nerve-biopsy series draws a stronger conclusion than &#34;demyelination&#34;, and it is the conclusion that ties the peripheral nerve lesion back to the molecular mechanism. Across six CMTDIE patients the lesions were read as a global disorder of the Schwann cell actin cytoskeleton, with abnormal cytoplasmic accumulation of the actin isoform itself, making CMTDIE the first peripheral nerve disorder described as a Schwann cell actinopathy.</div>
 
@@ -5506,6 +5605,7 @@ This pathophysiological event involves abnormal actin filament organization (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5527,6 +5627,7 @@ This pathophysiological event involves abnormal actin filament organization (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5552,6 +5653,7 @@ This pathophysiological event involves abnormal actin filament organization (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-actin-cytoskeleton-disorganization" data-dismech-node="Podocyte Actin Cytoskeleton Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Podocyte Actin Cytoskeleton Disorganization</div>
+
 
                 <div class="item-desc">The second arm. INF2 is strongly expressed in podocytes, whose foot processes are load-bearing actin structures, and mutant INF2 disorganises the actin cytoskeleton. The same de-repressed actin assembly that damages the Schwann cell acts here on a cell whose architecture is actin.</div>
 
@@ -5695,6 +5797,7 @@ This pathophysiological event involves abnormal actin filament organization (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5716,6 +5819,7 @@ This pathophysiological event involves abnormal actin filament organization (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5741,6 +5845,7 @@ This pathophysiological event involves abnormal actin filament organization (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dynein-mediated-nephrin-mistrafficking-and-proteasomal-degradation" data-dismech-node="Dynein-Mediated Nephrin Mistrafficking and Proteasomal Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dynein-Mediated Nephrin Mistrafficking and Proteasomal Degradation</div>
+
 
                 <div class="item-desc">A specific route from the actin lesion to podocyte failure, worked out in detail for the INF2 R218Q allele. Normally INF2 sequesters dynein light chain 1; the mutant fails to, so Dynll1 is captured by PI31 and dynein carries the slit-diaphragm protein nephrin to the proteasome. Knocking down Dynll1 or PI31, inactivating dynein, or inhibiting the proteasome each restores nephrin, and bortezomib rescues the mouse.
 Two things limit how far this can be carried into CMTDIE, and both are recorded here rather than glossed. R218 lies in the residue range associated with monogenic FSGS, not in the range associated with the dual CMT/FSGS phenotype, so this is an adjacent allele rather than a CMTDIE allele. And nephrin is a podocyte protein, so nothing here speaks to the nerve arm at all.</div>
@@ -5867,6 +5972,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5893,6 +5999,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5915,6 +6022,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-loss-and-glomerular-scarring" data-dismech-node="Podocyte Loss and Glomerular Scarring" data-dismech-type="pathophysiology">
                 <div class="item-name">Podocyte Loss and Glomerular Scarring</div>
+
 
                 <div class="item-desc">Progressive podocyte loss produces glomerular dysfunction, seen first as proteinuria with or without other features of nephrotic syndrome, and the histological pattern of scarring in localised regions of some but not all glomeruli - focal segmental glomerulosclerosis. In its advanced stage it reaches end-stage renal disease.</div>
 
@@ -5978,6 +6086,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5999,6 +6108,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6066,13 +6176,13 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6082,7 +6192,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
@@ -6115,6 +6225,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6129,6 +6242,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6156,6 +6270,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6164,6 +6279,132 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                 <div class="evidence-explanation">The quantitative low end of the range, and the observation that one affected individual had no proteinuria at all - which is what stops this being graded OBLIGATE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-segmental-glomerulosclerosis" data-dismech-node="Focal Segmental Glomerulosclerosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Focal Segmental Glomerulosclerosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">The founding cohort was ascertained as CMT *with* FSGS, so it cannot estimate how often INF2 neuropathy carries renal disease. FREQUENT reflects that, plus one published family with clinically unimportant kidney findings, plus a second family in which the renal histology was not FSGS at all.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22187985" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22187985" target="_blank">PMID:22187985</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients presented with an intermediate form of Charcot-Marie-Tooth neuropathy as well as a glomerulopathy with FSGS on kidney biopsy."</div>
+
+
+                <div class="evidence-explanation">Histological confirmation rather than inference from proteinuria.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30680856" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30680856" target="_blank">PMID:30680856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This report expands the genetic spectrum of INF2-associated disorders and demonstrates that INF2 mutations may provoke isolated CMT with no clinically relevant kidney involvement."</div>
+
+
+                <div class="evidence-explanation">Recorded as REFUTE against the specific claim that glomerular disease is a constant feature of this disorder. It does not contradict the founding series, which selected for patients who had both; it contradicts the generalisation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29038887" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29038887" target="_blank">PMID:29038887</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two patients underwent renal biopsy with the result of minimal-change glomerulopathy and IgA nephropathy respectively."</div>
+
+
+                <div class="evidence-explanation">Recorded as REFUTE against the claim that INF2 renal disease is always FSGS. In a 14-member INF2 family the two biopsies showed something else entirely, so a non-FSGS biopsy does not exclude the gene.</div>
 
 
 
@@ -6195,15 +6436,18 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003774</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6223,6 +6467,7 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6252,6 +6497,7 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6276,6 +6522,7 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6326,15 +6573,18 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001761</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001761</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6354,6 +6604,7 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6386,7 +6637,7 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-distal-muscle-weakness" data-dismech-node="Distal Muscle Weakness" data-dismech-type="phenotype">
@@ -6405,10 +6656,10 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002460</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Distal muscle weakness (HP:0002460), qualified as course progressive. HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6437,6 +6688,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6451,6 +6705,7 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6478,6 +6733,7 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6486,6 +6742,82 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
                 <div class="evidence-explanation">Age at onset in an independent family, quoted here for the onset figure rather than the electrophysiology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-amyotrophy" data-dismech-node="Distal Amyotrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Distal Amyotrophy
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003693</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">FREQUENT rather than OBLIGATE: atrophy is documented in the two patients whose examination findings are reported in detail, and no series states whether every affected individual has it.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25943269" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25943269" target="_blank">PMID:25943269</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Case 2 is 22 years old and presented with distal muscle weakness and atrophy of the legs with transient attacks of difficulty in speaking at age 17."</div>
+
+
+                <div class="evidence-explanation">Distal atrophy in the second patient, quoted separately from the first.</div>
 
 
 
@@ -6517,15 +6849,18 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002751</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002751</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6545,6 +6880,7 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6576,81 +6912,9 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Nervous System
+                    <span class="cat-count">3</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-amyotrophy" data-dismech-node="Distal Amyotrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Distal Amyotrophy
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003693</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">FREQUENT rather than OBLIGATE: atrophy is documented in the two patients whose examination findings are reported in detail, and no series states whether every affected individual has it.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25943269" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25943269" target="_blank">PMID:25943269</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Case 2 is 22 years old and presented with distal muscle weakness and atrophy of the legs with transient attacks of difficulty in speaking at age 17."</div>
-
-
-                <div class="evidence-explanation">Distal atrophy in the second patient, quoted separately from the first.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-distal-sensory-impairment" data-dismech-node="Distal Sensory Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6668,15 +6932,18 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002936</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The cited source says sensorimotor polyneuropathy without describing the sensory distribution. The distal qualifier in the bound HP term is the standard reading of polyneuropathy in CMT and not a separate claim from the source.</div>
@@ -6698,6 +6965,7 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6740,15 +7008,18 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003431</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003431</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased motor nerve conduction velocity (HP:0003431). HP:0003431 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Neither source gives a numeric velocity in m/s. What the first one does give is a measurement in a named nerve reported as falling in the intermediate range, which is a reported finding rather than a deduction from the disease label - the reason the primary evidence item here is not marked INDIRECT while the second still is.</div>
@@ -6770,6 +7041,7 @@ This clinical feature is Decreased motor nerve conduction velocity (HP:0003431).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6797,6 +7069,7 @@ This clinical feature is Decreased motor nerve conduction velocity (HP:0003431).
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6838,15 +7111,18 @@ This clinical feature is Decreased motor nerve conduction velocity (HP:0003431).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003383</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003383</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Onion bulb formation (HP:0003383). HP:0003383 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6869,6 +7145,7 @@ This clinical feature is Onion bulb formation (HP:0003383). HP:0003383 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6877,126 +7154,6 @@ This clinical feature is Onion bulb formation (HP:0003383). HP:0003383 is a phen
 
 
                 <div class="evidence-explanation">Biopsy finding in both patients. The published text reads &#34;union bulbs&#34;; the snippet reproduces the source exactly rather than correcting it to onion bulbs.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-segmental-glomerulosclerosis" data-dismech-node="Focal Segmental Glomerulosclerosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal Segmental Glomerulosclerosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000097</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">The founding cohort was ascertained as CMT *with* FSGS, so it cannot estimate how often INF2 neuropathy carries renal disease. FREQUENT reflects that, plus one published family with clinically unimportant kidney findings, plus a second family in which the renal histology was not FSGS at all.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22187985" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22187985" target="_blank">PMID:22187985</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients presented with an intermediate form of Charcot-Marie-Tooth neuropathy as well as a glomerulopathy with FSGS on kidney biopsy."</div>
-
-
-                <div class="evidence-explanation">Histological confirmation rather than inference from proteinuria.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30680856" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30680856" target="_blank">PMID:30680856</a>
-                    </span>
-
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This report expands the genetic spectrum of INF2-associated disorders and demonstrates that INF2 mutations may provoke isolated CMT with no clinically relevant kidney involvement."</div>
-
-
-                <div class="evidence-explanation">Recorded as REFUTE against the specific claim that glomerular disease is a constant feature of this disorder. It does not contradict the founding series, which selected for patients who had both; it contradicts the generalisation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29038887" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29038887" target="_blank">PMID:29038887</a>
-                    </span>
-
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Two patients underwent renal biopsy with the result of minimal-change glomerulopathy and IgA nephropathy respectively."</div>
-
-
-                <div class="evidence-explanation">Recorded as REFUTE against the claim that INF2 renal disease is always FSGS. In a 14-member INF2 family the two biopsies showed something else entirely, so a non-FSGS biopsy does not exclude the gene.</div>
 
 
 
@@ -7086,6 +7243,9 @@ This disease-associated gene is INF2 (hgnc:23791). hgnc:23791 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7100,6 +7260,7 @@ This disease-associated gene is INF2 (hgnc:23791). hgnc:23791 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7124,6 +7285,7 @@ This disease-associated gene is INF2 (hgnc:23791). hgnc:23791 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,6 +7372,9 @@ This treatment is kidney transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7220,6 +7385,9 @@ This treatment is kidney transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -7272,6 +7440,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7296,6 +7465,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7383,6 +7553,9 @@ This treatment uses bortezomib (CHEBI:52717). CHEBI:52717 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7393,6 +7566,9 @@ This treatment uses bortezomib (CHEBI:52717). CHEBI:52717 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7441,6 +7617,7 @@ This treatment uses bortezomib (CHEBI:52717). CHEBI:52717 is a therapeutic agent
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7507,6 +7684,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7517,6 +7697,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7607,6 +7790,7 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7661,6 +7845,7 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7682,6 +7867,7 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7736,6 +7922,7 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7914,6 +8101,7 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7956,6 +8144,7 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8014,6 +8203,7 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8065,6 +8255,7 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9335,6 +9526,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Charcot-Marie-Tooth Disease Dominant Intermediate E (INF2)</strong> · 2026-09-03T19:31:31Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Charcot-Marie-Tooth_Disease_Dominant_Intermediate_E/2026-09-03T193131Z-claude-code-fa5559.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of INF2-related dominant intermediate CMT from primary literature plus one openscientist deep-research run. The entry is built around the diaphanous-inhibitory-domain restriction of the allele spectrum and a gain-of-function reading supported both biochemically (escape from CAP-KAc-actin inhibition) and in vivo (point-mutant mice susceptible to glomerular disease where knockouts are not). The deep-research run materially changed the entry: it supplied the disease-specific nerve-biopsy series establishing a Schwann cell actinopathy, the positional genotype-phenotype rule that partly answers the organ-selectivity gap, the nephrin/Dynll1/PI31 podocyte mechanism, and the transplant non-recurrence finding that is the entry&#39;s only management-changing item. The nephrin mechanism is graded INDIRECT throughout because it was established for R218Q, an FSGS-range allele outside this entry&#39;s CMT-range segment. Validated: schema, terms, 58/58 snippets, entity refs, causal targets, duplicate keys, enum values, qualifier terms.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

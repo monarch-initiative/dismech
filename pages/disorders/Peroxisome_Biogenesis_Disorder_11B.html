@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Peroxisome%20Biogenesis%20Disorder%2011B"
@@ -3987,7 +4055,7 @@ A nosological caveat belongs on the front of this entry rather than buried in it
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4106,6 +4174,7 @@ A nosological caveat belongs on the front of this entry rather than buried in it
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4130,6 +4199,7 @@ A nosological caveat belongs on the front of this entry rather than buried in it
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4151,6 +4221,7 @@ A nosological caveat belongs on the front of this entry rather than buried in it
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4247,6 +4318,7 @@ A nosological caveat belongs on the front of this entry rather than buried in it
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4281,6 +4353,7 @@ A nosological caveat belongs on the front of this entry rather than buried in it
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pex13-hypomorphic-deficiency" data-dismech-node="PEX13 Hypomorphic Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">PEX13 Hypomorphic Deficiency</div>
+
 
                 <div class="item-desc">Biallelic PEX13 variants retaining partial function. The exemplar allele for this milder end is p.Ile326Thr: it is the one PEX13 variant reported in a patient labelled neonatal adrenoleukodystrophy rather than Zellweger spectrum, and it too sits in the SH3 domain.
 The recurrent p.Arg294Trp allele is described here as well because it carries the only mechanistic characterisation available for this gene - docking analysis predicting destabilised homodimerisation - but it is not the 11B exemplar: every reported p.Arg294Trp patient is labelled ZSD rather than NALD. The mechanism and the severity label come from different alleles, and this entry does not merge them.
@@ -4341,9 +4414,14 @@ This genetic context concerns PEX13 (hgnc:8855). hgnc:8855 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4389,6 +4467,7 @@ This genetic context concerns PEX13 (hgnc:8855). hgnc:8855 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4410,6 +4489,7 @@ This genetic context concerns PEX13 (hgnc:8855). hgnc:8855 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4437,6 +4517,7 @@ This genetic context concerns PEX13 (hgnc:8855). hgnc:8855 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4459,6 +4540,7 @@ This genetic context concerns PEX13 (hgnc:8855). hgnc:8855 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-docking-translocation-module-assembly" data-dismech-node="Impaired Docking Translocation Module Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Docking Translocation Module Assembly</div>
+
 
                 <div class="item-desc">PEX13 homo-oligomerises and then binds PEX14 to complete the docking/translocation module at the peroxisomal membrane. A destabilised module cannot receive cargo-loaded PTS receptors efficiently.</div>
 
@@ -4531,6 +4613,7 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4553,6 +4636,7 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-peroxisomal-matrix-protein-import" data-dismech-node="Failed Peroxisomal Matrix Protein Import" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Peroxisomal Matrix Protein Import</div>
+
 
                 <div class="item-desc">Matrix enzymes are not imported, leaving reduced numbers of peroxisomes with abnormal PEX13 content in patient fibroblasts.</div>
 
@@ -4660,6 +4744,7 @@ This pathophysiological event involves decreased protein import into peroxisome 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4682,6 +4767,7 @@ This pathophysiological event involves decreased protein import into peroxisome 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peroxisomal-metabolic-failure" data-dismech-node="Peroxisomal Metabolic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Peroxisomal Metabolic Failure</div>
+
 
                 <div class="item-desc">Without imported matrix enzymes, very-long-chain fatty acid metabolism, phytanic and pipecolic acid oxidation and bile acid biosynthesis all fail. The DECREASED modifier below is a statement about pathway flux, not about the plasma measurement: every individual in the PEX13 cohort who had a metabolic work-up had normal plasma VLCFA, which is recorded under biochemical. Plasma level is a poor proxy for peroxisomal beta-oxidation capacity at the hypomorphic end, so the two are not in conflict.</div>
 
@@ -4795,6 +4881,7 @@ This pathophysiological event involves decreased very long-chain fatty acid cata
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4817,6 +4904,13 @@ This pathophysiological event involves decreased very long-chain fatty acid cata
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pexophagy-of-import-incompetent-peroxisomes" data-dismech-node="Pexophagy of Import-Incompetent Peroxisomes" data-dismech-type="pathophysiology">
                 <div class="item-name">Pexophagy of Import-Incompetent Peroxisomes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PEX13 is required to prevent degradation of otherwise healthy peroxisomes. Losing it lets ubiquitinated PEX5 accumulate on the peroxisomal membrane and raises peroxisome-dependent reactive oxygen species, and the two together trigger selective autophagy of the organelle. This matters more for a hypomorphic allele than for a null: it is a route by which residual, partly functional peroxisomes are cleared rather than retained, and it offers an account of the reduced peroxisome numbers seen in patient fibroblasts.</div>
 
@@ -4942,6 +5036,7 @@ This pathophysiological event involves increased PEX5 ubiquitination, annotated 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4963,6 +5058,7 @@ This pathophysiological event involves increased PEX5 ubiquitination, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4992,6 +5088,7 @@ This pathophysiological event involves increased PEX5 ubiquitination, annotated 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5014,6 +5111,7 @@ This pathophysiological event involves increased PEX5 ubiquitination, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasmalogen-deficiency" data-dismech-node="Plasmalogen Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasmalogen Deficiency</div>
+
 
                 <div class="item-desc">Plasmalogen synthesis begins in the peroxisome, so import failure removes the biosynthetic capacity rather than merely slowing degradation. This is the subtractive half of the biochemical lesion and runs in the opposite direction to the accumulating metabolites, which is why the two are curated as separate nodes.</div>
 
@@ -5103,6 +5201,7 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5125,6 +5224,7 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-mitochondrial-dysfunction" data-dismech-node="Secondary Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Patient muscle and fibroblasts show mitochondrial mislocalisation and biochemical abnormalities of mitochondrial function. Peroxisomes and mitochondria share convergent metabolic processes including reactive oxygen species handling, and similar findings have been reported for other PEX genes and in ZSD animal models. The contribution is described by its authors as potential and not fully understood, so this node is curated as contributory rather than as an established arm of the mechanism.</div>
 
@@ -5163,6 +5263,7 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5187,6 +5288,7 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5234,7 +5336,7 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adrenal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000846\"}}, {\"id\": \"Adrenal replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Given for the adrenal insufficiency that develops as part of progressive peroxisomal failure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cholic acid supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bile acid replacement, given because peroxisomal bile-acid biosynthesis fails and C27 intermediates accumulate.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cholic acid\"]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Failed Peroxisomal Matrix Protein Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix enzymes are not imported, leaving reduced numbers of peroxisomes with abnormal PEX13 content in patient fibroblasts.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein import into peroxisome matrix\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Docking Translocation Module Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX13 homo-oligomerises and then binds PEX14 to complete the docking/translocation module at the peroxisomal membrane. A destabilised module cannot receive cargo-loaded PTS receptors efficiently.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive white matter disease on brain imaging was present in most individuals in the PEX13 series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002415\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal oxalate stones, a manifestation specific to the milder end of the spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000787\"}}, {\"id\": \"PEX13 Hypomorphic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PEX13 variants retaining partial function. The exemplar allele for this milder end is p.Ile326Thr: it is the one PEX13 variant reported in a patient labelled neonatal adrenoleukodystrophy rather than Zellweger spectrum, and it too sits in the SH3 domain.\\nThe recurrent p.Arg294Trp allele is described here as well because it carries the only mechanistic characterisation available for this gene - docking analysis predicting destabilised homodimerisation - but it is not the 11B exemplar: every reported p.Arg294Trp patient is labelled ZSD rather than NALD. The mechanism and the severity label come from different alleles, and this entry does not merge them.\\nSeverity does not track allele dose in the naive direction either. Compound heterozygotes carrying a missense allele opposite a loss-of-function allele were milder than missense homozygotes, which is the opposite of what a simple dosage model predicts.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"PEX13\", \"id\": \"hgnc:8855\"}]}}}, {\"id\": \"Peroxisomal Metabolic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without imported matrix enzymes, very-long-chain fatty acid metabolism, phytanic and pipecolic acid oxidation and bile acid biosynthesis all fail. The DECREASED modifier below is a statement about pathway flux, not about the plasma measurement: every individual in the PEX13 cohort who had a metabolic work-up had normal plasma VLCFA, which is recorded under biochemical. Plasma level is a poor proxy for peroxisomal beta-oxidation capacity at the hypomorphic end, so the two are not in conflict.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"very long-chain fatty acid catabolic process\"]}}, {\"id\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX13 is required to prevent degradation of otherwise healthy peroxisomes. Losing it lets ubiquitinated PEX5 accumulate on the peroxisomal membrane and raises peroxisome-dependent reactive oxygen species, and the two together trigger selective autophagy of the organelle. This matters more for a hypomorphic allele than for a null: it is a route by which residual, partly functional peroxisomes are cleared rather than retained, and it offers an account of the reduced peroxisome numbers seen in patient fibroblasts.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"pexophagy\", \"PEX5 ubiquitination\"]}}, {\"id\": \"Plasmalogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasmalogen synthesis begins in the peroxisome, so import failure removes the biosynthetic capacity rather than merely slowing degradation. This is the subtractive half of the biochemical lesion and runs in the opposite direction to the accumulating metabolites, which is why the two are curated as separate nodes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ether lipid biosynthetic process\"]}}, {\"id\": \"Polyneuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001271\"}}, {\"id\": \"Renal oxalate stone management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hydration, lithotripsy and surgical intervention for renal oxalate stones.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinal dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Secondary Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient muscle and fibroblasts show mitochondrial mislocalisation and biochemical abnormalities of mitochondrial function. Peroxisomes and mitochondria share convergent metabolic processes including reactive oxygen species handling, and similar findings have been reported for other PEX genes and in ZSD animal models. The contribution is described by its authors as potential and not fully understood, so this node is curated as contributory rather than as an established arm of the mechanism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory loss is a defining feature of the intermediate and milder end of the spectrum, where congenital malformations are absent.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}], \"edges\": [{\"source\": \"PEX13 Hypomorphic Deficiency\", \"target\": \"Impaired Docking Translocation Module Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Docking Translocation Module Assembly\", \"target\": \"Failed Peroxisomal Matrix Protein Import\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Peroxisomal Matrix Protein Import\", \"target\": \"Peroxisomal Metabolic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Peroxisomal Matrix Protein Import\", \"target\": \"Plasmalogen Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Peroxisomal Matrix Protein Import\", \"target\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Peroxisomal Matrix Protein Import\", \"target\": \"Secondary Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Retinal dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Polyneuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"target\": \"Peroxisomal Metabolic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clearing residual import-incompetent peroxisomes removes the partly functional organelles that a hypomorphic allele leaves behind, so pexophagy feeds back into the metabolic failure rather than terminating the chain. The edge is drawn with unknown intermediates because the reduced peroxisome count and the metabolic deficit were measured in different studies and never linked quantitatively.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leukodystrophy\", \"target\": \"Developmental regression\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Psychomotor regression tracks the white matter disease in this cohort, and the milder compound heterozygotes are described as having regression together with late-onset leukodystrophy. The intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leukodystrophy\", \"target\": \"Spasticity\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive spasticity is the expected corticospinal consequence of progressive white matter disease, but no study in this series relates the two lesion by lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leukodystrophy\", \"target\": \"Ataxia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Drawn with unknown intermediates for the same reason as spasticity - the cerebellar contribution is not separated from the cerebral white matter disease in the reported imaging.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cholic acid supplementation\", \"target\": \"Peroxisomal Metabolic Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenal replacement therapy\", \"target\": \"Adrenal insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Renal oxalate stone management\", \"target\": \"Nephrolithiasis\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adrenal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000846\"}}, {\"id\": \"Adrenal replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Given for the adrenal insufficiency that develops as part of progressive peroxisomal failure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cholic acid supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bile acid replacement, given because peroxisomal bile-acid biosynthesis fails and C27 intermediates accumulate.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cholic acid\"]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Failed Peroxisomal Matrix Protein Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix enzymes are not imported, leaving reduced numbers of peroxisomes with abnormal PEX13 content in patient fibroblasts.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein import into peroxisome matrix\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Docking Translocation Module Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX13 homo-oligomerises and then binds PEX14 to complete the docking/translocation module at the peroxisomal membrane. A destabilised module cannot receive cargo-loaded PTS receptors efficiently.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive white matter disease on brain imaging was present in most individuals in the PEX13 series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002415\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal oxalate stones, a manifestation specific to the milder end of the spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000787\"}}, {\"id\": \"PEX13\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PEX13\"], \"gene_terms\": [{\"label\": \"PEX13\", \"id\": \"hgnc:8855\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PEX13 Hypomorphic Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PEX13 variants retaining partial function. The exemplar allele for this milder end is p.Ile326Thr: it is the one PEX13 variant reported in a patient labelled neonatal adrenoleukodystrophy rather than Zellweger spectrum, and it too sits in the SH3 domain.\\nThe recurrent p.Arg294Trp allele is described here as well because it carries the only mechanistic characterisation available for this gene - docking analysis predicting destabilised homodimerisation - but it is not the 11B exemplar: every reported p.Arg294Trp patient is labelled ZSD rather than NALD. The mechanism and the severity label come from different alleles, and this entry does not merge them.\\nSeverity does not track allele dose in the naive direction either. Compound heterozygotes carrying a missense allele opposite a loss-of-function allele were milder than missense homozygotes, which is the opposite of what a simple dosage model predicts.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"PEX13\", \"id\": \"hgnc:8855\"}]}}}, {\"id\": \"Peroxisomal Metabolic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without imported matrix enzymes, very-long-chain fatty acid metabolism, phytanic and pipecolic acid oxidation and bile acid biosynthesis all fail. The DECREASED modifier below is a statement about pathway flux, not about the plasma measurement: every individual in the PEX13 cohort who had a metabolic work-up had normal plasma VLCFA, which is recorded under biochemical. Plasma level is a poor proxy for peroxisomal beta-oxidation capacity at the hypomorphic end, so the two are not in conflict.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"very long-chain fatty acid catabolic process\"]}}, {\"id\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX13 is required to prevent degradation of otherwise healthy peroxisomes. Losing it lets ubiquitinated PEX5 accumulate on the peroxisomal membrane and raises peroxisome-dependent reactive oxygen species, and the two together trigger selective autophagy of the organelle. This matters more for a hypomorphic allele than for a null: it is a route by which residual, partly functional peroxisomes are cleared rather than retained, and it offers an account of the reduced peroxisome numbers seen in patient fibroblasts.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"pexophagy\", \"PEX5 ubiquitination\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Plasmalogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasmalogen synthesis begins in the peroxisome, so import failure removes the biosynthetic capacity rather than merely slowing degradation. This is the subtractive half of the biochemical lesion and runs in the opposite direction to the accumulating metabolites, which is why the two are curated as separate nodes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ether lipid biosynthetic process\"]}}, {\"id\": \"Polyneuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001271\"}}, {\"id\": \"Renal oxalate stone management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hydration, lithotripsy and surgical intervention for renal oxalate stones.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinal dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Secondary Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient muscle and fibroblasts show mitochondrial mislocalisation and biochemical abnormalities of mitochondrial function. Peroxisomes and mitochondria share convergent metabolic processes including reactive oxygen species handling, and similar findings have been reported for other PEX genes and in ZSD animal models. The contribution is described by its authors as potential and not fully understood, so this node is curated as contributory rather than as an established arm of the mechanism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory loss is a defining feature of the intermediate and milder end of the spectrum, where congenital malformations are absent.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}], \"edges\": [{\"source\": \"PEX13 Hypomorphic Deficiency\", \"target\": \"Impaired Docking Translocation Module Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Docking Translocation Module Assembly\", \"target\": \"Failed Peroxisomal Matrix Protein Import\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Peroxisomal Matrix Protein Import\", \"target\": \"Peroxisomal Metabolic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Peroxisomal Matrix Protein Import\", \"target\": \"Plasmalogen Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Peroxisomal Matrix Protein Import\", \"target\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Peroxisomal Matrix Protein Import\", \"target\": \"Secondary Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Retinal dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peroxisomal Metabolic Failure\", \"target\": \"Polyneuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pexophagy of Import-Incompetent Peroxisomes\", \"target\": \"Peroxisomal Metabolic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clearing residual import-incompetent peroxisomes removes the partly functional organelles that a hypomorphic allele leaves behind, so pexophagy feeds back into the metabolic failure rather than terminating the chain. The edge is drawn with unknown intermediates because the reduced peroxisome count and the metabolic deficit were measured in different studies and never linked quantitatively.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leukodystrophy\", \"target\": \"Developmental regression\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Psychomotor regression tracks the white matter disease in this cohort, and the milder compound heterozygotes are described as having regression together with late-onset leukodystrophy. The intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leukodystrophy\", \"target\": \"Spasticity\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive spasticity is the expected corticospinal consequence of progressive white matter disease, but no study in this series relates the two lesion by lesion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leukodystrophy\", \"target\": \"Ataxia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Drawn with unknown intermediates for the same reason as spasticity - the cerebellar contribution is not separated from the cerebral white matter disease in the reported imaging.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cholic acid supplementation\", \"target\": \"Peroxisomal Metabolic Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenal replacement therapy\", \"target\": \"Adrenal insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Renal oxalate stone management\", \"target\": \"Nephrolithiasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PEX13\", \"target\": \"PEX13 Hypomorphic Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5267,9 +5369,7 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(4)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5310,6 +5410,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5324,6 +5427,7 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5348,6 +5452,7 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5411,6 +5516,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5425,6 +5533,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5488,6 +5597,9 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5502,6 +5614,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5526,6 +5639,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5589,6 +5703,9 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5603,6 +5720,7 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5666,6 +5784,9 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5680,6 +5801,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5704,6 +5826,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5767,6 +5890,9 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5781,6 +5907,7 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5844,6 +5971,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5858,6 +5988,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5930,6 +6061,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5944,6 +6078,7 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5998,6 +6133,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6012,6 +6150,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6044,7 +6183,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-leukodystrophy" data-dismech-node="Leukodystrophy" data-dismech-type="phenotype">
@@ -6070,6 +6209,9 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6100,6 +6242,7 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6154,6 +6297,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6168,6 +6314,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6219,6 +6366,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in the PEX13 cohort, but in a severe-end patient homozygous for a truncating allele who died at 20 months - not in the milder range this entry covers. GeneReviews further ties neonatal seizures to the congenital malformations it says intermediate and milder ZSD lack. Retained with that caveat rather than asserted as a feature of the 11B phenotype.</div>
 
 
@@ -6241,6 +6391,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6294,6 +6445,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6308,6 +6462,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6333,15 +6488,6 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-polyneuropathy" data-dismech-node="Polyneuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6371,6 +6517,9 @@ This clinical feature is Polyneuropathy (HP:0001271). HP:0001271 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6385,6 +6534,7 @@ This clinical feature is Polyneuropathy (HP:0001271). HP:0001271 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6483,6 +6633,9 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6497,6 +6650,7 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6521,6 +6675,7 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6611,6 +6766,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management is symptomatic across the spectrum. GeneReviews lists gastrostomy for caloric intake, hearing aids, cataract removal, refractive correction, fat-soluble vitamin and cholic acid supplementation, sclerosing therapy for varices, anti-seizure medication, early intervention for developmental delay, adrenal replacement, vitamin D with consideration of bisphosphonates for osteopenia, and dental treatment for amelogenesis imperfecta.</div>
 
 
@@ -6632,6 +6793,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6720,6 +6882,9 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6730,6 +6895,9 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -6775,6 +6943,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6846,6 +7015,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Given for the adrenal insufficiency that develops as part of progressive peroxisomal failure.</div>
 
 
@@ -6888,6 +7063,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6925,6 +7101,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">A defined surveillance schedule: growth and nutrition at each visit; annual audiology and ophthalmology; annual liver function, coagulation and liver imaging; seizure monitoring; head MRI for white matter change; developmental and educational review; ACTH and cortisol by age one and annually; six-monthly dental examination; annual urine oxalate-to-creatinine ratio.</div>
 
 
@@ -6949,6 +7131,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6970,6 +7153,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7041,6 +7225,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Hydration, lithotripsy and surgical intervention for renal oxalate stones.</div>
 
 
@@ -7080,6 +7270,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7147,6 +7338,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7173,6 +7365,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7197,6 +7390,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7262,6 +7456,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8184,6 +8379,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Peroxisome Biogenesis Disorder 11B</strong> · 2026-09-02T17:36:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Peroxisome_Biogenesis_Disorder_11B/2026-09-02T173655Z-claude-code-622887.yaml">View source</a></p>
+                        <p class="research-review-text">Created the entry for the milder end of the PEX13 Zellweger spectrum. Deep research was run with falcon; the report resolved 9/9 references but cited only DOIs, so each was converted to a PMID and cited as a PMID. The GeneReviews Zellweger Spectrum Disorder chapter (PMID:20301621, tagged GeneReviews) was retrieved and used as the phenotype baseline for the intermediate/milder range, and Borgia et al. 2022 (PMID:35854306) supplied the PEX13-specific genotype-phenotype and mechanism content. A gene-identifier error in my first draft was caught before use: I had written hgnc:8850 for PEX13, which is PEX1; the correct id is hgnc:8855, confirmed against the HGNC REST API. Three curation judgements. The p.Arg294Trp destabilisation claim is graded COMPUTATIONAL because it rests on modelling and blind docking rather than a functional assay. The secondary mitochondrial dysfunction node is curated as contributory with an INDIRECT_UNKNOWN_INTERMEDIATES incoming edge, quoting the authors&#39; own statement that the role is potential and not yet fully understood. Most importantly, a CONTROVERSY discussion records that the 11A/11B split is the superseded ZS/NALD/IRD phenotype division applied to one gene: GeneReviews states ZSD is now used for all ZSD-PEX gene defects regardless of phenotype, and the reported PEX13 cohort spans both severities within single publications. The entry follows the existing KB precedent (Peroxisome_Biogenesis_Disorder_11A_Zellweger is already its own entry) and surfaces the merge alternative rather than taking it silently. Validated with just validate (23/23 snippets verified, term validation passed), check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values and check-qualifier-terms.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4120,6 +4188,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4141,6 +4210,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4309,6 +4379,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4330,6 +4401,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4435,6 +4507,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4456,6 +4529,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5385,6 +5459,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5419,6 +5494,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prr12-truncating-variant-with-nonsense-mediated-decay" data-dismech-node="PRR12 Truncating Variant with Nonsense-Mediated Decay" data-dismech-type="pathophysiology">
                 <div class="item-name">PRR12 Truncating Variant with Nonsense-Mediated Decay</div>
+
 
                 <div class="item-desc">Nearly all reported pathogenic PRR12 alleles are protein-truncating: frameshift, nonsense, and splice-site variants, plus whole-gene deletion and a balanced translocation that disrupts the locus. Because the premature termination codons fall well upstream of the final exon-exon junction, the mutant transcripts are predicted to be degraded by nonsense-mediated decay; if decay is escaped, the residual protein is severely truncated and functionally deficient. Either route removes one functional copy of the gene, so the operative lesion is allele loss rather than a dominant-negative or gain-of-function protein.</div>
 
@@ -5515,6 +5591,7 @@ This pathophysiological event involves PRR12 (hgnc:29217). hgnc:29217 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5536,6 +5613,7 @@ This pathophysiological event involves PRR12 (hgnc:29217). hgnc:29217 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5563,6 +5641,7 @@ This pathophysiological event involves PRR12 (hgnc:29217). hgnc:29217 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5585,6 +5664,7 @@ This pathophysiological event involves PRR12 (hgnc:29217). hgnc:29217 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prr12-haploinsufficiency" data-dismech-node="PRR12 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">PRR12 Haploinsufficiency</div>
+
 
                 <div class="item-desc">PRR12 is highly intolerant of loss-of-function variation in population databases, so a single inactivated allele is not buffered. The gene encodes a proline-rich nuclear protein with suspected DNA-binding activity whose expression in the fetal brain and visual system is consistent with a dosage-sensitive developmental role. Reduced predicted PRR12 expression is itself associated with eye and kidney phenotypes in a transcriptome-imputation (PrediXcan) analysis of electronic health record phecodes, providing human genetic support for dosage sensitivity that is independent of the rare-variant case series.</div>
 
@@ -5750,6 +5830,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5771,6 +5852,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5798,6 +5880,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5822,6 +5905,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chromatin-associated-transcriptional-regulation" data-dismech-node="Impaired Chromatin-Associated Transcriptional Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Chromatin-Associated Transcriptional Regulation</div>
+
 
                 <div class="item-desc">PRR12 is a nuclear protein carrying two predicted AT-hook DNA-binding domains, with DNA-interacting domains that are highly conserved across vertebrates, and the prevailing model is that it functions as a cofactor in transcriptional regulation. Its coexpression neighborhood is enriched for chromatin regulators including SET-domain, bromodomain, zinc-finger, and BAH-domain proteins. Halving its dosage is proposed to perturb the transcriptional programs that pattern the developing forebrain and eye. The precise target genes, partner complexes, and DNA-binding specificity remain undefined, and PRR12 is still described in the primary literature as a gene of largely unknown function.</div>
 
@@ -6087,6 +6171,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6108,6 +6193,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6135,6 +6221,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6157,6 +6244,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nipbl-cohesin-cooperation-and-genomic-instability" data-dismech-node="Impaired NIPBL-Cohesin Cooperation and Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NIPBL-Cohesin Cooperation and Genomic Instability</div>
+
 
                 <div class="item-desc">A co-essentiality screen identified PRR12 as a cohesin-associated factor. PRR12 physically interacts with the NIPBL/MAU2 cohesin loader and with the cohesin complex itself; its loss reduces cohesin localization and produces a substantial increase in DNA double-strand breaks, and PRR12 is recruited with NIPBL to sites of DNA damage in a NIPBL- and cohesin-dependent manner. Because NIPBL haploinsufficiency causes Cornelia de Lange syndrome, this places PRR12 adjacent to the cohesinopathies. Its curated explanatory scope here is deliberately limited to the neurodevelopmental arm, which is the only downstream edge this node asserts: impaired cohesin function and accumulating DNA damage in proliferating neural progenitors is a plausible route to developmental impairment, whereas no evidence connects this mechanism to the ocular, cardiac, or renal malformations, so those edges are not drawn. The evidence is cell-biological, comes principally from mouse NIH-3T3 cells, and has not yet been connected to patient tissue, so this is an emerging rather than an established disease mechanism.</div>
 
@@ -6325,6 +6413,7 @@ This pathophysiological event involves abnormal double-strand break repair (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6346,6 +6435,7 @@ This pathophysiological event involves abnormal double-strand break repair (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6373,6 +6463,7 @@ This pathophysiological event involves abnormal double-strand break repair (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6395,6 +6486,7 @@ This pathophysiological event involves abnormal double-strand break repair (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neural-development" data-dismech-node="Disrupted Neural Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neural Development</div>
+
 
                 <div class="item-desc">PRR12 is expressed in the nucleus of developing mouse and human brain, most strongly in fetal relative to adult brain, and in the zebrafish central nervous system from early development, with later expression in cerebellum, amygdala, and ventral telencephalon. Reduced dosage during forebrain development is the presumed substrate for the universal developmental impairment, the hypotonia, the microcephaly seen in a subset, and the neuropsychiatric features. Neural progenitor involvement is inferred from developmental expression rather than demonstrated in patient tissue.</div>
 
@@ -6589,6 +6681,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6610,6 +6703,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6635,6 +6729,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-ocular-morphogenesis" data-dismech-node="Disrupted Ocular Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Ocular Morphogenesis</div>
+
 
                 <div class="item-desc">PRR12 is expressed in the developing visual system, and in zebrafish both co-orthologs are enriched in the ganglion cell and inner neural layers of the larval retina, with one also present in the ciliary marginal zone. Reduced PRR12 dosage during ocular morphogenesis produces a graded set of malformations: at the severe end failure of optic vesicle growth (anophthalmia and microphthalmia, in the most severe reported case with absent optic nerves, tracts, and chiasm), at the intermediate level failure of optic fissure closure (coloboma) and anterior segment dysgenesis (Peters anomaly, Rieger anomaly, stellate iris, microcornea), and at the mild end isolated iris, foveal, retinal, or optic nerve anomalies. A distinctive and unexplained feature is marked asymmetry: the malformation is frequently unilateral with a structurally normal contralateral eye, implying a stochastic or threshold-dependent rather than uniformly deterministic effect of the reduced dosage.</div>
 
@@ -6781,6 +6876,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6802,6 +6898,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6829,6 +6926,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6851,6 +6949,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cardiac-organogenesis" data-dismech-node="Disrupted Cardiac Organogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cardiac Organogenesis</div>
+
 
                 <div class="item-desc">Congenital heart defects are the commonest extra-neural, extra-ocular malformation, affecting about half of reported individuals; the lesions described are septal defects and pulmonary stenosis, that is, defects of septation and outflow-tract formation rather than a single anatomical lesion. The developmental basis is not established. Unlike the renal arm, the cardiac arm has no independent supporting signal beyond the case series, so it rests solely on the inference of a dosage-sensitive developmental transcriptional program.</div>
 
@@ -6963,6 +7062,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6985,6 +7085,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-renal-organogenesis" data-dismech-node="Disrupted Renal Organogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Renal Organogenesis</div>
+
 
                 <div class="item-desc">Kidney and urinary tract anomalies affect about a third of reported individuals, with hydronephrosis, duplicated ureter, and vesicoureteral reflux reported - a collecting-system and ureteric-bud pattern rather than a parenchymal one. The renal arm is distinguished from the cardiac arm by having independent human genetic corroboration: renal phecodes were enriched among the phenotypes associated with reduced predicted PRR12 expression in a transcriptome-imputation analysis, so two orthogonal lines of human evidence converge on the kidney.</div>
 
@@ -7097,6 +7198,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7118,6 +7220,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7143,6 +7246,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-impairment" data-dismech-node="Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Impairment</div>
+
 
                 <div class="item-desc">The clinical endpoint of the neural arm: developmental delay or impaired intellectual development, present in every individual in the delineating cohort, together with hypotonia and neuropsychiatric comorbidity. Severity ranges from mild learning difficulty to non-verbal cognitive impairment requiring full assistance, and a minority of individuals ascertained through ophthalmology have entirely normal development. The congenital malformations are static, but developmental capabilities may improve with maturation and intervention; no prospective natural-history data exist.</div>
 
@@ -7204,6 +7308,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7225,6 +7330,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7250,6 +7356,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mac-spectrum-and-anterior-segment-eye-malformation" data-dismech-node="MAC-Spectrum and Anterior Segment Eye Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">MAC-Spectrum and Anterior Segment Eye Malformation</div>
+
 
                 <div class="item-desc">The clinical endpoint of the ocular arm: anophthalmia, microphthalmia, coloboma, Peters anomaly, stellate iris pattern, cataract, foveal hypoplasia, glaucoma, persistent fetal vasculature, and optic nerve anomalies, in variable and frequently asymmetric combinations. In ophthalmology-ascertained families the eye phenotype may be entirely isolated with no systemic features.</div>
 
@@ -7396,6 +7503,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7417,6 +7525,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7442,6 +7551,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-heart-malformation" data-dismech-node="Congenital Heart Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Heart Malformation</div>
+
 
                 <div class="item-desc">The clinical endpoint of the cardiac arm: structural congenital heart disease, present in about half of reported individuals and requiring echocardiographic screening at diagnosis. Atrial septal defect, ventricular septal defect, and pulmonary stenosis are the reported lesions; those specific types are from the delineating study&#39;s full text and are not abstract-verifiable.</div>
 
@@ -7516,6 +7626,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7538,6 +7649,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kidney-and-urinary-tract-malformation" data-dismech-node="Kidney and Urinary Tract Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Kidney and Urinary Tract Malformation</div>
+
 
                 <div class="item-desc">The clinical endpoint of the renal arm: structural kidney and urinary tract anomalies, present in about a third of reported individuals and requiring renal ultrasound at diagnosis. Hydronephrosis, duplicated ureter, and vesicoureteral reflux are the reported lesions; those specific types are from the delineating study&#39;s full text and are not abstract-verifiable.</div>
 
@@ -7612,6 +7724,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7678,7 +7791,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(13)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
@@ -7689,8 +7802,6 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7735,6 +7846,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7749,6 +7863,7 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7781,7 +7896,7 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">13</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microphthalmia" data-dismech-node="Microphthalmia" data-dismech-type="phenotype">
@@ -7812,6 +7927,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7826,6 +7944,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7853,6 +7972,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7861,6 +7981,78 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                 <div class="evidence-explanation">Structural eye defects of any type, including microphthalmia, in 50 percent of the delineating cohort; the figure is not microphthalmia-specific.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anophthalmia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000528</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33824499" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33824499" target="_blank">PMID:33824499</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Variable structural eye defects were observed in 12/24 individuals (50%) including anophthalmia, microphthalmia, colobomas, optic nerve and iris abnormalities."</div>
+
+
+                <div class="evidence-explanation">Anophthalmia is explicitly listed within the structural eye defect spectrum.</div>
 
 
 
@@ -7890,15 +8082,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000589</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7921,6 +8116,7 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7929,6 +8125,175 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                 <div class="evidence-explanation">Coloboma is part of the reported structural eye defect spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris coloboma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Iris coloboma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000612</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29556724" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29556724" target="_blank">PMID:29556724</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eye abnormalities were consistent among the three patients and consisted of stellate iris pattern and iris coloboma."</div>
+
+
+                <div class="evidence-explanation">Iris coloboma was one of the two consistent ocular findings in the founding series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33314030" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33314030" target="_blank">PMID:33314030</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individual 2 displays a significant ocular phenotype with bilateral iris coloboma, foveal hypoplasia, and nystagmus"</div>
+
+
+                <div class="evidence-explanation">Bilateral iris coloboma in an individual with an otherwise isolated ocular phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stellate-iris-pattern" data-dismech-node="Stellate iris pattern" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stellate iris pattern
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012775" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012775</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stellate iris pattern, annotated with Stellate iris (HP:0012775). HP:0012775 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29556724" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29556724" target="_blank">PMID:29556724</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eye abnormalities were consistent among the three patients and consisted of stellate iris pattern and iris coloboma."</div>
+
+
+                <div class="evidence-explanation">Stellate iris pattern in 3 of 3 of the founding series.</div>
 
 
 
@@ -7958,15 +8323,18 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000659</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000659</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7998,6 +8366,7 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8006,6 +8375,78 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
                 <div class="evidence-explanation">Peters anomaly is an ascertaining phenotype for PRR12 loss-of-function alleles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-optic-nerve-morphology" data-dismech-node="Abnormal optic nerve morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal optic nerve morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000587" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000587</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic nerve abnormality, annotated with Abnormal optic nerve morphology (HP:0000587). HP:0000587 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33824499" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33824499" target="_blank">PMID:33824499</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Variable structural eye defects were observed in 12/24 individuals (50%) including anophthalmia, microphthalmia, colobomas, optic nerve and iris abnormalities."</div>
+
+
+                <div class="evidence-explanation">Optic nerve abnormalities are explicitly enumerated in the structural eye defect spectrum.</div>
 
 
 
@@ -8035,15 +8476,18 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8066,6 +8510,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8074,6 +8519,87 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                 <div class="evidence-explanation">Cataract reported in one individual of the ophthalmic cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-foveal-hypoplasia" data-dismech-node="Foveal hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Foveal hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplasia of the fovea</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0007750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Foveal hypoplasia, annotated with Hypoplasia of the fovea (HP:0007750). HP:0007750 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Nystagmus</span>
+
+                    </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33314030" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33314030" target="_blank">PMID:33314030</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individual 2 displays a significant ocular phenotype with bilateral iris coloboma, foveal hypoplasia, and nystagmus"</div>
+
+
+                <div class="evidence-explanation">Foveal hypoplasia in an individual with an otherwise isolated ocular phenotype.</div>
 
 
 
@@ -8103,15 +8629,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000501</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8131,6 +8660,7 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8171,15 +8701,18 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000639</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8199,6 +8732,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8239,15 +8773,18 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8267,6 +8804,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8291,6 +8829,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8331,15 +8870,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8366,6 +8908,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8419,15 +8962,18 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000077</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8447,6 +8993,7 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8471,6 +9018,7 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8520,15 +9068,18 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8548,6 +9099,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8588,15 +9140,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysmorphic facial features, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8616,6 +9171,7 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8667,15 +9223,18 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001290</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8695,6 +9254,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8735,15 +9295,18 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8763,6 +9326,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8787,6 +9351,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8840,15 +9405,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8868,6 +9436,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8892,6 +9461,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8934,15 +9504,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8962,6 +9535,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8986,6 +9560,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9026,15 +9601,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000717</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000717</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9054,6 +9632,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9094,15 +9673,18 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9122,6 +9704,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9162,15 +9745,18 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0007018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9190,6 +9776,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9230,15 +9817,18 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9258,6 +9848,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9311,15 +9902,18 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth failure, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9339,6 +9933,7 @@ This clinical feature is Growth failure, annotated with Growth delay (HP:0001510
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9381,15 +9976,18 @@ This clinical feature is Growth failure, annotated with Growth delay (HP:0001510
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9409,6 +10007,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9436,6 +10035,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9444,388 +10044,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Independent case with short stature and a candidate endocrine mechanism.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anophthalmia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000528</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33824499" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33824499" target="_blank">PMID:33824499</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Variable structural eye defects were observed in 12/24 individuals (50%) including anophthalmia, microphthalmia, colobomas, optic nerve and iris abnormalities."</div>
-
-
-                <div class="evidence-explanation">Anophthalmia is explicitly listed within the structural eye defect spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris coloboma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Iris coloboma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000612</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29556724" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29556724" target="_blank">PMID:29556724</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Eye abnormalities were consistent among the three patients and consisted of stellate iris pattern and iris coloboma."</div>
-
-
-                <div class="evidence-explanation">Iris coloboma was one of the two consistent ocular findings in the founding series.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33314030" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33314030" target="_blank">PMID:33314030</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Individual 2 displays a significant ocular phenotype with bilateral iris coloboma, foveal hypoplasia, and nystagmus"</div>
-
-
-                <div class="evidence-explanation">Bilateral iris coloboma in an individual with an otherwise isolated ocular phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stellate-iris-pattern" data-dismech-node="Stellate iris pattern" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stellate iris pattern
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012775" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0012775</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Stellate iris pattern, annotated with Stellate iris (HP:0012775). HP:0012775 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29556724" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29556724" target="_blank">PMID:29556724</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Eye abnormalities were consistent among the three patients and consisted of stellate iris pattern and iris coloboma."</div>
-
-
-                <div class="evidence-explanation">Stellate iris pattern in 3 of 3 of the founding series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-optic-nerve-morphology" data-dismech-node="Abnormal optic nerve morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal optic nerve morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000587" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000587</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Optic nerve abnormality, annotated with Abnormal optic nerve morphology (HP:0000587). HP:0000587 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33824499" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33824499" target="_blank">PMID:33824499</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Variable structural eye defects were observed in 12/24 individuals (50%) including anophthalmia, microphthalmia, colobomas, optic nerve and iris abnormalities."</div>
-
-
-                <div class="evidence-explanation">Optic nerve abnormalities are explicitly enumerated in the structural eye defect spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-foveal-hypoplasia" data-dismech-node="Foveal hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Foveal hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypoplasia of the fovea</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0007750</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Foveal hypoplasia, annotated with Hypoplasia of the fovea (HP:0007750). HP:0007750 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-                    <div class="item-meta">
-                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
-
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Nystagmus</span>
-
-                    </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33314030" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33314030" target="_blank">PMID:33314030</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Individual 2 displays a significant ocular phenotype with bilateral iris coloboma, foveal hypoplasia, and nystagmus"</div>
-
-
-                <div class="evidence-explanation">Foveal hypoplasia in an individual with an otherwise isolated ocular phenotype.</div>
 
 
 
@@ -9915,6 +10133,9 @@ This disease-associated gene is PRR12 (hgnc:29217). hgnc:29217 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -9929,6 +10150,7 @@ This disease-associated gene is PRR12 (hgnc:29217). hgnc:29217 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9956,6 +10178,7 @@ This disease-associated gene is PRR12 (hgnc:29217). hgnc:29217 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9977,6 +10200,7 @@ This disease-associated gene is PRR12 (hgnc:29217). hgnc:29217 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10065,6 +10289,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10075,6 +10302,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -10145,6 +10375,7 @@ This treatment targets Generalized hypotonia (HP:0001290). HP:0001290 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10209,6 +10440,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10219,6 +10453,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -10264,6 +10501,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10331,6 +10569,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10341,6 +10582,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -10386,6 +10630,7 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10453,6 +10698,9 @@ This treatment is ophthalmologic surgical procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10463,6 +10711,9 @@ This treatment is ophthalmologic surgical procedure (NCIT:C15331). NCIT:C15331 i
 
 
     </div>
+
+
+
 
 
 
@@ -10584,6 +10835,7 @@ This treatment targets Strabismus (HP:0000486). HP:0000486 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10648,6 +10900,9 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10658,6 +10913,9 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -10707,6 +10965,7 @@ This treatment targets Visual impairment (HP:0000505). HP:0000505 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10774,6 +11033,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10784,6 +11046,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10842,6 +11107,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10909,6 +11175,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10919,6 +11188,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10946,6 +11218,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11021,6 +11294,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11042,6 +11316,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11099,6 +11374,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11150,6 +11426,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11227,6 +11504,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11282,6 +11560,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11391,6 +11670,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11412,6 +11692,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11494,6 +11775,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11515,6 +11797,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11598,6 +11881,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11622,6 +11906,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11643,6 +11928,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11671,12 +11957,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-pax2-related-disorder-formerly-renal-coloboma-syndrome">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">PAX2-related disorder, formerly renal coloboma syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Renal_Coloboma_Syndrome.html">PAX2-related disorder, formerly renal coloboma syndrome</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0007352" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0007352" target="_blank">
                             MONDO:0007352
                         </a>
                     </span>
@@ -11725,6 +12010,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11746,6 +12032,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11827,6 +12114,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11848,6 +12136,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11930,6 +12219,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11954,6 +12244,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11975,6 +12266,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14267,6 +14559,40 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Naming. MONDO and OMIM 619539 label this entity &#34;neuroocular syndrome 1&#34; as part of a numbered series under the MONDO grouping &#34;neuroocular syndrome&#34; MONDO:0859193. This entry uses the gene-anchored clinical name &#34;PRR12-related neuroocular syndrome&#34; for three reasons. First, it matches the way the primary literature refers to the condition, which is consistently gene-first. Second, the bare phrase &#34;neuroocular syndrome&#34; is ambiguous in PubMed: the overwhelming majority of indexed hits for it are spaceflight-associated neuro-ocular syndrome, a mechanistically unrelated microgravity disorder already curated separately in dismech as &#34;Spaceflight Associated Neuro-Ocular Syndrome&#34;. Third, numbered disease series are a documented named-entity-confusion risk for automated curation. The MONDO binding is unchanged, so the identifier remains authoritative while the display name is unambiguous. This follows the gene-anchored convention already used by the sibling entries &#34;RARB-related syndromic microphthalmia&#34; and &#34;STRA6-related syndromic microphthalmia&#34;.
+Scope relative to other MAC entries. PRR12 is one of more than 100 genes in the microphthalmia/anophthalmia/coloboma and anterior-segment-dysgenesis spectrum. This entry covers the PRR12-specific syndromic disorder. The gene-agnostic isolated form is curated separately as &#34;Isolated Anophthalmia-Microphthalmia Syndrome&#34; MONDO:0016764, and the SOX2, OTX2, RAX, and STRA6 forms are distinct entities; those genes are not implicated in this disorder and were explicitly excluded during the named-entity-confusion preflight.
+No GeneReviews chapter exists for PRR12 or for neuroocular syndrome 1; a PubMed search for &#34;PRR12 GeneReviews&#34; returned no results on 2026-08-01, so no GeneReviews phenotype baseline was available.
+Full-text-only findings. The Edison/falcon deep-research run for this entry performed a full-text read of the delineating cohort study, PMID:33824499, whose PubMed record is abstract-only. Several clinically useful figures therefore appear in the report but cannot be snippet-verified against the cached abstract and are recorded here as prose rather than as evidence items, per the project SOP. From that full text: developmental impairment comprised global developmental delay in 17, isolated motor delay in 3, and isolated speech-language delay in 4; intellectual disability was present in all 11 individuals older than seven years; coloboma occurred in 7 of 24 (iris most often, but also optic nerve, macula, chorioretina, and lens); anophthalmia or microphthalmia in 4 of 24; visual impairment in 17 of 22 assessed; strabismus in 8 of 22; microcephaly in 7 of 24; cryptorchidism in 5 of 13 males; cleft palate in 4 of 24; intestinal malrotation in 2 of 24. The 12 cardiac defects comprised six atrial septal defects, two ventricular septal defects, and three pulmonary stenoses. Renal findings included hydronephrosis, duplicated ureter, and vesicoureteral reflux. Facial features (wide-set eyes, epicanthal folds, low-set ears, upturned nasal tip, thin vermilion) each occurred in at least a quarter of individuals but the authors found no recognizable gestalt. Constraint metrics were pLI 1.00, observed/expected loss-of-function 0.0, and LOEUF 0.051. The protein contains two predicted AT-hook DNA-binding domains, and candidate interactors USP7, SOX2, and ESR2 were nominated but explicitly described as experimentally unproven. Ages spanned 5 months to 36 years.
+Ascertainment bias is a live caveat. The largest cohort was assembled through neurodevelopmental matchmaking platforms (PMID:33824499) while the deepest ocular phenotyping comes from an ophthalmic-genetics MAC and anterior-segment-dysgenesis cohort (PMID:33314030). The two routes report very different rates of both eye involvement and cognitive impairment, so the curated feature frequencies should be read as cohort-conditional rather than population estimates. See the prr12_ascertainment_bias discussion.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: PRR12-Related Neuroocular Syndrome</strong> · 2026-08-01T18:21:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PRR12-Related_Neuroocular_Syndrome/2026-08-01T182122Z-claude-code-5ee336.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of neuroocular syndrome 1 / MONDO:0971007 / OMIM 619539 / PRR12, opened as issue 7713.
+
+NEC preflight PASSED before any deep-research content was used. runoak on sqlite:obo:mondo for MONDO:0971007 returned label &#39;neuroocular syndrome 1&#39;, relationship RO:0004003 HGNC:29217 PRR12, and xref OMIM:619539 - all three identity anchors match the intended entity. Other MAC-spectrum genes SOX2, OTX2, RAX, STRA6 were explicitly excluded. The high-risk confusable is spaceflight-associated neuro-ocular syndrome, which dominates PubMed for the bare phrase &#39;neuroocular syndrome&#39; and is already a separate dismech entry; the entry is therefore named gene-first as PRR12-Related Neuroocular Syndrome while keeping the MONDO binding.
+
+Duplicate preflight: no PRR12, NOC1, or MONDO:0971007 match in origin/main kb/, and no prior PR. Positioned against in-flight PR 7638 Isolated_Anophthalmia-Microphthalmia_Syndrome MONDO:0016764, which is a distinct gene-agnostic entity and was not edited.
+
+Deep research: Edison/falcon via just research-disorder, 384s, report and citations committed under research/. The report proved to be a full-text read of the single delineating cohort paper PMID:33824499 and cited nothing else. An independent PubMed sweep added eight further papers the DR missed, including the ophthalmic-genetics cohort PMID:33314030, the founding series PMID:29556724, the translocation case PMID:26163108, the 2025 Dev Cell cohesin mechanism paper PMID:39742660, and the zebrafish expression study PMID:38674426.
+
+Curated content: a seven-node pathograph from truncating allele and nonsense-mediated decay through haploinsufficiency to three parallel arms - neural, ocular, and cardiorenal - with two competing mechanistic hypotheses, the CANONICAL transcriptional-cofactor model and the EMERGING NIPBL/cohesin model. Twenty-three phenotypes, structured prevalence including the MAC diagnostic-yield figure, genetic allelic spectrum, three diagnosis entries, four supportive treatments, and three discussions covering unilateral eye penetrance, ascertainment bias between the two cohorts, and a HUMAN_MODEL_MISMATCH on the mouse-derived cohesin data.
+
+Evidence discipline: no GeneReviews chapter exists for PRR12, confirmed by PubMed search returning zero hits. PMID:33824499 is abstract-only in PubMed, so full-text-derived frequencies surfaced by the DR run are recorded as prose in notes and descriptions rather than as evidence items with unverifiable snippets. Frequency bands were asserted only where the abstract quantifies them.
+
+Validation: just validate, just validate-terms, and just validate-references all pass. 80 of 80 snippets verified against cached references. Only the nine new PMID cache files were staged by explicit filename; the repo-wide references_cache and cache CSV churn produced by the validators is pre-existing and was deliberately left unstaged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

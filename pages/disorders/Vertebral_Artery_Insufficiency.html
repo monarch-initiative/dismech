@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4058,6 +4126,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-vertebral-artery-stenosis" data-dismech-node="Atherosclerotic vertebral artery stenosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Atherosclerotic vertebral artery stenosis</div>
 
+
                 <div class="item-desc">Atherosclerotic narrowing of extracranial or intracranial vertebral arteries is a major substrate for symptomatic vertebrobasilar disease. Percentage stenosis alone does not predict vertebral flow loss; severe bilateral or tandem disease, a small residual lumen, contralateral occlusion or hypoplasia, and limited collateral reserve can create hemodynamic compromise.</div>
 
 
@@ -4203,6 +4272,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4224,6 +4294,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4251,6 +4322,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4273,6 +4345,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-vertebral-artery-occlusion" data-dismech-node="Atherosclerotic vertebral artery occlusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Atherosclerotic vertebral artery occlusion</div>
+
 
                 <div class="item-desc">Atherosclerotic vertebral artery occlusion is modeled separately from stenosis so interventions supported only for stenotic lesions do not export to chronic total occlusion. Occlusion can cause posterior-circulation ischemia, while its hemodynamic impact depends on the opposite vertebral artery and collateral circulation.</div>
 
@@ -4347,6 +4420,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4368,6 +4442,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4393,6 +4468,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-basilar-artery-stenosis-or-occlusion" data-dismech-node="Atherosclerotic basilar artery stenosis or occlusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Atherosclerotic basilar artery stenosis or occlusion</div>
+
 
                 <div class="item-desc">Atherosclerotic narrowing or occlusion of the basilar artery is a distinct vertebrobasilar lesion that can reduce basilar and distal posterior-circulation flow. It is modeled separately so vertebral-artery interventions are not generalized to basilar disease.</div>
 
@@ -4531,6 +4607,7 @@ This pathophysiological event occurs in basilar artery (UBERON:0001633). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4552,6 +4629,7 @@ This pathophysiological event occurs in basilar artery (UBERON:0001633). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4577,6 +4655,7 @@ This pathophysiological event occurs in basilar artery (UBERON:0001633). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-posterior-circulation-hypoperfusion" data-dismech-node="Posterior circulation hypoperfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Posterior circulation hypoperfusion</div>
+
 
                 <div class="item-desc">Low vertebrobasilar flow can impair perfusion reserve in posterior circulation territories. Quantitative magnetic resonance angiography (QMRA) is used in VERiTAS-style assessments to distinguish low from normal distal flow and to evaluate risk beyond anatomic stenosis alone.</div>
 
@@ -4685,6 +4764,7 @@ This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4706,6 +4786,7 @@ This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4731,6 +4812,7 @@ This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vertebrobasilar-thromboembolism" data-dismech-node="Vertebrobasilar thromboembolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Vertebrobasilar thromboembolism</div>
+
 
                 <div class="item-desc">Vertebrobasilar atherostenosis can produce ischemia by thromboembolism as well as by flow failure. Hypoperfusion may also reduce embolus washout and promote local thrombus formation at diseased arterial segments.</div>
 
@@ -4886,6 +4968,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4908,6 +4991,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vertebral-artery-dissection" data-dismech-node="Vertebral artery dissection" data-dismech-type="pathophysiology">
                 <div class="item-name">Vertebral artery dissection</div>
+
 
                 <div class="item-desc">Vertebral artery dissection begins with a wall tear and mural blood entry and can compromise the lumen through stenosis, occlusion, or thrombosis. It is modeled separately from other traumatic vertebral injuries because the headache and neck-pain evidence is specific to dissection.</div>
 
@@ -4998,6 +5082,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5020,6 +5105,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-traumatic-vertebral-artery-injury" data-dismech-node="Traumatic vertebral artery injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Traumatic vertebral artery injury</div>
+
 
                 <div class="item-desc">Blunt or penetrating cervical trauma can injure the vertebral artery and is associated with posterior-circulation stroke. The available meta-analysis quantifies that outcome but does not establish a direct transition, so vascular luminal compromise and thromboembolism remain known omitted intermediates.</div>
 
@@ -5094,6 +5180,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5116,6 +5203,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extrinsic-bony-compression-of-the-vertebral-artery" data-dismech-node="Extrinsic bony compression of the vertebral artery" data-dismech-type="pathophysiology">
                 <div class="item-name">Extrinsic bony compression of the vertebral artery</div>
+
 
                 <div class="item-desc">Mechanical compression of the vertebral artery by adjacent bone is a non-atherosclerotic, structural route to vertebral artery stenosis. Because the vessel traverses the cervical transverse foramina, osteophytes and other bony encroachment can narrow the lumen. The cited review establishes bony compression as one of several non-atherosclerotic stenosis etiologies; it does not characterize position-dependent or rotational compression, so no dynamic-compression claim is asserted here.</div>
 
@@ -5190,6 +5278,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5211,6 +5300,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5236,6 +5326,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vertebral-artery-hypoplasia" data-dismech-node="Vertebral artery hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Vertebral artery hypoplasia</div>
+
 
                 <div class="item-desc">Congenital hypoplasia produces a smaller-caliber vertebral artery. It is not itself sufficient to cause vertebrobasilar insufficiency, but a superimposed stenosis leaves a smaller residual lumen in a hypoplastic artery than the same percentage stenosis in a dominant artery.</div>
 
@@ -5310,6 +5401,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5331,6 +5423,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5358,6 +5451,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5380,6 +5474,7 @@ This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limited-posterior-circulation-collateral-capacity" data-dismech-node="Limited posterior-circulation collateral capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Limited posterior-circulation collateral capacity</div>
+
 
                 <div class="item-desc">Limited compensatory supply through contralateral vertebral and posterior-circulation collateral pathways can leave distal flow low despite similar local stenosis severity. This regional hemodynamic state is distinct from vertebral artery hypoplasia and from the local stenotic lesion.</div>
 
@@ -5471,6 +5566,7 @@ This pathophysiological event occurs in basilar artery (UBERON:0001633). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5492,6 +5588,7 @@ This pathophysiological event occurs in basilar artery (UBERON:0001633). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5517,6 +5614,7 @@ This pathophysiological event occurs in basilar artery (UBERON:0001633). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-posterior-circulation-ischemia" data-dismech-node="Posterior circulation ischemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Posterior circulation ischemia</div>
+
 
                 <div class="item-desc">Final common ischemic injury occurs when hemodynamic compromise or thromboembolism reduces oxygen delivery to brainstem, cerebellar, thalamic, or occipital territories, causing transient ischemic attacks, ischemic stroke, or recurrent posterior-circulation symptoms.</div>
 
@@ -5673,6 +5771,7 @@ This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5737,7 +5836,7 @@ This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
@@ -5747,7 +5846,7 @@ This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5757,8 +5856,195 @@ This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vertebral-artery-morphology" data-dismech-node="Abnormal vertebral artery morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal vertebral artery morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0030321</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal vertebral artery morphology (HP:0030321). HP:0030321 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12870261" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12870261" target="_blank">PMID:12870261</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation."</div>
+
+
+                <div class="evidence-explanation">Case-level angiography directly documents hypoplasia and stenosis of the vertebral arteries; basilar lesions and collateral flow are not classified as vertebral morphology here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-transient-ischemic-attack" data-dismech-node="Transient ischemic attack" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Transient ischemic attack
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is transient ischemic attack (HP:0002326), qualified as temporality transient. HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: TRANSIENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"METHODS: Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled."</div>
+
+
+                <div class="evidence-explanation">This directly identifies recent vertebrobasilar TIA as a qualifying clinical presentation in symptomatic vertebrobasilar stenosis or occlusion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s41983-024-00893-x" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s41983-024-00893-x" target="_blank">DOI:10.1186/s41983-024-00893-x</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most frequent clinical manifestations include stroke, transient ischemic attack, neck pain, headaches, and vertigo."</div>
+
+
+                <div class="evidence-explanation">This supports TIA among common manifestations in dissection-associated vertebral artery disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ischemic-stroke" data-dismech-node="Ischemic stroke" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5774,15 +6060,18 @@ This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002140</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5802,6 +6091,7 @@ This clinical feature is ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5826,6 +6116,7 @@ This clinical feature is ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5875,15 +6166,18 @@ This clinical feature is ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5903,6 +6197,7 @@ This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5952,10 +6247,10 @@ This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002321</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is vertigo (HP:0002321), qualified as temporality recurrent. HP:0002321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5984,6 +6279,9 @@ This clinical feature is vertigo (HP:0002321), qualified as temporality recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5998,6 +6296,7 @@ This clinical feature is vertigo (HP:0002321), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6022,6 +6321,7 @@ This clinical feature is vertigo (HP:0002321), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6071,15 +6371,18 @@ This clinical feature is vertigo (HP:0002321), qualified as temporality recurren
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000651</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000651</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6099,6 +6402,7 @@ This clinical feature is diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6148,15 +6452,18 @@ This clinical feature is diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6176,6 +6483,7 @@ This clinical feature is ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6216,15 +6524,18 @@ This clinical feature is ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001260</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6244,6 +6555,7 @@ This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6284,15 +6596,18 @@ This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6312,6 +6627,7 @@ This clinical feature is headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6343,187 +6659,9 @@ This clinical feature is headache (HP:0002315). HP:0002315 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
+                    Constitutional
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vertebral-artery-morphology" data-dismech-node="Abnormal vertebral artery morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal vertebral artery morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030321</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is abnormal vertebral artery morphology (HP:0030321). HP:0030321 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12870261" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12870261" target="_blank">PMID:12870261</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation."</div>
-
-
-                <div class="evidence-explanation">Case-level angiography directly documents hypoplasia and stenosis of the vertebral arteries; basilar lesions and collateral flow are not classified as vertebral morphology here.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-transient-ischemic-attack" data-dismech-node="Transient ischemic attack" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Transient ischemic attack
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002326</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is transient ischemic attack (HP:0002326), qualified as temporality transient. HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: TRANSIENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"METHODS: Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled."</div>
-
-
-                <div class="evidence-explanation">This directly identifies recent vertebrobasilar TIA as a qualifying clinical presentation in symptomatic vertebrobasilar stenosis or occlusion.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s41983-024-00893-x" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1186/s41983-024-00893-x" target="_blank">DOI:10.1186/s41983-024-00893-x</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most frequent clinical manifestations include stroke, transient ischemic attack, neck pain, headaches, and vertigo."</div>
-
-
-                <div class="evidence-explanation">This supports TIA among common manifestations in dissection-associated vertebral artery disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neck-pain" data-dismech-node="Neck pain" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6553,6 +6691,9 @@ This clinical feature is neck pain (HP:0030833). HP:0030833 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6567,6 +6708,7 @@ This clinical feature is neck pain (HP:0030833). HP:0030833 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6728,6 +6870,12 @@ This treatment uses statin (CHEBI:87631). CHEBI:87631 is a therapeutic agent fro
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Standard medical management focuses on antithrombotic therapy, statins, and intensive cerebrovascular risk-factor control. For high-risk minor posterior circulation stroke or TIA, short-term dual antiplatelet therapy may be used before transition to monotherapy.</div>
 
 
@@ -6791,6 +6939,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6812,6 +6961,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6884,6 +7034,12 @@ This treatment is placement of a stent, annotated with Stenting (NCIT:C71316). N
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Endovascular angioplasty and stenting can restore vertebral artery patency in selected symptomatic extracranial vertebral stenosis, especially with recurrent symptoms despite medical therapy, but trial evidence has not conclusively shown superiority over medical therapy and intracranial stenting carries higher procedural risk.</div>
 
 
@@ -6914,6 +7070,7 @@ This treatment is placement of a stent, annotated with Stenting (NCIT:C71316). N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6960,6 +7117,7 @@ This treatment is placement of a stent, annotated with Stenting (NCIT:C71316). N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6981,6 +7139,7 @@ This treatment is placement of a stent, annotated with Stenting (NCIT:C71316). N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7053,6 +7212,12 @@ This treatment is surgical procedure on vascular system, annotated with Vascular
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Vertebral endarterectomy, artery transposition, hybrid surgery, or related microsurgical reconstruction may be considered for selected proximal vertebral artery stenosis or occlusion when endovascular treatment is unsuitable, fails, or restenosis occurs.</div>
 
 
@@ -7086,6 +7251,7 @@ This treatment is surgical procedure on vascular system, annotated with Vascular
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7107,6 +7273,7 @@ This treatment is surgical procedure on vascular system, annotated with Vascular
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7157,6 +7324,7 @@ This treatment is surgical procedure on vascular system, annotated with Vascular
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7200,6 +7368,7 @@ This treatment is surgical procedure on vascular system, annotated with Vascular
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7221,6 +7390,7 @@ This treatment is surgical procedure on vascular system, annotated with Vascular
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7292,6 +7462,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">When vertebral artery insufficiency progresses to posterior-circulation ischemic stroke, intravenous thrombolysis may be considered according to acute stroke eligibility.</div>
 
 
@@ -7335,6 +7511,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7407,6 +7584,12 @@ This treatment is thrombectomy (NCIT:C52003). NCIT:C52003 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Mechanical thrombectomy is relevant when posterior-circulation ischemic stroke involves basilar artery occlusion, while evidence for other posterior occlusion sites remains less certain.</div>
 
 
@@ -7450,6 +7633,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7515,6 +7699,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7536,6 +7721,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7590,6 +7776,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7639,6 +7826,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7685,6 +7873,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7742,6 +7931,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7790,6 +7980,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7899,6 +8090,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7920,6 +8112,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8010,6 +8203,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8094,6 +8288,7 @@ This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8231,6 +8426,7 @@ This clinical trial targets ischemic stroke (HP:0002140). HP:0002140 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8303,6 +8499,7 @@ This clinical trial targets ischemic stroke (HP:0002140). HP:0002140 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8719,8 +8916,12 @@ pathophysiology:
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
-        Thrombosis between the arteries is the most common cause of stroke-like symptoms in VAD, followed by hypoperfusion due to stenosis.
-      explanation: Names the two known intermediate routes by which dissection reaches the ischemia node.
+        Vertebral artery dissection is one of the causes of stroke and transient ischemic attack in
+        young adults ... A tear in the tunica intima, causing blood to enter the subintimal layer
+        and form a false lumen, resulting in thromboembolism and stenosis/occlusion of blood vessels
+      explanation: &gt;-
+        The abstract links vertebral dissection to ischemic events, and Figure 1 identifies
+        thromboembolism and stenosis or occlusion as consequences of intimal tearing.
   - target: Headache
     description: Vertebral artery dissection can directly present with headache.
     causal_link_type: DIRECT
@@ -9883,6 +10084,8 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10913,7 +11116,7 @@ Infarct-pattern analyses within the VERiTAS cohort describe both hemodynamic and
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Vertebral Artery Insufficiency", "mondoId": "MONDO:0001631", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vertebral_Artery_Insufficiency", "yamlRevision": "518e1cdb8cfe"};
+        const OS_CONFIG = {"diseaseName": "Vertebral Artery Insufficiency", "mondoId": "MONDO:0001631", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vertebral_Artery_Insufficiency", "yamlRevision": "2ac8c92f8481"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

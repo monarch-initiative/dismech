@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Psoriasis%2014%2C%20Pustular"
@@ -3980,7 +4048,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4032,6 +4100,128 @@
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">DERMATOLOGY</span>
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7 &#34;Autoinflammatory disorders&#34;, section 3 &#34;Non-Inflammasome Related Conditions&#34;, the IL36RN row, which IUIS lists under the DITRA acronym at OMIM 614204 and gives the associated feature &#34;Pustular psoriasis&#34;. This is the IL-1-family-antagonist pattern the table also uses for DIRA: the lesion is loss of a receptor antagonist, leaving an IL-1-family cytokine unopposed, rather than a defect in an inflammasome sensor.">autoinflammatory syndrome</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -4100,6 +4290,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4146,6 +4337,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il36rn-loss-of-function" data-dismech-node="IL36RN Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">IL36RN Loss of Function</div>
+
 
                 <div class="item-desc">Missense and compound heterozygous IL36RN variants impair interleukin-36 receptor antagonist expression or activity, reducing inhibition of IL-36 receptor signaling in skin.
 </div>
@@ -4272,6 +4464,7 @@ This pathophysiological event involves increased Cytokine-mediated signaling pat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4293,6 +4486,7 @@ This pathophysiological event involves increased Cytokine-mediated signaling pat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4318,6 +4512,7 @@ This pathophysiological event involves increased Cytokine-mediated signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-36-chemokine-neutrophil-axis" data-dismech-node="IL-36 Chemokine-Neutrophil Axis" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-36 Chemokine-Neutrophil Axis</div>
+
 
                 <div class="item-desc">Unopposed IL-36 pathway activity induces chemokine-driven neutrophil infiltration, creating sterile epidermal pustules and systemic inflammatory flares.
 </div>
@@ -4474,6 +4669,61 @@ This pathophysiological event involves increased Neutrophil chemotaxis (GO:00305
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pustular Rash</span>
+
+	                            <span class="crosslink-desc">Sterile pustules are neutrophils recruited into the epidermis by unopposed IL-36 signalling — the pus is the mechanism made visible, not infection.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Erythema</span>
+
+	                            <span class="crosslink-desc">Widespread erythema accompanying the pustular eruption.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Desquamation</span>
+
+	                            <span class="crosslink-desc">Sheet-like scaling as the affected epidermis is shed.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fever During Flares</span>
+
+	                            <span class="crosslink-desc">Systemic inflammation during flares; generalised pustular psoriasis is a systemic illness rather than a skin-limited one.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Increased Total Leukocyte Count</span>
+
+	                            <span class="crosslink-desc">Neutrophil-predominant leukocytosis accompanying flares.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated C-Reactive Protein</span>
+
+	                            <span class="crosslink-desc">The acute-phase marker tracking flare activity.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4490,6 +4740,7 @@ This pathophysiological event involves increased Neutrophil chemotaxis (GO:00305
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4514,6 +4765,7 @@ This pathophysiological event involves increased Neutrophil chemotaxis (GO:00305
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4562,7 +4814,7 @@ This pathophysiological event involves increased Neutrophil chemotaxis (GO:00305
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Elevated C-Reactive Protein\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute flares may include elevated circulating C-reactive protein as part of systemic inflammation.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"IL-36 Chemokine-Neutrophil Axis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum CRP reflects the systemic inflammation driven by the IL-36 axis during flares.\"}], \"term_id\": \"HP:0011227\"}}, {\"id\": \"IL-36 Chemokine-Neutrophil Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unopposed IL-36 pathway activity induces chemokine-driven neutrophil infiltration, creating sterile epidermal pustules and systemic inflammatory flares.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\", \"Neutrophil\"], \"biological_processes\": [\"Inflammatory response\", \"Neutrophil chemotaxis\"]}}, {\"id\": \"IL36RN Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense and compound heterozygous IL36RN variants impair interleukin-36 receptor antagonist expression or activity, reducing inhibition of IL-36 receptor signaling in skin.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cytokine-mediated signaling pathway\"]}}, {\"id\": \"Spesolimab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Humanized anti-IL-36 receptor monoclonal antibody used for generalized pustular psoriasis flares by blocking the IL-36 pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Spesolimab\"]}}], \"edges\": [{\"source\": \"IL36RN Loss of Function\", \"target\": \"IL-36 Chemokine-Neutrophil Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-36 receptor antagonist function permits unopposed IL-36 inflammatory signaling.\"}, {\"source\": \"Spesolimab\", \"target\": \"IL-36 Chemokine-Neutrophil Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-36 Chemokine-Neutrophil Axis\", \"target\": \"Elevated C-Reactive Protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum CRP reflects the systemic inflammation driven by the IL-36 axis during flares.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Desquamation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent flares can include desquamation along with erythema and superficial sterile pustules.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040189\"}}, {\"id\": \"Elevated C-Reactive Protein\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute flares may include elevated circulating C-reactive protein as part of systemic inflammation.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"IL-36 Chemokine-Neutrophil Axis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum CRP reflects the systemic inflammation driven by the IL-36 axis during flares.\"}], \"term_id\": \"HP:0011227\"}}, {\"id\": \"Erythema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pustular flares occur on inflamed erythematous skin.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010783\"}}, {\"id\": \"Fever During Flares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever may occur during acute systemic inflammatory flares.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"IL-36 Chemokine-Neutrophil Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unopposed IL-36 pathway activity induces chemokine-driven neutrophil infiltration, creating sterile epidermal pustules and systemic inflammatory flares.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\", \"Neutrophil\"], \"biological_processes\": [\"Inflammatory response\", \"Neutrophil chemotaxis\"]}}, {\"id\": \"IL36RN Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense and compound heterozygous IL36RN variants impair interleukin-36 receptor antagonist expression or activity, reducing inhibition of IL-36 receptor signaling in skin.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cytokine-mediated signaling pathway\"]}}, {\"id\": \"Increased Total Leukocyte Count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute flares may show hyperleukocytosis or neutrophilia as part of systemic inflammation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001974\"}}, {\"id\": \"Pustular Rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent or acute widespread sterile pustules on erythematous skin, sometimes forming severe superficial collections of pustules.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033605\"}}, {\"id\": \"Spesolimab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Humanized anti-IL-36 receptor monoclonal antibody used for generalized pustular psoriasis flares by blocking the IL-36 pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Spesolimab\"]}}], \"edges\": [{\"source\": \"IL36RN Loss of Function\", \"target\": \"IL-36 Chemokine-Neutrophil Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-36 receptor antagonist function permits unopposed IL-36 inflammatory signaling.\"}, {\"source\": \"IL-36 Chemokine-Neutrophil Axis\", \"target\": \"Pustular Rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sterile pustules are neutrophils recruited into the epidermis by unopposed IL-36 signalling \\u2014 the pus is the mechanism made visible, not infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-36 Chemokine-Neutrophil Axis\", \"target\": \"Erythema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread erythema accompanying the pustular eruption.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-36 Chemokine-Neutrophil Axis\", \"target\": \"Desquamation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sheet-like scaling as the affected epidermis is shed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-36 Chemokine-Neutrophil Axis\", \"target\": \"Fever During Flares\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammation during flares; generalised pustular psoriasis is a systemic illness rather than a skin-limited one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-36 Chemokine-Neutrophil Axis\", \"target\": \"Increased Total Leukocyte Count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil-predominant leukocytosis accompanying flares.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IL-36 Chemokine-Neutrophil Axis\", \"target\": \"Elevated C-Reactive Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute-phase marker tracking flare activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spesolimab\", \"target\": \"IL-36 Chemokine-Neutrophil Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-36 Chemokine-Neutrophil Axis\", \"target\": \"Elevated C-Reactive Protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum CRP reflects the systemic inflammation driven by the IL-36 axis during flares.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4589,9 +4841,7 @@ This pathophysiological event involves increased Neutrophil chemotaxis (GO:00305
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4632,6 +4882,9 @@ This clinical feature is Increased total leukocyte count (HP:0001974). HP:000197
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4646,6 +4899,7 @@ This clinical feature is Increased total leukocyte count (HP:0001974). HP:000197
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4709,6 +4963,9 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4723,6 +4980,7 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4786,6 +5044,9 @@ This clinical feature is Pustular rash (HP:0033605). HP:0033605 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4800,6 +5061,7 @@ This clinical feature is Pustular rash (HP:0033605). HP:0033605 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4824,6 +5086,7 @@ This clinical feature is Pustular rash (HP:0033605). HP:0033605 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4889,6 +5152,9 @@ This clinical feature is Desquamation, annotated with Scaling skin (HP:0040189).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4903,6 +5169,7 @@ This clinical feature is Desquamation, annotated with Scaling skin (HP:0040189).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4935,7 +5202,7 @@ This clinical feature is Desquamation, annotated with Scaling skin (HP:0040189).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fever-during-flares" data-dismech-node="Fever During Flares" data-dismech-type="phenotype">
@@ -4966,6 +5233,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4980,6 +5250,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5005,15 +5276,6 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-c-reactive-protein" data-dismech-node="Elevated C-Reactive Protein" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5045,6 +5307,9 @@ This clinical feature is Elevated C-reactive protein, annotated with Elevated ci
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5059,6 +5324,7 @@ This clinical feature is Elevated C-reactive protein, annotated with Elevated ci
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5157,6 +5423,9 @@ This disease-associated gene is IL36RN (hgnc:15561). hgnc:15561 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5171,6 +5440,7 @@ This disease-associated gene is IL36RN (hgnc:15561). hgnc:15561 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5195,6 +5465,7 @@ This disease-associated gene is IL36RN (hgnc:15561). hgnc:15561 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5307,6 +5578,12 @@ This treatment uses Spesolimab (NCIT:C166849). NCIT:C166849 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Humanized anti-IL-36 receptor monoclonal antibody used for generalized pustular psoriasis flares by blocking the IL-36 pathway.
 </div>
 
@@ -5350,6 +5627,7 @@ This treatment uses Spesolimab (NCIT:C166849). NCIT:C166849 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5371,6 +5649,7 @@ This treatment uses Spesolimab (NCIT:C166849). NCIT:C166849 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5500,6 +5779,7 @@ This clinical trial targets Pustular rash (HP:0033605). HP:0033605 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5521,6 +5801,7 @@ This clinical trial targets Pustular rash (HP:0033605). HP:0033605 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5589,6 +5870,40 @@ synonyms:
 - DITRA
 - IL36RN psoriasis
 - generalized pustular psoriasis due to IL36RN deficiency
+classifications:
+  harrisons_chapter:
+  - classification_value: DERMATOLOGY
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+  iuis_category:
+    classification_value: autoinflammatory syndrome
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7
+      &#34;Autoinflammatory disorders&#34;, section 3 &#34;Non-Inflammasome Related
+      Conditions&#34;, the IL36RN row, which IUIS lists under the DITRA acronym at
+      OMIM 614204 and gives the associated feature &#34;Pustular psoriasis&#34;. This is
+      the IL-1-family-antagonist pattern the table also uses for DIRA: the lesion
+      is loss of a receptor antagonist, leaving an IL-1-family cytokine
+      unopposed, rather than a defect in an inflammasome sensor.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;DITRA (Deficiency of IL-36 receptor antagonist) IL36RN AR 614204&#34;
+      explanation: &gt;-
+        The IUIS Table 7 non-inflammasome-section row names DITRA in full, with
+        the IL36RN genetic defect, autosomal recessive inheritance and OMIM
+        614204, which is the MONDO:0013626 disease this entry curates.
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Mutations in IL-36RN leads to increase IL-8 production Pustular psoriasis&#34;
+      explanation: &gt;-
+        The functional-defect and associated-features cells of the same row give
+        the IL-36RN lesion and the pustular psoriasis phenotype, confirming the
+        row is about this disease rather than another IL36RN-linked condition.
 inheritance:
 - name: Autosomal Recessive
   inheritance_term:
@@ -5678,6 +5993,31 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These findings suggest loss of function of IL36RN as the genetic basis of GPP and implicate innate immune dysregulation in this severe episodic inflammatory disease, thereby highlighting IL-1 signaling as a potential target for therapeutic intervention.&#34;
     explanation: Human genetic data connect IL36RN loss of function to innate immune dysregulation in severe episodic disease.
+  downstream:
+  - target: Pustular Rash
+    causal_link_type: DIRECT
+    description: &gt;-
+      Sterile pustules are neutrophils recruited into the epidermis by unopposed IL-36 signalling — the pus is the mechanism made visible, not infection.
+  - target: Erythema
+    causal_link_type: DIRECT
+    description: &gt;-
+      Widespread erythema accompanying the pustular eruption.
+  - target: Desquamation
+    causal_link_type: DIRECT
+    description: &gt;-
+      Sheet-like scaling as the affected epidermis is shed.
+  - target: Fever During Flares
+    causal_link_type: DIRECT
+    description: &gt;-
+      Systemic inflammation during flares; generalised pustular psoriasis is a systemic illness rather than a skin-limited one.
+  - target: Increased Total Leukocyte Count
+    causal_link_type: DIRECT
+    description: &gt;-
+      Neutrophil-predominant leukocytosis accompanying flares.
+  - target: Elevated C-Reactive Protein
+    causal_link_type: DIRECT
+    description: &gt;-
+      The acute-phase marker tracking flare activity.
 phenotypes:
 - name: Pustular Rash
   category: Dermatological
@@ -5888,6 +6228,66 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Psoriasis 14, Pustular (Changes required)</strong> · 2026-05-31T03:02:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Psoriasis_14_Pustular/2026-05-31T030223Z-github-review-3619.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3619
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:23Z
+Issue updated: 2026-05-31T03:02:23Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Psoriasis 14, Pustular**
+- Entry: `kb/disorders/Psoriasis_14_Pustular.yaml`
+- Selection basis: #150 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Blocking: the entry has no `diagnosis` section. Add disease-specific diagnostic criteria, recommended tests/imaging/biochemical markers, and molecular confirmation strategy for Psoriasis 14, Pustular; this is necessary for curators to evaluate whether the modeled mechanism and phenotype scope match the intended disease.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Disease-boundary check: no subtypes are modeled. Confirm this is intentionally a single pathomechanism entry and not a spectrum that should expose subtypes, genotype classes, or clinically distinct forms.
+4. Pathophysiology review: the main modeled mechanisms include IL36RN Loss of Function, IL-36 Chemokine-Neutrophil Axis. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment/trial alignment: both `treatments` and `clinical_trials` are present. Verify that trial interventions, phases/statuses, target phenotypes, and treatment entries agree, and distinguish approved/standard care from investigational or case-report therapy.
+6. Evidence/reference check: top references include PMID:21848462, PMID:38077370, PMID:21839423, PMID:34936739. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: review major phenotypes such as Pustular Rash, Fever During Flares, Increased Total Leukocyte Count, Elevated C-Reactive Protein, Erythema.
+- Subtype completeness: N/A or not modeled; confirm no required subtype split.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: gap noted; diagnosis absent.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Psoriasis_14_Pustular-deep-research-falcon.md`
+- PMID:21848462: https://pubmed.ncbi.nlm.nih.gov/21848462/
+- PMID:38077370: https://pubmed.ncbi.nlm.nih.gov/38077370/
+- PMID:21839423: https://pubmed.ncbi.nlm.nih.gov/21839423/
+- PMID:34936739: https://pubmed.ncbi.nlm.nih.gov/34936739/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6482,7 +6882,7 @@ A 2024 review emphasizes that abnormal IL-36 signaling has a central role in GPP
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Psoriasis 14, Pustular", "mondoId": "MONDO:0013626", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Psoriasis_14,_Pustular", "yamlRevision": "a509980431ec"};
+        const OS_CONFIG = {"diseaseName": "Psoriasis 14, Pustular", "mondoId": "MONDO:0013626", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Psoriasis_14,_Pustular", "yamlRevision": "3431635fc18c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Monoclonal%20Mast%20Cell%20Activation%20Syndrome"
@@ -3987,7 +4055,7 @@ Two boundaries move under this entry and curators should know it. The 2021 refin
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4092,6 +4160,7 @@ Two boundaries move under this entry and curators should know it. The 2021 refin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4279,6 +4348,7 @@ Two boundaries move under this entry and curators should know it. The 2021 refin
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-activating-kit-mutation-in-a-small-mast-cell-clone" data-dismech-node="Somatic Activating KIT Mutation in a Small Mast Cell Clone" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Activating KIT Mutation in a Small Mast Cell Clone</div>
 
+
                 <div class="item-desc">An activating KIT variant, characteristically D816V, arises somatically in the mast cell lineage. The variant is the same one that drives systemic mastocytosis, and the distinguishing feature of this disorder is quantitative: the clone stays below the mast cell burden that the systemic mastocytosis criteria require. Nothing about the variant itself is different, which is why the entry does not claim a distinct molecular lesion.
 </div>
 
@@ -4331,6 +4401,8 @@ This genetic context concerns KIT (hgnc:6342). hgnc:6342 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4344,6 +4416,9 @@ This genetic context concerns KIT (hgnc:6342). hgnc:6342 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Somatic gain-of-function KIT variant, characteristically D816V, restricted to the mast cell compartment.</div>
 
@@ -4431,6 +4506,7 @@ This pathophysiological event involves protein tyrosine kinase activity (GO:0004
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4453,6 +4529,7 @@ This pathophysiological event involves protein tyrosine kinase activity (GO:0004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-kit-downstream-signaling" data-dismech-node="Constitutive KIT Downstream Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive KIT Downstream Signaling</div>
+
 
                 <div class="item-desc">D816V-KIT signals constitutively through STAT5 and PI3K, with STAT5A and STAT5B activation mediated by JAK2 and also by MEK and ERK1/2, the latter driving both STAT5 phosphorylation and its long-term transcription. STAT3 and STAT4 are not involved. The functional consequence demonstrated in this pathway is persistent IL-6 production by the mast cell itself, which links the clone to a systemic inflammatory output independent of degranulation.
 </div>
@@ -4539,6 +4616,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4560,6 +4638,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4585,6 +4664,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lowered-mast-cell-activation-threshold" data-dismech-node="Lowered Mast Cell Activation Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Lowered Mast Cell Activation Threshold</div>
+
 
                 <div class="item-desc">The clonal mast cells activate and degranulate on stimuli that would not trigger normal mast cells, which is what converts a small clone into a systemic clinical syndrome. This is the node the entry is least able to source directly: the concept was articulated at the consensus conference that classified systemic mastocytosis variants, as a hypothesis, and the evidence curated here is that statement of the hypothesis rather than a measurement in MMAS patients. The `directness: INDIRECT` grading and this note are the honest description of its status.
 </div>
@@ -4711,6 +4791,7 @@ This pathophysiological event involves increased mast cell activation (GO:004557
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4733,6 +4814,7 @@ This pathophysiological event involves increased mast cell activation (GO:004557
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-mast-cell-mediator-release" data-dismech-node="Systemic Mast Cell Mediator Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Mast Cell Mediator Release</div>
+
 
                 <div class="item-desc">Degranulation releases histamine, tryptase and other mediators, producing severe, recurrent, systemic symptoms across skin, gastrointestinal tract and cardiovascular system. In clonal disease the episodes have a characteristic shape - cardiovascular collapse predominating, frequently without urticaria - which is what makes hymenoptera anaphylaxis in a patient with no skin lesions the classic presentation.
 </div>
@@ -4869,6 +4951,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4890,6 +4973,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4915,6 +4999,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sub-threshold-clonal-burden" data-dismech-node="Sub-threshold Clonal Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Sub-threshold Clonal Burden</div>
+
 
                 <div class="item-desc">The clonal population does not reach the mast cell burden required by the systemic mastocytosis criteria. This node records the defining negative, and it is the reason the entry exists: the disorder is constituted by failing a threshold, so the negative is part of the mechanism rather than a caveat about it. It has no downstream edges by design. Note that where the threshold sits has moved - the 2021 refined bone marrow mastocytosis criteria describe an SM variant with lower neoplastic mast cell burden and more hymenoptera-triggered reactions than typical indolent systemic mastocytosis - so this node&#39;s extension depends on which criteria set is applied.
 </div>
@@ -4988,6 +5073,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5009,6 +5095,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5036,6 +5123,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5083,7 +5171,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaphylaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe recurrent anaphylaxis, frequently hymenoptera-venom triggered and frequently without urticaria, and commonly the presenting event. Anaphylaxis prevalence in clonal mast cell disease is clearly higher than in the general population.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100845\"}}, {\"id\": \"Anti-mediator Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"H1 and H2 histamine receptor antagonists, anti-leukotrienes and mast cell stabilisers such as cromolyn, used to suppress mediator production or block mediator effects between and during episodes. Response to these agents is not merely therapeutic: a decrease in frequency or severity of symptoms on anti-mediator therapy is itself one of the diagnostic criteria for the syndrome, so treatment and diagnosis are entangled here in a way they are not in most entries.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Constitutive KIT Downstream Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"D816V-KIT signals constitutively through STAT5 and PI3K, with STAT5A and STAT5B activation mediated by JAK2 and also by MEK and ERK1/2, the latter driving both STAT5 phosphorylation and its long-term transcription. STAT3 and STAT4 are not involved. The functional consequence demonstrated in this pathway is persistent IL-6 production by the mast cell itself, which links the clone to a systemic inflammatory output independent of degranulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mast cell\"]}}, {\"id\": \"Epinephrine for Acute Anaphylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment of the acute episode, and given the frequency of hymenoptera-venom anaphylaxis as the presenting event, self-injectable epinephrine is the practical mainstay. No trial evidence specific to this disorder exists; this is standard anaphylaxis management applied to a population with an unusually high anaphylaxis rate.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"epinephrine\"]}}, {\"id\": \"Flushing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031284\"}}, {\"id\": \"Hymenoptera Venom Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The most disorder-specific management point here, and the reason establishing clonality changes care rather than only classification. Patients with venom allergy and a clonal mast cell disorder are treated with immunotherapy against the venom they are sensitised to, and for this high-risk subgroup the recommendation is to continue it beyond five years or indefinitely and to carry at least three epinephrine autoinjectors rather than one. Both departures from standard venom-allergy practice follow from the clonal diagnosis.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotension during mediator release episodes, part of the cardiovascular-predominant episode pattern that characterises clonal disease without skin involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002615\"}}, {\"id\": \"Lowered Mast Cell Activation Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clonal mast cells activate and degranulate on stimuli that would not trigger normal mast cells, which is what converts a small clone into a systemic clinical syndrome. This is the node the entry is least able to source directly: the concept was articulated at the consensus conference that classified systemic mastocytosis variants, as a hypothesis, and the evidence curated here is that statement of the hypothesis rather than a measurement in MMAS patients. The `directness: INDIRECT` grading and this note are the honest description of its status.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mast cell\"], \"biological_processes\": [\"mast cell activation\"]}}, {\"id\": \"Serum baseline tryptase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"HP:0031901\", \"term_label\": \"Elevated total serum tryptase\", \"readouts\": [{\"target\": \"Systemic Mast Cell Mediator Release\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Raised baseline tryptase reports the mast cell mediator burden and is part of the diagnostic increase the syndrome definition requires.\"}]}}, {\"id\": \"Somatic Activating KIT Mutation in a Small Mast Cell Clone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An activating KIT variant, characteristically D816V, arises somatically in the mast cell lineage. The variant is the same one that drives systemic mastocytosis, and the distinguishing feature of this disorder is quantitative: the clone stays below the mast cell burden that the systemic mastocytosis criteria require. Nothing about the variant itself is different, which is why the entry does not claim a distinct molecular lesion.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"protein tyrosine kinase activity\"], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Somatic gain-of-function KIT variant, characteristically D816V, restricted to the mast cell compartment.\", \"gene_terms\": [{\"label\": \"KIT\", \"id\": \"hgnc:6342\"}]}}}, {\"id\": \"Systemic Mast Cell Mediator Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degranulation releases histamine, tryptase and other mediators, producing severe, recurrent, systemic symptoms across skin, gastrointestinal tract and cardiovascular system. In clonal disease the episodes have a characteristic shape - cardiovascular collapse predominating, frequently without urticaria - which is what makes hymenoptera anaphylaxis in a patient with no skin lesions the classic presentation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mast cell\"], \"biological_processes\": [\"mast cell degranulation\"]}}], \"edges\": [{\"source\": \"Somatic Activating KIT Mutation in a Small Mast Cell Clone\", \"target\": \"Constitutive KIT Downstream Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive KIT Downstream Signaling\", \"target\": \"Lowered Mast Cell Activation Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lowered Mast Cell Activation Threshold\", \"target\": \"Systemic Mast Cell Mediator Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mast Cell Mediator Release\", \"target\": \"Anaphylaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mast Cell Mediator Release\", \"target\": \"Flushing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mast Cell Mediator Release\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epinephrine for Acute Anaphylaxis\", \"target\": \"Systemic Mast Cell Mediator Release\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Epinephrine for Acute Anaphylaxis\", \"target\": \"Anaphylaxis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hymenoptera Venom Immunotherapy\", \"target\": \"Lowered Mast Cell Activation Threshold\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-mediator Therapy\", \"target\": \"Systemic Mast Cell Mediator Release\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic Mast Cell Mediator Release\", \"target\": \"Serum baseline tryptase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Raised baseline tryptase reports the mast cell mediator burden and is part of the diagnostic increase the syndrome definition requires.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaphylaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe recurrent anaphylaxis, frequently hymenoptera-venom triggered and frequently without urticaria, and commonly the presenting event. Anaphylaxis prevalence in clonal mast cell disease is clearly higher than in the general population.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100845\"}}, {\"id\": \"Anti-mediator Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"H1 and H2 histamine receptor antagonists, anti-leukotrienes and mast cell stabilisers such as cromolyn, used to suppress mediator production or block mediator effects between and during episodes. Response to these agents is not merely therapeutic: a decrease in frequency or severity of symptoms on anti-mediator therapy is itself one of the diagnostic criteria for the syndrome, so treatment and diagnosis are entangled here in a way they are not in most entries.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Constitutive KIT Downstream Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"D816V-KIT signals constitutively through STAT5 and PI3K, with STAT5A and STAT5B activation mediated by JAK2 and also by MEK and ERK1/2, the latter driving both STAT5 phosphorylation and its long-term transcription. STAT3 and STAT4 are not involved. The functional consequence demonstrated in this pathway is persistent IL-6 production by the mast cell itself, which links the clone to a systemic inflammatory output independent of degranulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mast cell\"]}}, {\"id\": \"Epinephrine for Acute Anaphylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment of the acute episode, and given the frequency of hymenoptera-venom anaphylaxis as the presenting event, self-injectable epinephrine is the practical mainstay. No trial evidence specific to this disorder exists; this is standard anaphylaxis management applied to a population with an unusually high anaphylaxis rate.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"epinephrine\"]}}, {\"id\": \"Flushing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031284\"}}, {\"id\": \"Hymenoptera Venom Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The most disorder-specific management point here, and the reason establishing clonality changes care rather than only classification. Patients with venom allergy and a clonal mast cell disorder are treated with immunotherapy against the venom they are sensitised to, and for this high-risk subgroup the recommendation is to continue it beyond five years or indefinitely and to carry at least three epinephrine autoinjectors rather than one. Both departures from standard venom-allergy practice follow from the clonal diagnosis.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotension during mediator release episodes, part of the cardiovascular-predominant episode pattern that characterises clonal disease without skin involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002615\"}}, {\"id\": \"KIT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"KIT\"], \"gene_terms\": [{\"label\": \"KIT\", \"id\": \"hgnc:6342\"}], \"association\": \"CAUSATIVE\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Lowered Mast Cell Activation Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clonal mast cells activate and degranulate on stimuli that would not trigger normal mast cells, which is what converts a small clone into a systemic clinical syndrome. This is the node the entry is least able to source directly: the concept was articulated at the consensus conference that classified systemic mastocytosis variants, as a hypothesis, and the evidence curated here is that statement of the hypothesis rather than a measurement in MMAS patients. The `directness: INDIRECT` grading and this note are the honest description of its status.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mast cell\"], \"biological_processes\": [\"mast cell activation\"]}}, {\"id\": \"Serum baseline tryptase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"HP:0031901\", \"term_label\": \"Elevated total serum tryptase\", \"readouts\": [{\"target\": \"Systemic Mast Cell Mediator Release\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Raised baseline tryptase reports the mast cell mediator burden and is part of the diagnostic increase the syndrome definition requires.\"}]}}, {\"id\": \"Somatic Activating KIT Mutation in a Small Mast Cell Clone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An activating KIT variant, characteristically D816V, arises somatically in the mast cell lineage. The variant is the same one that drives systemic mastocytosis, and the distinguishing feature of this disorder is quantitative: the clone stays below the mast cell burden that the systemic mastocytosis criteria require. Nothing about the variant itself is different, which is why the entry does not claim a distinct molecular lesion.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"protein tyrosine kinase activity\"], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Somatic gain-of-function KIT variant, characteristically D816V, restricted to the mast cell compartment.\", \"gene_terms\": [{\"label\": \"KIT\", \"id\": \"hgnc:6342\"}]}}}, {\"id\": \"Systemic Mast Cell Mediator Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degranulation releases histamine, tryptase and other mediators, producing severe, recurrent, systemic symptoms across skin, gastrointestinal tract and cardiovascular system. In clonal disease the episodes have a characteristic shape - cardiovascular collapse predominating, frequently without urticaria - which is what makes hymenoptera anaphylaxis in a patient with no skin lesions the classic presentation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mast cell\"], \"biological_processes\": [\"mast cell degranulation\"]}}], \"edges\": [{\"source\": \"Somatic Activating KIT Mutation in a Small Mast Cell Clone\", \"target\": \"Constitutive KIT Downstream Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive KIT Downstream Signaling\", \"target\": \"Lowered Mast Cell Activation Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lowered Mast Cell Activation Threshold\", \"target\": \"Systemic Mast Cell Mediator Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mast Cell Mediator Release\", \"target\": \"Anaphylaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mast Cell Mediator Release\", \"target\": \"Flushing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Mast Cell Mediator Release\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epinephrine for Acute Anaphylaxis\", \"target\": \"Systemic Mast Cell Mediator Release\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Epinephrine for Acute Anaphylaxis\", \"target\": \"Anaphylaxis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hymenoptera Venom Immunotherapy\", \"target\": \"Lowered Mast Cell Activation Threshold\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-mediator Therapy\", \"target\": \"Systemic Mast Cell Mediator Release\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic Mast Cell Mediator Release\", \"target\": \"Serum baseline tryptase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Raised baseline tryptase reports the mast cell mediator burden and is part of the diagnostic increase the syndrome definition requires.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"KIT\", \"target\": \"Somatic Activating KIT Mutation in a Small Mast Cell Clone\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5106,11 +5194,13 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5169,6 +5259,9 @@ This clinical feature is Hypotension (HP:0002615), qualified as temporality recu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5186,6 +5279,7 @@ This clinical feature is Hypotension (HP:0002615), qualified as temporality recu
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5266,6 +5360,9 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality recurre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5280,6 +5377,7 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality recurre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5311,198 +5409,8 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality recurre
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
+                    Immune
                     <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-flushing" data-dismech-node="Flushing" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Flushing
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031284</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Flushing (HP:0031284), qualified as temporality recurrent. HP:0031284 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23179866" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23179866" target="_blank">PMID:23179866</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Earlier proposed criteria for the diagnosis of MCAS included episodic symptoms consistent with mast cell mediator release affecting two or more organ systems with urticaria, angioedema, flushing, nausea, vomiting, diarrhea, abdominal cramping, hypotensive syncope or near syncope, tachycardia,..."</div>
-
-
-                <div class="evidence-explanation">Lists flushing among the episodic mediator-release symptoms in the diagnostic criteria.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abdominal pain
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002027</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027), qualified as temporality recurrent. HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23179866" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23179866" target="_blank">PMID:23179866</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Earlier proposed criteria for the diagnosis of MCAS included episodic symptoms consistent with mast cell mediator release affecting two or more organ systems with urticaria, angioedema, flushing, nausea, vomiting, diarrhea, abdominal cramping, hypotensive syncope or near syncope, tachycardia,..."</div>
-
-
-                <div class="evidence-explanation">Lists abdominal cramping among the episodic mediator-release symptoms in the diagnostic criteria. Re-sourced for the same reason as diarrhoea.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anaphylaxis" data-dismech-node="Anaphylaxis" data-dismech-type="phenotype">
@@ -5523,10 +5431,10 @@ This clinical feature is Abdominal pain (HP:0002027), qualified as temporality r
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100845</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0100845</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anaphylaxis, annotated with Anaphylactic shock (HP:0100845), qualified as temporality recurrent. HP:0100845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5555,6 +5463,9 @@ This clinical feature is Anaphylaxis, annotated with Anaphylactic shock (HP:0100
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5569,6 +5480,7 @@ This clinical feature is Anaphylaxis, annotated with Anaphylactic shock (HP:0100
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5596,6 +5508,7 @@ This clinical feature is Anaphylaxis, annotated with Anaphylactic shock (HP:0100
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5619,12 +5532,222 @@ This clinical feature is Anaphylaxis, annotated with Anaphylactic shock (HP:0100
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flushing" data-dismech-node="Flushing" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Flushing
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0031284</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flushing (HP:0031284), qualified as temporality recurrent. HP:0031284 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23179866" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23179866" target="_blank">PMID:23179866</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Earlier proposed criteria for the diagnosis of MCAS included episodic symptoms consistent with mast cell mediator release affecting two or more organ systems with urticaria, angioedema, flushing, nausea, vomiting, diarrhea, abdominal cramping, hypotensive syncope or near syncope, tachycardia,..."</div>
+
+
+                <div class="evidence-explanation">Lists flushing among the episodic mediator-release symptoms in the diagnostic criteria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abdominal pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027), qualified as temporality recurrent. HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23179866" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23179866" target="_blank">PMID:23179866</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Earlier proposed criteria for the diagnosis of MCAS included episodic symptoms consistent with mast cell mediator release affecting two or more organ systems with urticaria, angioedema, flushing, nausea, vomiting, diarrhea, abdominal cramping, hypotensive syncope or near syncope, tachycardia,..."</div>
+
+
+                <div class="evidence-explanation">Lists abdominal cramping among the episodic mediator-release symptoms in the diagnostic criteria. Re-sourced for the same reason as diarrhoea.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-absence-of-skin-lesions" data-dismech-node="Absence of skin lesions" data-dismech-type="phenotype">
                     <div class="item-name">
                         Absence of skin lesions
 
 
                     </div>
+
+
+
 
 
 
@@ -5644,6 +5767,7 @@ This clinical feature is Anaphylaxis, annotated with Anaphylactic shock (HP:0100
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5746,6 +5870,9 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5760,6 +5887,7 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5787,6 +5915,7 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5808,6 +5937,7 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5915,6 +6045,9 @@ This treatment uses epinephrine, annotated with adrenaline (CHEBI:33568). CHEBI:
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5925,6 +6058,9 @@ This treatment uses epinephrine, annotated with adrenaline (CHEBI:33568). CHEBI:
 
 
     </div>
+
+
+
 
 
 
@@ -5998,6 +6134,7 @@ This treatment targets Anaphylaxis, annotated with Anaphylactic shock (HP:010084
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6061,6 +6198,9 @@ This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6071,6 +6211,9 @@ This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
     </div>
+
+
+
 
 
 
@@ -6120,6 +6263,7 @@ This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6141,6 +6285,7 @@ This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6207,6 +6352,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6217,6 +6365,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6266,6 +6417,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6287,6 +6439,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6384,6 +6537,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6408,6 +6562,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6479,6 +6634,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6500,6 +6656,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6560,6 +6717,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6581,6 +6739,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6639,6 +6798,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6660,6 +6820,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6734,6 +6895,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7574,6 +7736,35 @@ prevalence:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Monoclonal Mast Cell Activation Syndrome</strong> · 2026-09-03T16:23:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Monoclonal_Mast_Cell_Activation_Syndrome/2026-09-03T162323Z-claude-code-dcaab4.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of monoclonal mast cell activation syndrome (MONDO:0033954) as a Disease entry. entry_type DISEASE, and the decision was already half-made in the repository: kb/groupings/Mastocytosis.yaml states in its grouping_rationale that MMAS &#39;carries a clonal KIT D816V mast cell population but does not meet the mast cell burden that the proliferation and mastocytosis-finding operands require&#39;, and its NECESSARY_AND_SUFFICIENT criteria deliberately exclude it. So the KB had already ruled MMAS is not a mastocytosis and is not a member of that grouping, which is the argument for a separate entry rather than a has_subtypes line on Systemic_Mastocytosis.
+
+Process error worth recording: my first coverage check for mastocytosis in the KB used git grep piped through head, on an alphabetical file list, and I concluded from the truncated output that only Maculopapular_Cutaneous_Mastocytosis existed. Systemic_Mastocytosis.yaml and kb/groupings/Mastocytosis.yaml both exist and both bear directly on this lump/split call. Caught before writing YAML, but the near-miss was a truncated grep, not a hard question.
+
+Deep research: one openscientist run (research/Monoclonal_Mast_Cell_Activation_Syndrome-deep-research-openscientist.md, 23 citations). It shipped with no reference_validation or term_validation block, term validation having aborted on a 5-second EBI OLS read timeout on HP:0002018; this is dismech#10396 and four of the five runs in this batch failed the same way. The retro-fitted reference section is the cleanest of the five: 23/23 references resolved, 22 of 22 quoted claims found in source, 21 of 23 on topic, none off topic.
+
+Used from the report: PMID:20434205 (the 83-patient cohort that defines the clonality criteria and shows the clonal-but-not-SM group is three of eighty-three), PMID:34298172 (KIT prevalence and diagnostic relevance in MCAS), PMID:35623575 (ECNM-AIM ICD-10-CM classification and the delineation between confirmed MCAS and MCAD not fulfilling MCAS criteria), PMID:28740494 (anaphylaxis prevalence in clonal mast cell disease, underdiagnosis without skin lesions, bone marrow study requirement), PMID:34545185 (2021 refined bone marrow mastocytosis criteria, cited on the moving boundary), PMID:30948489 (D816V-KIT constitutive signalling through STAT5 and PI3K via JAK2 and MEK/ERK1/2, and persistent IL-6 production), and PMID:21035176 (the 2010 MCAS criteria proposal, cited both for the lowered-threshold hypothesis and for its own statement that MCAS is not generally accepted as a distinct entity).
+
+Evidence-grading decisions. Five items are graded directness INDIRECT with the reason stated in each explanation, mostly because the source cohort is systemic mastocytosis or bone marrow mastocytosis rather than MMAS and the shared driver or the adjacent threshold is what is being relied on. Three items use evidence_source OTHER because the 2010 criteria paper is expert consensus reasoning about a then-hypothetical disease class rather than a data report; the lowered-threshold node in particular is supported only by that consensus-conference conjecture, and both the node description and a KNOWLEDGE_GAP discussion say so.
+
+One evidence item was dropped rather than defended: a quote from PMID:28262030 that was the paper&#39;s title and would not verify because I had not fetched that reference. The claim it supported (assay sensitivity matters because the clone is small) follows from the definition, and the treatment description now says that rather than citing a source for it.
+
+Schema note: I initially wrote a pathophysiology downstream target pointing at &#39;Elevated total serum tryptase&#39;, which is a biochemical entry name and not a pathograph node, so check-causal-targets flagged it as a dangling target. Replaced with the documented pattern: a readouts block on the biochemical entry with target Systemic Mast Cell Mediator Release and relationship READOUT_OF.
+
+Three knowledge gaps recorded, all about the stability of the concept rather than about its mechanism: how much of MMAS the 2021 refined bone marrow mastocytosis criteria have absorbed and whether a distinct population remains; whether a lowered mast cell activation threshold has ever been measured in these patients rather than inferred, with the competing account that mediator output simply scales with clone size; and whether MCAS as a category is established enough for its monoclonal subset to be a stable disease concept. prevalence_class is UNKNOWN deliberately: only a proportion within a highly selected referred cohort exists, and it predates the criteria change.
+
+Validation: just validate passes; 24/24 snippets verified. check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-snippet-length, check-snippet-grading and check-title-snippets all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

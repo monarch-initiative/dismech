@@ -321,7 +321,15 @@ it catches Named Entity Confusion — run `just preflight-dr` as usual. **The
 relevance check is not a substitute for that**: references are scored against
 *the report's own* vocabulary, so a report built around the wrong disease has
 wrong-disease vocabulary too and scores all of its wrong-disease citations as
-on topic. See
+on topic. Term validation cannot see it either, because a wrong-disease
+report's identifiers are correct *for the disease it is actually about*. So a
+clean validation table does not tell you the report is about your disease.
+The first openscientist report for CMD2H (GET3/ASNA1) was about CMD2D
+(RPL3L). It mentioned RPL3L 44 times and GET3 never, yet it came back with
+19/19 references resolved and 0 off topic. One failed quote match was the only
+warning ([#10495](https://github.com/monarch-initiative/dismech/issues/10495)).
+Run `just preflight-dr`; do not assume it would pass because the table is
+clean. See
 [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
 
 #### Term validation
@@ -382,16 +390,31 @@ source.
 > coverage is unlikely, skip directly to Step 4 — the PubMed search below will
 > confirm either way.
 
-#### 1. Search PubMed for a GeneReviews article
+#### 1. Check for a GeneReviews chapter
+
+Once the YAML carries its `name`, `synonyms` and `disease_term`, run the offline
+check against the committed Bookshelf index (`--online` adds a live PubMed
+title search when you have network, for chapters newer than the snapshot):
+
+```bash
+just check-genereviews --online kb/disorders/<Entry>.yaml
+```
+
+`UNTAGGED_CHAPTER` or `CITED_UNTAGGED` on the `GeneReviews` line names the
+chapter (PMID and title); `CANDIDATE_CHAPTER` lists partial title matches for
+you to read; `NO_CHAPTER` means none names the disease. The reviewer runs the
+same check, so its verdict is what the review will see. The `StatPearls` line
+is informational — a StatPearls chapter may be cited for orientation but is
+never the baseline (see `docs/genereviews-baseline-check.md`).
+
+Before the file exists, the same question can be put to PubMed directly with
+the `[book]` field, which selects GeneReviews chapters exactly:
 
 ```bash
 curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
-  --data-urlencode "db=pubmed" \
-  --data-urlencode "retmode=json" \
-  --data-urlencode "term=<DISEASE_NAME>[TI] GeneReviews[TI]"
+  --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
+  --data-urlencode "term=<DISEASE_NAME>[TI] AND genereviews[book]"
 ```
-
-If no results, try a broader search: `<DISEASE_NAME> GeneReviews[All Fields]`
 
 #### 2. If a PMID is found, fetch and cache it
 
@@ -454,7 +477,8 @@ When frequency is ambiguous, **omit `frequency:`** rather than guessing.
 
 If no GeneReviews article exists for the disease, proceed to Step 4
 without this baseline. No action needed — the absence itself is not a
-problem.
+problem. A one-line `notes:` sentence recording it is still worth writing,
+and the reviewer's `just check-genereviews` run is what verifies it.
 
 ---
 

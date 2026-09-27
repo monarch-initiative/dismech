@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1596,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">complement_dysregulation</span>
-                <span class="badge badge-count">3 disorders</span>
+                <span class="badge badge-count">4 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
@@ -1833,7 +1870,7 @@ This mechanism module involves increased Complement-Dependent Cytotoxicity (GO:0
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="crosslink-list">
@@ -1852,6 +1889,21 @@ This mechanism module involves increased Complement-Dependent Cytotoxicity (GO:0
                         , 
                         
                         MAC-Mediated Endothelial Activation → Complement-Mediated Cell Injury and Endothelial Activation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Cold_Agglutinin_Disease.html">Cold Agglutinin Disease</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Terminal Complement Pathway Assembly and Membrane Attack Complex Formation → C5 Convertase Activation and Terminal Pathway Assembly
                         
                         
                     </span>
@@ -1932,11 +1984,13 @@ This mechanism module involves increased Complement-Dependent Cytotoxicity (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-complement-regulatory-control" data-dismech-node="Loss of Complement Regulatory Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Complement Regulatory Control</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The complement alternative pathway is constitutively active at a low level and is restrained, rather than switched on, by a dedicated set of regulators acting both in the fluid phase (factor H, factor I) and on host membranes (CD46/MCP, CD55, CD59, thrombomodulin). Disease begins when that restraint is lost. The lesion may be a germline loss-of-function variant in a regulator, a gain-of-function variant in C3 or factor B that renders the convertase resistant to regulation, somatic loss of the GPI anchor that displays CD55 and CD59 on the cell surface, or an acquired autoantibody that stabilises the convertase or neutralises factor H. These are mechanistically distinct lesions with one shared consequence, and it is that shared consequence, not the lesion, that the rest of this chain models.</div>
                 
@@ -2019,11 +2073,13 @@ This pathophysiological event involves decreased Regulation of Complement Activa
             
             <div class="item-box anchor-target" id="module-pathophysiology-unrestrained-alternative-pathway-amplification" data-dismech-node="Unrestrained Alternative Pathway Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained Alternative Pathway Amplification</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Freed from regulation, the alternative pathway C3 convertase (C3bBb) runs as a positive-feedback amplification loop: each C3b generated recruits factor B to form further convertase, depositing more C3b on the surface. Because the loop is self-amplifying, a modest failure of restraint produces a large, sustained increase in surface-bound C3b rather than a proportionate one. This node is also the point of entry for classical- and lectin-pathway initiated disease, in which an immune complex or a carbohydrate ligand supplies the initiating C3b that the alternative pathway then amplifies.</div>
                 
@@ -2085,11 +2141,13 @@ This pathophysiological event involves increased Complement Activation, Alternat
             
             <div class="item-box anchor-target" id="module-pathophysiology-c5-convertase-activation-and-terminal-pathway-assembly" data-dismech-node="C5 Convertase Activation and Terminal Pathway Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">C5 Convertase Activation and Terminal Pathway Assembly</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Dense C3b deposition converts the C3 convertase into a C5 convertase, which cleaves C5 into C5a and C5b. C5a is a potent anaphylatoxin and neutrophil chemoattractant; C5b nucleates the sequential assembly of C6, C7, C8 and multiple C9 molecules into the lytic C5b-9 membrane attack complex in the target membrane. This is the disorder-agnostic, rate-limiting step of the module: every conforming disease funnels through it regardless of which regulator failed upstream, and it is the step at which terminal complement inhibitors act. It is therefore the key conformance target.</div>
                 
@@ -2159,6 +2217,13 @@ This pathophysiological event involves Membrane Attack Complex (GO:0005579). GO:
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Cold_Agglutinin_Disease.html">Cold Agglutinin Disease</a>
+                            
+                            <span class="crosslink-desc">as Terminal Complement Pathway Assembly and Membrane Attack Complex Formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Myasthenia_Gravis.html">Myasthenia Gravis</a>
                             
                             <span class="crosslink-desc">as Complement Activation</span>
@@ -2186,11 +2251,13 @@ This pathophysiological event involves Membrane Attack Complex (GO:0005579). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-complement-mediated-cell-injury-and-endothelial-activation" data-dismech-node="Complement-Mediated Cell Injury and Endothelial Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement-Mediated Cell Injury and Endothelial Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Terminal complement injures whichever host surface has lost its protection. On erythrocytes, C5b-9 pores cause intravascular haemolysis. On endothelium, sublytic MAC deposition and C5a signalling produce endothelial activation, loss of thromboresistance, platelet deposition and a thrombotic microangiopathy. C5a additionally recruits and activates neutrophils, amplifying local injury. At the neuromuscular junction, MAC destroys the post-synaptic membrane and its acetylcholine receptors. Conforming disorder nodes substitute the disease-specific target cell here while preserving the complement-dependent cytotoxicity mechanism.</div>
                 
@@ -2329,11 +2396,13 @@ This pathophysiological event involves increased Complement-Dependent Cytotoxici
             
             <div class="item-box anchor-target" id="module-pathophysiology-complement-mediated-tissue-injury-syndrome" data-dismech-node="Complement-Mediated Tissue Injury Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement-Mediated Tissue Injury Syndrome</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical syndrome produced by the conserved chain, expressed in the organ whose cells were injured: thrombotic microangiopathy with microangiopathic haemolytic anaemia, thrombocytopenia and acute kidney injury in atypical haemolytic uraemic syndrome; intravascular haemolysis with anaemia and thrombosis in paroxysmal nocturnal haemoglobinuria; glomerulonephritis with prominent C3 deposition in C3 glomerulopathy; fatigable weakness from neuromuscular transmission failure in generalised myasthenia gravis. Response to terminal complement blockade across these otherwise unrelated presentations is the clearest evidence that they share the chain modelled here.</div>
                 
@@ -2427,6 +2496,9 @@ This treatment uses ravulizumab (NCIT:C124657). NCIT:C124657 is a therapeutic ag
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2437,6 +2509,9 @@ This treatment uses ravulizumab (NCIT:C124657). NCIT:C124657 is a therapeutic ag
         
         
     </div>
+    
+    
+    
     
     
     

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3839,9 +3907,7 @@
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Immunodeficiency-61 is an X-linked recessive primary ANTIBODY deficiency caused by loss of CIN85, the Cbl-interacting protein of 85 kDa encoded by SH3KBP1 at Xp22.12. CIN85 is not a signalling enzyme; it is a trimeric adaptor whose nine SH3 domains oligomerise SLP65, the central scaffold of the B cell antigen receptor. That SLP65-CIN85 association is CONSTITUTIVE rather than stimulus-induced: in a resting B cell the two proteins already sit together in cytoplasmic granules formed by phase separation with lipid vesicles, and this preformed transducer module is what allows a B cell to respond efficiently the moment its receptor is engaged. Without CIN85 the module cannot assemble, SLP65 phosphorylation and membrane translocation fail, and selected BCR effector arms - NF-kB activation and CD86 upregulation in the human patients, calcium and NF-kB responses in the cell models - do not fire.
-
 The clinical consequence is narrower than the disease&#39;s legacy names suggest. In the reported patients all immune cell compartments developed normally and the defect is intrinsic to the B cell&#39;s effector response, not to B cell production - so despite the synonyms AGMX2, XLA2 and &#34;agammaglobulinemia, X-linked, type 2&#34;, grouping this entity with BTK-related X-linked agammaglobulinemia is misleading: there the B cell compartment itself fails to develop, whereas here it develops normally and the defect is in what B cells do. That is a claim about B cell development, not about immunoglobulin levels - and the two must not be conflated, because the more severely affected of the two founding brothers did have undetectable total IgG and IgA. Recurrent bacterial infection of the respiratory tract with impaired specific antibody responses and altered memory B cell subsets is the phenotype in the surviving reported patients; see `notes:` on the second founding brother, whose course was far more severe.
-
 EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected individuals - brothers - have been reported. A third, later case carried only a PARTIAL SH3KBP1 deletion classified as a variant of uncertain significance, and its authors state plainly that a causal relationship remains unproven. No ClinGen gene-disease validity assertion for SH3KBP1 was found in the cached ClinGen snapshot. Nothing here should be read as an established, clinically actionable gene-disease relationship.
             </p>
 
@@ -4144,6 +4210,23 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 3 (predominantly antibody deficiencies), section 2 (CVID phenotype): the &#34;SH3KBP1 (CIN85) deficiency&#34; row (SH3KBP1, XL, OMIM 300310). Despite the legacy synonyms AGMX2/XLA2, IUIS places this entity in section 2 (normal or low B cell numbers), not section 1 (agammaglobulinemia) - consistent with this entry&#39;s reading that B cell development is intact and the defect is in the B cell effector response.">predominantly antibody deficiency</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4213,6 +4296,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4237,6 +4321,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4258,6 +4343,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4403,6 +4489,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4427,6 +4514,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4448,6 +4536,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4572,6 +4661,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4593,6 +4683,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4630,6 +4721,7 @@ EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sh3kbp1-cin85-loss-of-function-deletion" data-dismech-node="SH3KBP1 (CIN85) Loss-of-Function Deletion" data-dismech-type="pathophysiology">
                 <div class="item-name">SH3KBP1 (CIN85) Loss-of-Function Deletion</div>
+
 
                 <div class="item-desc">A germline deletion within SH3KBP1 on the X chromosome, hemizygous in affected males. CIN85 is ubiquitously expressed and multifunctional, and before this report nothing was known about its role in humans - the only in vivo data were conditional mouse mutants ablating distinct CIN85 isoforms in brain and B lymphocytes. The human deletion is therefore the experiment that established which of CIN85&#39;s many proposed functions are non-redundant.</div>
 
@@ -4725,6 +4817,8 @@ This genetic context concerns SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from th
 
 
 
+
+
         <span class="tag tag-classification">allele_type: intragenic deletion</span>
 
 
@@ -4738,6 +4832,9 @@ This genetic context concerns SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from th
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous germline deletion within SH3KBP1 in affected males, described by a later report as a loss-of-function variant. LOSS_OF_FUNCTION rather than PARTIAL_LOSS_OF_FUNCTION because the founding study frames its findings as &#34;in the absence of CIN85&#34; and reads the resulting defects as revealing non-redundant CIN85 functions.</div>
 
@@ -4797,6 +4894,7 @@ This genetic context concerns SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4818,6 +4916,7 @@ This genetic context concerns SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4843,6 +4942,7 @@ This genetic context concerns SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-preformed-slp65-cin85-transducer-module" data-dismech-node="Loss of the Preformed SLP65-CIN85 Transducer Module" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the Preformed SLP65-CIN85 Transducer Module</div>
+
 
                 <div class="item-desc">CIN85 trimerises through a C-terminal coiled-coil domain, and the nine SH3 domains of a trimer bind multiple SLP65 molecules, each of which recruits further CIN85 trimers - a self-perpetuating oligomerisation that concentrates the effector rather than merely connecting two proteins to each other. The resulting complex is held in cytoplasmic granules formed by tripartite phase separation of SLP65, CIN85 and lipid vesicles. Its purpose is READINESS: the module exists in the RESTING B cell so that signalling can begin immediately on receptor engagement. The mechanistic point the disease makes is that a signalling cascade can fail not because a component is missing from the pathway but because too few copies of it are pre-concentrated in the right place.</div>
 
@@ -4968,6 +5068,7 @@ This pathophysiological event involves decreased B cell receptor signaling pathw
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4989,6 +5090,7 @@ This pathophysiological event involves decreased B cell receptor signaling pathw
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5016,6 +5118,7 @@ This pathophysiological event involves decreased B cell receptor signaling pathw
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5040,6 +5143,7 @@ This pathophysiological event involves decreased B cell receptor signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-b-cell-receptor-effector-signalling" data-dismech-node="Impaired B Cell Receptor Effector Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired B Cell Receptor Effector Signalling</div>
+
 
                 <div class="item-desc">The failure is SELECTIVE, and that selectivity is the disease&#39;s defining feature. In the patients&#39; B cells, distinct effector pathways of the B cell antigen receptor were defective - most notably NF-kB activation and upregulation of CD86 on the cell surface - while the cells themselves developed and persisted normally. In the cell-line and reconstitution models the same lesion abrogates BCR-induced calcium and NF-kB responses. What is lost is the capacity of a B cell to translate receptor engagement into an effector programme, not the B cell itself.</div>
 
@@ -5199,6 +5303,7 @@ This pathophysiological event involves decreased B cell receptor signaling pathw
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5220,6 +5325,7 @@ This pathophysiological event involves decreased B cell receptor signaling pathw
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5245,6 +5351,7 @@ This pathophysiological event involves decreased B cell receptor signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-antibody-production-by-intrinsically-impaired-b-cells" data-dismech-node="Defective Antibody Production by Intrinsically Impaired B Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Antibody Production by Intrinsically Impaired B Cells</div>
+
 
                 <div class="item-desc">The humoral response fails at the level of what B cells DO rather than whether they exist. Reported consequences include defective antibody production and altered memory B cell subsets. This is where the entity&#39;s legacy naming misleads: a disease called &#34;agammaglobulinemia, X-linked, type 2&#34; in which every immune compartment develops normally does not share the developmental block that defines BTK-related XLA. Note this distinguishes the mechanism, not the immunoglobulin level - hypo- and even agammaglobulinaemia have been reported in the more severely affected brother.</div>
 
@@ -5416,6 +5523,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5437,6 +5545,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5462,6 +5571,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-involvement" data-dismech-node="Neurodevelopmental Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Involvement</div>
+
 
                 <div class="item-desc">Neurodevelopmental features have accompanied the immune phenotype in every reported individual: attention-deficit/hyperactivity disorder and mild cognitive impairment in the two brothers, and autism spectrum disorder with developmental delay in the later case. Whether this reflects a genuine second function of CIN85 or ascertainment in patients who reached genetics services for developmental reasons is not established. Two things make it worth curating rather than dismissing: CIN85 is ubiquitously expressed and brain was one of only two compartments in which it had been conditionally ablated in mice before the human report; and in the later case the deletion also spanned neighbouring genes, so a contiguous-gene effect cannot be excluded. The causal link is therefore typed as having unknown intermediates and its evidence marked PARTIAL throughout.</div>
 
@@ -5515,6 +5625,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5539,6 +5650,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5560,6 +5672,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5627,13 +5740,13 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5642,13 +5755,13 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
-                    <span class="cat-count">1</span>
+                    Blood
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent respiratory infections" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-total-igm" data-dismech-node="Decreased circulating total IgM" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Recurrent respiratory infections
+                        Decreased circulating total IgM
 
 
 
@@ -5660,12 +5773,12 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002850</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent respiratory infections (HP:0002205), qualified as temporality recurrent. HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Decreased circulating total IgM (HP:0002850), qualified as course stable. HP:0002850 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5679,8 +5792,8 @@ This clinical feature is Recurrent respiratory infections (HP:0002205), qualifie
 
 
 
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
 
+    <span class="tag tag-classification">Course: STABLE</span>
 
 
 
@@ -5690,157 +5803,6 @@ This clinical feature is Recurrent respiratory infections (HP:0002205), qualifie
 
 
 
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42375371" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42375371" target="_blank">PMID:42375371</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient presented with recurrent respiratory infections, impaired humoral immune responses, reduced B-cell counts, and neurodevelopmental impairment."</div>
-
-
-                <div class="evidence-explanation">Documents recurrent respiratory infection. PARTIAL because the patient&#39;s partial SH3KBP1 deletion is classified as a variant of uncertain significance.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention deficit hyperactivity disorder" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Attention deficit hyperactivity disorder
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0007018</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42375371" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42375371" target="_blank">PMID:42375371</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"including attention-deficit/hyperactivity disorder (ADHD) and mild cognitive impairment"</div>
-
-
-                <div class="evidence-explanation">Documents ADHD in the founding brothers, reported second-hand.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-obesity" data-dismech-node="Obesity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Obesity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001513</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -5863,14 +5825,15 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Case 2 involved an 11-year-old male with ASD, recurrent respiratory infections since infancy, asthma, allergies, obesity, and congenital heart disease."</div>
+                <div class="evidence-snippet">"Initial immunological workup revealed immunoglobulin M (IgM) levels below 20 mg/dL"</div>
 
 
-                <div class="evidence-explanation">Names obesity among the features of Case 2, the SH3KBP1 patient. PARTIAL because a single patient cannot establish the feature as disease-associated rather than incidental. This quote is from the Case-2 paragraph; the Case-1 MECP2 patient&#39;s features are deliberately not used anywhere in this entry.</div>
+                <div class="evidence-explanation">Documents low IgM at presentation in the patient carrying the partial SH3KBP1 deletion. Marked PARTIAL because that variant is classified as of uncertain significance.</div>
 
 
 
@@ -5887,14 +5850,112 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"His weight and height have consistently exceeded the 99th percentile, with a body mass index (BMI) greater than 2 standard deviations (SD) above the mean since the age of five."</div>
+                <div class="evidence-snippet">"Follow-up between the ages of 7 and 11 years demonstrated persistently low IgM levels (ranging between 5 and 6 mg/dL)"</div>
 
 
-                <div class="evidence-explanation">Quantifies the obesity and dates it to age five. This matters because the same report starts risperidone, an antipsychotic with well-known weight gain, at age six - so the adiposity predates that exposure and is not simply drug-induced.</div>
+                <div class="evidence-explanation">Shows the deficit is persistent over four years of follow-up rather than a single low value. PARTIAL for the same reason as above.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-b-cell-count" data-dismech-node="Decreased total B cell count" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased total B cell count
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0010976</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42375371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42375371" target="_blank">PMID:42375371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Analysis of lymphocyte subpopulations consistently demonstrated low B-cell counts for his age (87 cells/µL, 3.2% of total lymphocytes at 8 years old; 84 cells/µL, 3.5% of total lymphocytes at 11 years old), while other lymphocyte subsets remained within normal ranges"</div>
+
+
+                <div class="evidence-explanation">Quantifies the B lymphocytopenia at two timepoints and establishes that it is selective for the B cell compartment. Marked PARTIAL because this patient&#39;s variant is of uncertain significance and because the finding conflicts with the founding report.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29636373" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29636373" target="_blank">PMID:29636373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the absence of CIN85, all immune cell compartments developed normally"</div>
+
+
+                <div class="evidence-explanation">The founding report&#39;s finding runs against this phenotype belonging to the entity, and is recorded as REFUTE so the conflict is machine-visible rather than buried in prose.</div>
 
 
 
@@ -5912,11 +5973,11 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    Immune
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infections" data-dismech-node="Recurrent bacterial infections" data-dismech-type="phenotype">
@@ -5933,10 +5994,10 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent bacterial infections (HP:0002718), qualified as temporality recurrent. HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5965,6 +6026,9 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5982,6 +6046,7 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5990,6 +6055,96 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
                 <div class="evidence-explanation">Names recurrent bacterial infection as a feature of SH3KBP1 deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent respiratory infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent respiratory infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002205</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent respiratory infections (HP:0002205), qualified as temporality recurrent. HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42375371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42375371" target="_blank">PMID:42375371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient presented with recurrent respiratory infections, impaired humoral immune responses, reduced B-cell counts, and neurodevelopmental impairment."</div>
+
+
+                <div class="evidence-explanation">Documents recurrent respiratory infection. PARTIAL because the patient&#39;s partial SH3KBP1 deletion is classified as a variant of uncertain significance.</div>
 
 
 
@@ -6035,6 +6190,9 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6049,6 +6207,7 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6076,6 +6235,7 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6097,6 +6257,7 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6123,9 +6284,18 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-total-igm" data-dismech-node="Decreased circulating total IgM" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention deficit hyperactivity disorder" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Decreased circulating total IgM
+                        Attention deficit hyperactivity disorder
 
 
 
@@ -6137,33 +6307,18 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002850</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007018</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased circulating total IgM (HP:0002850), qualified as course stable. HP:0002850 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
-                    <div class="item-meta">
 
 
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: STABLE</span>
-
-
-
-
-
-                    </div>
 
 
 
@@ -6171,7 +6326,7 @@ This clinical feature is Decreased circulating total IgM (HP:0002850), qualified
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -6186,38 +6341,15 @@ This clinical feature is Decreased circulating total IgM (HP:0002850), qualified
 
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Initial immunological workup revealed immunoglobulin M (IgM) levels below 20 mg/dL"</div>
-
-
-                <div class="evidence-explanation">Documents low IgM at presentation in the patient carrying the partial SH3KBP1 deletion. Marked PARTIAL because that variant is classified as of uncertain significance.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42375371" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42375371" target="_blank">PMID:42375371</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Follow-up between the ages of 7 and 11 years demonstrated persistently low IgM levels (ranging between 5 and 6 mg/dL)"</div>
+                <div class="evidence-snippet">"including attention-deficit/hyperactivity disorder (ADHD) and mild cognitive impairment"</div>
 
 
-                <div class="evidence-explanation">Shows the deficit is persistent over four years of follow-up rather than a single low value. PARTIAL for the same reason as above.</div>
+                <div class="evidence-explanation">Documents ADHD in the founding brothers, reported second-hand.</div>
 
 
 
@@ -6233,9 +6365,18 @@ This clinical feature is Decreased circulating total IgM (HP:0002850), qualified
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-b-cell-count" data-dismech-node="Decreased total B cell count" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-obesity" data-dismech-node="Obesity" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Decreased total B cell count
+                        Obesity
 
 
 
@@ -6247,15 +6388,18 @@ This clinical feature is Decreased circulating total IgM (HP:0002850), qualified
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0010976</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001513</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6278,27 +6422,29 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Analysis of lymphocyte subpopulations consistently demonstrated low B-cell counts for his age (87 cells/µL, 3.2% of total lymphocytes at 8 years old; 84 cells/µL, 3.5% of total lymphocytes at 11 years old), while other lymphocyte subsets remained within normal ranges"</div>
+                <div class="evidence-snippet">"Case 2 involved an 11-year-old male with ASD, recurrent respiratory infections since infancy, asthma, allergies, obesity, and congenital heart disease."</div>
 
 
-                <div class="evidence-explanation">Quantifies the B lymphocytopenia at two timepoints and establishes that it is selective for the B cell compartment. Marked PARTIAL because this patient&#39;s variant is of uncertain significance and because the finding conflicts with the founding report.</div>
+                <div class="evidence-explanation">Names obesity among the features of Case 2, the SH3KBP1 patient. PARTIAL because a single patient cannot establish the feature as disease-associated rather than incidental. This quote is from the Case-2 paragraph; the Case-1 MECP2 patient&#39;s features are deliberately not used anywhere in this entry.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29636373" data-dismech-supports="REFUTE">
+            <div class="evidence-item" data-dismech-evidence="PMID:42375371" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29636373" target="_blank">PMID:29636373</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42375371" target="_blank">PMID:42375371</a>
                     </span>
 
 
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6306,10 +6452,10 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
 
                 </div>
 
-                <div class="evidence-snippet">"In the absence of CIN85, all immune cell compartments developed normally"</div>
+                <div class="evidence-snippet">"His weight and height have consistently exceeded the 99th percentile, with a body mass index (BMI) greater than 2 standard deviations (SD) above the mean since the age of five."</div>
 
 
-                <div class="evidence-explanation">The founding report&#39;s finding runs against this phenotype belonging to the entity, and is recorded as REFUTE so the conflict is machine-visible rather than buried in prose.</div>
+                <div class="evidence-explanation">Quantifies the obesity and dates it to age five. This matters because the same report starts risperidone, an antipsychotic with well-known weight gain, at age six - so the adiposity predates that exposure and is not simply drug-induced.</div>
 
 
 
@@ -6399,6 +6545,9 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6413,6 +6562,7 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6437,6 +6587,7 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6473,6 +6624,12 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A germline deletion within the CIN85 gene on the X chromosome, hemizygous in two affected brothers, described by a later report as loss of function.</div>
 
 
@@ -6497,6 +6654,7 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6531,6 +6689,12 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
         <span class="variant-significance variant-significance-uncertain-significance">Uncertain Significance</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A hemizygous deletion of approximately 200 kb at Xp22.12 partially involving SH3KBP1, predicted to disrupt exons 2 to 6 and possibly a larger region, detected by array comparative genomic hybridization and classified as a variant of uncertain significance. It arose DE NOVO, confirmed by its absence in the patient&#39;s mother. The deleted interval also spans neighbouring genes, so a contiguous-gene contribution cannot be excluded, and no functional studies were performed.</div>
@@ -6572,6 +6736,7 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6596,6 +6761,7 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6617,6 +6783,7 @@ This disease-associated gene is SH3KBP1 (hgnc:13867). hgnc:13867 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6712,6 +6879,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6722,6 +6892,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
     </div>
+
+
+
 
 
 
@@ -6758,6 +6931,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6801,6 +6975,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,6 +7045,9 @@ This treatment is antibiotic prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6880,6 +7058,9 @@ This treatment is antibiotic prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -6907,6 +7088,7 @@ This treatment is antibiotic prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6976,6 +7158,9 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6986,6 +7171,9 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7016,6 +7204,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7037,6 +7226,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7120,6 +7310,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7211,7 +7402,6 @@ description: &gt;-
   effector arms - NF-kB activation and CD86 upregulation in the human patients,
   calcium and NF-kB responses in the cell models - do not fire.
 
-
   The clinical consequence is narrower than the disease&#39;s legacy names suggest.
   In the reported patients all immune cell compartments developed normally and
   the defect is intrinsic to the B cell&#39;s effector response, not to B cell
@@ -7226,7 +7416,6 @@ description: &gt;-
   responses and altered memory B cell subsets is the phenotype in the surviving
   reported patients; see `notes:` on the second founding brother, whose course
   was far more severe.
-
 
   EVIDENCE BASE IS VERY THIN, and the entry is written accordingly. Two affected
   individuals - brothers - have been reported. A third, later case carried only
@@ -7248,6 +7437,26 @@ classifications:
     notes: &gt;-
       Placed with the immune disorders: this is an inborn error of B cell
       receptor signal transduction presenting as a primary antibody deficiency.
+  iuis_category:
+    classification_value: predominantly antibody deficiency
+    notes: &gt;-
+      IUIS 2022 phenotypic classification Table 3 (predominantly antibody
+      deficiencies), section 2 (CVID phenotype): the &#34;SH3KBP1 (CIN85)
+      deficiency&#34; row (SH3KBP1, XL, OMIM 300310). Despite the legacy synonyms
+      AGMX2/XLA2, IUIS places this entity in section 2 (normal or low B cell
+      numbers), not section 1 (agammaglobulinemia) - consistent with this
+      entry&#39;s reading that B cell development is intact and the defect is in
+      the B cell effector response.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;SH3KBP1 (CIN85) deficiency SH3KBP1 XL 300310&#34;
+      explanation: &gt;-
+        The IMD61 row of IUIS 2022 Table 3 (predominantly antibody
+        deficiencies), section 2 (CVID phenotype), listing the disease under
+        its CIN85 protein name with X-linked inheritance.
 inheritance:
 - name: X-linked recessive inheritance
   description: &gt;-
@@ -8213,11 +8422,10 @@ discussions:
 notes: &gt;-
   Gene anchor. MONDO:0010296 records no causal-gene relationship, so the stub had
   no `genes:` block. Following its xrefs, MedGen (MEDGEN:337462, from OMIM
-  #300310) associates the concept with SH3KBP1 (gene_id 30011) at Xp22.12, and
+  # 300310) associates the concept with SH3KBP1 (gene_id 30011) at Xp22.12, and
   that is the anchor used here. As with the sibling immunodeficiency entry
   curated in this tranche, the missing MONDO relationship is worth reporting
   upstream.
-
 
   Evidence base. This is one of the thinnest gene-disease relationships in the
   knowledge base: two affected brothers, one later patient with a partial
@@ -8227,7 +8435,6 @@ notes: &gt;-
   module has been characterised biochemically, structurally and by studies of
   phase separation in cell systems - so the entry is deliberately
   mechanism-heavy and clinically cautious rather than the reverse.
-
 
   Features NOT curated, and why. MedGen/HPO annotate this concept with
   recurrent sinusitis, recurrent otitis media, and decreased circulating IgG2 and
@@ -8242,7 +8449,6 @@ notes: &gt;-
   contain, they are named here as verifiable leads for a curator with full-text
   or Orphanet access.
 
-
   ALSO NOT CURATED, and the most consequential omission: the deep research
   committed with this entry reports that the second founding brother never
   outgrew the juvenile infection period and died at 15 of septic shock and
@@ -8255,7 +8461,6 @@ notes: &gt;-
   are highest. The same deep research is the sole source for obesity in both
   brothers, cited only through an internal key - also a lead, not a citable
   source.
-
 
   A WARNING FOR WHOEVER PROMOTES THEM. The IgG subclass pattern is the most
   valuable of those leads - selective IgG2/IgG4 deficiency with normal B cell
@@ -8275,13 +8480,11 @@ notes: &gt;-
   paragraph, and each was checked for uniqueness against the whole cached file
   before use.
 
-
   What WAS promoted from that full text: decreased circulating IgM and decreased
   total B cell count, both quotable for the SH3KBP1 patient. The B lymphocytopenia
   is curated with a `REFUTE`-typed counter-item from the founding report, which
   found all immune cell compartments normal - the conflict is real and is left
   visible rather than resolved by preferring one source.
-
 
   No `datasets:` block. No SH3KBP1-immunodeficiency-specific accession was
   identified, and searching the gene alone surfaces the large CIN85 cancer and
@@ -8454,6 +8657,61 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Gene anchor. MONDO:0010296 records no causal-gene relationship, so the stub had no `genes:` block. Following its xrefs, MedGen (MEDGEN:337462, from OMIM # 300310) associates the concept with SH3KBP1 (gene_id 30011) at Xp22.12, and that is the anchor used here. As with the sibling immunodeficiency entry curated in this tranche, the missing MONDO relationship is worth reporting upstream.
+Evidence base. This is one of the thinnest gene-disease relationships in the knowledge base: two affected brothers, one later patient with a partial deletion of uncertain significance, and no ClinGen gene-disease validity assertion in the cached ClinGen snapshot. The mechanistic literature is by contrast strong and independent of the patients - the SLP65-CIN85 transducer module has been characterised biochemically, structurally and by studies of phase separation in cell systems - so the entry is deliberately mechanism-heavy and clinically cautious rather than the reverse.
+Features NOT curated, and why. MedGen/HPO annotate this concept with recurrent sinusitis, recurrent otitis media, and decreased circulating IgG2 and IgG4. (Obesity was on this list and has since been curated as a phenotype - it is directly quotable for the SH3KBP1 patient from the PMID:42375371 full text committed here, so &#34;needs full-text access&#34; was never the real reason for its absence.) Those annotations derive from the OMIM clinical synopsis of the founding report, whose PubMed record caches as abstract only and contains none of those statements, and no ORPHA record for Orphanet:696945 could be built because `just refresh-orphadata` currently fails on a manifest checksum mismatch and the bulk XML is absent. Rather than cite an abstract for facts it does not contain, they are named here as verifiable leads for a curator with full-text or Orphanet access.
+ALSO NOT CURATED, and the most consequential omission: the deep research committed with this entry reports that the second founding brother never outgrew the juvenile infection period and died at 15 of septic shock and multiorgan failure following bilateral pneumonia. It is recorded here rather than as a phenotype because it is not quotable from any cached reference and the report&#39;s own source for it is a weak `Unknown journal, Unknown year` record. It is named explicitly because a death in one of the two reported patients bears on how severe this entity is, and omitting it silently would make this ledger&#39;s inclusion criteria arbitrary at the point where the stakes are highest. The same deep research is the sole source for obesity in both brothers, cited only through an internal key - also a lead, not a citable source.
+A WARNING FOR WHOEVER PROMOTES THEM. The IgG subclass pattern is the most valuable of those leads - selective IgG2/IgG4 deficiency with normal B cell numbers is a far more specific description of this entity than &#34;antibody deficiency&#34; and would strengthen the nosology discussion - but it must NOT be taken from PMID:42375371. That paper reports two unrelated patients, and its selective IgG2/IgG4 deficiency belongs to Case 1, who has an MECP2 duplication and no SH3KBP1 variant at all. Note the warning is deliberately limited to the IgG subclasses: Case 2 SEPARATELY has elevated IgE (without aeroallergen sensitization, unlike Case 1&#39;s house-dust-mite-specific IgE) and absent serologic responses to measles, varicella and pneumococcal conjugate vaccines, and those ARE promotable for this entity - the vaccine data is cited on the Impaired specific antibody response phenotype. The same trap exists for the ClinVar accession: SCV005849919 is Case 1&#39;s MECP2 variant and SCV005849918 is the SH3KBP1 deletion, in otherwise identical sentences. Every quote taken from that reference in this entry is from the Case 2 paragraph, and each was checked for uniqueness against the whole cached file before use.
+What WAS promoted from that full text: decreased circulating IgM and decreased total B cell count, both quotable for the SH3KBP1 patient. The B lymphocytopenia is curated with a `REFUTE`-typed counter-item from the founding report, which found all immune cell compartments normal - the conflict is real and is left visible rather than resolved by preferring one source.
+No `datasets:` block. No SH3KBP1-immunodeficiency-specific accession was identified, and searching the gene alone surfaces the large CIN85 cancer and EGFR-trafficking literature instead - the Named Entity Confusion hazard the dataset SOP warns about.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Drop unsourced both-brothers clause; record fatal course; narrow Case-1 warning; connect orphan node</strong> · 2026-08-26T19:28:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_61/2026-08-26T192849Z-claude-code-8ce5ea.yaml">View source</a></p>
+                        <p class="research-review-text">Round-4 review, two blocking items and two suggestions, all taken.
+
+1. The obesity description claimed the feature in both founding brothers. No
+cached source says so - the claim came from the deep research, which cites the
+Keller full text only through an internal key. It also contradicted the PARTIAL
+justification four lines below, which rests on there being a single patient.
+Clause dropped; the lead is recorded in notes instead.
+
+2. The second founding brother died at 15 of septic shock and multiorgan failure
+after bilateral pneumonia. Not curated as a phenotype (not quotable from any
+cached reference; the report&#39;s own source is a weak Unknown journal/year record)
+but added to the &#34;Features NOT curated&#34; ledger, which previously listed lesser
+facts from the same source while omitting this one. Also softened the
+description&#39;s closing claim, which read as a complete characterization of the
+phenotype against 50% mortality in the founding kindred.
+
+3. Narrowed the Case-1 warning to the IgG subclasses. Case 2 separately has
+elevated IgE (without aeroallergen sensitization, unlike Case 1) and absent
+vaccine responses, and the over-broad warning would have deterred a curator from
+promoting genuine Case-2 findings.
+
+4. Promoted that Case-2 vaccine data as evidence on Impaired specific antibody
+response (HP:0012475), which was previously supported only by a thin abstract
+phrase. Verified the quote occurs exactly once in the cache, in the Case-2
+paragraph.
+
+5. Connected Neurodevelopmental Involvement, which was an orphan root leaving the
+pathograph in two weakly connected components, via an
+INDIRECT_UNKNOWN_INTERMEDIATES edge. Verified directed reachability afterwards:
+5 nodes, 8 edges, single root, no unreachable node.
+
+Snippets 53/53 -&gt; 55/55. No cache row added.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9409,7 +9667,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Immunodeficiency 61", "mondoId": "MONDO:0010296", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_61", "yamlRevision": "a67ee7ab1411"};
+        const OS_CONFIG = {"diseaseName": "Immunodeficiency 61", "mondoId": "MONDO:0010296", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_61", "yamlRevision": "a9bf938566d8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
