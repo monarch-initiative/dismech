@@ -11380,6 +11380,111 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Actinomycosis",
+    "disease_id": "MONDO:0005631",
+    "category": "Infectious Disease",
+    "parents": [
+      "primary bacterial infectious disease"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Cervicofacial",
+      "Pulmonary",
+      "Abdominopelvic",
+      "Central Nervous System"
+    ],
+    "description": "Actinomycosis is a rare, chronic, suppurative and granulomatous bacterial infection caused by endogenous Actinomyces species after disruption of the oral, gastrointestinal, or genital mucosal barrier. The anaerobic, filamentous Gram-positive organisms survive phagocytosis, form sulfur-granule lesions with necrosis and chronic inflammation, spread contiguously across tissue planes, form abscesses and sinus tracts, and often mimic malignancy in cervicofacial, pulmonary, abdominopelvic, or central nervous system sites. Prolonged high-dose beta-lactam therapy kills Actinomyces by inhibiting peptidoglycan cross-linking, and surgical resection or drainage is used for bulky, necrotic, or anatomically complicated disease.",
+    "pathophysiology": [
+      "Mucosal Barrier Breach and Endogenous Inoculation",
+      "Intracellular Persistence in Phagocytes",
+      "Suppurative Granulomatous Sulfur-Granule Inflammation",
+      "Abscess and Fistula Formation",
+      "Contiguous Spread Across Tissue Planes",
+      "Mass Mimicking Malignancy",
+      "Reactive Fibrosis",
+      "Actinomyces Peptidoglycan Cross-Linking (Beta-Lactam Target)"
+    ],
+    "cell_types": [
+      "epithelial cell",
+      "macrophage",
+      "neutrophil",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "response to bacterium",
+      "granuloma formation",
+      "inflammatory response",
+      "peptidoglycan-based cell wall biogenesis"
+    ],
+    "phenotypes": [
+      "Abscess",
+      "Draining Sinus Tract",
+      "Fever",
+      "Cough",
+      "Dyspnea",
+      "Hemoptysis",
+      "Weight loss",
+      "Pleural effusion",
+      "Osteomyelitis",
+      "Abdominal pain",
+      "Abdominal mass",
+      "Brain Abscess"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0025615",
+      "HP:6000095",
+      "HP:0001945",
+      "HP:0012735",
+      "HP:0002094",
+      "HP:0002105",
+      "HP:0001824",
+      "HP:0002202",
+      "HP:0002754",
+      "HP:0002027",
+      "HP:0031500",
+      "HP:0030049"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Prolonged Penicillin or Amoxicillin Therapy",
+      "Surgical Resection or Drainage",
+      "Intrauterine device removal"
+    ],
+    "environmental": [
+      "Long-standing intrauterine device use",
+      "Dental focus of infection and poor oral hygiene"
+    ],
+    "biochemical": [],
+    "source_file": "Actinomycosis.yaml",
+    "page_url": "../pages/disorders/Actinomycosis.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Action Myoclonus-Renal Failure Syndrome",
     "disease_id": "MONDO:0009699",
     "category": "Mendelian",
@@ -33354,22 +33459,32 @@ window.searchData = [
       "SCA11",
       "SCA26",
       "SCA30",
-      "SCA31"
+      "SCA31",
+      "SCA38",
+      "SCA41",
+      "SCA42",
+      "SCA45"
     ],
-    "description": "Autosomal dominant cerebellar ataxia type III (ADCA-III) is Harding's clinicophenotypic class of dominantly inherited, mostly pure cerebellar syndromes. It is not spinocerebellar ataxia type 3 (SCA3/Machado-Joseph disease): the Roman numeral denotes Harding's broad class, not an individual numbered SCA. The canonical disease concept comprises SCA5, SCA6, SCA11, SCA26, SCA30, and SCA31. Gait and limb ataxia, dysarthria, abnormal eye movements, and predominantly cerebellar atrophy define the class, although mild pyramidal, neuropathic, parkinsonian, dystonic, or tremor features can occur in individual families. The molecular causes are heterogeneous: SPTBN2-associated postsynaptic organization defects in SCA5, a CACNA1A CAG expansion with polyglutamine proteotoxicity in SCA6, truncating TTBK2 alleles that disrupt cilia in SCA11, an EEF2 p.Pro596His variant that impairs translational fidelity in the original SCA26 family, and a noncoding BEAN1/TK2-region pentanucleotide insertion producing toxic repeat RNA in SCA31. SCA30 remains mapped to chromosome 4q34.3-q35.1 without an established causal gene.",
+    "description": "Autosomal dominant cerebellar ataxia type III (ADCA-III) is Harding's clinicophenotypic class of dominantly inherited, mostly pure cerebellar syndromes. It is not spinocerebellar ataxia type 3 (SCA3/Machado-Joseph disease): the Roman numeral denotes Harding's broad class, not an individual numbered SCA. The canonical disease concept comprises SCA5, SCA6, SCA11, SCA26, SCA30, and SCA31. Gait and limb ataxia, dysarthria, abnormal eye movements, and predominantly cerebellar atrophy define the class, although mild pyramidal, neuropathic, parkinsonian, dystonic, or tremor features can occur in individual families. The molecular causes are heterogeneous: SPTBN2-associated postsynaptic organization defects in SCA5, a CACNA1A CAG expansion with polyglutamine proteotoxicity in SCA6, truncating TTBK2 alleles that disrupt cilia in SCA11, an EEF2 p.Pro596His variant that impairs translational fidelity in the original SCA26 family, and a noncoding BEAN1/TK2-region pentanucleotide insertion producing toxic repeat RNA in SCA31. SCA30 remains mapped to chromosome 4q34.3-q35.1 without an established causal gene. Four further numbered types described after the 2013 class review are classified here by MONDO and are curated on this entry, all of them conventional-variant rather than repeat-expansion diseases: ELOVL5 missense alleles that impair polyunsaturated fatty-acid elongation in SCA38, TRPC3 missense alleles of unresolved functional consequence in SCA41, CACNA1G missense alleles that shift Cav3.1 T-type calcium channel voltage dependence in SCA42, and FAT2 missense alleles in a cerebellar granule-cell cadherin that mouse work shows is required for parallel-fibre synapse organization in SCA45. The distinction between a repeat expansion and a conventional variant is mechanistically load-bearing in this class: of the roster members with an identified gene, only SCA6 (a coding CAG expansion) and SCA31 (a noncoding pentanucleotide insertion) are repeat diseases.",
     "pathophysiology": [
       "SPTBN2-Dependent Postsynaptic Organization Defect",
       "CACNA1A Polyglutamine Proteotoxicity and ER-Stress Decompensation",
       "TTBK2 Dominant-Negative Ciliary Dysfunction",
       "EEF2 Translational-Fidelity and Proteostasis Defect",
       "SCA31 Repeat-RNA Toxicity",
-      "Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy"
+      "Purkinje Cell Dysfunction and Predominant Cerebellar Atrophy",
+      "ELOVL5 Fatty-Acid Elongation Deficiency",
+      "TRPC3 Cation Channel Variant of Unresolved Consequence",
+      "Cav3.1 T-Type Calcium Channel Voltage-Dependence Shift",
+      "FAT2 Cadherin-Dependent Parallel Fibre Synapse Failure"
     ],
     "cell_types": [
-      "Purkinje cell"
+      "Purkinje cell",
+      "cerebellar granule cell"
     ],
     "cell_type_ids": [
-      "CL:0000121"
+      "CL:0000121",
+      "CL:0001031"
     ],
     "biological_processes": [
       "cytoskeleton organization",
@@ -33380,7 +33495,9 @@ window.searchData = [
       "translational elongation",
       "response to unfolded protein",
       "regulation of alternative mRNA splicing, via spliceosome",
-      "neuron apoptotic process"
+      "neuron apoptotic process",
+      "fatty acid elongation",
+      "synapse organization"
     ],
     "phenotypes": [
       "Progressive Gait Ataxia",
@@ -33415,7 +33532,11 @@ window.searchData = [
       "CACNA1A CAG expansion (SCA6)",
       "TTBK2 (SCA11)",
       "EEF2 p.Pro596His (SCA26)",
-      "BEAN1/TK2 repeat locus (SCA31)"
+      "BEAN1/TK2 repeat locus (SCA31)",
+      "ELOVL5 (SCA38)",
+      "TRPC3 (SCA41)",
+      "CACNA1G (SCA42)",
+      "FAT2 (SCA45)"
     ],
     "treatments": [
       "Multidisciplinary supportive care and rehabilitation"
@@ -33425,10 +33546,10 @@ window.searchData = [
     "source_file": "Autosomal_Dominant_Cerebellar_Ataxia_Type_III.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Cerebellar_Ataxia_Type_III.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
-    "num_genes": 5,
+    "num_pathophysiology": 10,
+    "num_genes": 9,
     "num_treatments": 1,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
   },
   {
@@ -130450,16 +130571,25 @@ window.searchData = [
       "Secondary FSGS",
       "Genetic FSGS",
       "Collapsing FSGS",
-      "Tip Lesion Variant FSGS"
+      "Tip Lesion Variant FSGS",
+      "FSGS1",
+      "FSGS2",
+      "FSGS5",
+      "FSGS6",
+      "FSGS7",
+      "FSGS8",
+      "FSGS9"
     ],
-    "description": "Focal segmental glomerulosclerosis (FSGS) is a histopathologic pattern of podocyte-driven glomerular injury rather than a single molecularly uniform disease. The broad MONDO root term encompasses primary, monogenic, maladaptive/secondary, viral, drug-associated, and collapsing forms that converge on proteinuria, segmental glomerular scarring, and progressive kidney dysfunction. The gene section below therefore highlights representative monogenic FSGS subsets rather than implying that the entire heterogeneous root is explained by a single-gene mechanism.\n",
+    "description": "Focal segmental glomerulosclerosis (FSGS) is a histopathologic pattern of podocyte-driven glomerular injury rather than a single molecularly uniform disease. The broad MONDO root term encompasses primary, monogenic, maladaptive/secondary, viral, drug-associated, and collapsing forms that converge on proteinuria, segmental glomerular scarring, and progressive kidney dysfunction. The gene section below therefore highlights representative monogenic FSGS subsets rather than implying that the entire heterogeneous root is explained by a single-gene mechanism.\nThe gene-defined subtypes fall into four mechanistic groups rather than one. ACTN4, INF2 and ANLN act on the podocyte actin cytoskeleton and MYO1E is a podocyte class I myosin; NPHS2, CRB2 and CD2AP act at the slit diaphragm and podocyte apico-basal polarity; TRPC6 is a podocyte cation channel; and PAX2 is a developmental transcription factor, the only gene here whose lesion is transcriptional. APOL1 is a common recessive risk genotype rather than a Mendelian cause and reaches the podocyte through monovalent cation flux.\n",
     "pathophysiology": [
       "Podocyte Injury and Loss",
       "Circulating Permeability Factor-Mediated Podocyte Injury",
       "Glomerular Filtration Barrier Dysfunction",
       "Mesangial Expansion and Glomerulosclerosis",
       "Tubular Protein Overload and Interstitial Inflammation",
-      "Tubulointerstitial Fibrosis"
+      "Tubulointerstitial Fibrosis",
+      "APOL1 Risk-Variant Cation Flux and Podocyte Cytotoxicity",
+      "PAX2 Transcription Factor Dysfunction"
     ],
     "cell_types": [
       "podocyte",
@@ -130489,7 +130619,8 @@ window.searchData = [
       "mesangial cell proliferation",
       "inflammatory response",
       "leukocyte migration",
-      "TGF-beta receptor signaling"
+      "TGF-beta receptor signaling",
+      "potassium ion export across plasma membrane"
     ],
     "phenotypes": [
       "Proteinuria",
@@ -130524,7 +130655,14 @@ window.searchData = [
       "TRPC6",
       "INF2",
       "FAT1",
-      "SYNPO"
+      "SYNPO",
+      "MYO1E",
+      "PAX2",
+      "ANLN",
+      "CRB2",
+      "APOL1",
+      "CD2AP",
+      "CD2AP heterozygous variants"
     ],
     "treatments": [
       "Corticosteroids",
@@ -130539,10 +130677,10 @@ window.searchData = [
     "source_file": "Focal_Segmental_Glomerulosclerosis.yaml",
     "page_url": "../pages/disorders/Focal_Segmental_Glomerulosclerosis.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 6,
-    "num_genes": 6,
+    "num_pathophysiology": 8,
+    "num_genes": 13,
     "num_treatments": 6,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "6"
   },
   {
@@ -155571,7 +155709,8 @@ window.searchData = [
       "HPAH-PVOD/PCH overlap (EIF2AK4)",
       "Developmental regulator-associated HPAH",
       "Channelopathy-associated HPAH",
-      "Rare endothelial-signaling HPAH"
+      "Rare endothelial-signaling HPAH",
+      "CAPNS1-related HPAH"
     ],
     "description": "Heritable pulmonary arterial hypertension is a genetically mediated Group 1 pulmonary arterial hypertension in which pathogenic germline variants, especially in BMPR2 and related vascular-development or signaling genes, predispose to progressive pulmonary arteriolar remodeling. Disease pathogenesis involves impaired BMP/TGF-beta pathway signaling, pulmonary endothelial dysfunction, smooth muscle hyperproliferation, metabolic reprogramming, inflammatory amplification, elevated pulmonary vascular resistance, and eventual right ventricular failure.",
     "pathophysiology": [
@@ -155582,7 +155721,9 @@ window.searchData = [
       "Smooth muscle metabolic reprogramming and proliferative metabolism",
       "Perivascular inflammation and immune amplification",
       "Occlusive pulmonary vascular remodeling and increased resistance",
-      "Right ventricular hypertrophy and failure"
+      "Right ventricular hypertrophy and failure",
+      "Disordered lung mesenchymal development and pulmonary vascular hypoplasia",
+      "Recessive CAPNS1 loss and absent calpain small subunit"
     ],
     "cell_types": [
       "endothelial cell",
@@ -155590,7 +155731,8 @@ window.searchData = [
       "fibroblast",
       "macrophage",
       "T cell",
-      "neutrophil"
+      "neutrophil",
+      "lung mesenchymal cell"
     ],
     "cell_type_ids": [
       "CL:0000115",
@@ -155598,7 +155740,8 @@ window.searchData = [
       "CL:0000057",
       "CL:0000235",
       "CL:0000084",
-      "CL:0000775"
+      "CL:0000775",
+      "CL:0008019"
     ],
     "biological_processes": [
       "BMP signaling pathway",
@@ -155608,7 +155751,8 @@ window.searchData = [
       "glycolytic process",
       "oxidative phosphorylation",
       "inflammatory response",
-      "extracellular matrix organization"
+      "extracellular matrix organization",
+      "lung vasculature development"
     ],
     "phenotypes": [
       "Pulmonary arterial hypertension",
@@ -155650,7 +155794,8 @@ window.searchData = [
       "ATP13A3",
       "SOX17",
       "KDR",
-      "EIF2AK4"
+      "EIF2AK4",
+      "CAPNS1"
     ],
     "treatments": [
       "Combination PAH pharmacotherapy",
@@ -155666,11 +155811,11 @@ window.searchData = [
     "source_file": "Heritable_Pulmonary_Arterial_Hypertension.yaml",
     "page_url": "../pages/disorders/Heritable_Pulmonary_Arterial_Hypertension.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 8,
-    "num_genes": 12,
+    "num_pathophysiology": 10,
+    "num_genes": 13,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hermansky-Pudlak Syndrome",
@@ -193043,6 +193188,97 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Lemierre Syndrome",
+    "disease_id": "MONDO:0015306",
+    "category": "Infectious Disease",
+    "parents": [
+      "bacterial infectious disease with sepsis",
+      "commensal bacterial infectious disease"
+    ],
+    "creation_date": "2026-09-25T18:58:41Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lemierre syndrome is an acquired, life-threatening complication of head and neck infection in which Fusobacterium necrophorum or another oropharyngeal bacterial pathogen invades from the tonsillopharyngeal or odontogenic source to cause internal jugular vein septic thrombophlebitis, bacteremia, and metastatic septic emboli, most often in the lungs. It primarily affects adolescents and young adults and presents with fever, sore throat, septic pulmonary emboli, thrombocytopenia, sepsis, and sometimes septic shock.",
+    "pathophysiology": [
+      "Oropharyngeal Fusobacterium infection",
+      "Fusobacterial leukotoxin immune evasion",
+      "Internal jugular septic thrombophlebitis",
+      "Pulmonary septic embolization",
+      "Systemic bacteremia and sepsis"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "endothelial cell",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000115",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "response to bacterium",
+      "inflammatory response",
+      "apoptotic process",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Sore throat",
+      "Septic pulmonary embolism",
+      "Hemoptysis",
+      "Thrombocytopenia",
+      "Sepsis",
+      "Septic shock"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Head And Neck",
+      "Respiratory",
+      "Hematologic",
+      "Infectious",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0033050",
+      "HP:0033639",
+      "HP:0002105",
+      "HP:0001873",
+      "HP:0100806",
+      "HP:0031273"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Prolonged anaerobe-active antibiotic therapy",
+      "Source control drainage and salvage internal jugular surgery",
+      "Selected adjunctive anticoagulation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lemierre_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lemierre_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Lennox-Gastaut Syndrome",
@@ -336798,17 +337034,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3188,
-  "total_subtypes": 4237,
-  "total_disorders_and_subtypes": 7425,
-  "total_unique_evidence_sources": 46399,
-  "total_unique_publications": 43597,
+  "total_disorder_pages": 3190,
+  "total_subtypes": 4253,
+  "total_disorders_and_subtypes": 7443,
+  "total_unique_evidence_sources": 46447,
+  "total_unique_publications": 43645,
   "total_unique_disease_categories": 62,
-  "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3183,
-  "total_unique_pathological_events": 20125,
+  "total_unique_phenotype_categories": 287,
+  "total_pathographs": 3185,
+  "total_unique_pathological_events": 20146,
   "total_modules": 179,
-  "total_research_reports": 3302,
+  "total_research_reports": 3304,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 106
