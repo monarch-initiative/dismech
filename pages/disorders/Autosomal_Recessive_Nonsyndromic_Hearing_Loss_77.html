@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4634,6 +4676,7 @@ The clinical reason this matters: if LOXHD1 maintains an activatable state rathe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loxhd1-loss-of-function-in-stereocilia" data-dismech-node="LOXHD1 Loss of Function in Stereocilia" data-dismech-type="pathophysiology">
                 <div class="item-name">LOXHD1 Loss of Function in Stereocilia</div>
 
+
                 <div class="item-desc">Biallelic LOXHD1 variants remove or disable a protein consisting entirely of PLAT (polycystin/lipoxygenase/alpha-toxin) repeats - fifteen of them - which in other proteins bind lipids and proteins. LOXHD1 is distributed along the length of the stereocilia rather than concentrated at the tip-link ends, and it is evolutionarily conserved.
 Its arrival in the hair bundle is late. Both published mouse models carry mutations in the tenth PLAT repeat, and the functional consequence appears only as postnatal LOXHD1 expression and localisation in the bundle reach their normal level - which is what makes this a maintenance protein rather than a developmental one.</div>
 
@@ -4728,6 +4771,8 @@ This pathophysiological event involves LOXHD1 (hgnc:26521). hgnc:26521 is a gene
 
 
 
+
+
         <span class="tag tag-classification">allele_type: VARIANT</span>
 
 
@@ -4743,6 +4788,9 @@ This pathophysiological event involves LOXHD1 (hgnc:26521). hgnc:26521 is a gene
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4859,6 +4907,7 @@ This pathophysiological event involves hair-cell stereocilium membrane, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hair-cell-mechanotransduction-failure-with-intact-bundle-architecture" data-dismech-node="Hair-Cell Mechanotransduction Failure with Intact Bundle Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Hair-Cell Mechanotransduction Failure with Intact Bundle Architecture</div>
+
 
                 <div class="item-desc">The central mechanistic finding, and it is defined as much by what is normal as by what is not. Mutant inner hair cells have mechanotransduction currents at wild-type levels through the first postnatal week and severely reduced currents by postnatal day 11. Over the same interval the hair bundle stays morphologically normal, tip-link number is not reduced, and Harmonin and LHFPL5 - proteins of the upper and lower tip-link complexes - remain correctly localised.
 The authors&#39; reading is that the transduction machinery is present but not activatable. That is a specific claim and it excludes the two obvious alternatives, which is why this entry states the exclusions rather than only the positive finding: this is not a bundle malformation and it is not a tip-link deficiency.</div>
@@ -5104,6 +5153,7 @@ This pathophysiological event involves stereocilium bundle (GO:0032421). GO:0032
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hair-cell-degeneration" data-dismech-node="Progressive Hair-Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Hair-Cell Degeneration</div>
 
+
                 <div class="item-desc">Hair cells that develop normally and then fail to transduce do not survive. In samba mice, stereociliary development is unaffected, hair-cell function is perturbed, and hair cells eventually degenerate. The ordering matters clinically: it is what makes the human hearing loss progressive rather than congenital and stable, and it is what defines the therapeutic window, if one ever exists, as the interval before degeneration.</div>
 
 
@@ -5233,6 +5283,7 @@ This pathophysiological event involves auditory hair cell (CL:0000202). CL:00002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vestibular-hair-cell-sparing" data-dismech-node="Vestibular Hair-Cell Sparing" data-dismech-type="pathophysiology">
                 <div class="item-name">Vestibular Hair-Cell Sparing</div>
+
 
                 <div class="item-desc">Vestibular hair cells are spared, and there is a mechanistic reason rather than a coincidence. LOXHD1 is expressed in the hair cells of the vestibule as well as the cochlea, so the null expectation is vestibular involvement - but vestibular hair cells express only reduced amounts of LOXHD1 and are not affected by the mutation in samba mice. The dose difference is what makes the disease non-syndromic.
 The clinical correlate is replicated across every series that looked: normal and symmetrical vestibular evoked myogenic potentials in a reported proband, no vestibular involvement in a nine-family Dutch series, and no accompanying symptoms including vestibular dysfunction in a screen of 8,074 Japanese hearing-loss patients.
@@ -5385,6 +5436,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-sensorineural-hearing-loss" data-dismech-node="Progressive Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Sensorineural Hearing Loss</div>
+
 
                 <div class="item-desc">The clinical endpoint. Hearing loss that is progressive rather than static, which the founding report places in a class of three genes - LOXHD1, MYO3A and PJVK - all of which are required for hair-cell function rather than for hair-cell development, and for which it proposes age-dependent hair-cell failure as the shared mechanism.</div>
 
@@ -5564,6 +5616,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5661,6 +5716,9 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
                     </div>
+
+
+
 
 
 
@@ -5793,6 +5851,9 @@ This clinical feature is Auditory Neuropathy Pattern, annotated with Abnormal au
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5936,6 +5997,9 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6010,6 +6074,12 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent splice-donor variant found in 18 of 28 LOXHD1-positive individuals in a Japanese hearing-loss cohort and reported only in Japanese patients. Haplotype analysis indicates a mutational hot spot arising in multiple ancestors rather than a single founder event.</div>
 
 
@@ -6067,6 +6137,12 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
         p.D278Y and p.D1219E compound heterozygous pair
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Novel compound heterozygous LOXHD1 alleles reported in a Pakistani family with prelingual autosomal recessive nonsyndromic hearing loss. Both are missense changes at conserved residues.</div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4338,6 +4380,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-progressive-developing-brain-injury" data-dismech-node="Non-Progressive Developing-Brain Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Progressive Developing-Brain Injury</div>
 
+
                 <div class="item-desc">Cerebral palsy results from a static (non-progressive) disturbance or lesion of the developing fetal or infant brain. Although the underlying brain lesion is fixed, its clinical expression evolves as the child grows. The injury is heterogeneous in timing and mechanism (antenatal, perinatal, or early postnatal) and defines the motor phenotype.</div>
 
 
@@ -4479,6 +4522,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-periventricular-white-matter-injury" data-dismech-node="Periventricular White Matter Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Periventricular White Matter Injury</div>
+
 
                 <div class="item-desc">In preterm infants, hypoxia-ischemia and inflammation injure the periventricular white matter (periventricular leukomalacia). Pre-myelinating oligodendrocyte precursor cells are selectively vulnerable to glutamate excitotoxicity, free-radical (oxidative/nitrative) attack, and cytokine injury, producing focal necrosis and diffuse hypomyelination of the white matter tracts carrying descending motor fibers to the legs — the substrate of spastic diplegia.</div>
 
@@ -4711,6 +4755,7 @@ This pathophysiological event occurs in periventricular white matter, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoxic-ischemic-encephalopathy" data-dismech-node="Hypoxic-Ischemic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoxic-Ischemic Encephalopathy</div>
+
 
                 <div class="item-desc">In term infants, an acute perinatal hypoxic-ischemic insult causes energy failure, glutamate excitotoxicity, and a delayed phase of oxidative stress, mitochondrial dysfunction, and apoptotic/necrotic neuronal death. Depending on severity and duration, injury targets the cerebral cortex, watershed white matter, and — in acute profound asphyxia — the deep grey nuclei (basal ganglia and thalamus).</div>
 
@@ -4966,6 +5011,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perinatal-neuroinflammation" data-dismech-node="Perinatal Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Perinatal Neuroinflammation</div>
 
+
                 <div class="item-desc">Intrauterine infection/inflammation (chorioamnionitis) and the fetal inflammatory response syndrome sensitize the developing brain. Pro-inflammatory cytokines and activated microglia amplify white matter and neuronal injury and are an independent pathway to cerebral palsy, synergizing with hypoxia-ischemia.</div>
 
 
@@ -5160,6 +5206,7 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-and-thalamic-injury" data-dismech-node="Basal Ganglia and Thalamic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Ganglia and Thalamic Injury</div>
 
+
                 <div class="item-desc">Injury to the basal ganglia and thalamus — from acute profound perinatal asphyxia or bilirubin encephalopathy — disrupts motor control circuits and produces the involuntary movements (dystonia, choreoathetosis) of dyskinetic cerebral palsy.</div>
 
 
@@ -5241,6 +5288,7 @@ This pathophysiological event occurs in basal ganglia, annotated with basal gang
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bilirubin-encephalopathy-kernicterus" data-dismech-node="Bilirubin Encephalopathy (Kernicterus)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bilirubin Encephalopathy (Kernicterus)</div>
+
 
                 <div class="item-desc">Severe unconjugated hyperbilirubinemia in the neonate allows lipophilic bilirubin to cross the blood-brain barrier and deposit selectively in the globus pallidus, subthalamic nucleus, and other deep grey structures, causing neurotoxic injury that manifests as dyskinetic (choreoathetoid) cerebral palsy, often with auditory neuropathy and gaze abnormalities.</div>
 
@@ -5339,6 +5387,7 @@ This pathophysiological event occurs in basal ganglia, annotated with basal gang
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticospinal-tract-disruption" data-dismech-node="Corticospinal Tract Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticospinal Tract Disruption</div>
 
+
                 <div class="item-desc">Damage to the corticospinal (pyramidal) motor pathways is the anatomic lesion underlying spastic cerebral palsy, removing descending motor output and inhibitory control over the spinal motor apparatus.</div>
 
 
@@ -5400,6 +5449,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-motor-neuron-syndrome" data-dismech-node="Upper Motor Neuron Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper Motor Neuron Syndrome</div>
+
 
                 <div class="item-desc">Loss of descending corticospinal control produces the clinical upper motor neuron syndrome: velocity-dependent hypertonia (spasticity), hyperreflexia, and extensor plantar responses. This is the direct clinical substrate of the spastic motor phenotype.</div>
 
@@ -5476,6 +5526,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-musculoskeletal-pathology" data-dismech-node="Secondary Musculoskeletal Pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Musculoskeletal Pathology</div>
+
 
                 <div class="item-desc">Chronic spasticity and abnormal muscle tone acting on a growing skeleton lead to progressive secondary musculoskeletal deformities: muscle-tendon contractures, hip subluxation/dislocation, and neuromuscular scoliosis. These are secondary consequences of the fixed brain lesion, not progression of the lesion itself.</div>
 
@@ -5603,6 +5654,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5637,6 +5691,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5720,6 +5777,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5793,6 +5853,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5829,6 +5892,9 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5912,6 +5978,9 @@ This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5990,6 +6059,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6063,6 +6135,9 @@ This clinical feature is Spastic diplegia (HP:0001264). HP:0001264 is a phenotyp
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-tetraplegia" data-dismech-node="Spastic tetraplegia" data-dismech-type="phenotype">
@@ -6088,6 +6163,9 @@ This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6131,6 +6209,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
@@ -6156,6 +6237,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6199,6 +6283,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6233,6 +6320,9 @@ This clinical feature is Hemiplegia (HP:0002301). HP:0002301 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6307,6 +6397,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6376,6 +6469,9 @@ This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6440,6 +6536,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6518,6 +6617,9 @@ This clinical feature is Delayed gross motor development (HP:0002194). HP:000219
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-gait-disturbance" data-dismech-node="Gait disturbance" data-dismech-type="phenotype">
@@ -6543,6 +6645,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6579,6 +6684,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6655,6 +6763,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6719,6 +6830,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6797,6 +6911,9 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6863,6 +6980,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6943,6 +7063,9 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7041,6 +7164,9 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7144,6 +7270,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7214,6 +7343,9 @@ This disease-associated gene is TUBA1A (hgnc:20766). hgnc:20766 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

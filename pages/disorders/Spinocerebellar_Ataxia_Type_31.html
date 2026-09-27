@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4739,6 +4781,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bean1-tk2-intronic-tggaa-n-pentanucleotide-repeat-insertion" data-dismech-node="BEAN1/TK2 Intronic (TGGAA)n Pentanucleotide Repeat Insertion" data-dismech-type="pathophysiology">
                 <div class="item-name">BEAN1/TK2 Intronic (TGGAA)n Pentanucleotide Repeat Insertion</div>
 
+
                 <div class="item-desc">The causative lesion is a 2.5-3.8 kb insertion of complex pentanucleotide repeats at 16q22.1, located in an intronic segment shared by BEAN1 and TK2. The insertion contains (TGGAA)n, (TAGAA)n, (TAAAA)n and (TAAAATAGAA)n, but only (TGGAA)n segregates with the disease: the other motifs are encountered in control Japanese chromosomes, and the rare control insertions lack the (TGGAA)n stretch. This is the disorder-specific substitution this entry makes against the generic molecular lesion of the conserved Purkinje-degeneration module.
 Two negatives matter for interpretation. Insertion size alone does not establish pathogenicity, because control alleles can also carry a large insertion; the (TGGAA)n content does. And the lesion is intronic and far larger than an exome read, so standard exome sequencing does not exclude it.</div>
 
@@ -4984,6 +5027,7 @@ This pathophysiological event involves TK2 (hgnc:11831). hgnc:11831 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bidirectional-transcription-of-the-repeat-into-uggaa-n-repeat-rna" data-dismech-node="Bidirectional Transcription of the Repeat into (UGGAA)n Repeat RNA" data-dismech-type="pathophysiology">
                 <div class="item-name">Bidirectional Transcription of the Repeat into (UGGAA)n Repeat RNA</div>
 
+
                 <div class="item-desc">The insertion is transcribed as two independent non-coding repeat RNAs: (UGGAA)n in the BEAN1 direction, brain-restricted, and (UUCCA)n in the TK2 direction, ubiquitous. The (UGGAA)n species is treated as the pathogenic one on three grounds: BEAN1 is brain-only while the disease is confined to the nervous system, RNA foci in patient Purkinje cells are detected only in the BEAN1 direction with no antisense foci, and the BEAN1-direction transcript is the more toxic of the two in cultured cells.
 This node also carries the reason the entry does not model a loss-of-function mechanism: BEAN1, TK2 and neighbouring gene expression and splicing are comparable between patient and control cerebella, so haploinsufficiency is not the primary route. That negative comes with its own caveat, quoted below, because bulk cerebellar measurement averages over a tissue in which Purkinje cells are a small minority.</div>
 
@@ -5154,6 +5198,7 @@ This pathophysiological event involves transcription of the intronic pentanucleo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-uggaa-n-rna-foci-in-purkinje-cells" data-dismech-node="Nuclear (UGGAA)n RNA Foci in Purkinje Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Nuclear (UGGAA)n RNA Foci in Purkinje Cells</div>
+
 
                 <div class="item-desc">The (UGGAA)n transcript accumulates as discrete nuclear RNA foci in cerebellar Purkinje cells of SCA31 patients and not in controls. The foci are confined to Purkinje cell nuclei, are not seen in other neurons or in glia, are detected in roughly 30% of patient Purkinje cells examined, and measure about 0.2 to 1.8 micrometres. In the SCA31 fly model the number of foci tracks with disease severity, which is the closest available link between foci burden and outcome.
 A precise reading of what the human data show: the foci are associated with Purkinje cell degeneration. That is the word the neuropathology paper uses, and this entry keeps it. Whether foci formation is the proximal cause of the degeneration, or an accompanying marker of the toxic transcript, is not settled by an association in fixed tissue.</div>
@@ -5367,6 +5412,7 @@ This pathophysiological event involves nuclear (UGGAA)n RNA focus, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-binding-and-redistribution-of-rna-binding-and-splicing-factors" data-dismech-node="Binding and Redistribution of RNA-Binding and Splicing Factors" data-dismech-type="pathophysiology">
                 <div class="item-name">Binding and Redistribution of RNA-Binding and Splicing Factors</div>
 
+
                 <div class="item-desc">(UGGAA)n binds a defined set of RNA-binding proteins. The original report showed by electrophoretic mobility-shift assay that the serine/arginine-rich splicing factors SRSF1 and SRSF9 (published under the older SFRS1/SFRS9 names) bind the repeat in vitro. Later pulldown from nuclear extract confirmed sequence-specific co-precipitation of TDP-43, HNRNPM, SRSF9 and FUS with r(UGGAA)20 but not with the antisense sequence, and TDP-43 was shown to co-localize with foci in human SCA31 Purkinje cells.
 The direction of the effect is not the simple sequestration story it first resembles, and this is the most consequential nuance in SCA31 mechanism. TDP-43, FUS and hnRNPA2B1 do not merely get trapped: they act as RNA chaperones, and raising their level suppresses rather than worsens (UGGAA)n toxicity in Drosophila. So this node is curated as an alteration of the RNA-protein equilibrium rather than as loss of splicing-factor function, and no splicing target has been shown mis-spliced in human SCA31 cerebellum.</div>
 
@@ -5571,6 +5617,7 @@ This pathophysiological event involves abnormal (UGGAA)n repeat RNA binding by s
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-repeat-associated-translation-of-poly-wngme-pentapeptide-protein" data-dismech-node="Repeat-Associated Translation of poly-WNGME Pentapeptide Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Repeat-Associated Translation of poly-WNGME Pentapeptide Protein</div>
+
 
                 <div class="item-desc">The repeat RNA is translated into a pentapeptide repeat protein, poly-WNGME (Trp-Asn-Gly-Met-Glu), which accumulates as granular material in the cell bodies and dendrites of patient Purkinje cells and in the fly model. Whether this proceeds by repeat-associated non-AUG translation or by conventional AUG-initiated translation is explicitly unresolved: unlike most repeat-expansion disorders, the TGGAA repeat itself contains an AUG codon, and the flanking TAAAA and TAGAA sequences supply stop codons, so all three reading frames of the repeat yield the same product.
 In the fly, raising TDP-43 suppresses PPR protein production as well as foci formation, so the two toxic arms are not independently regulated.</div>
@@ -5793,6 +5840,7 @@ This pathophysiological event involves abnormal repeat-associated translation of
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-degeneration" data-dismech-node="Purkinje Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Degeneration</div>
 
+
                 <div class="item-desc">The tissue lesion is a Purkinje-cell-restricted degeneration of the cerebellar cortex, with the cerebrum, brainstem and spinal cord appearing normal. Purkinje cells fall in number and shrink, and the surviving cells are characteristically surrounded by halo-like amorphous material made of calbindin-positive somatic sprouts and synaptophysin-positive presynaptic terminals: that is, an aberrant reinnervation of the shrinking soma rather than a deposit of aggregated protein. Ubiquitin-positive degradation granules and fragmentation of the Golgi apparatus are enriched in the same cells. Detailed morphological work separates two degenerative processes: shrinkage with the halo, which carries the bent, elongated, folded nuclei and the Golgi fragmentation and is considered specific to SCA31, and shrinkage without it.
 This entry does not declare conformance to the module&#39;s Purkinje calcium and proteostasis node. Golgi fragmentation and ubiquitin-positive granules are proteostasis-adjacent findings, but nothing bearing on Purkinje calcium handling has been measured in SCA31, in patients or in a mammalian model, and the module node asserts both.</div>
 
@@ -5977,6 +6025,7 @@ This pathophysiological event involves fragmented Golgi apparatus, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-cortical-atrophy" data-dismech-node="Cerebellar Cortical Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Cortical Atrophy</div>
 
+
                 <div class="item-desc">Cerebellar atrophy, most marked in the upper vermis, with the brainstem relatively spared. In the pooled literature review it was present in 78.7% of imaged patients; brainstem and cortical atrophy were each reported in 9.1%, which is the imaging counterpart of the extracerebellar signs curated among the phenotypes.</div>
 
 
@@ -6052,6 +6101,7 @@ This pathophysiological event involves fragmented Golgi apparatus, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebellar-ataxia" data-dismech-node="Progressive Cerebellar Ataxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebellar Ataxia</div>
+
 
                 <div class="item-desc">The clinical endpoint: late-onset, slowly progressive truncal and limb ataxia with cerebellar dysarthria, classically without pyramidal signs, neuropathy or gaze limitation.</div>
 
@@ -6316,6 +6366,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6391,6 +6444,9 @@ This clinical feature is Hypoacousia, annotated with Hearing impairment (HP:0000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6478,6 +6534,9 @@ This clinical feature is Oculomotor dysfunction, annotated with Abnormality of e
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6551,6 +6610,9 @@ This clinical feature is Reduced muscle tone, annotated with Hypotonia (HP:00012
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6649,6 +6711,9 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
 
 
                     </div>
+
+
+
 
 
 
@@ -6768,6 +6833,9 @@ This clinical feature is Limb ataxia (HP:0002070), qualified as course progressi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6857,6 +6925,9 @@ This clinical feature is Cerebellar dysarthria, annotated with Dysarthria (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6923,6 +6994,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6999,6 +7073,9 @@ This clinical feature is Dysreflexia, annotated with Abnormal reflex (HP:0031826
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7065,6 +7142,9 @@ This clinical feature is Vibratory hypoesthesia, annotated with Impaired vibrato
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7168,6 +7248,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7232,6 +7315,9 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7379,6 +7465,9 @@ This disease-associated gene is BEAN1 (hgnc:24160). hgnc:24160 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -7501,6 +7590,9 @@ This disease-associated gene is TK2 (hgnc:11831). hgnc:11831 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5089,6 +5131,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurovascular-compression-at-the-nerve-root-entry-zone" data-dismech-node="Neurovascular Compression at the Nerve Root Entry Zone" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurovascular Compression at the Nerve Root Entry Zone</div>
 
+
                 <div class="item-desc">An arterial loop, less often a vein, contacts the sensory nerve root close to its entry into the brainstem and indents, displaces, or flattens it. Contact alone is common on asymptomatic nerves and is not sufficient; it is the morphological change — displacement or atrophy — that is specific to the symptomatic side, and its location at the root entry zone that carries the diagnostic weight. The compression is pulsatile, so the mechanical insult is delivered with every arterial cycle over years.</div>
 
 
@@ -5254,6 +5297,7 @@ This pathophysiological event occurs in superior cerebellar artery (UBERON:00016
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-demyelination-and-axonal-juxtaposition" data-dismech-node="Focal Demyelination and Axonal Juxtaposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Demyelination and Axonal Juxtaposition</div>
+
 
                 <div class="item-desc">The compressed segment of the root loses myelin and demyelinated axons come to lie against one another with no glial process between them. Because the proximal root is a central-nervous-system segment, the myelinating cell involved there is the oligodendrocyte rather than the Schwann cell. This is the lesion that the two aetiological routes of this disease converge on: vascular compression reaches it mechanically, multiple sclerosis reaches it immunologically, and a posterior fossa tumour reaches it by mass effect.</div>
 
@@ -5456,6 +5500,7 @@ This pathophysiological event occurs in trigeminal nerve root (UBERON:0004673). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-voltage-gated-sodium-channel-expression" data-dismech-node="Dysregulated Voltage-Gated Sodium Channel Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Voltage-Gated Sodium Channel Expression</div>
+
 
                 <div class="item-desc">Injured trigeminal sensory neurons remodel their voltage-gated sodium channel complement, lowering the threshold for impulse initiation and supporting repetitive high-frequency firing. This is the node that the first-line drugs act on: carbamazepine and oxcarbazepine stabilize the inactivated state of these channels. The specific subunit pattern is characterised mainly in rodent nerve-injury models rather than in human tissue, so the identity of the individual channels is held less firmly than the fact of the dysregulation.</div>
 
@@ -5711,6 +5756,7 @@ This pathophysiological event occurs in trigeminal ganglion (UBERON:0001675). UB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-discharge-and-ephaptic-cross-excitation" data-dismech-node="Ectopic Discharge and Ephaptic Cross-Excitation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Discharge and Ephaptic Cross-Excitation</div>
 
+
                 <div class="item-desc">At the demyelinated segment, impulses arise where they should not and spread laterally between apposed bare axons. A light touch carried by large tactile afferents can therefore ignite activity in nociceptive fibres, and the resulting cross-excitation is amplified into a synchronized high-frequency burst. This is the step that explains the two features nothing else in the disease accounts for: that an innocuous stimulus in a small trigger zone provokes severe pain, and that the paroxysm builds, peaks, and stops abruptly with a refractory period afterwards.</div>
 
 
@@ -5945,6 +5991,7 @@ This pathophysiological event involves abnormal action potential propagation (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paroxysmal-neuralgiform-pain" data-dismech-node="Paroxysmal Neuralgiform Pain" data-dismech-type="pathophysiology">
                 <div class="item-name">Paroxysmal Neuralgiform Pain</div>
 
+
                 <div class="item-desc">The clinical endpoint of the graph: abrupt, severe, stabbing or electric-shock-like pain lasting seconds to two minutes, confined to the territory of the affected nerve, recurring in volleys and typically evoked by an innocuous trigger. Complete remissions lasting weeks to years are characteristic and distinguish it from most other neuropathic pain.</div>
 
 
@@ -6089,6 +6136,7 @@ This pathophysiological event involves increased sensory perception of pain (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trigger-zone-mechanical-provocation" data-dismech-node="Trigger Zone Mechanical Provocation" data-dismech-type="pathophysiology">
                 <div class="item-name">Trigger Zone Mechanical Provocation</div>
 
+
                 <div class="item-desc">Innocuous mechanical stimulation of a confined cutaneous or intraoral trigger zone — chewing, talking, shaving, a breath of cold air, or, for glossopharyngeal neuralgia, swallowing — sets off a paroxysm. Evoked attacks are so nearly universal in classical trigeminal neuralgia that their presence is a diagnostic criterion. Triggerability has been interpreted as a sign of cross-excitation between tactile and nociceptive fibres, which is the reading this graph follows, but it is an interpretation rather than a directly demonstrated coupling.</div>
 
 
@@ -6198,6 +6246,7 @@ This pathophysiological event involves detection of mechanical stimulus involved
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-demyelinating-plaque-in-multiple-sclerosis" data-dismech-node="Central Demyelinating Plaque in Multiple Sclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Demyelinating Plaque in Multiple Sclerosis</div>
+
 
                 <div class="item-desc">In secondary disease due to multiple sclerosis, an inflammatory demyelinating plaque involving the pontine trigeminal pathways or the root entry zone produces the same demyelinated, bare-axon segment that vascular compression produces mechanically. Increased susceptibility of the root to coexisting neurovascular contact has also been proposed. Bilateral disease, which is otherwise almost unknown, should raise suspicion of this route.</div>
 
@@ -6336,6 +6385,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-posterior-fossa-mass-compressing-the-nerve-root" data-dismech-node="Posterior Fossa Mass Compressing the Nerve Root" data-dismech-type="pathophysiology">
                 <div class="item-name">Posterior Fossa Mass Compressing the Nerve Root</div>
 
+
                 <div class="item-desc">A cerebellopontine-angle tumour, most often benign, compresses the root near its entry into the pons and induces focal demyelination in the same way an artery does. Malignant tumours behave differently: they tend to infiltrate the nerve and cause axonal degeneration, which produces a sensory deficit and a pain phenotype that does not resemble neuralgia. Tumour and multiple sclerosis together account for roughly 15% of trigeminal neuralgia, which is why imaging is required rather than optional.</div>
 
 
@@ -6457,6 +6507,7 @@ This pathophysiological event occurs in trigeminal nerve root (UBERON:0004673). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracranial-entrapment-of-the-occipital-nerves" data-dismech-node="Extracranial Entrapment of the Occipital Nerves" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracranial Entrapment of the Occipital Nerves</div>
+
 
                 <div class="item-desc">The mechanism proposed for occipital neuralgia, and the reason that subtype sits apart from the rest of this entry. The greater, lesser, and third occipital nerves are compressed at defined points along their extracranial course — where the greater occipital nerve curves around the obliquus capitis inferior, pierces the semispinalis capitis and trapezius, and crosses the occipital artery. There is no brainstem root entry zone involved, and this node is deliberately not connected to the demyelination-and-ephaptic chain, because the evidence for that chain comes from cranial nerve roots and has not been shown for these nerves.</div>
 
@@ -6628,6 +6679,9 @@ This clinical feature is Syncope during a neuralgic paroxysm, annotated with Syn
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6730,6 +6784,9 @@ This clinical feature is Ictal lacrimation, annotated with Increased tear produc
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6867,6 +6924,9 @@ This clinical feature is Hypoesthesia (HP:0033748). HP:0033748 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6992,6 +7052,9 @@ This clinical feature is Trigeminal neuralgia (HP:0100661), qualified as tempora
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7078,6 +7141,9 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
                     </div>
+
+
+
 
 
 
@@ -7177,6 +7243,9 @@ This clinical feature is Ear pain (HP:0030766). HP:0030766 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7248,6 +7317,9 @@ This clinical feature is Occipital neuralgia (HP:0012318). HP:0012318 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7308,6 +7380,9 @@ This clinical feature is Occipital neuralgia (HP:0012318). HP:0012318 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Left unbound on purpose. This record is a laterality claim, and HPO has no term for it; the schema&#39;s `LateralityEnum` has no UNILATERAL value either. Binding HP:0033345 Neuralgia here would restate the pain concept already bound on the first phenotype without expressing the laterality, so the free-text `preferred_term` is kept instead.</div>
 
 
@@ -7362,6 +7437,9 @@ This clinical feature is Occipital neuralgia (HP:0012318). HP:0012318 is a pheno
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately left unbound. HP:0012533 Allodynia is the obvious candidate and is wrong: the source cited here separates the two explicitly, noting that confined trigger zones and the refractory period after an attack distinguish triggered neuralgia from mechanical allodynia. No HPO term expresses trigger-zone-evoked paroxysm, so a free-text `preferred_term` is kept rather than asserting allodynia.</div>
@@ -7509,6 +7587,9 @@ This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7608,6 +7689,9 @@ This disease-associated gene is MFGE8 (hgnc:7036). hgnc:7036 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4962,6 +5004,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-septation-transcriptional-program-disruption" data-dismech-node="Cardiac Septation Transcriptional Program Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Septation Transcriptional Program Disruption</div>
 
+
                 <div class="item-desc">Ventricular septation depends on a small network of interacting cardiac transcription factors. GATA4 missense and frameshift mutations segregate with isolated septal defects in large pedigrees; the disease-causing G296S substitution reduces DNA binding and transcriptional activity and abolishes the physical interaction between GATA4 and TBX5. The reciprocal experiment closes the loop: TBX5 missense mutations that cause similar septal defects disrupt the same interaction from the other side. NKX2-5 is the other established locus. What the network explains is a minority of defects, but it explains them mechanistically rather than statistically.
 </div>
 
@@ -5311,6 +5354,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stochastic-error-in-cardiac-morphogenesis" data-dismech-node="Stochastic Error in Cardiac Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Stochastic Error in Cardiac Morphogenesis</div>
 
+
                 <div class="item-desc">Most ventricular septal defects have no identifiable genetic or environmental cause, and the epidemiology suggests this is a fact about the disease rather than a gap in ascertainment. Incidence is essentially flat across races, seasons, maternal age, birth order, sex, and socioeconomic status; known risk factors explain few cases; and monozygotic twins, who share genome and prenatal environment, are concordant only about 10% of the time. The inference is that many defects arise as random errors during a morphogenetic process whose complexity sets the error rate - a claim with the practical corollary that many are not preventable.
 </div>
 
@@ -5539,6 +5583,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interventricular-communication" data-dismech-node="Interventricular Communication" data-dismech-type="pathophysiology">
                 <div class="item-name">Interventricular Communication</div>
 
+
                 <div class="item-desc">The anatomic lesion: a communication between the ventricular chambers. Its location is the single strongest determinant of what happens next. Muscular defects, entirely bordered by septal muscle, close spontaneously in the large majority of cases as the muscular septum grows and remodels around them. Perimembranous defects, which abut the fibrous membranous septum, close far less often. Size matters within subtype - perimembranous defects of 4 mm or more are those that do not close - but subtype dominates.
 </div>
 
@@ -5703,6 +5748,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spontaneous-defect-closure" data-dismech-node="Spontaneous Defect Closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Spontaneous Defect Closure</div>
 
+
                 <div class="item-desc">The commonest outcome, and the reason this disease is managed by observation far more often than by intervention. In an unselected newborn cohort 83.5% of all defects had closed by one year, dropping prevalence from 3.3% at birth to 0.5% at age one. The subtype split is stark: muscular defects closed in 86.9% versus 46.9% of perimembranous. Closure begins before birth - a third of fetally diagnosed muscular defects close in utero.
 </div>
 
@@ -5835,6 +5881,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-to-right-shunt-and-pulmonary-overcirculation" data-dismech-node="Left-to-Right Shunt and Pulmonary Overcirculation" data-dismech-type="pathophysiology">
                 <div class="item-name">Left-to-Right Shunt and Pulmonary Overcirculation</div>
+
 
                 <div class="item-desc">Because systemic vascular resistance normally far exceeds pulmonary, blood crosses the defect from left to right, recirculating through the lungs. The magnitude of the shunt is set by the ratio of the two resistances together with defect size, not by defect size alone - which is why the shunt is small in the first days of life while pulmonary resistance is still high, and grows over the following weeks as it falls. The consequence is excess pulmonary blood flow and pressure, and a volume load returning to the left atrium and ventricle.
 </div>
@@ -5974,6 +6021,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-volume-overload-and-heart-failure" data-dismech-node="Left Ventricular Volume Overload and Heart Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Volume Overload and Heart Failure</div>
 
+
                 <div class="item-desc">The left ventricle handles the recirculating volume by dilating, and in a large defect this presents in infancy as congestive heart failure - tachypnoea, sweating with feeds, poor weight gain - typically after the first few weeks, once falling pulmonary resistance has allowed the shunt to grow. Failure to thrive in this setting is a haemodynamic sign rather than a nutritional one.
 </div>
 
@@ -6096,6 +6144,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obstructive-pulmonary-vascular-remodeling" data-dismech-node="Obstructive Pulmonary Vascular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Obstructive Pulmonary Vascular Remodeling</div>
+
 
                 <div class="item-desc">Longstanding exposure to increased pulmonary flow and pressure remodels the pulmonary vascular bed. Endothelial injury and the module-conserved smooth muscle response progressively narrow the small pulmonary vessels and raise pulmonary vascular resistance. This node conforms to the conserved central effector of the `pulmonary_vascular_remodeling` module, substituting shunt overcirculation for the BMPR2 lesion or acquired endothelial injury that trigger it in other forms of pulmonary arterial hypertension. It is the point of no return: the remodeling is what makes the disease irreversible, and once it is severe the haemodynamics that follow cannot be undone by closing the defect.
 </div>
@@ -6329,6 +6378,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shunt-reversal-and-eisenmenger-syndrome" data-dismech-node="Shunt Reversal and Eisenmenger Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Shunt Reversal and Eisenmenger Syndrome</div>
+
 
                 <div class="item-desc">When pulmonary vascular resistance rises to severe levels behind a large unrepaired post-tricuspid shunt, the direction of flow becomes bidirectional and then right to left. Deoxygenated blood enters the systemic circulation, producing cyanosis, secondary erythrocytosis, and multiorgan involvement. The clinically decisive point is that the defect has changed role: it is now the escape route for a suprasystemic right ventricle, and closing it is contraindicated rather than merely futile.
 </div>
@@ -6580,6 +6630,9 @@ This clinical feature is Polycythemia (HP:0001901). HP:0001901 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6660,6 +6713,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6724,6 +6780,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6816,6 +6875,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092), qualified
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6885,6 +6947,9 @@ This clinical feature is Heart murmur (HP:0030148). HP:0030148 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6949,6 +7014,9 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7029,6 +7097,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Retained as an established bedside manifestation of infant heart failure, but intentionally left without an evidence block or graph edge because no cached source in this entry documents hepatomegaly specifically in ventricular septal defect.
 </div>
 
@@ -7075,6 +7146,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                     </div>
 
 
+
+
+
                     <div class="item-desc">Retained for clinical completeness but intentionally left without an evidence block or graph edge because no cached source in this entry documents recurrent respiratory infection specifically in ventricular septal defect.
 </div>
 
@@ -7119,6 +7193,9 @@ This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7202,6 +7279,9 @@ This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7275,6 +7355,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7393,6 +7476,9 @@ This disease-associated gene is GATA4 (hgnc:4173). hgnc:4173 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7465,6 +7551,9 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7533,6 +7622,9 @@ This disease-associated gene is TBX5 (hgnc:11604). hgnc:11604 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

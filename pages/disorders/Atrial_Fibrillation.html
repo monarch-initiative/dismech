@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4993,6 +5035,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nox2-dependent-atrial-oxidative-stress" data-dismech-node="NOX2-Dependent Atrial Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">NOX2-Dependent Atrial Oxidative Stress</div>
 
+
                 <div class="item-desc">In obesity-driven AF models, NOX2-derived oxidative stress promotes atrial ion-channel remodeling and abnormal action-potential duration.</div>
 
 
@@ -5068,6 +5111,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-electrical-remodeling" data-dismech-node="Atrial Electrical Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial Electrical Remodeling</div>
+
 
                 <div class="item-desc">Rapid atrial rates cause shortening of atrial refractory period and loss of rate adaptation, promoting AF maintenance. AF begets AF.
 </div>
@@ -5309,6 +5353,7 @@ This pathophysiological event involves Cardiac Conduction, annotated with cardia
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-nlrp3-inflammasome-activation" data-dismech-node="Fibroblast NLRP3 Inflammasome Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroblast NLRP3 Inflammasome Activation</div>
 
+
                 <div class="item-desc">NLRP3 inflammasome signaling is increased in atrial fibroblasts from people with AF. Fibroblast-restricted activation is sufficient to create a profibrotic, conduction-slowing atrial substrate in mice.</div>
 
 
@@ -5507,6 +5552,7 @@ This pathophysiological event involves NLRP3 (hgnc:16400). hgnc:16400 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-fibrosis" data-dismech-node="Atrial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial Fibrosis</div>
 
+
                 <div class="item-desc">Excess atrial extracellular matrix separates cardiomyocyte bundles and creates heterogeneous, slowed conduction that favors reentry and AF maintenance.
 </div>
 
@@ -5663,6 +5709,7 @@ This pathophysiological event involves Cardiac Fibroblast, annotated with fibrob
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-vein-triggers" data-dismech-node="Pulmonary Vein Triggers" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Vein Triggers</div>
 
+
                 <div class="item-desc">Ectopic beats originating from pulmonary vein myocardial sleeves commonly trigger AF episodes. These foci have distinct electrophysiology.
 </div>
 
@@ -5760,6 +5807,7 @@ This pathophysiological event occurs in Pulmonary vein (UBERON:0002016). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-thrombus-formation" data-dismech-node="Atrial Thrombus Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial Thrombus Formation</div>
+
 
                 <div class="item-desc">Loss of atrial contraction leads to blood stasis, particularly in the left atrial appendage, promoting thrombus formation and embolic stroke.
 </div>
@@ -5862,6 +5910,7 @@ This pathophysiological event occurs in Pulmonary vein (UBERON:0002016). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-microbial-tma-production" data-dismech-node="Gut Microbial TMA Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Gut Microbial TMA Production</div>
+
 
                 <div class="item-desc">Gut bacteria transform dietary choline to trimethylamine (TMA) through the CutC/D pathway. Iodomethylcholine (IMC) inhibits this microbial choline-to-TMA(O) transformation.
 </div>
@@ -5999,6 +6048,7 @@ This pathophysiological event involves increased microbial amine biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-circulating-tmao" data-dismech-node="Elevated Circulating TMAO" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Circulating TMAO</div>
+
 
                 <div class="item-desc">Raised systemic plasma TMAO is the exposure that independently associates with prevalent AF in humans and predicts earlier AF onset/persistence in mouse models; the CutC/D inhibitor IMC lowers it and delays AF.
 </div>
@@ -6143,6 +6193,7 @@ This pathophysiological event involves increased microbial amine biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-muscarinic-m2-receptor-inhibition" data-dismech-node="Muscarinic M2 Receptor Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Muscarinic M2 Receptor Inhibition</div>
+
 
                 <div class="item-desc">TMAO inhibits muscarinic receptor 2 (M2R) signaling.
 </div>
@@ -6323,6 +6374,7 @@ This pathophysiological event involves decreased G protein-coupled acetylcholine
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-autonomic-dysfunction" data-dismech-node="Cardiac Autonomic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Autonomic Dysfunction</div>
+
 
                 <div class="item-desc">M2R inhibition produces autonomic dysfunction in vivo and is proposed to promote the electrical substrate for AF.
 </div>
@@ -6508,6 +6560,9 @@ This clinical feature is Thromboembolic stroke (HP:0001727). HP:0001727 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Major complication due to atrial thromboembolism; no universal frequency is asserted.</div>
 
 
@@ -6591,6 +6646,9 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6655,6 +6713,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6740,6 +6801,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6818,6 +6882,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6887,6 +6954,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6951,6 +7021,9 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7071,6 +7144,9 @@ This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7141,6 +7217,9 @@ This disease-associated gene is ZFHX3 (hgnc:777). hgnc:777 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 

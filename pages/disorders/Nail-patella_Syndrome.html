@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Nail-patella%20Syndrome"
@@ -4019,7 +4061,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">26</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4241,6 +4283,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lmx1b-haploinsufficiency" data-dismech-node="LMX1B Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">LMX1B Haploinsufficiency</div>
 
+
                 <div class="item-desc">Heterozygous loss-of-function variants in LMX1B (a LIM-homeodomain transcription factor on 9q33.3) reduce functional LMX1B dosage below a developmental threshold in every LMX1B-expressing lineage. Haploinsufficiency is the predominant mechanism (supported by whole-gene deletion phenocopies), though a subset of homeodomain missense alleles that abolish DNA binding can act by a dominant-negative mechanism. The reduced transcription-factor activity is the shared initiating lesion for the organ-specific branches below.</div>
 
 
@@ -4296,6 +4339,8 @@ This genetic context concerns LMX1B (hgnc:6654). hgnc:6654 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
 
 
@@ -4303,6 +4348,9 @@ This genetic context concerns LMX1B (hgnc:6654). hgnc:6654 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous loss-of-function reduces LMX1B dosage below the developmental threshold (haploinsufficiency); some homeodomain missense alleles are dominant-negative.</div>
 
@@ -4429,6 +4477,7 @@ This pathophysiological event involves decreased LMX1B DNA-binding transcription
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-dorsoventral-limb-patterning" data-dismech-node="Failed Dorsoventral Limb Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Dorsoventral Limb Patterning</div>
+
 
                 <div class="item-desc">In the dorsal limb mesenchyme LMX1B is the master dorsalizing transcription factor (induced by Wnt7a from the dorsal ectoderm). Reduced dosage produces a partial &#34;double-ventral&#34; limb, manifesting as dysplasia of dorsal-derived structures: nails, patellae, elbows, and the iliac horns. In mice, complete loss yields symmetrical ventral-ventral autopods lacking nails and patellae.</div>
 
@@ -4579,6 +4628,7 @@ This pathophysiological event involves decreased dorsal/ventral limb pattern for
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-transcriptional-program-failure" data-dismech-node="Podocyte Transcriptional Program Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Podocyte Transcriptional Program Failure</div>
+
 
                 <div class="item-desc">LMX1B is expressed in glomerular podocytes into postnatal life and is required to induce and maintain the podocyte differentiation program, including type IV collagen genes (COL4A3/COL4A4) and slit-diaphragm genes (NPHS2/podocin, CD2AP). Reduced LMX1B activity impairs this program and also the maintenance of the mature podocyte actin cytoskeleton.</div>
 
@@ -4751,6 +4801,7 @@ This pathophysiological event involves decreased podocyte development (GO:007201
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-basement-membrane-defect" data-dismech-node="Glomerular Basement Membrane Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomerular Basement Membrane Defect</div>
 
+
                 <div class="item-desc">Reduced type IV collagen (alpha3/alpha4) deposition and podocyte dysfunction produce the characteristic ultrastructural GBM lesion of NPS: irregular (&#34;moth-eaten&#34;) thickening with electron-lucent zones and deposits of fibrillar collagen. The filtration barrier defect causes proteinuria, hematuria, and, in a subset, FSGS-type glomerulosclerosis progressing to kidney failure.</div>
 
 
@@ -4881,6 +4932,7 @@ This pathophysiological event involves decreased glomerular basement membrane or
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trabecular-meshwork-dysfunction" data-dismech-node="Trabecular Meshwork Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Trabecular Meshwork Dysfunction</div>
 
+
                 <div class="item-desc">LMX1B is one of the most active transcription factors in the anterior-segment trabecular meshwork and is most highly expressed in the contractile, metabolically active TM3 cell subtype. In an Lmx1b homeodomain-variant (V265D) mouse model, TM3 cells show mitochondrial swelling with reduced cristae, implicating mitochondrial dysfunction in outflow failure.</div>
 
 
@@ -5009,6 +5061,7 @@ This pathophysiological event involves trabecular meshwork cell (CL:0002367). CL
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-intraocular-pressure" data-dismech-node="Elevated Intraocular Pressure" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Intraocular Pressure</div>
 
+
                 <div class="item-desc">Impaired aqueous-humor outflow through the dysfunctional trabecular meshwork raises intraocular pressure, the proximate driver of the open-angle glaucoma and ocular hypertension seen at increased frequency and younger age in NPS.</div>
 
 
@@ -5088,6 +5141,7 @@ This pathophysiological event involves trabecular meshwork cell (CL:0002367). CL
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoaminergic-neuron-developmental-deficit" data-dismech-node="Monoaminergic Neuron Developmental Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Monoaminergic Neuron Developmental Deficit</div>
+
 
                 <div class="item-desc">LMX1B is required for the specification and maintenance of midbrain dopaminergic and hindbrain serotonergic neurons and for dorsal spinal cord sensory-relay interneurons. Reduced dosage is proposed to underlie the reduced pain/temperature sensation and the elevated ADHD/depressive symptomatology reported in NPS. This branch is the most inferential, resting largely on mouse neurodevelopmental biology with human correlation from a survey study.</div>
 
@@ -5288,7 +5342,7 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE Inhibitor / ARB Renoprotective Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angiotensin-converting enzyme (ACE) inhibitors (and/or angiotensin receptor blockers) are first-line to control blood pressure and slow progression of proteinuria in NPS nephropathy. Chronic NSAID use should be avoided because of its detrimental effect on kidney function; ACE inhibitors are switched to pregnancy-safe alternatives before or upon recognition of pregnancy, which is also a period of increased preeclampsia risk warranting close monitoring.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"ACE inhibitor\"]}}, {\"id\": \"Attention deficit hyperactivity disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated self-reported ADHD (inattentive) symptoms in adults with NPS, hypothesized to relate to LMX1B\u0027s role in monoaminergic neuron development. From a single case-control symptom-survey study; preliminary.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated depressive symptoms co-occurring with ADHD symptoms in adults with NPS; from the same case-control survey and considered preliminary.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Elevated Intraocular Pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired aqueous-humor outflow through the dysfunctional trabecular meshwork raises intraocular pressure, the proximate driver of the open-angle glaucoma and ocular hypertension seen at increased frequency and younger age in NPS.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"End-stage kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority (up to ~15%) of affected individuals progress to end-stage kidney disease requiring dialysis or transplantation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Failed Dorsoventral Limb Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the dorsal limb mesenchyme LMX1B is the master dorsalizing transcription factor (induced by Wnt7a from the dorsal ectoderm). Reduced dosage produces a partial \\\"double-ventral\\\" limb, manifesting as dysplasia of dorsal-derived structures: nails, patellae, elbows, and the iliac horns. In mice, complete loss yields symmetrical ventral-ventral autopods lacking nails and patellae.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dorsal/ventral limb pattern formation\"], \"animal_models\": [{\"name\": \"Lmx1b-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Lmx1b knockout (homozygous null)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous loss reproduces failed dorsal limb specification with absent nails and patellae.\"}]}}, {\"id\": \"Focal segmental glomerulosclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"NPS nephropathy shows FSGS-pattern glomerulosclerosis on light microscopy with the characteristic ultrastructural GBM lesion; specific LMX1B homeodomain variants can cause isolated FSGS without extrarenal features.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000097\"}}, {\"id\": \"Glaucoma Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard glaucoma treatment (topical IOP-lowering pharmacotherapy, with laser or surgery for refractory cases) following early and lifelong ophthalmologic surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Glomerular Basement Membrane Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced type IV collagen (alpha3/alpha4) deposition and podocyte dysfunction produce the characteristic ultrastructural GBM lesion of NPS: irregular (\\\"moth-eaten\\\") thickening with electron-lucent zones and deposits of fibrillar collagen. The filtration barrier defect causes proteinuria, hematuria, and, in a subset, FSGS-type glomerulosclerosis progressing to kidney failure.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glomerular basement membrane organization\"]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microscopic hematuria may accompany proteinuria in NPS nephropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Hypoplastic or absent patella\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The patellae may be small, irregularly shaped, or absent, causing recurrent subluxation/dislocation, instability, and early osteoarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006498\"}}, {\"id\": \"Iliac horns\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral conical bony processes projecting posteriorly and laterally from the ilia; asymptomatic and radiographically detected. Considered pathognomonic, present in about 70% of affected individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009780\"}}, {\"id\": \"Impaired pain sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced pain and temperature sensation, attributed to failed development of dorsal spinal cord nociceptive-relay interneurons; a source of unrecognized burns and injury requiring patient education.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007328\"}}, {\"id\": \"Kidney Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Kidney transplantation for end-stage kidney disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"LMX1B Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous loss-of-function variants in LMX1B (a LIM-homeodomain transcription factor on 9q33.3) reduce functional LMX1B dosage below a developmental threshold in every LMX1B-expressing lineage. Haploinsufficiency is the predominant mechanism (supported by whole-gene deletion phenocopies), though a subset of homeodomain missense alleles that abolish DNA binding can act by a dominant-negative mechanism. The reduced transcription-factor activity is the shared initiating lesion for the organ-specific branches below.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"LMX1B DNA-binding transcription factor activity\"], \"genetic_context\": {\"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous loss-of-function reduces LMX1B dosage below the developmental threshold (haploinsufficiency); some homeodomain missense alleles are dominant-negative.\", \"gene_terms\": [{\"label\": \"LMX1B\", \"id\": \"hgnc:6654\"}]}}}, {\"id\": \"Lmx1b V265D/+ dominant-negative mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An ENU-induced homeodomain missense (V265D) that abolishes LMX1B DNA binding and acts dominant-negatively; heterozygotes develop glaucomatous eye disease, unlike heterozygous null mice which have no phenotype. Used to dissect the trabecular-meshwork mitochondrial mechanism of IOP elevation and its rescue by nicotinamide.\"}, {\"id\": \"Lmx1b-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conventional Lmx1b knockout recapitulates the core limb phenotype (symmetrical ventral-ventral autopods lacking nails and patellae) and NPS-like kidney pathology, but is perinatal lethal and heterozygous nulls have no phenotype - so it models embryonic patterning rather than the adult human disease course.\"}, {\"id\": \"Monoaminergic Neuron Developmental Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LMX1B is required for the specification and maintenance of midbrain dopaminergic and hindbrain serotonergic neurons and for dorsal spinal cord sensory-relay interneurons. Reduced dosage is proposed to underlie the reduced pain/temperature sensation and the elevated ADHD/depressive symptomatology reported in NPS. This branch is the most inferential, resting largely on mouse neurodevelopmental biology with human correlation from a survey study.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dopaminergic neuron\"]}}, {\"id\": \"Nail dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nails may be absent, hypoplastic, or dystrophic; ridged, pitted, discolored, or split, following a radial-to-ulnar severity gradient (thumb most severe). A defining tetrad feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002164\"}}, {\"id\": \"Ocular hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated intraocular pressure without established glaucomatous damage occurs at increased frequency in NPS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007906\"}}, {\"id\": \"Open-angle glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary open-angle glaucoma occurs at increased frequency and at a younger age than in the general population, warranting lifelong ophthalmologic surveillance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012108\"}}, {\"id\": \"Orthopedic Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthopedic surgery for patellar instability, elbow contracture, or scoliosis, with pre-operative MRI of joints to characterize the abnormal anatomy before surgical planning.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Podocyte Transcriptional Program Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LMX1B is expressed in glomerular podocytes into postnatal life and is required to induce and maintain the podocyte differentiation program, including type IV collagen genes (COL4A3/COL4A4) and slit-diaphragm genes (NPHS2/podocin, CD2AP). Reduced LMX1B activity impairs this program and also the maintenance of the mature podocyte actin cytoskeleton.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\"], \"biological_processes\": [\"podocyte development\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Kidney involvement first manifests as proteinuria with or without hematuria in 30-50% of affected individuals; may be intermittent, remit, or progress.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Radial head dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elbow dysplasia with limitation of extension, pronation and supination, cubitus valgus, antecubital pterygia, and posterior subluxation of the radial head.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003083\"}}, {\"id\": \"Trabecular Meshwork Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LMX1B is one of the most active transcription factors in the anterior-segment trabecular meshwork and is most highly expressed in the contractile, metabolically active TM3 cell subtype. In an Lmx1b homeodomain-variant (V265D) mouse model, TM3 cells show mitochondrial swelling with reduced cristae, implicating mitochondrial dysfunction in outflow failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"trabecular meshwork cell\"], \"animal_models\": [{\"name\": \"Lmx1b V265D/+ dominant-negative mouse\", \"species\": \"Mouse\", \"genotype\": \"Lmx1b V265D/+ (Icst), homeodomain missense abolishing DNA binding\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Single-cell profiling of V265D/+ trabecular meshwork shows TM3-specific mitochondrial dysfunction (swollen mitochondria, reduced cristae).\"}]}}], \"edges\": [{\"source\": \"LMX1B Haploinsufficiency\", \"target\": \"Failed Dorsoventral Limb Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LMX1B Haploinsufficiency\", \"target\": \"Podocyte Transcriptional Program Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LMX1B Haploinsufficiency\", \"target\": \"Trabecular Meshwork Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LMX1B Haploinsufficiency\", \"target\": \"Monoaminergic Neuron Developmental Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Dorsoventral Limb Patterning\", \"target\": \"Nail dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failed Dorsoventral Limb Patterning\", \"target\": \"Hypoplastic or absent patella\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failed Dorsoventral Limb Patterning\", \"target\": \"Radial head dislocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failed Dorsoventral Limb Patterning\", \"target\": \"Iliac horns\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Podocyte Transcriptional Program Failure\", \"target\": \"Glomerular Basement Membrane Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glomerular Basement Membrane Defect\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glomerular Basement Membrane Defect\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glomerular Basement Membrane Defect\", \"target\": \"Focal segmental glomerulosclerosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glomerular Basement Membrane Defect\", \"target\": \"End-stage kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Trabecular Meshwork Dysfunction\", \"target\": \"Elevated Intraocular Pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Intraocular Pressure\", \"target\": \"Open-angle glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Elevated Intraocular Pressure\", \"target\": \"Ocular hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monoaminergic Neuron Developmental Deficit\", \"target\": \"Impaired pain sensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Monoaminergic Neuron Developmental Deficit\", \"target\": \"Attention deficit hyperactivity disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Monoaminergic Neuron Developmental Deficit\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACE Inhibitor / ARB Renoprotective Therapy\", \"target\": \"Proteinuria\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kidney Transplantation\", \"target\": \"End-stage kidney disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgery\", \"target\": \"Hypoplastic or absent patella\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glaucoma Management\", \"target\": \"Elevated Intraocular Pressure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lmx1b V265D/+ dominant-negative mouse\", \"target\": \"Trabecular Meshwork Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Single-cell profiling of V265D/+ trabecular meshwork shows TM3-specific mitochondrial dysfunction (swollen mitochondria, reduced cristae).\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"V265D is a dominant-negative allele rather than the haploinsufficiency that predominates in human NPS, and models the ocular branch only.\"}, {\"source\": \"Lmx1b-null mouse\", \"target\": \"Failed Dorsoventral Limb Patterning\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Homozygous loss reproduces failed dorsal limb specification with absent nails and patellae.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Recapitulation requires the homozygous null; heterozygous null mice (the genotype analogous to human carriers) show no phenotype, and homozygotes die perinatally.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE Inhibitor / ARB Renoprotective Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angiotensin-converting enzyme (ACE) inhibitors (and/or angiotensin receptor blockers) are first-line to control blood pressure and slow progression of proteinuria in NPS nephropathy. Chronic NSAID use should be avoided because of its detrimental effect on kidney function; ACE inhibitors are switched to pregnancy-safe alternatives before or upon recognition of pregnancy, which is also a period of increased preeclampsia risk warranting close monitoring.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"ACE inhibitor\"]}}, {\"id\": \"Attention deficit hyperactivity disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated self-reported ADHD (inattentive) symptoms in adults with NPS, hypothesized to relate to LMX1B\u0027s role in monoaminergic neuron development. From a single case-control symptom-survey study; preliminary.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated depressive symptoms co-occurring with ADHD symptoms in adults with NPS; from the same case-control survey and considered preliminary.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Elevated Intraocular Pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired aqueous-humor outflow through the dysfunctional trabecular meshwork raises intraocular pressure, the proximate driver of the open-angle glaucoma and ocular hypertension seen at increased frequency and younger age in NPS.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"End-stage kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority (up to ~15%) of affected individuals progress to end-stage kidney disease requiring dialysis or transplantation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Failed Dorsoventral Limb Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the dorsal limb mesenchyme LMX1B is the master dorsalizing transcription factor (induced by Wnt7a from the dorsal ectoderm). Reduced dosage produces a partial \\\"double-ventral\\\" limb, manifesting as dysplasia of dorsal-derived structures: nails, patellae, elbows, and the iliac horns. In mice, complete loss yields symmetrical ventral-ventral autopods lacking nails and patellae.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dorsal/ventral limb pattern formation\"], \"animal_models\": [{\"name\": \"Lmx1b-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Lmx1b knockout (homozygous null)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous loss reproduces failed dorsal limb specification with absent nails and patellae.\"}]}}, {\"id\": \"Focal segmental glomerulosclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"NPS nephropathy shows FSGS-pattern glomerulosclerosis on light microscopy with the characteristic ultrastructural GBM lesion; specific LMX1B homeodomain variants can cause isolated FSGS without extrarenal features.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000097\"}}, {\"id\": \"Glaucoma Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard glaucoma treatment (topical IOP-lowering pharmacotherapy, with laser or surgery for refractory cases) following early and lifelong ophthalmologic surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Glomerular Basement Membrane Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced type IV collagen (alpha3/alpha4) deposition and podocyte dysfunction produce the characteristic ultrastructural GBM lesion of NPS: irregular (\\\"moth-eaten\\\") thickening with electron-lucent zones and deposits of fibrillar collagen. The filtration barrier defect causes proteinuria, hematuria, and, in a subset, FSGS-type glomerulosclerosis progressing to kidney failure.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glomerular basement membrane organization\"]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microscopic hematuria may accompany proteinuria in NPS nephropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Hypoplastic or absent patella\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The patellae may be small, irregularly shaped, or absent, causing recurrent subluxation/dislocation, instability, and early osteoarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006498\"}}, {\"id\": \"Iliac horns\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral conical bony processes projecting posteriorly and laterally from the ilia; asymptomatic and radiographically detected. Considered pathognomonic, present in about 70% of affected individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009780\"}}, {\"id\": \"Impaired pain sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced pain and temperature sensation, attributed to failed development of dorsal spinal cord nociceptive-relay interneurons; a source of unrecognized burns and injury requiring patient education.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007328\"}}, {\"id\": \"Kidney Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Kidney transplantation for end-stage kidney disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"LMX1B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"LMX1B\"], \"gene_terms\": [{\"label\": \"LMX1B\", \"id\": \"hgnc:6654\"}]}}, {\"id\": \"LMX1B Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous loss-of-function variants in LMX1B (a LIM-homeodomain transcription factor on 9q33.3) reduce functional LMX1B dosage below a developmental threshold in every LMX1B-expressing lineage. Haploinsufficiency is the predominant mechanism (supported by whole-gene deletion phenocopies), though a subset of homeodomain missense alleles that abolish DNA binding can act by a dominant-negative mechanism. The reduced transcription-factor activity is the shared initiating lesion for the organ-specific branches below.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"LMX1B DNA-binding transcription factor activity\"], \"genetic_context\": {\"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous loss-of-function reduces LMX1B dosage below the developmental threshold (haploinsufficiency); some homeodomain missense alleles are dominant-negative.\", \"gene_terms\": [{\"label\": \"LMX1B\", \"id\": \"hgnc:6654\"}]}}}, {\"id\": \"Lmx1b V265D/+ dominant-negative mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An ENU-induced homeodomain missense (V265D) that abolishes LMX1B DNA binding and acts dominant-negatively; heterozygotes develop glaucomatous eye disease, unlike heterozygous null mice which have no phenotype. Used to dissect the trabecular-meshwork mitochondrial mechanism of IOP elevation and its rescue by nicotinamide.\"}, {\"id\": \"Lmx1b-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conventional Lmx1b knockout recapitulates the core limb phenotype (symmetrical ventral-ventral autopods lacking nails and patellae) and NPS-like kidney pathology, but is perinatal lethal and heterozygous nulls have no phenotype - so it models embryonic patterning rather than the adult human disease course.\"}, {\"id\": \"Monoaminergic Neuron Developmental Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LMX1B is required for the specification and maintenance of midbrain dopaminergic and hindbrain serotonergic neurons and for dorsal spinal cord sensory-relay interneurons. Reduced dosage is proposed to underlie the reduced pain/temperature sensation and the elevated ADHD/depressive symptomatology reported in NPS. This branch is the most inferential, resting largely on mouse neurodevelopmental biology with human correlation from a survey study.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dopaminergic neuron\"]}}, {\"id\": \"Nail dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nails may be absent, hypoplastic, or dystrophic; ridged, pitted, discolored, or split, following a radial-to-ulnar severity gradient (thumb most severe). A defining tetrad feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002164\"}}, {\"id\": \"Ocular hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated intraocular pressure without established glaucomatous damage occurs at increased frequency in NPS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007906\"}}, {\"id\": \"Open-angle glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary open-angle glaucoma occurs at increased frequency and at a younger age than in the general population, warranting lifelong ophthalmologic surveillance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012108\"}}, {\"id\": \"Orthopedic Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthopedic surgery for patellar instability, elbow contracture, or scoliosis, with pre-operative MRI of joints to characterize the abnormal anatomy before surgical planning.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Podocyte Transcriptional Program Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LMX1B is expressed in glomerular podocytes into postnatal life and is required to induce and maintain the podocyte differentiation program, including type IV collagen genes (COL4A3/COL4A4) and slit-diaphragm genes (NPHS2/podocin, CD2AP). Reduced LMX1B activity impairs this program and also the maintenance of the mature podocyte actin cytoskeleton.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\"], \"biological_processes\": [\"podocyte development\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Kidney involvement first manifests as proteinuria with or without hematuria in 30-50% of affected individuals; may be intermittent, remit, or progress.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Radial head dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elbow dysplasia with limitation of extension, pronation and supination, cubitus valgus, antecubital pterygia, and posterior subluxation of the radial head.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003083\"}}, {\"id\": \"Trabecular Meshwork Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LMX1B is one of the most active transcription factors in the anterior-segment trabecular meshwork and is most highly expressed in the contractile, metabolically active TM3 cell subtype. In an Lmx1b homeodomain-variant (V265D) mouse model, TM3 cells show mitochondrial swelling with reduced cristae, implicating mitochondrial dysfunction in outflow failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"trabecular meshwork cell\"], \"animal_models\": [{\"name\": \"Lmx1b V265D/+ dominant-negative mouse\", \"species\": \"Mouse\", \"genotype\": \"Lmx1b V265D/+ (Icst), homeodomain missense abolishing DNA binding\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Single-cell profiling of V265D/+ trabecular meshwork shows TM3-specific mitochondrial dysfunction (swollen mitochondria, reduced cristae).\"}]}}], \"edges\": [{\"source\": \"LMX1B Haploinsufficiency\", \"target\": \"Failed Dorsoventral Limb Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LMX1B Haploinsufficiency\", \"target\": \"Podocyte Transcriptional Program Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LMX1B Haploinsufficiency\", \"target\": \"Trabecular Meshwork Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LMX1B Haploinsufficiency\", \"target\": \"Monoaminergic Neuron Developmental Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Dorsoventral Limb Patterning\", \"target\": \"Nail dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failed Dorsoventral Limb Patterning\", \"target\": \"Hypoplastic or absent patella\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failed Dorsoventral Limb Patterning\", \"target\": \"Radial head dislocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failed Dorsoventral Limb Patterning\", \"target\": \"Iliac horns\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Podocyte Transcriptional Program Failure\", \"target\": \"Glomerular Basement Membrane Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glomerular Basement Membrane Defect\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glomerular Basement Membrane Defect\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glomerular Basement Membrane Defect\", \"target\": \"Focal segmental glomerulosclerosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Glomerular Basement Membrane Defect\", \"target\": \"End-stage kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Trabecular Meshwork Dysfunction\", \"target\": \"Elevated Intraocular Pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Intraocular Pressure\", \"target\": \"Open-angle glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Elevated Intraocular Pressure\", \"target\": \"Ocular hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monoaminergic Neuron Developmental Deficit\", \"target\": \"Impaired pain sensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Monoaminergic Neuron Developmental Deficit\", \"target\": \"Attention deficit hyperactivity disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Monoaminergic Neuron Developmental Deficit\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACE Inhibitor / ARB Renoprotective Therapy\", \"target\": \"Proteinuria\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kidney Transplantation\", \"target\": \"End-stage kidney disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgery\", \"target\": \"Hypoplastic or absent patella\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glaucoma Management\", \"target\": \"Elevated Intraocular Pressure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lmx1b V265D/+ dominant-negative mouse\", \"target\": \"Trabecular Meshwork Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Single-cell profiling of V265D/+ trabecular meshwork shows TM3-specific mitochondrial dysfunction (swollen mitochondria, reduced cristae).\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"V265D is a dominant-negative allele rather than the haploinsufficiency that predominates in human NPS, and models the ocular branch only.\"}, {\"source\": \"Lmx1b-null mouse\", \"target\": \"Failed Dorsoventral Limb Patterning\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Homozygous loss reproduces failed dorsal limb specification with absent nails and patellae.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Recapitulation requires the homozygous null; heterozygous null mice (the genotype analogous to human carriers) show no phenotype, and homozygotes die perinatally.\"}, {\"source\": \"LMX1B\", \"target\": \"LMX1B Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5359,6 +5413,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Associated systemic feature listed among treated NPS manifestations; no dedicated mechanism node is modeled, so it carries no incoming causal edge.</div>
@@ -5439,6 +5496,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Associated systemic feature listed among treated NPS manifestations; no dedicated mechanism node is modeled, so it carries no incoming causal edge.</div>
@@ -5524,6 +5584,9 @@ This clinical feature is Open-angle glaucoma, annotated with Open angle glaucoma
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5588,6 +5651,9 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5673,6 +5739,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5737,6 +5806,9 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5811,6 +5883,9 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5879,6 +5954,9 @@ This clinical feature is End-stage kidney disease, annotated with Stage 5 chroni
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5959,6 +6037,9 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Associated feature listed among treated NPS manifestations; no dedicated mechanism node is modeled, so it carries no incoming causal edge.</div>
@@ -6044,6 +6125,9 @@ This clinical feature is Nail dysplasia (HP:0002164). HP:0002164 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6124,6 +6208,9 @@ This clinical feature is Hypoplastic or absent patella, annotated with Aplasia/H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6188,6 +6275,9 @@ This clinical feature is Limited elbow mobility, annotated with Limited elbow mo
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6259,6 +6349,9 @@ This clinical feature is Radial head dislocation (elbow dysplasia), annotated wi
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6339,6 +6432,9 @@ This clinical feature is Iliac horns (HP:0009780). HP:0009780 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6435,6 +6531,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
                     </div>
 
 
+
+
+
                     <div class="item-desc">Associated systemic feature; no BMD-specific mechanism is modeled in this entry&#39;s pathograph, so this phenotype carries no incoming causal edge.</div>
 
 
@@ -6518,6 +6617,9 @@ This clinical feature is Reduced pain and temperature sensation, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6584,6 +6686,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6660,6 +6765,9 @@ This clinical feature is Depressive symptoms, annotated with Depression (HP:0000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6724,6 +6832,9 @@ This clinical feature is Epilepsy, annotated with Seizure (HP:0001250). HP:00012
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Associated neurologic feature listed among treated NPS manifestations; not connected to a dedicated mechanism node in this pathograph.</div>
@@ -6838,6 +6949,9 @@ This disease-associated gene is LMX1B (hgnc:6654). hgnc:6654 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

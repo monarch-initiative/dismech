@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4932,6 +4974,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prnp-d178n-129m-germline-allele" data-dismech-node="PRNP D178N-129M Germline Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">PRNP D178N-129M Germline Allele</div>
 
+
                 <div class="item-desc">A heterozygous PRNP p.Asp178Asn allele, carried in cis with methionine at codon 129, is present from conception in every cell. The cis-phase is part of the lesion: the same amino-acid substitution with valine at codon 129 produces a different disease (familial CJD), so the pathogenic unit is the haplotype, not the codon-178 change alone.</div>
 
 
@@ -5049,6 +5092,7 @@ This pathophysiological event involves PRNP (hgnc:9449). hgnc:9449 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquisition-of-a-conversion-prone-prp-c-state" data-dismech-node="Acquisition of a Conversion-Prone PrP-C State" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquisition of a Conversion-Prone PrP-C State</div>
 
+
                 <div class="item-desc">The D178N substitution, in cis with 129M, renders PrP-C prone to adopting the misfolded, self-templating conformer that seeds propagation. Recombinant human PrP carrying the FFI M129/D178N haplotype is markedly aggregation-prone: unlike the GSS (P102L) and familial CJD (E200K) variants, which are recovered soluble, the D178N protein partitions into inclusion bodies. This is a gain of toxic conformation, not a loss of PrP function.</div>
 
 
@@ -5162,6 +5206,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-template-directed-conversion-of-prp-c-to-ffi-type-prp-sc" data-dismech-node="Template-Directed Conversion of PrP-C to FFI-Type PrP-Sc" data-dismech-type="pathophysiology">
                 <div class="item-name">Template-Directed Conversion of PrP-C to FFI-Type PrP-Sc</div>
+
 
                 <div class="item-desc">The autocatalytic core of the disease: a misfolded PrP molecule recruits and refolds native PrP-C, so that the conformation itself acts as the replicating template. In FFI the resulting protease-resistant core is a 19 kDa (type 2) fragment with marked underrepresentation of the unglycosylated glycoform - a molecular signature distinct from the 21 kDa fragment of sporadic and other inherited prion diseases. Inoculation of FFI brain extract into chimeric human-mouse PrP transgenic mice reproduces the 19 kDa fragment, establishing that conformation, not sequence, carries the strain information.</div>
 
@@ -5359,6 +5404,7 @@ This pathophysiological event involves increased protein refolding (GO:0042026).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regionally-selective-prp-sc-accumulation-in-gray-matter" data-dismech-node="Regionally Selective PrP-Sc Accumulation in Gray Matter" data-dismech-type="pathophysiology">
                 <div class="item-name">Regionally Selective PrP-Sc Accumulation in Gray Matter</div>
 
+
                 <div class="item-desc">Protease-resistant PrP accumulates in gray matter but not white matter or peripheral organs, and its distribution is broader than the histological lesions: lesions appear only where a critical amount of the abnormal protein has accumulated. The kinetics are region-specific - the mediodorsal thalamic nucleus and brainstem carry comparable amounts regardless of disease duration, whereas neocortical accumulation rises with duration, so the process spreads over time.</div>
 
 
@@ -5553,6 +5599,7 @@ This pathophysiological event occurs in inferior olivary complex (UBERON:0002127
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preferential-thalamic-neuronal-loss-and-astrogliosis" data-dismech-node="Preferential Thalamic Neuronal Loss and Astrogliosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Preferential Thalamic Neuronal Loss and Astrogliosis</div>
+
 
                 <div class="item-desc">The defining lesion: marked neuronal depletion and astrocytic gliosis concentrated in the mediodorsal and anteroventral thalamic nuclei, with inferior olivary hypertrophy and only limited cortical spongiosis. The mediodorsal nucleus appears intrinsically more vulnerable - it sustains severe neuronal loss at relatively moderate PrP-Sc burden - which is why FFI is a thalamic disease rather than a diffuse encephalopathy.</div>
 
@@ -5865,6 +5912,7 @@ This pathophysiological event occurs in medial dorsal nucleus of thalamus (UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collapse-of-thalamocortical-sleep-oscillation" data-dismech-node="Collapse of Thalamocortical Sleep Oscillation" data-dismech-type="pathophysiology">
                 <div class="item-name">Collapse of Thalamocortical Sleep Oscillation</div>
 
+
                 <div class="item-desc">Destruction of thalamic relay and reticular circuitry abolishes the thalamocortical oscillations that generate sleep spindles, K-complexes, and slow-wave sleep. The result is not ordinary insomnia but a failure to build sleep: spindles and K-complexes disappear early, NREM sleep is eventually abolished, and only brief residual REM periods without atonia persist, intruding into wakefulness as enacted dreams. FFI is the clinical experiment that implicated the thalamus as necessary for sleep generation.</div>
 
 
@@ -6060,7 +6108,7 @@ This pathophysiological event involves abnormal regulation of circadian sleep/wa
 
                 </div>
 
-                <div class="evidence-snippet">"Intriguing clinicopathological correlations in FFI and SFI suggest a role for"</div>
+                <div class="evidence-snippet">"Intriguing clinicopathological correlations in FFI and SFI suggest a role for the thalamolimbic system in the regulation of sleep and other circadian functions."</div>
 
 
                 <div class="evidence-explanation">Frames the thalamolimbic system as the sleep-regulatory structure implicated by FFI.</div>
@@ -6078,6 +6126,7 @@ This pathophysiological event involves abnormal regulation of circadian sleep/wa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-thalamolimbic-autonomic-restraint" data-dismech-node="Loss of Thalamolimbic Autonomic Restraint" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Thalamolimbic Autonomic Restraint</div>
+
 
                 <div class="item-desc">Loss of thalamolimbic output releases sympathetic outflow, producing the sustained autonomic overactivity of FFI - tachycardia, hypertension, hyperhidrosis, and hyperthermia. Heart-rate-variability work shows the picture is not purely sympathetic excitation: parasympathetic (vagal) indices are also reduced relative to controls and to CJD, so cardiovascular dysautonomia reflects combined sympathetic activation and parasympathetic failure.</div>
 
@@ -6274,6 +6323,7 @@ This pathophysiological event involves abnormal regulation of heart rate (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extrathalamic-olivocerebellar-and-cortical-degeneration" data-dismech-node="Extrathalamic Olivocerebellar and Cortical Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Extrathalamic Olivocerebellar and Cortical Degeneration</div>
+
 
                 <div class="item-desc">FFI is thalamus-dominant but not thalamus-only. Beyond the defining thalamic lesion, the same disease process damages the inferior olives, the cerebellum (atrophy with axonal torpedoes), and the cerebral cortex (gliosis, and spongiform change in some cases). These lesions are primary rather than secondary to the thalamic damage, and they provide a plausible substrate for the somatomotor syndrome - ataxia, dysarthria, myoclonus, pyramidal signs - although individual symptom generators are not all localized. Cortical features distinguish codon-129 heterozygotes, who show more extensive cortical involvement on PET and at autopsy. Because neocortical PrPres accumulation rises with disease duration, this component is more prominent in the prolonged 129MV course.</div>
 
@@ -6674,6 +6724,9 @@ This clinical feature is Tachycardia (HP:0001649). HP:0001649 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6770,6 +6823,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6843,6 +6899,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6928,6 +6987,9 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7005,6 +7067,9 @@ This clinical feature is Central hyperthermia, annotated with Abnormality of tem
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HP:0004370 captures abnormal temperature homeostasis; preferred_term preserves the central-hyperthermia presentation. HP:0001945 Fever explicitly distinguishes fever from hyperthermia, so it is not an appropriate binding here. No INCREASED modifier is applied: the temperature is elevated, not the regulation itself.</div>
@@ -7087,6 +7152,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7215,6 +7283,9 @@ This clinical feature is Insomnia (HP:0100785), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7333,6 +7404,9 @@ This clinical feature is Abnormal sleep architecture on polysomnography, annotat
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7459,6 +7533,9 @@ This clinical feature is REM sleep behavior disorder (HP:5200291). HP:5200291 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7568,6 +7645,9 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
 
 
                     </div>
+
+
+
 
 
 
@@ -7694,6 +7774,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7803,6 +7886,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
                     </div>
+
+
+
 
 
 
@@ -7927,6 +8013,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7998,6 +8087,9 @@ This clinical feature is Impaired attention and vigilance, annotated with Decrea
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8062,6 +8154,9 @@ This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8179,6 +8274,9 @@ This clinical feature is Confusion (HP:0001289), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8273,6 +8371,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8337,6 +8438,9 @@ This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8442,6 +8546,9 @@ This clinical feature is Impaired sphincter control, annotated with Impaired con
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8562,6 +8669,9 @@ This disease-associated gene is PRNP (hgnc:9449). hgnc:9449 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8657,6 +8767,9 @@ This disease-associated gene is PRNP (hgnc:9449). hgnc:9449 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8785,6 +8898,9 @@ This disease-associated gene is EXOC1L (hgnc:53433). hgnc:53433 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8884,6 +9000,9 @@ This disease-associated gene is SRSF11 (hgnc:10782). hgnc:10782 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8954,6 +9073,9 @@ This disease-associated gene is MSANTD3 (hgnc:23370). hgnc:23370 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11519,7 +11641,9 @@ pathophysiology:
     reference_title: &#34;Familial and sporadic fatal insomnia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Intriguing clinicopathological correlations in FFI and SFI suggest a role for&#34;
+    snippet: &gt;-
+      Intriguing clinicopathological correlations in FFI and SFI suggest a role for the
+      thalamolimbic system in the regulation of sleep and other circadian functions.
     explanation: Frames the thalamolimbic system as the sleep-regulatory structure implicated by FFI.
 - name: Loss of Thalamolimbic Autonomic Restraint
   biological_scale: ORGANISM
@@ -13148,7 +13272,7 @@ Known gaps and incidental findings: no prevalence block was added because no cit
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fatal Familial Insomnia", "mondoId": "MONDO:0010808", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fatal_Familial_Insomnia", "yamlRevision": "95d8319f3845"};
+        const OS_CONFIG = {"diseaseName": "Fatal Familial Insomnia", "mondoId": "MONDO:0010808", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fatal_Familial_Insomnia", "yamlRevision": "0fb97a878baa"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

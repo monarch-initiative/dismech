@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 28</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Rabson-Mendenhall%20Syndrome"
@@ -4011,7 +4053,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">28</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4337,6 +4379,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-insr-loss-of-function" data-dismech-node="Biallelic INSR Loss-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic INSR Loss-of-Function</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in the insulin receptor gene (INSR, 19p13.2) reduce the number and/or function of cell-surface insulin receptors, most commonly through missense substitutions that impair receptor processing, insulin-binding affinity, or tyrosine-kinase activity. This is the initiating molecular lesion of the syndrome.</div>
 
 
@@ -4389,6 +4432,8 @@ This genetic context concerns INSR (hgnc:6091). hgnc:6091 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4399,6 +4444,9 @@ This genetic context concerns INSR (hgnc:6091). hgnc:6091 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4540,6 +4588,7 @@ This pathophysiological event involves insulin receptor tyrosine kinase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-insulin-receptor-signaling" data-dismech-node="Impaired Insulin Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Insulin Receptor Signaling</div>
+
 
                 <div class="item-desc">Loss of functional insulin receptor blunts the downstream insulin receptor signalling pathway, principally the PI3K-AKT metabolic arm, in liver, skeletal muscle, and adipose tissue, so target tissues fail to mount a normal glucose-lowering response to insulin.</div>
 
@@ -4783,6 +4832,7 @@ This pathophysiological event involves decreased PI3K-AKT signal transduction, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-insulin-resistance" data-dismech-node="Severe Insulin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Insulin Resistance</div>
 
+
                 <div class="item-desc">Extreme, generalized insulin resistance is the cardinal systemic consequence, driving compensatory hyperinsulinaemia and the early paradoxical glycaemic pattern.</div>
 
 
@@ -4866,6 +4916,7 @@ This pathophysiological event involves decreased PI3K-AKT signal transduction, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paradoxical-glycemic-regulation" data-dismech-node="Paradoxical Glycemic Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Paradoxical Glycemic Regulation</div>
+
 
                 <div class="item-desc">In infancy and early childhood, severely elevated insulin acting on residual receptor and cross-reactive pathways produces fasting hypoglycaemia with postprandial hyperglycaemia; with disease progression insulin levels decline and sustained hyperglycaemia supervenes.</div>
 
@@ -4975,6 +5026,7 @@ This pathophysiological event involves decreased PI3K-AKT signal transduction, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-hyperinsulinemia" data-dismech-node="Compensatory Hyperinsulinemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Hyperinsulinemia</div>
+
 
                 <div class="item-desc">Pancreatic beta-cell hypersecretion produces the extreme hyperinsulinaemia that is the earliest biochemical hallmark of the syndrome (median fasting insulin ~300 uIU/mL, versus a normal range of 5-20 uIU/mL). Chronic hyperinsulinaemia cross-activates IGF-1 receptors in skin and ovary and ultimately exhausts beta-cell reserve.</div>
 
@@ -5143,6 +5195,7 @@ This pathophysiological event involves Pancreatic beta cell, annotated with type
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-igf-1-receptor-cross-activation" data-dismech-node="Cutaneous IGF-1 Receptor Cross-activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous IGF-1 Receptor Cross-activation</div>
 
+
                 <div class="item-desc">Chronic supraphysiologic insulin cross-activates IGF-1 receptors on keratinocytes and dermal fibroblasts, promoting epidermal proliferation that manifests as acanthosis nigricans and contributes to soft-tissue overgrowth.</div>
 
 
@@ -5282,6 +5335,7 @@ This pathophysiological event involves Fibroblast (CL:0000057). CL:0000057 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ovarian-androgen-excess" data-dismech-node="Ovarian Androgen Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Ovarian Androgen Excess</div>
+
 
                 <div class="item-desc">In females, extreme hyperinsulinaemia acting on ovarian theca cells drives androgen biosynthesis, producing hyperandrogenism, enlarged/polycystic ovaries, and clitoromegaly.</div>
 
@@ -5449,6 +5503,7 @@ This pathophysiological event involves increased Androgen biosynthetic process (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-beta-cell-decompensation" data-dismech-node="Pancreatic Beta-Cell Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pancreatic Beta-Cell Decompensation</div>
 
+
                 <div class="item-desc">Sustained compensatory hypersecretion eventually exhausts beta-cell reserve, so hyperinsulinaemic hypoglycaemia gives way to sustained hyperglycaemia and overt insulin-resistant diabetes mellitus.</div>
 
 
@@ -5559,6 +5614,7 @@ This pathophysiological event involves Pancreatic beta cell, annotated with type
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-insulin-receptor-dysfunction" data-dismech-node="Renal Insulin Receptor Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Insulin Receptor Dysfunction</div>
 
+
                 <div class="item-desc">The insulin receptor is expressed throughout the nephron. Biallelic INSR loss produces hypercalciuria and nephrocalcinosis that appear tissue-autonomous (present with normotension and stable glomerular function), rather than being a secondary complication of hyperglycaemia.</div>
 
 
@@ -5667,6 +5723,7 @@ This pathophysiological event involves Pancreatic beta cell, annotated with type
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-hormone-resistance-and-growth-failure" data-dismech-node="Growth Hormone Resistance and Growth Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Hormone Resistance and Growth Failure</div>
+
 
                 <div class="item-desc">Affected individuals show a growth-hormone-resistant state (elevated basal GH with low-normal IGF-1) and severe growth retardation that is not corrected by exogenous growth hormone or standard-dose IGF-1.</div>
 
@@ -5791,7 +5848,7 @@ This pathophysiological event involves Pancreatic beta cell, annotated with type
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Velvety hyperpigmented skin thickening at the neck, axillae, and groin; the most frequent dermatologic sign, present in about 69% of pooled cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"29/42 (69%)\", \"term_id\": \"HP:0000956\"}}, {\"id\": \"Antiandrogen and hormonal therapy for hyperandrogenism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral contraceptives, antiandrogen therapies, and GnRH agonists are used to manage ovarian hyperandrogenism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic INSR Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in the insulin receptor gene (INSR, 19p13.2) reduce the number and/or function of cell-surface insulin receptors, most commonly through missense substitutions that impair receptor processing, insulin-binding affinity, or tyrosine-kinase activity. This is the initiating molecular lesion of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"insulin receptor tyrosine kinase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"INSR\", \"id\": \"hgnc:6091\"}]}, \"role\": \"TRIGGER\"}}, {\"id\": \"Compensatory Hyperinsulinemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pancreatic beta-cell hypersecretion produces the extreme hyperinsulinaemia that is the earliest biochemical hallmark of the syndrome (median fasting insulin ~300 uIU/mL, versus a normal range of 5-20 uIU/mL). Chronic hyperinsulinaemia cross-activates IGF-1 receptors in skin and ovary and ultimately exhausts beta-cell reserve.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Pancreatic beta cell\"], \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Cutaneous IGF-1 Receptor Cross-activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic supraphysiologic insulin cross-activates IGF-1 receptors on keratinocytes and dermal fibroblasts, promoting epidermal proliferation that manifests as acanthosis nigricans and contributes to soft-tissue overgrowth.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\", \"Fibroblast\"], \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Diabetic ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent diabetic ketoacidosis emerges in the second decade as insulin secretion declines and is a leading cause of morbidity and mortality.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001953\"}}, {\"id\": \"Enlarged external genitalia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged external genitalia, including clitoromegaly in females; present in about 19% of pooled cases and related to hyperinsulinaemia-driven androgen excess.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"8/42 (19%)\", \"term_id\": \"HP:0000811\"}}, {\"id\": \"Enlarged ovaries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged/polycystic ovaries in affected females, reflecting hyperinsulinaemia-driven ovarian stimulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100879\"}}, {\"id\": \"Growth Hormone Resistance and Growth Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals show a growth-hormone-resistant state (elevated basal GH with low-normal IGF-1) and severe growth retardation that is not corrected by exogenous growth hormone or standard-dose IGF-1.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal and postnatal growth failure with short stature, present in about 60% of pooled cases and often refractory to growth hormone.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"25/42 (60%)\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hyperandrogenism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Androgen excess in affected females, reflecting hyperinsulinaemia-driven ovarian steroidogenesis, with enlarged/polycystic ovaries.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030348\"}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postprandial and later sustained hyperglycaemia from failure of insulin-stimulated glucose disposal.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003074\"}}, {\"id\": \"Hyperinsulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extreme fasting hyperinsulinaemia is the earliest and most consistent laboratory abnormality; all pooled patients with available data had high fasting insulin.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000842\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting hypoglycaemia due to severely increased insulin levels, characteristic of the early hyperinsulinaemic phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001943\"}}, {\"id\": \"Impaired Insulin Receptor Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional insulin receptor blunts the downstream insulin receptor signalling pathway, principally the PI3K-AKT metabolic arm, in liver, skeletal muscle, and adipose tissue, so target tissues fail to mount a normal glucose-lowering response to insulin.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"Adipocyte\", \"Skeletal muscle cell\"], \"biological_processes\": [\"Insulin receptor signaling pathway\", \"PI3K-AKT signal transduction\"], \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Insulin sensitizers (metformin, pioglitazone)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Insulin sensitizers are first-line to lower glucose and HbA1c, though their effect diminishes over time and often requires dose escalation and multidrug therapy. Pioglitazone has normalized blood glucose in a reported case.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metformin\", \"pioglitazone\"]}}, {\"id\": \"Insulin-resistant diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overt insulin-resistant diabetes mellitus develops as beta-cell reserve fails; reported in about 76% of evaluable pooled cases, all diagnosed before age 23 (mean 9.4 years).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"25/33 (76%)\", \"term_id\": \"HP:0000831\"}}, {\"id\": \"Metreleptin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant leptin (metreleptin), used off-label, lowers HbA1c over long-term follow-up, likely through appetite suppression and reduced BMI rather than direct restoration of insulin signalling; lower BMI may worsen growth-hormone resistance.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metreleptin\"]}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephrocalcinosis with hypercalciuria is an almost invariable renal feature, apparently tissue-autonomous to renal INSR loss rather than secondary to hyperglycaemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000121\"}}, {\"id\": \"Nephrology-directed management of nephrocalcinosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nephrocalcinosis is managed in conjunction with a nephrologist, per the GeneReviews management recommendations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ovarian Androgen Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In females, extreme hyperinsulinaemia acting on ovarian theca cells drives androgen biosynthesis, producing hyperandrogenism, enlarged/polycystic ovaries, and clitoromegaly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Ovarian theca cell\"], \"biological_processes\": [\"Androgen biosynthetic process\"], \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Pancreatic Beta-Cell Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained compensatory hypersecretion eventually exhausts beta-cell reserve, so hyperinsulinaemic hypoglycaemia gives way to sustained hyperglycaemia and overt insulin-resistant diabetes mellitus.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Pancreatic beta cell\"], \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Paradoxical Glycemic Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In infancy and early childhood, severely elevated insulin acting on residual receptor and cross-reactive pathways produces fasting hypoglycaemia with postprandial hyperglycaemia; with disease progression insulin levels decline and sustained hyperglycaemia supervenes.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-grade proteinuria occurs in a subset, part of the renal INSR-dysfunction phenotype rather than overt glomerular failure.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"2/12 (17%)\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Recombinant human IGF-1 (mecasermin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human IGF-1 signals through the IGF-1 receptor, partially bypassing the defective insulin receptor. It improves glycaemic control and fasting tolerance in early life with some growth enhancement, but benefits are limited and it does not prevent decompensation to diabetes; continuous subcutaneous infusion may outperform bolus injection.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"mecasermin\"]}}, {\"id\": \"Renal Insulin Receptor Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The insulin receptor is expressed throughout the nephron. Biallelic INSR loss produces hypercalciuria and nephrocalcinosis that appear tissue-autonomous (present with normotension and stable glomerular function), rather than being a secondary complication of hyperglycaemia.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"SGLT2 inhibitor (empagliflozin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Empagliflozin, added off-label, lowers glucose via insulin-independent renal glucose excretion and improved HbA1c and time-in-range in a reported case; it carries a possible risk of promoting nephrocalcinosis.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"empagliflozin\"]}}, {\"id\": \"Severe Insulin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extreme, generalized insulin resistance is the cardinal systemic consequence, driving compensatory hyperinsulinaemia and the early paradoxical glycaemic pattern.\", \"meta\": {\"evidence_count\": 1, \"role\": \"CENTRAL_EFFECTOR\"}}], \"edges\": [{\"source\": \"Biallelic INSR Loss-of-Function\", \"target\": \"Impaired Insulin Receptor Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced receptor number/affinity impairs signalling in insulin target cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic INSR Loss-of-Function\", \"target\": \"Renal Insulin Receptor Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The insulin receptor is expressed in the kidney; biallelic INSR loss produces a renal phenotype (hypercalciuria, nephrocalcinosis) independent of the diabetic state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Insulin Receptor Signaling\", \"target\": \"Severe Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blunted receptor signalling produces the defining extreme insulin-resistant state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Insulin Resistance\", \"target\": \"Compensatory Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Target tissues require supraphysiologic insulin, driving compensatory hypersecretion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Insulin Resistance\", \"target\": \"Paradoxical Glycemic Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Residual insulin action plus massive hyperinsulinaemia yields fluctuating glucose.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Paradoxical Glycemic Regulation\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fasting hypoglycaemia from severely increased insulin levels early in life.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paradoxical Glycemic Regulation\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postprandial hyperglycaemia from failure of insulin-stimulated glucose disposal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Cutaneous IGF-1 Receptor Cross-activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High insulin stimulates keratinocyte IGF receptors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Ovarian Androgen Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperinsulinaemia drives ovarian hyperandrogenism in females.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Pancreatic Beta-Cell Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hyperstimulation leads to eventual secretory failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Growth Hormone Resistance and Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High insulin may interact with IGF-I receptors and feedback-reduce GH secretion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The measured laboratory hyperinsulinaemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous IGF-1 Receptor Cross-activation\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Keratinocyte hyperproliferation produces acanthosis nigricans.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ovarian Androgen Excess\", \"target\": \"Hyperandrogenism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ovarian androgen excess produces clinical hyperandrogenism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ovarian Androgen Excess\", \"target\": \"Enlarged external genitalia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Androgen excess contributes to clitoromegaly/enlarged external genitalia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ovarian Androgen Excess\", \"target\": \"Enlarged ovaries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperinsulinaemia-driven ovarian stimulation produces enlarged/polycystic ovaries.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Beta-Cell Decompensation\", \"target\": \"Insulin-resistant diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beta-cell failure precipitates overt insulin-resistant diabetes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Insulin Receptor Dysfunction\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypercalciuria from renal INSR dysfunction produces nephrocalcinosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Insulin Receptor Dysfunction\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal INSR dysfunction is associated with low-grade proteinuria in a subset.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Growth Hormone Resistance and Growth Failure\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GH resistance contributes to growth retardation/short stature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Insulin-resistant diabetes mellitus\", \"target\": \"Diabetic ketoacidosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive hyperglycaemia precipitates recurrent diabetic ketoacidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin sensitizers (metformin, pioglitazone)\", \"target\": \"Severe Insulin Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SGLT2 inhibitor (empagliflozin)\", \"target\": \"Hyperglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant human IGF-1 (mecasermin)\", \"target\": \"Impaired Insulin Receptor Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metreleptin\", \"target\": \"Hyperglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiandrogen and hormonal therapy for hyperandrogenism\", \"target\": \"Hyperandrogenism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nephrology-directed management of nephrocalcinosis\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Velvety hyperpigmented skin thickening at the neck, axillae, and groin; the most frequent dermatologic sign, present in about 69% of pooled cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"29/42 (69%)\", \"term_id\": \"HP:0000956\"}}, {\"id\": \"Antiandrogen and hormonal therapy for hyperandrogenism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral contraceptives, antiandrogen therapies, and GnRH agonists are used to manage ovarian hyperandrogenism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic INSR Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in the insulin receptor gene (INSR, 19p13.2) reduce the number and/or function of cell-surface insulin receptors, most commonly through missense substitutions that impair receptor processing, insulin-binding affinity, or tyrosine-kinase activity. This is the initiating molecular lesion of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"insulin receptor tyrosine kinase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"INSR\", \"id\": \"hgnc:6091\"}]}, \"role\": \"TRIGGER\"}}, {\"id\": \"Compensatory Hyperinsulinemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pancreatic beta-cell hypersecretion produces the extreme hyperinsulinaemia that is the earliest biochemical hallmark of the syndrome (median fasting insulin ~300 uIU/mL, versus a normal range of 5-20 uIU/mL). Chronic hyperinsulinaemia cross-activates IGF-1 receptors in skin and ovary and ultimately exhausts beta-cell reserve.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Pancreatic beta cell\"], \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Cutaneous IGF-1 Receptor Cross-activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic supraphysiologic insulin cross-activates IGF-1 receptors on keratinocytes and dermal fibroblasts, promoting epidermal proliferation that manifests as acanthosis nigricans and contributes to soft-tissue overgrowth.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\", \"Fibroblast\"], \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Diabetic ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent diabetic ketoacidosis emerges in the second decade as insulin secretion declines and is a leading cause of morbidity and mortality.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001953\"}}, {\"id\": \"Enlarged external genitalia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged external genitalia, including clitoromegaly in females; present in about 19% of pooled cases and related to hyperinsulinaemia-driven androgen excess.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"8/42 (19%)\", \"term_id\": \"HP:0000811\"}}, {\"id\": \"Enlarged ovaries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged/polycystic ovaries in affected females, reflecting hyperinsulinaemia-driven ovarian stimulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100879\"}}, {\"id\": \"Growth Hormone Resistance and Growth Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals show a growth-hormone-resistant state (elevated basal GH with low-normal IGF-1) and severe growth retardation that is not corrected by exogenous growth hormone or standard-dose IGF-1.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal and postnatal growth failure with short stature, present in about 60% of pooled cases and often refractory to growth hormone.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"25/42 (60%)\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hyperandrogenism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Androgen excess in affected females, reflecting hyperinsulinaemia-driven ovarian steroidogenesis, with enlarged/polycystic ovaries.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030348\"}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postprandial and later sustained hyperglycaemia from failure of insulin-stimulated glucose disposal.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003074\"}}, {\"id\": \"Hyperinsulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extreme fasting hyperinsulinaemia is the earliest and most consistent laboratory abnormality; all pooled patients with available data had high fasting insulin.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000842\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting hypoglycaemia due to severely increased insulin levels, characteristic of the early hyperinsulinaemic phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001943\"}}, {\"id\": \"INSR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"INSR\"], \"gene_terms\": [{\"label\": \"INSR\", \"id\": \"hgnc:6091\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Impaired Insulin Receptor Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional insulin receptor blunts the downstream insulin receptor signalling pathway, principally the PI3K-AKT metabolic arm, in liver, skeletal muscle, and adipose tissue, so target tissues fail to mount a normal glucose-lowering response to insulin.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"Adipocyte\", \"Skeletal muscle cell\"], \"biological_processes\": [\"Insulin receptor signaling pathway\", \"PI3K-AKT signal transduction\"], \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Insulin sensitizers (metformin, pioglitazone)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Insulin sensitizers are first-line to lower glucose and HbA1c, though their effect diminishes over time and often requires dose escalation and multidrug therapy. Pioglitazone has normalized blood glucose in a reported case.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metformin\", \"pioglitazone\"]}}, {\"id\": \"Insulin-resistant diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overt insulin-resistant diabetes mellitus develops as beta-cell reserve fails; reported in about 76% of evaluable pooled cases, all diagnosed before age 23 (mean 9.4 years).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"25/33 (76%)\", \"term_id\": \"HP:0000831\"}}, {\"id\": \"Metreleptin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant leptin (metreleptin), used off-label, lowers HbA1c over long-term follow-up, likely through appetite suppression and reduced BMI rather than direct restoration of insulin signalling; lower BMI may worsen growth-hormone resistance.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metreleptin\"]}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephrocalcinosis with hypercalciuria is an almost invariable renal feature, apparently tissue-autonomous to renal INSR loss rather than secondary to hyperglycaemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000121\"}}, {\"id\": \"Nephrology-directed management of nephrocalcinosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nephrocalcinosis is managed in conjunction with a nephrologist, per the GeneReviews management recommendations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ovarian Androgen Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In females, extreme hyperinsulinaemia acting on ovarian theca cells drives androgen biosynthesis, producing hyperandrogenism, enlarged/polycystic ovaries, and clitoromegaly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Ovarian theca cell\"], \"biological_processes\": [\"Androgen biosynthetic process\"], \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Pancreatic Beta-Cell Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained compensatory hypersecretion eventually exhausts beta-cell reserve, so hyperinsulinaemic hypoglycaemia gives way to sustained hyperglycaemia and overt insulin-resistant diabetes mellitus.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Pancreatic beta cell\"], \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Paradoxical Glycemic Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In infancy and early childhood, severely elevated insulin acting on residual receptor and cross-reactive pathways produces fasting hypoglycaemia with postprandial hyperglycaemia; with disease progression insulin levels decline and sustained hyperglycaemia supervenes.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-grade proteinuria occurs in a subset, part of the renal INSR-dysfunction phenotype rather than overt glomerular failure.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"2/12 (17%)\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Recombinant human IGF-1 (mecasermin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human IGF-1 signals through the IGF-1 receptor, partially bypassing the defective insulin receptor. It improves glycaemic control and fasting tolerance in early life with some growth enhancement, but benefits are limited and it does not prevent decompensation to diabetes; continuous subcutaneous infusion may outperform bolus injection.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"mecasermin\"]}}, {\"id\": \"Renal Insulin Receptor Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The insulin receptor is expressed throughout the nephron. Biallelic INSR loss produces hypercalciuria and nephrocalcinosis that appear tissue-autonomous (present with normotension and stable glomerular function), rather than being a secondary complication of hyperglycaemia.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"SGLT2 inhibitor (empagliflozin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Empagliflozin, added off-label, lowers glucose via insulin-independent renal glucose excretion and improved HbA1c and time-in-range in a reported case; it carries a possible risk of promoting nephrocalcinosis.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"empagliflozin\"]}}, {\"id\": \"Severe Insulin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extreme, generalized insulin resistance is the cardinal systemic consequence, driving compensatory hyperinsulinaemia and the early paradoxical glycaemic pattern.\", \"meta\": {\"evidence_count\": 1, \"role\": \"CENTRAL_EFFECTOR\"}}], \"edges\": [{\"source\": \"Biallelic INSR Loss-of-Function\", \"target\": \"Impaired Insulin Receptor Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced receptor number/affinity impairs signalling in insulin target cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic INSR Loss-of-Function\", \"target\": \"Renal Insulin Receptor Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The insulin receptor is expressed in the kidney; biallelic INSR loss produces a renal phenotype (hypercalciuria, nephrocalcinosis) independent of the diabetic state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Insulin Receptor Signaling\", \"target\": \"Severe Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blunted receptor signalling produces the defining extreme insulin-resistant state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Insulin Resistance\", \"target\": \"Compensatory Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Target tissues require supraphysiologic insulin, driving compensatory hypersecretion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Insulin Resistance\", \"target\": \"Paradoxical Glycemic Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Residual insulin action plus massive hyperinsulinaemia yields fluctuating glucose.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Paradoxical Glycemic Regulation\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fasting hypoglycaemia from severely increased insulin levels early in life.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paradoxical Glycemic Regulation\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postprandial hyperglycaemia from failure of insulin-stimulated glucose disposal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Cutaneous IGF-1 Receptor Cross-activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High insulin stimulates keratinocyte IGF receptors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Ovarian Androgen Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperinsulinaemia drives ovarian hyperandrogenism in females.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Pancreatic Beta-Cell Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hyperstimulation leads to eventual secretory failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Growth Hormone Resistance and Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High insulin may interact with IGF-I receptors and feedback-reduce GH secretion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Hyperinsulinemia\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The measured laboratory hyperinsulinaemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous IGF-1 Receptor Cross-activation\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Keratinocyte hyperproliferation produces acanthosis nigricans.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ovarian Androgen Excess\", \"target\": \"Hyperandrogenism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ovarian androgen excess produces clinical hyperandrogenism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ovarian Androgen Excess\", \"target\": \"Enlarged external genitalia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Androgen excess contributes to clitoromegaly/enlarged external genitalia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ovarian Androgen Excess\", \"target\": \"Enlarged ovaries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperinsulinaemia-driven ovarian stimulation produces enlarged/polycystic ovaries.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pancreatic Beta-Cell Decompensation\", \"target\": \"Insulin-resistant diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beta-cell failure precipitates overt insulin-resistant diabetes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Insulin Receptor Dysfunction\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypercalciuria from renal INSR dysfunction produces nephrocalcinosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Insulin Receptor Dysfunction\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal INSR dysfunction is associated with low-grade proteinuria in a subset.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Growth Hormone Resistance and Growth Failure\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GH resistance contributes to growth retardation/short stature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Insulin-resistant diabetes mellitus\", \"target\": \"Diabetic ketoacidosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive hyperglycaemia precipitates recurrent diabetic ketoacidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin sensitizers (metformin, pioglitazone)\", \"target\": \"Severe Insulin Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SGLT2 inhibitor (empagliflozin)\", \"target\": \"Hyperglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant human IGF-1 (mecasermin)\", \"target\": \"Impaired Insulin Receptor Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metreleptin\", \"target\": \"Hyperglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiandrogen and hormonal therapy for hyperandrogenism\", \"target\": \"Hyperandrogenism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nephrology-directed management of nephrocalcinosis\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"INSR\", \"target\": \"Biallelic INSR Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5862,6 +5919,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5947,6 +6007,9 @@ This clinical feature is Protuberant abdomen (HP:0001538). HP:0001538 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6025,6 +6088,9 @@ This clinical feature is Hyperinsulinemia (HP:0000842). HP:0000842 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6091,6 +6157,9 @@ This clinical feature is Insulin-resistant diabetes mellitus (HP:0000831). HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6172,6 +6241,9 @@ This clinical feature is Diabetic ketoacidosis (HP:0001953). HP:0001953 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6238,6 +6310,9 @@ This clinical feature is Hyperandrogenism, annotated with Increased circulating 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6316,6 +6391,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6403,6 +6481,9 @@ This clinical feature is Enlarged external genitalia, annotated with Abnormal ex
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6467,6 +6548,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6566,6 +6650,9 @@ This clinical feature is Ovarian enlargement, annotated with Enlarged ovaries (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6632,6 +6719,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6719,6 +6809,9 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6783,6 +6876,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6868,6 +6964,9 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6939,6 +7038,9 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7003,6 +7105,9 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7081,6 +7186,9 @@ This clinical feature is Nail hypertrophy, annotated with Abnormal nail morpholo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7147,6 +7255,9 @@ This clinical feature is Reduced subcutaneous fat, annotated with Reduced subcut
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7230,6 +7341,9 @@ This clinical feature is Fasting hypoglycemia, annotated with Hypoglycemia (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7294,6 +7408,9 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7374,6 +7491,9 @@ This clinical feature is Growth retardation, annotated with Growth delay (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7490,6 +7610,9 @@ This disease-associated gene is INSR (hgnc:6091). hgnc:6091 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

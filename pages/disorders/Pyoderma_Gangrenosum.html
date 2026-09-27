@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -6053,6 +6095,7 @@ Curation consequence: no targeted agent in this entry may be presented as establ
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammasome-activation-and-il-1-overproduction" data-dismech-node="Inflammasome Activation and IL-1 Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammasome Activation and IL-1 Overproduction</div>
 
+
                 <div class="item-desc">The proximal molecular lesion in pyoderma gangrenosum is exaggerated, inappropriately triggered activation of the inflammasome in innate immune cells of genetically predisposed individuals, leading to overproduction of interleukin-1 (IL-1beta and IL-1alpha). Protein-array profiling of PG lesional skin shows significantly higher expression of IL-1 beta and its receptor I than in normal skin, and IL-1beta is the pivotal cytokine driving the downstream exaggerated production of cytokines and chemokines that recruit neutrophils. This node is the point at which the monogenic PAPA/PSTPIP1 arm and the far commoner sporadic disease converge, and it is the rationale for IL-1 blockade as therapy.</div>
 
 
@@ -6307,6 +6350,7 @@ This pathophysiological event involves increased Interleukin-1 beta production (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th17-th1-skewed-cytokine-amplification" data-dismech-node="Th17/Th1-Skewed Cytokine Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Th17/Th1-Skewed Cytokine Amplification</div>
 
+
                 <div class="item-desc">Downstream of IL-1, a T helper 17/T helper 1-skewed adaptive layer amplifies the innate signal, producing high levels of tumor necrosis factor-alpha, IL-1beta, IL-1alpha, IL-8/CXCL8, IL-12, IL-15, IL-17, IL-23 and IL-36. In PG lesional skin specifically, the chemokines IL-8, CXCL1/2/3, CXCL16 and RANTES are over-expressed, and this chemokine signal is stronger than in Sweet syndrome. This profile is the direct rationale for the biologic therapies used in PG — TNF, IL-1, IL-17, IL-23 and complement C5a inhibitors — and it is why pyoderma gangrenosum sits at the interface of innate autoinflammation and adaptive immunity rather than being purely innate.</div>
 
 
@@ -6558,6 +6602,7 @@ This pathophysiological event involves increased Positive regulation of inflamma
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-recruitment-to-the-dermis" data-dismech-node="Neutrophil Recruitment to the Dermis" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Recruitment to the Dermis</div>
+
 
                 <div class="item-desc">Driven by the amplified chemokine milieu, neutrophils undergo chemotaxis and migration into the dermis and become activated. Increased neutrophil granulocyte activity is the demonstrated cellular hallmark of the disease and the feature that places pyoderma gangrenosum within the neutrophilic dermatoses.</div>
 
@@ -6816,6 +6861,7 @@ This pathophysiological event involves increased Neutrophil activation (GO:00421
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat-pathway-overactivation" data-dismech-node="JAK-STAT Pathway Overactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT Pathway Overactivation</div>
 
+
                 <div class="item-desc">The JAK/STAT pathway is the common downstream transducer for most of the cytokines this entry already models (IL-6, IL-12, IL-23, interferons), and single-cell RNA sequencing with multiplex immunohistochemistry shows it significantly overactivated in PG lesions — particularly in advanced-stage lesions — driven chiefly by myeloid cells and T cells. The activation is associated with enhanced NET formation in myeloid cells and with aberrant Th17 / Th17.1 differentiation and plasticity, so it converges on two nodes already in this pathograph. Independent multi-omics work identifies JAK2 and STAT3 as the network hubs of an inflammatory module conserved between PG skin and IBD gut, which is the molecular candidate for the gut-skin axis behind PG&#39;s commonest systemic association. This node is the rationale for JAK inhibition (tofacitinib, baricitinib), which remains investigational.</div>
 
 
@@ -7060,6 +7106,7 @@ This pathophysiological event involves increased JAK-STAT cascade, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-c5a-generation-and-c5ar1-signalling" data-dismech-node="Complement C5a Generation and C5aR1 Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement C5a Generation and C5aR1 Signalling</div>
 
+
                 <div class="item-desc">Complement activation generates the anaphylatoxin C5a, which signals through its receptor C5aR1 on neutrophils. In pyoderma gangrenosum this is the named proximal driver of NET release: among the candidate inducers expressed in PG (IL-1 beta, IL-6, IL-8 and C5aR1), C5a is the most potent inducer of NETosis, acting dose-dependently within 30 minutes and specifically through C5aR1 and ERK — C5aR blockade with avacopan and ERK inhibition each abolish it. The axis is active in human disease, not only in culture: C5a in PG wound fluid is more than 6-fold higher than in traumatic wound fluid, at concentrations sufficient to induce NETosis, and correlates with neutrophil elastase levels. C5a is also a classical neutrophil chemoattractant, so it plausibly contributes to recruitment as well as to NET release; only the NETosis arm is modeled as a causal edge here.</div>
 
 
@@ -7288,6 +7335,7 @@ This pathophysiological event involves increased Complement component C5a signal
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gsdmd-dependent-netosis" data-dismech-node="GSDMD-Dependent NETosis" data-dismech-type="pathophysiology">
                 <div class="item-name">GSDMD-Dependent NETosis</div>
+
 
                 <div class="item-desc">Activated neutrophils release neutrophil extracellular traps (NETs) — decondensed chromatin studded with granule proteins — by a process regulated by gasdermin D (GSDMD), whose pores release neutrophil elastase and myeloperoxidase during early NETosis. Serum NET levels (MPO-DNA complexes) are elevated in PG patients versus healthy controls and fall after effective treatment. This is the effector cell-death programme of the neutrophilic arm and the node the only available PG animal model addresses: GSDMD-knockout mice develop significantly less severe ulcers in the PG-serum transfer model. It amplifies the surrounding cytokine milieu, feeding back on the inflammatory response.</div>
 
@@ -7529,6 +7577,7 @@ This pathophysiological event involves increased Neutrophil extracellular trap f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sterile-neutrophilic-dermal-inflammation-and-tissue-destruction" data-dismech-node="Sterile Neutrophilic Dermal Inflammation and Tissue Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Sterile Neutrophilic Dermal Inflammation and Tissue Destruction</div>
 
+
                 <div class="item-desc">A dense, sterile (culture-negative) neutrophilic infiltrate accumulates in the dermis, most conspicuously at the advancing ulcer edge, and destroys dermal tissue. Over-expressed Fas/Fas ligand and CD40/CD40 ligand systems contribute to that tissue damage in PG. The absence of a causative organism is central: the inflammation is aseptic, which is why antibiotics do not resolve the lesion and why exclusion of infection is a formal diagnostic criterion. Biopsy of the ulcer edge demonstrating a neutrophilic infiltrate is the single major criterion in the Delphi consensus definition.</div>
 
 
@@ -7743,6 +7792,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmp-mediated-extracellular-matrix-destruction" data-dismech-node="MMP-Mediated Extracellular Matrix Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">MMP-Mediated Extracellular Matrix Destruction</div>
 
+
                 <div class="item-desc">Matrix metalloproteinases released within the neutrophil-rich infiltrate — principally MMP-2 and MMP-9, alongside neutrophil elastase from NETs — degrade dermal extracellular matrix and are the proximate effectors of tissue loss. Immunohistochemistry of PG lesions shows MMP-2 and MMP-9 significantly elevated versus controls. Importantly this arm is subtype-graded rather than uniform: myeloperoxidase, IL-8 and MMP-9 are expressed more strongly in ulcerative and bullous PG than in vegetative PG, which is the mechanistic correlate of vegetative disease being the superficial, indolent, less destructive variant.</div>
 
 
@@ -7938,6 +7988,7 @@ This pathophysiological event involves increased Extracellular matrix disassembl
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cutaneous-ulceration-with-undermined-violaceous-border" data-dismech-node="Progressive Cutaneous Ulceration with Undermined Violaceous Border" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cutaneous Ulceration with Undermined Violaceous Border</div>
 
+
                 <div class="item-desc">The converging neutrophilic process manifests clinically as the defining lesion: a painful, rapidly evolving cutaneous ulcer with undermined, irregular, erythematous-violaceous edges and a mucopurulent or hemorrhagic exudate. Rapid progression and a reddish-violaceous wound border are two of the three major criteria of the PARACELSUS diagnostic score, the border being present in 98% of patients. Healing characteristically leaves a cribriform scar, and the disease carries substantially increased mortality.</div>
 
 
@@ -8043,6 +8094,7 @@ This pathophysiological event involves increased Extracellular matrix disassembl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathergy-trauma-induced-lesion-initiation" data-dismech-node="Pathergy - Trauma-Induced Lesion Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathergy - Trauma-Induced Lesion Initiation</div>
+
 
                 <div class="item-desc">Pathergy is the induction of new lesions, or the marked enlargement of existing ones, at sites of minor cutaneous trauma — needle sticks, biopsies, surgical incisions, or chronic mechanical irritation such as an ostomy appliance. Mechanistically it represents a lowered threshold for triggering the neutrophilic inflammatory cascade in already primed skin, so trauma locally initiates the same pathway rather than causing a distinct process. This node is clinically load-bearing rather than merely descriptive: it is why surgical debridement and defect closure can exacerbate the injury, and why postsurgical pyoderma gangrenosum is a recognized entity. Pathergy is a minor criterion in the Delphi consensus definition and appears in the PARACELSUS score as localization of the lesion at a site of trauma.</div>
 
@@ -8166,6 +8218,7 @@ This pathophysiological event involves increased Extracellular matrix disassembl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pstpip1-dysfunction-monogenic-papa-arm" data-dismech-node="PSTPIP1 Dysfunction (Monogenic PAPA Arm)" data-dismech-type="pathophysiology">
                 <div class="item-name">PSTPIP1 Dysfunction (Monogenic PAPA Arm)</div>
+
 
                 <div class="item-desc">In PAPA syndrome (pyogenic arthritis, pyoderma gangrenosum, and acne), an autosomal dominant autoinflammatory disease, missense variants in PSTPIP1/CD2BP1 (E250Q, A230T) severely reduce binding of the PSTPIP1 adaptor to PEST-type protein tyrosine phosphatase. The resulting hyper-phosphorylated PSTPIP1 protein alters its participation in inflammasome activation, and overproduction of IL-1beta is a clear molecular feature of the syndrome. This is the clean Mendelian arm that links a defined molecular lesion to the same IL-1/inflammasome node that drives sporadic pyoderma gangrenosum, of which PG is the cutaneous hallmark. Note this node models the mechanistic arm only: PAPA syndrome itself (MONDO:0011462) is a distinct disease entity and is not curated here.</div>
 
@@ -8500,6 +8553,9 @@ This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8625,6 +8681,9 @@ This clinical feature is Cutaneous ulcer with undermined violaceous border, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8721,6 +8780,9 @@ This clinical feature is Hemorrhagic bullae, annotated with Abnormal blistering 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8787,6 +8849,9 @@ This clinical feature is Superficial vegetative cutaneous lesion, annotated with
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8888,6 +8953,9 @@ This clinical feature is Peristomal skin ulceration, annotated with Skin ulcer (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8979,6 +9047,9 @@ This clinical feature is Skin ulcer of the lower limb, annotated with Skin ulcer
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9087,6 +9158,9 @@ This clinical feature is Cribriform (&#34;wrinkled paper&#34;) scar, annotated w
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9183,6 +9257,9 @@ This clinical feature is Severe pain at the ulceration site, annotated with Pain
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9241,6 +9318,9 @@ This clinical feature is Severe pain at the ulceration site, annotated with Pain
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately NOT bound to an ontology term. Pathergy is trauma-induced lesion INITIATION, not a lesion morphology; HPO has no term for it, and the nearest candidates are all misleading. This phenotype previously carried HP:0200042 (Skin ulcer), which discarded the semantic content and made it indistinguishable from the three other Skin ulcer annotations in this file. Per the dismech-terms rule that no term beats a misleading or too-general one, the free-text `preferred_term` stands alone. NEEDS TERM / candidate HPO new-term request (NTR): pathergy is a formal scored criterion in both the Delphi consensus definition and the PARACELSUS score, and also occurs in Behcet disease, so a dedicated HP term would be reused. Raised in the PR #9115 review.</div>
@@ -9386,6 +9466,9 @@ This disease-associated gene is PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9461,6 +9544,7 @@ This disease-associated gene is PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9480,11 +9564,17 @@ This variant is in PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in the CDC15-homologous domain, co-segregating with PAPA syndrome and severely reducing PSTPIP1 binding to PEST-type protein tyrosine phosphatase. Pathogenic for PAPA syndrome, not for sporadic PG.</div>
@@ -9547,6 +9637,7 @@ This variant is in PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9566,11 +9657,17 @@ This variant is in PSTPIP1 (hgnc:9580). hgnc:9580 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitution in the CDC15-homologous domain, co-segregating with PAPA syndrome and severely reducing PSTPIP1 binding to PEST-type protein tyrosine phosphatase. Pathogenic for PAPA syndrome, not for sporadic PG.</div>
@@ -9660,6 +9757,9 @@ This disease-associated gene is MEFV (hgnc:6998). hgnc:6998 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9732,6 +9832,9 @@ This disease-associated gene is NLRP3 (hgnc:16400). hgnc:16400 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9800,6 +9903,9 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -9897,6 +10003,9 @@ This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

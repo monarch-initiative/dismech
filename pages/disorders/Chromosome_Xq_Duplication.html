@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 42</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 44</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Chromosome%20Xq%20Duplication"
@@ -4005,7 +4047,7 @@ Recurrent, dosage-defined intervals are modelled here as subtypes. The best char
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4034,7 +4076,7 @@ Recurrent, dosage-defined intervals are modelled here as subtypes. The best char
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">42</div>
+                <div class="stat-value">44</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4084,7 +4126,7 @@ Recurrent, dosage-defined intervals are modelled here as subtypes. The best char
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4823,6 +4865,25 @@ complex."</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                SOX3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11199" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11199</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SOX3 (hgnc:11199). hgnc:11199 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Mid-Xq gains spanning Xq25–q26 associated with two further presentations: X-linked panhypopituitarism with variable intellectual disability mapping to a duplicated dosage-sensitive locus, and a 1.65 Mb critical region at Xq25 for hemihyperplasia with digital anomalies.
@@ -4834,7 +4895,7 @@ complex."</div>
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4891,6 +4952,31 @@ duplicated."</div>
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:15342697" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15342697" target="_blank">PMID:15342697</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Interestingly, all X linked hypopituitarism duplications contain SOX3."</div>
+
+
+                <div class="evidence-explanation">Array CGH across five X-linked hypopituitarism kindreds, including previously mapped families, finds SOX3 inside every duplication, which is why SOX3 is bound to the panhypopituitarism half of this subtype.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4915,6 +5001,25 @@ duplicated."</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                PLP1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:9086</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PLP1 (hgnc:9086). hgnc:9086 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Proximal long-arm duplications, reported less often and more heterogeneous in breakpoint. Patients show craniofacial dysmorphism, aberrant brain myelination, hypotonia, psychomotor and growth retardation, feeding problems and hypoplastic genitalia.
@@ -4926,7 +5031,7 @@ duplicated."</div>
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4953,6 +5058,32 @@ ing issues, hypoplasic genitalia."</div>
 
 
                 <div class="evidence-explanation">Describes the proximal Xq duplication phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19232094" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19232094" target="_blank">PMID:19232094</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complete duplication of the PLP1 gene on Xq22 is the cause of 60–70% of PMD cases"</div>
+
+
+                <div class="evidence-explanation">Identifies PLP1 at Xq22, within this proximal interval, as a dosage-sensitive gene whose duplication causes a myelin disorder - the basis for binding it to the subtype whose reported phenotype includes aberrant brain myelination.
+</div>
 
 
 
@@ -5468,11 +5599,12 @@ by the rearrangement have been suggested"</div>
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-segmental-copy-number-gain-on-xq" data-dismech-node="Segmental Copy Number Gain on Xq" data-dismech-type="pathophysiology">
                 <div class="item-name">Segmental Copy Number Gain on Xq</div>
+
 
                 <div class="item-desc">An extra copy of a segment of the long arm of the X chromosome. In males this arises most often as an intrachromosomal duplication transmitted by a non-manifesting mother, and less often from an unbalanced X/Y or X/autosome translocation. Duplication size and gene content vary widely, from cytogenetically visible multi-megabase segments to submicroscopic gains encompassing only one or a few genes detectable by array CGH.
 </div>
@@ -5554,6 +5686,7 @@ autosome translocation."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-x-chromosome-dosage-compensation" data-dismech-node="Failure of X-Chromosome Dosage Compensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of X-Chromosome Dosage Compensation</div>
 
+
                 <div class="item-desc">X-chromosome inactivation, initiated from the X-inactivation centre (XIC) at Xq13, normally equalises X-linked gene expression between XX and XY cells. This safeguard fails in three distinguishable ways. In XY males there is no second X to inactivate, so any structural Xq disomy is obligatorily functional disomy. In females carrying an intrachromosomal duplication, inactivation is usually skewed towards the abnormal X, which rescues the phenotype; manifesting females are those with a random inactivation pattern. In females with an unbalanced X/autosome translocation, the translocated X segment is physically separated from its XIC in cis and therefore cannot be inactivated at all, so the phenotype is fully expressed and can be as severe as in males.
 </div>
 
@@ -5576,11 +5709,11 @@ autosome translocation."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0009048</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0009048</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased X-chromosome inactivation, annotated with dosage compensation by inactivation of X chromosome (GO:0009048). GO:0009048 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5699,6 +5832,7 @@ carrier females show complete skewing of X inactivation."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-xq-disomy-and-increased-gene-dosage" data-dismech-node="Functional Xq Disomy and Increased Gene Dosage" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Xq Disomy and Increased Gene Dosage</div>
 
+
                 <div class="item-desc">Double expression of the X-linked genes lying within the duplicated segment. Because most X-linked genes are not tolerant of a twofold expression increase, the identity of the dosage-sensitive genes captured by the duplication determines which organ systems are affected — this is why breakpoint position, not duplication size alone, drives the phenotype.
 </div>
 
@@ -5721,11 +5855,11 @@ carrier females show complete skewing of X inactivation."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0010467</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0010467</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased gene expression (GO:0010467). GO:0010467 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5780,6 +5914,15 @@ This pathophysiological event involves increased gene expression (GO:0010467). G
 	                            <span class="crosslink-meta">Increased STAG2 Dosage and Cohesin Dysregulation</span>
 
 	                            <span class="crosslink-desc">Xq25 duplications raise STAG2 dosage.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Increased PLP1 Dosage and Central Dysmyelination</span>
+
+	                            <span class="crosslink-desc">A proximal Xq gain spanning Xq22 raises PLP1 copy number, the one dosage-sensitive locus in this entry that acts on myelin rather than on neurons directly.
+</span>
 
 
 	                        </div>
@@ -5922,6 +6065,7 @@ segment."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mecp2-overexpression" data-dismech-node="MECP2 Overexpression" data-dismech-type="pathophysiology">
                 <div class="item-name">MECP2 Overexpression</div>
 
+
                 <div class="item-desc">MeCP2 is a methyl-CpG-binding chromatin protein expressed most highly in post-mitotic, post-migratory neurons. Its level must be tightly regulated in both directions: loss of function causes Rett syndrome, while a roughly twofold increase from duplication is itself pathogenic. The duplicated allele is structurally wild type, so this is a quantitative overexpression rather than a qualitative change in protein function. Copy number is transmitted through to protein: patient-derived lymphoblastoid RNA and protein levels are correlated, and triplications produce significantly more MECP2 transcript than duplications.
 </div>
 
@@ -5937,11 +6081,11 @@ segment."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5979,11 +6123,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
         MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:6990</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -6022,11 +6166,11 @@ This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008327" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0008327</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008327" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0008327</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves increased methyl-CpG binding (GO:0008327). GO:0008327 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -6177,6 +6321,7 @@ and MECP2 protein levels."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-maturation-and-progressive-neurological-decline" data-dismech-node="Impaired Neuronal Maturation and Progressive Neurological Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Maturation and Progressive Neurological Decline</div>
 
+
                 <div class="item-desc">Excess MeCP2 disturbs activity-dependent transcriptional regulation in maturing neurons. In transgenic mice expressing MeCP2 at approximately twice wild-type levels the course is biphasic and delayed: an early period of enhanced hippocampal synaptic plasticity and learning is followed after 20 weeks by seizures, hypoactivity and premature death. This delayed, progressive trajectory mirrors the human course, in which early hypotonia and developmental delay give way to progressive spasticity and epilepsy.
 </div>
 
@@ -6192,11 +6337,11 @@ and MECP2 protein levels."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6233,11 +6378,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042551" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042551</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042551" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0042551</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased neuron maturation (GO:0042551). GO:0042551 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6480,6 +6625,7 @@ severe form of MR associated with progressive spasticity."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dosage-and-architecture-dependent-severity-gradient" data-dismech-node="Dosage- and Architecture-Dependent Severity Gradient" data-dismech-type="pathophysiology">
                 <div class="item-name">Dosage- and Architecture-Dependent Severity Gradient</div>
 
+
                 <div class="item-desc">Severity is graded rather than all-or-none, and is set by two partly separable variables: the absolute level of MeCP2 (triplication worse than duplication) and the structural class of the rearrangement itself. Phenotypic burden — survival, developmental level, microcephaly, epilepsy, and genitourinary/eye anomalies — worsens progressively across tandem duplications, other complex rearrangements, terminal duplications/translocations, and triplications. Rearrangement structure therefore contributes to expression variability independently of copy number alone, plausibly through position effects and disruption of regulatory architecture at the breakpoints.
 </div>
 
@@ -6574,6 +6720,7 @@ variability."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sox3-overdosage" data-dismech-node="SOX3 Overdosage" data-dismech-type="pathophysiology">
                 <div class="item-name">SOX3 Overdosage</div>
 
+
                 <div class="item-desc">SOX3 is a developmental transcription factor at Xq27.1 expressed in the infundibulum. Both over- and underdosage impair infundibular development and produce hypopituitarism, indicating a narrow tolerated expression window rather than a simple loss-of-function relationship. This is the mechanistic basis of the hypopituitary presentations of Xq26-q27 duplication.
 </div>
 
@@ -6597,11 +6744,11 @@ variability."</div>
         SOX3
 
 
-    <a href="https://bioregistry.io/hgnc:11199" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:11199</a>
+    <a href="https://bioregistry.io/hgnc:11199" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11199</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SOX3 (hgnc:11199). hgnc:11199 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -6639,11 +6786,11 @@ This pathophysiological event involves SOX3 (hgnc:11199). hgnc:11199 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021984" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0021984</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021984" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0021984</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased adenohypophysis development (GO:0021984). GO:0021984 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6735,6 +6882,7 @@ of infundibular hypoplasia and hypopituitarism but not necessarily MR."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-stag2-dosage-and-cohesin-dysregulation" data-dismech-node="Increased STAG2 Dosage and Cohesin Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased STAG2 Dosage and Cohesin Dysregulation</div>
 
+
                 <div class="item-desc">STAG2 encodes a subunit of the cohesin complex, which mediates sister chromatid cohesion and, critically for this phenotype, shapes chromatin architecture and enhancer-promoter looping. Increased STAG2 copy number at Xq25 is proposed to act by dysregulating cohesin downstream target genes, placing this interval among the cohesinopathies. The transcriptional consequences are inferred from the mapping data rather than directly measured in patients.
 </div>
 
@@ -6758,11 +6906,11 @@ of infundibular hypoplasia and hypopituitarism but not necessarily MR."</div>
         STAG2
 
 
-    <a href="https://bioregistry.io/hgnc:11355" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11355</a>
+    <a href="https://bioregistry.io/hgnc:11355" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:11355</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves STAG2 (hgnc:11355). hgnc:11355 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -6800,11 +6948,11 @@ This pathophysiological event involves STAG2 (hgnc:11355). hgnc:11355 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0007062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased sister chromatid cohesion (GO:0007062). GO:0007062 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6903,8 +7051,240 @@ findings of this syndrome."</div>
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-plp1-dosage-and-central-dysmyelination" data-dismech-node="Increased PLP1 Dosage and Central Dysmyelination" data-dismech-type="pathophysiology">
+                <div class="item-name">Increased PLP1 Dosage and Central Dysmyelination</div>
+
+
+                <div class="item-desc">PLP1 at Xq22 encodes proteolipid protein 1, a protein of central nervous system myelin, and is dosage sensitive: complete duplication of the gene is the cause of most Pelizaeus-Merzbacher disease. A proximal Xq duplication that includes Xq22 therefore carries a distinct mechanism from the distal Xq loci in this entry - a disorder of central myelin formation rather than of neuronal maturation or pituitary development - which is consistent with aberrant brain myelination being reported in the proximal Xq21-q24 phenotype.
+</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        oligodendrocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000128</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PLP1
+
+
+    <a href="https://bioregistry.io/hgnc:9086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:9086</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PLP1 (hgnc:9086). hgnc:9086 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        myelination
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0042552</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Progressive Spasticity</span>
+
+	                            <span class="crosslink-desc">Defective central myelin formation progresses to spasticity in PLP1-related disease.
+</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Axial Hypotonia</span>
+
+	                            <span class="crosslink-desc">Hypotonia is an early manifestation of PLP1-related dysmyelination.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19232094" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19232094" target="_blank">PMID:19232094</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complete duplication of the PLP1 gene on Xq22 is the cause of 60–70% of PMD cases"</div>
+
+
+                <div class="evidence-explanation">Establishes PLP1 copy-number gain, not sequence change, as the mechanism in the majority of Pelizaeus-Merzbacher disease.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301361" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301361" target="_blank">PMID:20301361</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PLP1-related disorders of central nervous system myelin formation include a range of phenotypes from Pelizaeus-Merzbacher disease (PMD) to spastic paraplegia 2 (SPG2)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews places PLP1 disorders in central myelin formation, the process this node describes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-irak1-dosage" data-dismech-node="Increased IRAK1 Dosage" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased IRAK1 Dosage</div>
+
 
                 <div class="item-desc">IRAK1 and IKBKG lie immediately telomeric to MECP2 and are usually contained within the duplicated Xq28 segment. Both are innate immune signalling components downstream of the Toll-like and IL-1 receptors, and their increased dosage has been proposed as the explanation for the recurrent respiratory infections that distinguish Xq28 functional disomy from other X-linked intellectual disability/hypotonia syndromes. This remains a proposed rather than demonstrated mechanism: the one direct pathway test found that patient cells do not show increased canonical NF-kB signalling despite the IRAK1 duplication.
 </div>
@@ -6929,11 +7309,11 @@ findings of this syndrome."</div>
         IRAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6112" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6112</a>
+    <a href="https://bioregistry.io/hgnc:6112" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:6112</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves IRAK1 (hgnc:6112). hgnc:6112 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -6971,11 +7351,11 @@ This pathophysiological event involves IRAK1 (hgnc:6112). hgnc:6112 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0002224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0002224</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased toll-like receptor signaling pathway (GO:0002224). GO:0002224 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7117,7 +7497,7 @@ canonical NF-κB signaling in immortalized fibroblasts, PBMCs, and whole blood."
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Behaviour\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioural disturbance is a recognised component of the Xq25/STAG2 duplication phenotype alongside speech disturbance and intellectual disability.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Xq25 (STAG2)\"], \"term_id\": \"HP:0000708\"}}, {\"id\": \"Anterior Pituitary Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Xq26.3-q27.1 (SOX3)\"], \"term_id\": \"HP:0010627\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic behaviours are observed in several affected boys with MECP2 duplication, in addition to the core neurodevelopmental features.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Axial Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Major axial hypotonia is an early and near-universal finding, contributing to feeding difficulty and delayed motor milestones.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008936\"}}, {\"id\": \"Bruxism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003763\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed or Absent Speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Digital Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syndactyly of fingers and toes and clinodactyly, reported with Xq25 duplication and also as a general finding in distal Xq duplication.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011297\"}}, {\"id\": \"Dosage- and Architecture-Dependent Severity Gradient\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severity is graded rather than all-or-none, and is set by two partly separable variables: the absolute level of MeCP2 (triplication worse than duplication) and the structural class of the rearrangement itself. Phenotypic burden \\u2014 survival, developmental level, microcephaly, epilepsy, and genitourinary/eye anomalies \\u2014 worsens progressively across tandem duplications, other complex rearrangements, terminal duplications/translocations, and triplications. Rearrangement structure therefore contributes to expression variability independently of copy number alone, plausibly through position effects and disruption of regulatory architecture at the breakpoints.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dysautonomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autonomic features including drooling, dysregulated blood flow to the extremities, and abnormal breathing (breath-holding or hyperventilation), shared with the allelic Rett syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012332\"}}, {\"id\": \"Epicanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000286\"}}, {\"id\": \"Failure of X-Chromosome Dosage Compensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"X-chromosome inactivation, initiated from the X-inactivation centre (XIC) at Xq13, normally equalises X-linked gene expression between XX and XY cells. This safeguard fails in three distinguishable ways. In XY males there is no second X to inactivate, so any structural Xq disomy is obligatorily functional disomy. In females carrying an intrachromosomal duplication, inactivation is usually skewed towards the abnormal X, which rescues the phenotype; manifesting females are those with a random inactivation pattern. In females with an unbalanced X/autosome translocation, the translocated X segment is physically separated from its XIC in cis and therefore cannot be inactivated at all, so the phenotype is fully expressed and can be as severe as in males.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"X-chromosome inactivation\"]}}, {\"id\": \"Functional Xq Disomy and Increased Gene Dosage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Double expression of the X-linked genes lying within the duplicated segment. Because most X-linked genes are not tolerant of a twofold expression increase, the identity of the dosage-sensitive genes captured by the duplication determines which organ systems are affected \\u2014 this is why breakpoint position, not duplication size alone, drives the phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gene expression\"]}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe developmental delay is essentially universal in affected males across all reported Xq duplication intervals, with absent or severely delayed speech.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Gonadal Dysgenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in manifesting females; a critical region for gonadal dysgenesis has been proposed at Xq13-q26.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000133\"}}, {\"id\": \"Growth Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal and postnatal growth retardation in distal Xq duplication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hemihyperplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported with Xq25 duplications, mapping to a 1.65 Mb critical region distinct from the distal Xq neurodevelopmental intervals.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Xq25-q26\"], \"term_id\": \"HP:0001528\"}}, {\"id\": \"High Pain Tolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007328\"}}, {\"id\": \"Hypopituitarism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seen with Xq25-q27 duplications involving SOX3, presenting with variable anterior pituitary hormone deficiency, anterior pituitary hypoplasia, ectopic posterior pituitary and absent infundibulum.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Xq26.3-q27.1 (SOX3)\"], \"term_id\": \"HP:0040075\"}}, {\"id\": \"Hypoplastic Genitalia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplastic genitalia, hypospadias and/or cryptorchidism are the most frequent malformations in affected males.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000050\"}}, {\"id\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess MeCP2 disturbs activity-dependent transcriptional regulation in maturing neurons. In transgenic mice expressing MeCP2 at approximately twice wild-type levels the course is biphasic and delayed: an early period of enhanced hippocampal synaptic plasticity and learning is followed after 20 weeks by seizures, hypoactivity and premature death. This delayed, progressive trajectory mirrors the human course, in which early hypotonia and developmental delay give way to progressive spasticity and epilepsy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron maturation\"]}}, {\"id\": \"Inability to Walk or Limited Walking\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002540\"}}, {\"id\": \"Increased IRAK1 Dosage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IRAK1 and IKBKG lie immediately telomeric to MECP2 and are usually contained within the duplicated Xq28 segment. Both are innate immune signalling components downstream of the Toll-like and IL-1 receptors, and their increased dosage has been proposed as the explanation for the recurrent respiratory infections that distinguish Xq28 functional disomy from other X-linked intellectual disability/hypotonia syndromes. This remains a proposed rather than demonstrated mechanism: the one direct pathway test found that patient cells do not show increased canonical NF-kB signalling despite the IRAK1 duplication.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"toll-like receptor signaling pathway\"], \"genes\": [\"IRAK1\"], \"gene_terms\": [{\"label\": \"IRAK1\", \"id\": \"hgnc:6112\"}]}}, {\"id\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAG2 encodes a subunit of the cohesin complex, which mediates sister chromatid cohesion and, critically for this phenotype, shapes chromatin architecture and enhancer-promoter looping. Increased STAG2 copy number at Xq25 is proposed to act by dysregulating cohesin downstream target genes, placing this interval among the cohesinopathies. The transcriptional consequences are inferred from the mapping data rather than directly measured in patients.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sister chromatid cohesion\"], \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Usually severe in MECP2-spanning duplications; mild to moderate in the Xq25/STAG2 interval.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"MECP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MECP2\"], \"gene_terms\": [{\"label\": \"MECP2\", \"id\": \"hgnc:6990\"}]}}, {\"id\": \"MECP2 Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MeCP2 is a methyl-CpG-binding chromatin protein expressed most highly in post-mitotic, post-migratory neurons. Its level must be tightly regulated in both directions: loss of function causes Rett syndrome, while a roughly twofold increase from duplication is itself pathogenic. The duplicated allele is structurally wild type, so this is a quantitative overexpression rather than a qualitative change in protein function. Copy number is transmitted through to protein: patient-derived lymphoblastoid RNA and protein levels are correlated, and triplications produce significantly more MECP2 transcript than duplications.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"molecular_functions\": [\"methyl-CpG binding\"], \"genes\": [\"MECP2\"], \"gene_terms\": [{\"label\": \"MECP2\", \"id\": \"hgnc:6990\"}]}}, {\"id\": \"Macrotia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000400\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-universal in the larger cytogenetically visible duplications but considerably less common in MECP2 microduplication, and part of the severity gradient across rearrangement classes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Musculoskeletal Complications\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone fractures, osteopenia/osteoporosis, scoliosis and joint contractures, attributed to deconditioning, immobility and nutritional deficiency rather than to a primary skeletal defect.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033127\"}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy to maintain range of motion and reduce the likelihood of contractures in the setting of progressive spasticity.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Prompt Antibiotic Treatment of Respiratory Infections\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Respiratory infections should be treated promptly with antibiotics, all vaccines should be given, and gastrostomy should be considered where aspiration is present.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent pneumonia in particular helps distinguish Xq28 functional disomy from other X-linked intellectual disability/hypotonia syndromes, and is a leading cause of hospitalisation and premature mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"SOX3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SOX3\"], \"gene_terms\": [{\"label\": \"SOX3\", \"id\": \"hgnc:11199\"}]}}, {\"id\": \"SOX3 Overdosage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOX3 is a developmental transcription factor at Xq27.1 expressed in the infundibulum. Both over- and underdosage impair infundibular development and produce hypopituitarism, indicating a narrow tolerated expression window rather than a simple loss-of-function relationship. This is the mechanistic basis of the hypopituitary presentations of Xq26-q27 duplication.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"adenohypophysis development\"], \"genes\": [\"SOX3\"], \"gene_terms\": [{\"label\": \"SOX3\", \"id\": \"hgnc:11199\"}]}}, {\"id\": \"STAG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Xq25 (STAG2)\"]}}, {\"id\": \"Segmental Copy Number Gain on Xq\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An extra copy of a segment of the long arm of the X chromosome. In males this arises most often as an intrachromosomal duplication transmitted by a non-manifesting mother, and less often from an unbalanced X/Y or X/autosome translocation. Duplication size and gene content vary widely, from cytogenetically visible multi-megabase segments to submicroscopic gains encompassing only one or a few genes detectable by array CGH.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in approximately half of individuals with MECP2 duplication. Epilepsy is a major driver of developmental regression, and onset is earlier in the more severe rearrangement classes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}], \"edges\": [{\"source\": \"Segmental Copy Number Gain on Xq\", \"target\": \"Failure of X-Chromosome Dosage Compensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether the extra segment is phenotypically expressed depends entirely on whether X-inactivation can silence it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of X-Chromosome Dosage Compensation\", \"target\": \"Functional Xq Disomy and Increased Gene Dosage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncompensated duplicated genes are expressed at double their normal level.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"MECP2 Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal Xq duplications spanning Xq28 raise MECP2 dosage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"SOX3 Overdosage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Xq26.3-q27.1 duplications raise SOX3 dosage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Xq25 duplications raise STAG2 dosage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Increased IRAK1 Dosage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IRAK1 lies immediately adjacent to MECP2 and is co-duplicated in most Xq28 gains.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Growth Retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prenatal and postnatal growth retardation is a core feature of the disomy phenotype across interval groups.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. No single dosage-sensitive growth locus has been identified; growth failure tracks the overall disomic burden.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired head growth attributable to the multigene dosage imbalance; severity varies with rearrangement class.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Near-universal in cytogenetically visible disomy but uncommon in MECP2 microduplication, so it reflects the breadth of the disomic segment rather than a mapped locus.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Macrotia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large ears belong to the recognisable craniofacial pattern of the disomy phenotype.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Part of the characteristic facial gestalt of distal Xq disomy; no individual dosage-sensitive locus has been assigned.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Epicanthus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epicanthal folds belong to the recognisable craniofacial pattern of the disomy phenotype.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Part of the characteristic facial gestalt of distal Xq disomy; no individual dosage-sensitive locus has been assigned.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Hypoplastic Genitalia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital hypoplasia attributable to the multigene dosage imbalance of functional disomy.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Genital malformation is the most frequent malformation class in the disomy phenotype, but no responsible gene within the duplicated intervals has been identified.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cryptorchidism belongs to the genital malformation cluster of the disomy phenotype.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Genital malformation is the most frequent malformation class in the disomy phenotype, but no responsible gene within the duplicated intervals has been identified.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Digital Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Syndactyly and clinodactyly attributable to the multigene dosage imbalance.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Reported both across distal Xq disomy generally and with the Xq25 critical region; no causative gene identified.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Gonadal Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gonadal dysgenesis in manifesting females is attributed to functional disomy of a proposed Xq13-q26 critical region.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. A critical region has been proposed at Xq13-q26, but the dosage-sensitive gene is unknown.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Hemihyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemihyperplasia with digital anomalies maps to a defined Xq25 critical region within the duplicated segment.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Mapped to a 1.65 Mb critical region at Xq25, but the dosage-sensitive gene has not been identified.\"]}, {\"source\": \"MECP2 Overexpression\", \"target\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess MeCP2 perturbs the transcriptional programs of maturing neurons.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MECP2 Overexpression\", \"target\": \"Dosage- and Architecture-Dependent Severity Gradient\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The absolute level of MeCP2 reached - highest in triplications - is one of the two determinants of where an individual falls on the severity gradient.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neuronal maturation underlies the cognitive impairment.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Progressive Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The progressive motor component of the neurological decline.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy emerges as part of the delayed, progressive phase.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental component of the MeCP2-driven neuronal phenotype; severe psychomotor delay is recorded in every patient group.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Delayed or Absent Speech\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech and language are the developmental domains hit hardest; absent or severely delayed speech accompanies the global delay.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Axial Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early axial and facial hypotonia is the first motor manifestation of the impaired neuronal maturation, preceding the later spasticity.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Inability to Walk or Limited Walking\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-ambulation is the motor endpoint of the combined tone and developmental abnormalities.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Combined axial hypotonia, progressive spasticity and severe developmental delay prevent or limit independent ambulation.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autistic features are part of the neurobehavioural profile of MECP2 overdosage.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Dysautonomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic dysfunction parallels that of the allelic MECP2 disorder Rett syndrome, placing it within the MeCP2-driven neuronal phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"High Pain Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blunted pain responsiveness is a common sensory manifestation of the MECP2-duplication neurological phenotype; the specific neuronal route remains unresolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. The sensory circuitry linking excess MeCP2 to blunted pain responsiveness has not been established in this cohort.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Bruxism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bruxism is a stereotypic orofacial motor behaviour evaluated within the neurological domain of the phenotype, shared with allelic Rett syndrome.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Severe Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulty is the bulbar and oromotor consequence of the hypotonia and impaired motor control.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Axial and oropharyngeal hypotonia with impaired chewing and swallowing coordination.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal problems are core features of MECP2-spanning duplication; the dysmotility route is inferred, not measured.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Foregut dysmotility in the setting of hypotonia and autonomic dysfunction is presumed but has not been directly measured in patients.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal problems are core features of MECP2-spanning duplication; the dysmotility route is inferred, not measured.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Colonic dysmotility in the setting of hypotonia and autonomic dysfunction is presumed but has not been directly measured in patients.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Musculoskeletal Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Secondary skeletal morbidity of a severe neurodevelopmental disorder rather than a primary skeletal defect.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Deconditioning and immobility from the severe motor impairment.\", \"Nutritional deficiency from chronic feeding difficulty.\"]}, {\"source\": \"SOX3 Overdosage\", \"target\": \"Anterior Pituitary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired infundibular development from SOX3 overdosage manifests as anterior pituitary hypoplasia, ectopic posterior pituitary and absent infundibulum on MRI.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild to moderate intellectual disability in the Xq25 interval is attributed to STAG2, the only gene in the 173 kb shortest region of overlap.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Dysregulation of cohesin downstream target genes is the proposed route; no patient-derived transcriptomic confirmation exists.\"]}, {\"source\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"target\": \"Abnormal Behaviour\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioural disturbance is among the specific clinical findings attributed to increased STAG2 dosage.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Dysregulation of cohesin downstream target genes is the proposed route; no patient-derived transcriptomic confirmation exists.\"]}, {\"source\": \"Increased IRAK1 Dosage\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed contribution of innate immune gene dosage to infection proneness.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Dysregulated innate immune signalling is the proposed route, but aspiration secondary to severe hypotonia and feeding difficulty is a competing, non-immune explanation for the same clinical finding.\"]}, {\"source\": \"Anterior Pituitary Hypoplasia\", \"target\": \"Hypopituitarism\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Hypoplasia of the anterior pituitary, within the broader infundibular developmental defect, impairs anterior pituitary hormone output.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prompt Antibiotic Treatment of Respiratory Infections\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Progressive Spasticity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MECP2\", \"target\": \"MECP2 Overexpression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SOX3\", \"target\": \"SOX3 Overdosage\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAG2\", \"target\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Behaviour\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioural disturbance is a recognised component of the Xq25/STAG2 duplication phenotype alongside speech disturbance and intellectual disability.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Xq25 (STAG2)\"], \"term_id\": \"HP:0000708\"}}, {\"id\": \"Anterior Pituitary Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Xq26.3-q27.1 (SOX3)\"], \"term_id\": \"HP:0010627\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic behaviours are observed in several affected boys with MECP2 duplication, in addition to the core neurodevelopmental features.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Axial Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Major axial hypotonia is an early and near-universal finding, contributing to feeding difficulty and delayed motor milestones.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008936\"}}, {\"id\": \"Bruxism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003763\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed or Absent Speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Digital Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syndactyly of fingers and toes and clinodactyly, reported with Xq25 duplication and also as a general finding in distal Xq duplication.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011297\"}}, {\"id\": \"Dosage- and Architecture-Dependent Severity Gradient\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severity is graded rather than all-or-none, and is set by two partly separable variables: the absolute level of MeCP2 (triplication worse than duplication) and the structural class of the rearrangement itself. Phenotypic burden \\u2014 survival, developmental level, microcephaly, epilepsy, and genitourinary/eye anomalies \\u2014 worsens progressively across tandem duplications, other complex rearrangements, terminal duplications/translocations, and triplications. Rearrangement structure therefore contributes to expression variability independently of copy number alone, plausibly through position effects and disruption of regulatory architecture at the breakpoints.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dysautonomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autonomic features including drooling, dysregulated blood flow to the extremities, and abnormal breathing (breath-holding or hyperventilation), shared with the allelic Rett syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012332\"}}, {\"id\": \"Epicanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000286\"}}, {\"id\": \"Failure of X-Chromosome Dosage Compensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"X-chromosome inactivation, initiated from the X-inactivation centre (XIC) at Xq13, normally equalises X-linked gene expression between XX and XY cells. This safeguard fails in three distinguishable ways. In XY males there is no second X to inactivate, so any structural Xq disomy is obligatorily functional disomy. In females carrying an intrachromosomal duplication, inactivation is usually skewed towards the abnormal X, which rescues the phenotype; manifesting females are those with a random inactivation pattern. In females with an unbalanced X/autosome translocation, the translocated X segment is physically separated from its XIC in cis and therefore cannot be inactivated at all, so the phenotype is fully expressed and can be as severe as in males.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"X-chromosome inactivation\"]}}, {\"id\": \"Functional Xq Disomy and Increased Gene Dosage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Double expression of the X-linked genes lying within the duplicated segment. Because most X-linked genes are not tolerant of a twofold expression increase, the identity of the dosage-sensitive genes captured by the duplication determines which organ systems are affected \\u2014 this is why breakpoint position, not duplication size alone, drives the phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gene expression\"]}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe developmental delay is essentially universal in affected males across all reported Xq duplication intervals, with absent or severely delayed speech.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Gonadal Dysgenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in manifesting females; a critical region for gonadal dysgenesis has been proposed at Xq13-q26.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000133\"}}, {\"id\": \"Growth Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prenatal and postnatal growth retardation in distal Xq duplication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hemihyperplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported with Xq25 duplications, mapping to a 1.65 Mb critical region distinct from the distal Xq neurodevelopmental intervals.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Xq25-q26\"], \"term_id\": \"HP:0001528\"}}, {\"id\": \"High Pain Tolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007328\"}}, {\"id\": \"Hypopituitarism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seen with Xq25-q27 duplications involving SOX3, presenting with variable anterior pituitary hormone deficiency, anterior pituitary hypoplasia, ectopic posterior pituitary and absent infundibulum.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Xq26.3-q27.1 (SOX3)\"], \"term_id\": \"HP:0040075\"}}, {\"id\": \"Hypoplastic Genitalia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplastic genitalia, hypospadias and/or cryptorchidism are the most frequent malformations in affected males.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000050\"}}, {\"id\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess MeCP2 disturbs activity-dependent transcriptional regulation in maturing neurons. In transgenic mice expressing MeCP2 at approximately twice wild-type levels the course is biphasic and delayed: an early period of enhanced hippocampal synaptic plasticity and learning is followed after 20 weeks by seizures, hypoactivity and premature death. This delayed, progressive trajectory mirrors the human course, in which early hypotonia and developmental delay give way to progressive spasticity and epilepsy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron maturation\"]}}, {\"id\": \"Inability to Walk or Limited Walking\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002540\"}}, {\"id\": \"Increased IRAK1 Dosage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IRAK1 and IKBKG lie immediately telomeric to MECP2 and are usually contained within the duplicated Xq28 segment. Both are innate immune signalling components downstream of the Toll-like and IL-1 receptors, and their increased dosage has been proposed as the explanation for the recurrent respiratory infections that distinguish Xq28 functional disomy from other X-linked intellectual disability/hypotonia syndromes. This remains a proposed rather than demonstrated mechanism: the one direct pathway test found that patient cells do not show increased canonical NF-kB signalling despite the IRAK1 duplication.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"toll-like receptor signaling pathway\"], \"genes\": [\"IRAK1\"], \"gene_terms\": [{\"label\": \"IRAK1\", \"id\": \"hgnc:6112\"}]}}, {\"id\": \"Increased PLP1 Dosage and Central Dysmyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLP1 at Xq22 encodes proteolipid protein 1, a protein of central nervous system myelin, and is dosage sensitive: complete duplication of the gene is the cause of most Pelizaeus-Merzbacher disease. A proximal Xq duplication that includes Xq22 therefore carries a distinct mechanism from the distal Xq loci in this entry - a disorder of central myelin formation rather than of neuronal maturation or pituitary development - which is consistent with aberrant brain myelination being reported in the proximal Xq21-q24 phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"genes\": [\"PLP1\"], \"gene_terms\": [{\"label\": \"PLP1\", \"id\": \"hgnc:9086\"}], \"subtypes\": [\"Xq21-q24\"]}}, {\"id\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAG2 encodes a subunit of the cohesin complex, which mediates sister chromatid cohesion and, critically for this phenotype, shapes chromatin architecture and enhancer-promoter looping. Increased STAG2 copy number at Xq25 is proposed to act by dysregulating cohesin downstream target genes, placing this interval among the cohesinopathies. The transcriptional consequences are inferred from the mapping data rather than directly measured in patients.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sister chromatid cohesion\"], \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Usually severe in MECP2-spanning duplications; mild to moderate in the Xq25/STAG2 interval.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"MECP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MECP2\"], \"gene_terms\": [{\"label\": \"MECP2\", \"id\": \"hgnc:6990\"}]}}, {\"id\": \"MECP2 Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MeCP2 is a methyl-CpG-binding chromatin protein expressed most highly in post-mitotic, post-migratory neurons. Its level must be tightly regulated in both directions: loss of function causes Rett syndrome, while a roughly twofold increase from duplication is itself pathogenic. The duplicated allele is structurally wild type, so this is a quantitative overexpression rather than a qualitative change in protein function. Copy number is transmitted through to protein: patient-derived lymphoblastoid RNA and protein levels are correlated, and triplications produce significantly more MECP2 transcript than duplications.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"molecular_functions\": [\"methyl-CpG binding\"], \"genes\": [\"MECP2\"], \"gene_terms\": [{\"label\": \"MECP2\", \"id\": \"hgnc:6990\"}]}}, {\"id\": \"Macrotia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000400\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-universal in the larger cytogenetically visible duplications but considerably less common in MECP2 microduplication, and part of the severity gradient across rearrangement classes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Musculoskeletal Complications\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone fractures, osteopenia/osteoporosis, scoliosis and joint contractures, attributed to deconditioning, immobility and nutritional deficiency rather than to a primary skeletal defect.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033127\"}}, {\"id\": \"PLP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PLP1\"], \"gene_terms\": [{\"label\": \"PLP1\", \"id\": \"hgnc:9086\"}]}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy to maintain range of motion and reduce the likelihood of contractures in the setting of progressive spasticity.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Prompt Antibiotic Treatment of Respiratory Infections\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Respiratory infections should be treated promptly with antibiotics, all vaccines should be given, and gastrostomy should be considered where aspiration is present.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent pneumonia in particular helps distinguish Xq28 functional disomy from other X-linked intellectual disability/hypotonia syndromes, and is a leading cause of hospitalisation and premature mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"SOX3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SOX3\"], \"gene_terms\": [{\"label\": \"SOX3\", \"id\": \"hgnc:11199\"}]}}, {\"id\": \"SOX3 Overdosage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOX3 is a developmental transcription factor at Xq27.1 expressed in the infundibulum. Both over- and underdosage impair infundibular development and produce hypopituitarism, indicating a narrow tolerated expression window rather than a simple loss-of-function relationship. This is the mechanistic basis of the hypopituitary presentations of Xq26-q27 duplication.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"adenohypophysis development\"], \"genes\": [\"SOX3\"], \"gene_terms\": [{\"label\": \"SOX3\", \"id\": \"hgnc:11199\"}]}}, {\"id\": \"STAG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Xq25 (STAG2)\"]}}, {\"id\": \"Segmental Copy Number Gain on Xq\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An extra copy of a segment of the long arm of the X chromosome. In males this arises most often as an intrachromosomal duplication transmitted by a non-manifesting mother, and less often from an unbalanced X/Y or X/autosome translocation. Duplication size and gene content vary widely, from cytogenetically visible multi-megabase segments to submicroscopic gains encompassing only one or a few genes detectable by array CGH.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in approximately half of individuals with MECP2 duplication. Epilepsy is a major driver of developmental regression, and onset is earlier in the more severe rearrangement classes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}], \"edges\": [{\"source\": \"Segmental Copy Number Gain on Xq\", \"target\": \"Failure of X-Chromosome Dosage Compensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether the extra segment is phenotypically expressed depends entirely on whether X-inactivation can silence it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of X-Chromosome Dosage Compensation\", \"target\": \"Functional Xq Disomy and Increased Gene Dosage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncompensated duplicated genes are expressed at double their normal level.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"MECP2 Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal Xq duplications spanning Xq28 raise MECP2 dosage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"SOX3 Overdosage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Xq26.3-q27.1 duplications raise SOX3 dosage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Xq25 duplications raise STAG2 dosage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Increased PLP1 Dosage and Central Dysmyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proximal Xq gain spanning Xq22 raises PLP1 copy number, the one dosage-sensitive locus in this entry that acts on myelin rather than on neurons directly.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Increased IRAK1 Dosage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IRAK1 lies immediately adjacent to MECP2 and is co-duplicated in most Xq28 gains.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Growth Retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prenatal and postnatal growth retardation is a core feature of the disomy phenotype across interval groups.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. No single dosage-sensitive growth locus has been identified; growth failure tracks the overall disomic burden.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired head growth attributable to the multigene dosage imbalance; severity varies with rearrangement class.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Near-universal in cytogenetically visible disomy but uncommon in MECP2 microduplication, so it reflects the breadth of the disomic segment rather than a mapped locus.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Macrotia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large ears belong to the recognisable craniofacial pattern of the disomy phenotype.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Part of the characteristic facial gestalt of distal Xq disomy; no individual dosage-sensitive locus has been assigned.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Epicanthus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epicanthal folds belong to the recognisable craniofacial pattern of the disomy phenotype.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Part of the characteristic facial gestalt of distal Xq disomy; no individual dosage-sensitive locus has been assigned.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Hypoplastic Genitalia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital hypoplasia attributable to the multigene dosage imbalance of functional disomy.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Genital malformation is the most frequent malformation class in the disomy phenotype, but no responsible gene within the duplicated intervals has been identified.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cryptorchidism belongs to the genital malformation cluster of the disomy phenotype.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Genital malformation is the most frequent malformation class in the disomy phenotype, but no responsible gene within the duplicated intervals has been identified.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Digital Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Syndactyly and clinodactyly attributable to the multigene dosage imbalance.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Reported both across distal Xq disomy generally and with the Xq25 critical region; no causative gene identified.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Gonadal Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gonadal dysgenesis in manifesting females is attributed to functional disomy of a proposed Xq13-q26 critical region.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. A critical region has been proposed at Xq13-q26, but the dosage-sensitive gene is unknown.\"]}, {\"source\": \"Functional Xq Disomy and Increased Gene Dosage\", \"target\": \"Hemihyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemihyperplasia with digital anomalies maps to a defined Xq25 critical region within the duplicated segment.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Mapped to a 1.65 Mb critical region at Xq25, but the dosage-sensitive gene has not been identified.\"]}, {\"source\": \"MECP2 Overexpression\", \"target\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess MeCP2 perturbs the transcriptional programs of maturing neurons.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MECP2 Overexpression\", \"target\": \"Dosage- and Architecture-Dependent Severity Gradient\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The absolute level of MeCP2 reached - highest in triplications - is one of the two determinants of where an individual falls on the severity gradient.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neuronal maturation underlies the cognitive impairment.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Progressive Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The progressive motor component of the neurological decline.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy emerges as part of the delayed, progressive phase.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental component of the MeCP2-driven neuronal phenotype; severe psychomotor delay is recorded in every patient group.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Delayed or Absent Speech\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech and language are the developmental domains hit hardest; absent or severely delayed speech accompanies the global delay.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Axial Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early axial and facial hypotonia is the first motor manifestation of the impaired neuronal maturation, preceding the later spasticity.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Inability to Walk or Limited Walking\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-ambulation is the motor endpoint of the combined tone and developmental abnormalities.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Combined axial hypotonia, progressive spasticity and severe developmental delay prevent or limit independent ambulation.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autistic features are part of the neurobehavioural profile of MECP2 overdosage.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Dysautonomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic dysfunction parallels that of the allelic MECP2 disorder Rett syndrome, placing it within the MeCP2-driven neuronal phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"High Pain Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blunted pain responsiveness is a common sensory manifestation of the MECP2-duplication neurological phenotype; the specific neuronal route remains unresolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. The sensory circuitry linking excess MeCP2 to blunted pain responsiveness has not been established in this cohort.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Bruxism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bruxism is a stereotypic orofacial motor behaviour evaluated within the neurological domain of the phenotype, shared with allelic Rett syndrome.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Severe Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulty is the bulbar and oromotor consequence of the hypotonia and impaired motor control.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Axial and oropharyngeal hypotonia with impaired chewing and swallowing coordination.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal problems are core features of MECP2-spanning duplication; the dysmotility route is inferred, not measured.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Foregut dysmotility in the setting of hypotonia and autonomic dysfunction is presumed but has not been directly measured in patients.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal problems are core features of MECP2-spanning duplication; the dysmotility route is inferred, not measured.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Colonic dysmotility in the setting of hypotonia and autonomic dysfunction is presumed but has not been directly measured in patients.\"]}, {\"source\": \"Impaired Neuronal Maturation and Progressive Neurological Decline\", \"target\": \"Musculoskeletal Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Secondary skeletal morbidity of a severe neurodevelopmental disorder rather than a primary skeletal defect.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Deconditioning and immobility from the severe motor impairment.\", \"Nutritional deficiency from chronic feeding difficulty.\"]}, {\"source\": \"SOX3 Overdosage\", \"target\": \"Anterior Pituitary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired infundibular development from SOX3 overdosage manifests as anterior pituitary hypoplasia, ectopic posterior pituitary and absent infundibulum on MRI.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild to moderate intellectual disability in the Xq25 interval is attributed to STAG2, the only gene in the 173 kb shortest region of overlap.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Dysregulation of cohesin downstream target genes is the proposed route; no patient-derived transcriptomic confirmation exists.\"]}, {\"source\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"target\": \"Abnormal Behaviour\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioural disturbance is among the specific clinical findings attributed to increased STAG2 dosage.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Dysregulation of cohesin downstream target genes is the proposed route; no patient-derived transcriptomic confirmation exists.\"]}, {\"source\": \"Increased PLP1 Dosage and Central Dysmyelination\", \"target\": \"Progressive Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective central myelin formation progresses to spasticity in PLP1-related disease.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Increased PLP1 Dosage and Central Dysmyelination\", \"target\": \"Axial Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is an early manifestation of PLP1-related dysmyelination.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Increased IRAK1 Dosage\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed contribution of innate immune gene dosage to infection proneness.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unresolved. Dysregulated innate immune signalling is the proposed route, but aspiration secondary to severe hypotonia and feeding difficulty is a competing, non-immune explanation for the same clinical finding.\"]}, {\"source\": \"Anterior Pituitary Hypoplasia\", \"target\": \"Hypopituitarism\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Hypoplasia of the anterior pituitary, within the broader infundibular developmental defect, impairs anterior pituitary hormone output.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prompt Antibiotic Treatment of Respiratory Infections\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Progressive Spasticity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MECP2\", \"target\": \"MECP2 Overexpression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SOX3\", \"target\": \"SOX3 Overdosage\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAG2\", \"target\": \"Increased STAG2 Dosage and Cohesin Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLP1\", \"target\": \"Increased PLP1 Dosage and Central Dysmyelination\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7187,15 +7567,18 @@ canonical NF-κB signaling in immortalized fibroblasts, PBMCs, and whole blood."
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000965" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000965</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000965" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000965</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cutis marmorata (HP:0000965). HP:0000965 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7269,10 +7652,10 @@ have been observed in several affected boys."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Feeding difficulties (HP:0011968), qualified as severity severe. HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7296,6 +7679,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as severit
 
 
                     </div>
+
+
+
 
 
 
@@ -7361,15 +7747,18 @@ drooling, seizures, recurrent infections."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002020</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7459,15 +7848,18 @@ and constipation"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7564,15 +7956,18 @@ and constipation"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000400" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000400</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000400" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000400</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrotia (HP:0000400). HP:0000400 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7642,15 +8037,18 @@ This clinical feature is Macrotia (HP:0000400). HP:0000400 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0040075</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0040075</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7739,15 +8137,18 @@ retardation."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0010627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0010627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anterior pituitary hypoplasia (HP:0010627). HP:0010627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7829,15 +8230,18 @@ infundibulum."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012373</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Minor visual abnormalities (refractive errors, strabismus), annotated with Abnormal eye physiology (HP:0012373). HP:0012373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7912,15 +8316,18 @@ This clinical feature is Minor visual abnormalities (refractive errors, strabism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000050</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000050</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplastic male external genitalia (HP:0000050). HP:0000050 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7984,15 +8391,18 @@ are the more frequent malformations"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8053,15 +8463,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000133</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8133,15 +8546,18 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8232,15 +8648,18 @@ levels, microcephaly, epilepsy, and genitourinary/eye abnormalities"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000286</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000286</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8312,10 +8731,10 @@ This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002205</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent respiratory infections (HP:0002205), qualified as temporality recurrent. HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8339,6 +8758,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205), qualifie
 
 
                     </div>
+
+
+
 
 
 
@@ -8440,15 +8862,18 @@ XLMR-hypotonia syndromes."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0011297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal digit morphology (HP:0011297). HP:0011297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8546,10 +8971,10 @@ toes, bilateral 5th finger clinodactyly"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0008936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0008936</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Axial hypotonia (HP:0008936), qualified as temporality chronic. HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8573,6 +8998,9 @@ This clinical feature is Axial hypotonia (HP:0008936), qualified as temporality 
 
 
                     </div>
+
+
+
 
 
 
@@ -8638,10 +9066,10 @@ proneness to infections."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257), qualified as course progressive. HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8665,6 +9093,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
                     </div>
+
+
+
 
 
 
@@ -8732,15 +9163,18 @@ respiratory infections (in ~75% of affected individuals), and seizures (in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0033127</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0033127</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Musculoskeletal complications, annotated with Abnormality of the musculoskeletal system (HP:0033127). HP:0033127 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8813,15 +9247,18 @@ This clinical feature is Musculoskeletal complications, annotated with Abnormali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8884,15 +9321,18 @@ absence or severely retarded speech"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8985,15 +9425,18 @@ behaviours and a characteristic facial dysmorphism."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9058,15 +9501,18 @@ disability, poor speech development"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9132,15 +9578,18 @@ respiratory infections (in ~75% of affected individuals), and seizures (in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002540</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002540</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9202,15 +9651,18 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9277,15 +9729,18 @@ have been observed in several affected boys."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0012332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysautonomia, annotated with Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9351,15 +9806,18 @@ This clinical feature is Dysautonomia, annotated with Abnormal autonomic nervous
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0007328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0007328</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is High pain tolerance, annotated with Impaired pain sensation (HP:0007328). HP:0007328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9423,15 +9881,18 @@ This clinical feature is High pain tolerance, annotated with Impaired pain sensa
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0003763</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bruxism (HP:0003763). HP:0003763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9495,15 +9956,18 @@ This clinical feature is Bruxism (HP:0003763). HP:0003763 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0100785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0100785</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Insomnia (HP:0100785). HP:0100785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9567,15 +10031,18 @@ This clinical feature is Insomnia (HP:0100785). HP:0100785 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002870</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002870</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9639,15 +10106,18 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal behaviour, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9722,15 +10192,18 @@ behaviours and a characteristic facial dysmorphism."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prenatal and postnatal growth retardation, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9795,15 +10268,18 @@ microcephaly"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001528</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001528</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemihypertrophy (HP:0001528). HP:0001528 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9907,10 +10383,10 @@ microcephaly associated with an 11.2 Mb duplication of Xq25-Xq27.1."</div>
                         Gene: MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:6990</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -9918,6 +10394,9 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -10005,10 +10484,10 @@ from mild intellectual disability to a phenotype similar to that seen in males."
                         Gene: SOX3
 
 
-    <a href="https://bioregistry.io/hgnc:11199" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:11199</a>
+    <a href="https://bioregistry.io/hgnc:11199" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:11199</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SOX3 (hgnc:11199). hgnc:11199 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -10016,6 +10495,9 @@ This disease-associated gene is SOX3 (hgnc:11199). hgnc:11199 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -10077,10 +10559,10 @@ mice."</div>
                         Gene: STAG2
 
 
-    <a href="https://bioregistry.io/hgnc:11355" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:11355</a>
+    <a href="https://bioregistry.io/hgnc:11355" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:11355</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is STAG2 (hgnc:11355). hgnc:11355 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -10088,6 +10570,9 @@ This disease-associated gene is STAG2 (hgnc:11355). hgnc:11355 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -10149,10 +10634,10 @@ complex."</div>
                         Gene: L1CAM
 
 
-    <a href="https://bioregistry.io/hgnc:6470" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:6470</a>
+    <a href="https://bioregistry.io/hgnc:6470" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:6470</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is L1CAM (hgnc:6470). hgnc:6470 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -10162,6 +10647,9 @@ This disease-associated gene is L1CAM (hgnc:6470). hgnc:6470 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -10223,10 +10711,10 @@ include the MR-related L1CAM and MECP2 genes."</div>
                         Gene: IRAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6112" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:6112</a>
+    <a href="https://bioregistry.io/hgnc:6112" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:6112</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is IRAK1 (hgnc:6112). hgnc:6112 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -10236,6 +10724,9 @@ This disease-associated gene is IRAK1 (hgnc:6112). hgnc:6112 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -10298,10 +10789,10 @@ IKBKG genes generally present in the duplicated region"</div>
                         Gene: PLP1
 
 
-    <a href="https://bioregistry.io/hgnc:9086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:9086</a>
+    <a href="https://bioregistry.io/hgnc:9086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:9086</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PLP1 (hgnc:9086). hgnc:9086 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -10309,6 +10800,9 @@ This disease-associated gene is PLP1 (hgnc:9086). hgnc:9086 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -10379,7 +10873,7 @@ cases"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10491,7 +10985,7 @@ to prevention of malnutrition and recurrent infections."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10623,7 +11117,7 @@ vaccines should be given; consider gastrostomy tube if aspiration is present."</
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Physical Therapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Physical Therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10753,7 +11247,7 @@ contractures."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11019,11 +11513,11 @@ cases of cryptic duplications encompassing the MECP2 gene have been reported."</
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001263</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11388,6 +11882,14 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In particular, the Xq26–q28 chromosome region yields a\nrecognisable phenotype including distinctive facial fea-\ntures, major axial hypotonia, severe developmental delay,\nsevere feeding difficulties, abnormal genitalia and prone-\nness to infections&#34;
     explanation: Defines the distal Xq26-q28 interval as a recognisable clinical entity.
+  review_notes: &gt;
+    Deliberately carries no `genes:` binding. This subtype is defined by a
+    cytogenetic interval, not by a gene. Its stated span, Xq26-q28, contains
+    both the SOX3 and the MECP2 intervals that the neighbouring rows bind
+    individually, and the cited source describes the interval&#39;s phenotype
+    without assigning it to either. Binding the contained genes here would
+    assert a gene-phenotype attribution the source does not make and would
+    duplicate the narrower rows.
 - name: Xq26.3-q27.1 (SOX3)
   display_name: Xq26.3–q27.1 duplication encompassing SOX3
   subtype_term:
@@ -11464,6 +11966,42 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we have delineated a 1.65 Mb critical region for hemihyperplasia and digital anomalies on chromosome Xq25&#34;
     explanation: Defines the Xq25 critical region for the hemihyperplasia/digital presentation.
+  - reference: PMID:15342697
+    reference_title: &gt;-
+      Array comparative genomic hybridisation analysis of boys with X linked
+      hypopituitarism identifies a 3.9 Mb duplicated critical region at Xq27
+      containing SOX3.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Interestingly, all X linked hypopituitarism duplications contain SOX3.
+    explanation: &gt;-
+      Array CGH across five X-linked hypopituitarism kindreds, including
+      previously mapped families, finds SOX3 inside every duplication, which is
+      why SOX3 is bound to the panhypopituitarism half of this subtype.
+  genes:
+  - preferred_term: SOX3
+    term:
+      id: hgnc:11199
+      label: SOX3
+  review_notes: &gt;
+    Two things about this row are worth flagging rather than silently resolving.
+    First, it bundles two presentations: X-linked panhypopituitarism with
+    variable intellectual disability, and a separate 1.65 Mb Xq25 critical
+    region for hemihyperplasia with digital anomalies. The SOX3 binding applies
+    only to the first; the hemihyperplasia region has no gene assigned in the
+    cited source.
+
+    Second, the panhypopituitarism half overlaps the neighbouring
+    `Xq26.3-q27.1 (SOX3)` row. Both rows carry a MONDO term for X-linked
+    hypopituitarism from a different OMIM entry - MONDO:0010252 (OMIM:300123,
+    intellectual disability with panhypopituitarism) here and MONDO:0010712
+    (OMIM:312000, panhypopituitarism, X-linked) there - and the array-CGH study
+    cited above found SOX3 within every X-linked hypopituitarism duplication it
+    examined, refining the critical region to Xq27.2-q27.3. The two rows are
+    kept separate because the OMIM entries and MONDO terms are separate, but
+    whether they describe one disorder is an open question for MONDO rather
+    than one this entry should decide.
 - name: Xq21-q24
   display_name: Proximal Xq (Xq21–q24) duplication
   description: &gt;
@@ -11478,6 +12016,22 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients show craniofacial dysmorphism, brain and neurologic\nabnormalities such as aberrant brain myelination, hypot-\nonia, mental, psychomotor and growth retardation, feed-\ning issues, hypoplasic genitalia.&#34;
     explanation: Describes the proximal Xq duplication phenotype.
+  - reference: PMID:19232094
+    reference_title: &#34;Distal Xq duplication and functional Xq disomy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Complete duplication of the PLP1 gene on Xq22 is the cause of 60–70% of PMD
+cases&#34;
+    explanation: &gt;
+      Identifies PLP1 at Xq22, within this proximal interval, as a
+      dosage-sensitive gene whose duplication causes a myelin disorder - the
+      basis for binding it to the subtype whose reported phenotype includes
+      aberrant brain myelination.
+  genes:
+  - preferred_term: PLP1
+    term:
+      id: hgnc:9086
+      label: PLP1
 pathophysiology:
 - name: Segmental Copy Number Gain on Xq
   biological_scale: MOLECULAR
@@ -11577,6 +12131,12 @@ pathophysiology:
   - target: Increased STAG2 Dosage and Cohesin Dysregulation
     causal_link_type: DIRECT
     description: Xq25 duplications raise STAG2 dosage.
+  - target: Increased PLP1 Dosage and Central Dysmyelination
+    causal_link_type: DIRECT
+    description: &gt;
+      A proximal Xq gain spanning Xq22 raises PLP1 copy number, the one
+      dosage-sensitive locus in this entry that acts on myelin rather than on
+      neurons directly.
   - target: Increased IRAK1 Dosage
     causal_link_type: DIRECT
     description: &gt;
@@ -12070,6 +12630,93 @@ responsible for the abnormal phenotype in duplications of distal Xq.&#34;
     description: &gt;
       Behavioural disturbance is among the specific clinical findings
       attributed to increased STAG2 dosage.
+- name: Increased PLP1 Dosage and Central Dysmyelination
+  genes:
+  - preferred_term: PLP1
+    term:
+      id: hgnc:9086
+      label: PLP1
+  biological_scale: MOLECULAR
+  description: &gt;
+    PLP1 at Xq22 encodes proteolipid protein 1, a protein of central nervous
+    system myelin, and is dosage sensitive: complete duplication of the gene is
+    the cause of most Pelizaeus-Merzbacher disease. A proximal
+    Xq duplication that includes Xq22 therefore carries a distinct mechanism
+    from the distal Xq loci in this entry - a disorder of central myelin
+    formation rather than of neuronal maturation or pituitary development -
+    which is consistent with aberrant brain myelination being reported in the
+    proximal Xq21-q24 phenotype.
+  subtypes:
+  - Xq21-q24
+  cell_types:
+  - preferred_term: oligodendrocyte
+    term:
+      id: CL:0000128
+      label: oligodendrocyte
+  biological_processes:
+  - preferred_term: myelination
+    modifier: ABNORMAL
+    term:
+      id: GO:0042552
+      label: myelination
+  evidence:
+  - reference: PMID:19232094
+    reference_title: &#34;Distal Xq duplication and functional Xq disomy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Complete duplication of the PLP1 gene on Xq22 is the cause of 60–70% of PMD
+cases&#34;
+    explanation: &gt;
+      Establishes PLP1 copy-number gain, not sequence change, as the mechanism
+      in the majority of Pelizaeus-Merzbacher disease.
+  - reference: PMID:20301361
+    reference_title: &#34;PLP1-Related Disorders.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      PLP1-related disorders of central nervous system myelin formation include
+      a range of phenotypes from Pelizaeus-Merzbacher disease (PMD) to spastic
+      paraplegia 2 (SPG2).
+    explanation: &gt;-
+      GeneReviews places PLP1 disorders in central myelin formation, the process
+      this node describes.
+  downstream:
+  - target: Progressive Spasticity
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;
+      Defective central myelin formation progresses to spasticity in
+      PLP1-related disease.
+    evidence:
+    - reference: PMID:20301361
+      reference_title: &#34;PLP1-Related Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &gt;-
+        PMD typically manifests in infancy or early childhood with nystagmus,
+        hypotonia, and cognitive impairment; the findings progress to severe
+        spasticity and ataxia.
+      explanation: &gt;-
+        GeneReviews gives the clinical course of PLP1-related dysmyelination,
+        including progression to severe spasticity.
+  - target: Axial Hypotonia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;
+      Hypotonia is an early manifestation of PLP1-related dysmyelination.
+    evidence:
+    - reference: PMID:20301361
+      reference_title: &#34;PLP1-Related Disorders.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &gt;-
+        PMD typically manifests in infancy or early childhood with nystagmus,
+        hypotonia, and cognitive impairment; the findings progress to severe
+        spasticity and ataxia.
+      explanation: &gt;-
+        The same GeneReviews sentence records hypotonia as an early feature of
+        PLP1-related dysmyelination.
 - name: Increased IRAK1 Dosage
   genes:
   - preferred_term: IRAK1
@@ -12833,6 +13480,15 @@ responsible for the abnormal phenotype in duplications of distal Xq.&#34;
   notes: &gt;
     L1 cell adhesion molecule at Xq28, consistently co-duplicated with MECP2
     in the interstitial Xq28 interval.
+
+    Deliberately not wired to a pathophysiology node. The cited evidence
+    establishes that L1CAM lies inside the obligate duplicated segment and is
+    an intellectual-disability gene, and it is bound as a gene of the
+    `Xq28 (MECP2)` subtype on that basis. It does not establish that increased
+    L1CAM dosage contributes to the phenotype - L1CAM disease is classically
+    caused by loss of function - so no mechanism node is asserted here. That is
+    a different state from IRAK1, where a dosage mechanism has been proposed in
+    print and directly tested.
   evidence:
   - reference: PMID:16080119
     reference_title: &#34;Duplication of the MECP2 region is a frequent cause of severe mental retardation and progressive neurological symptoms in males.&#34;
@@ -13192,6 +13848,10 @@ references:
   title: MECP2 Duplication Syndrome.
   tags:
   - GeneReviews
+- reference: PMID:20301361
+  title: &#34;PLP1-Related Disorders.&#34;
+  tags:
+  - GeneReviews
 </pre>
             </div>
         </div>
@@ -13207,7 +13867,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
                 </div>
 
                 <div class="reference-entry">
@@ -13218,6 +13878,23 @@ references:
                             </div>
 
                             <div class="reference-title">MECP2 Duplication Syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301361" target="_blank">PMID:20301361</a>
+                            </div>
+
+                            <div class="reference-title">PLP1-Related Disorders.</div>
 
                         </div>
 
@@ -13600,7 +14277,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chromosome Xq Duplication", "mondoId": "MONDO:0017010", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chromosome_Xq_Duplication", "yamlRevision": "f067cb387b0c"};
+        const OS_CONFIG = {"diseaseName": "Chromosome Xq Duplication", "mondoId": "MONDO:0017010", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chromosome_Xq_Duplication", "yamlRevision": "a0331f7dc1d0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

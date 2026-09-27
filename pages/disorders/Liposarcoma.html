@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4257,6 +4299,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-12q13-15-mdm2-cdk4-amplification" data-dismech-node="12q13-15 (MDM2/CDK4) Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">12q13-15 (MDM2/CDK4) Amplification</div>
 
+
                 <div class="item-desc">Well-differentiated and dedifferentiated liposarcomas exhibit the characteristic amplification of chromosome region 12q13-15, which contains the oncogenes MDM2 and CDK4 (and HMGA2). This copy-number amplification is the defining molecular event of the WDLPS/DDLPS lineage and is detected diagnostically by FISH/IHC to distinguish these tumors from benign lipoma.</div>
 
 
@@ -4308,6 +4351,8 @@ This pathophysiological event involves mesenchymal stem cell of adipose tissue (
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4316,6 +4361,9 @@ This pathophysiological event involves mesenchymal stem cell of adipose tissue (
 
 
     </div>
+
+
+
 
 
 
@@ -4388,6 +4436,7 @@ MDM2."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p53-inactivation-and-cell-cycle-dysregulation" data-dismech-node="p53 Inactivation and Cell-Cycle Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">p53 Inactivation and Cell-Cycle Dysregulation</div>
+
 
                 <div class="item-desc">Amplified MDM2 is an E3 ubiquitin ligase that targets the p53 tumor suppressor for degradation, abrogating p53-mediated apoptosis and cell-cycle arrest; amplified CDK4 phosphorylates RB to drive G1/S cell-cycle progression. The combined loss of these checkpoints permits uncontrolled proliferation and underpins the rationale for MDM2 inhibitors and CDK4/6 inhibitors in WDLPS/DDLPS.</div>
 
@@ -4503,6 +4552,7 @@ MDM2 inhibitors"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipocyte-stem-cell-origin-and-clonal-evolution" data-dismech-node="Adipocyte Stem Cell Origin and Clonal Evolution" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipocyte Stem Cell Origin and Clonal Evolution</div>
+
 
                 <div class="item-desc">Single-cell profiling of paired well-differentiated and dedifferentiated DDLPS components identifies a population of tumor adipocyte stem cells (ASC) resembling adipocyte stromal progenitors of white adipose tissue. These ASC harbor the ancestral genomic alterations shared by both components, indicating that the WD and DD components derive from a common progenitor through clonal evolution.</div>
 
@@ -4664,6 +4714,7 @@ evolution."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipocytic-differentiation-block" data-dismech-node="Adipocytic Differentiation Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipocytic Differentiation Block</div>
 
+
                 <div class="item-desc">A hallmark of liposarcoma is the failure of tumor cells to complete normal adipogenic differentiation. In DDLPS, the adipogenic properties of ASC-like tumor cells are actively inhibited by a TGF-beta-high immunosuppressive tumor microenvironment. In myxoid liposarcoma, the FUS::DDIT3 chimeric transcription factor blocks adipocyte differentiation. Restoring differentiation (e.g., with trabectedin in MLS) is therapeutically exploitable.</div>
 
 
@@ -4798,6 +4849,7 @@ are inhibited by a TGF-β-high immunosuppressive tumor micro-environment."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fus-ddit3-fusion-oncoprotein-in-myxoid-liposarcoma" data-dismech-node="FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma" data-dismech-type="pathophysiology">
                 <div class="item-name">FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma</div>
 
+
                 <div class="item-desc">Myxoid liposarcoma is driven by the FUS::DDIT3 fusion protein, formed by the t(12;16)(q13;p11) translocation and present in over 90% of cases (a minority instead carry EWSR1::DDIT3). FUS::DDIT3 acts as an aberrant transcription factor that inhibits adipocyte differentiation and promotes tumor growth and invasive migration. Trabectedin detaches FUS-DDIT3 from its DNA binding sites, reactivating adipogenesis - providing the mechanistic basis for its unusual efficacy in this subtype.</div>
 
 
@@ -4849,6 +4901,8 @@ This pathophysiological event involves adipocyte progenitor, annotated with mese
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4857,6 +4911,9 @@ This pathophysiological event involves adipocyte progenitor, annotated with mese
 
 
     </div>
+
+
+
 
 
 
@@ -5095,6 +5152,9 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5175,6 +5235,9 @@ This clinical feature is Lipomatous tumor (HP:0012031). HP:0012031 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5248,6 +5311,9 @@ This clinical feature is Soft tissue sarcoma (HP:0030448). HP:0030448 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5372,6 +5438,9 @@ This disease-associated gene is MDM2 (hgnc:6973). hgnc:6973 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5446,6 +5515,9 @@ This disease-associated gene is CDK4 (hgnc:1773). hgnc:1773 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -5528,6 +5600,9 @@ This disease-associated gene is DDIT3 (hgnc:2726). hgnc:2726 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5601,6 +5676,9 @@ This disease-associated gene is FUS (hgnc:4010). hgnc:4010 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -5682,6 +5760,9 @@ This disease-associated gene is EWSR1 (hgnc:3508). hgnc:3508 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5754,6 +5835,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -5835,6 +5919,9 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5908,6 +5995,9 @@ This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

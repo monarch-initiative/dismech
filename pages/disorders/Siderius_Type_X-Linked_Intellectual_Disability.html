@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5459,6 +5501,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-phf8-loss-of-function-variant" data-dismech-node="Pathogenic PHF8 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic PHF8 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">The shared upstream lesion is a hemizygous loss-of-function variant in PHF8 at Xp11.22. The reported allele spectrum is small but mechanistically coherent: nonsense and frameshift alleles that truncate the protein before or within the JmjC domain and remove the nuclear localisation signals, splice alleles, missense alleles clustered in the JmjC-encoding exons, and whole-gene microdeletions. All reported mechanisms converge on loss of function; no dominant-negative or gain-of-function mechanism has been demonstrated for the germline neurodevelopmental phenotype. Two consequences fan out from this node in parallel rather than in series - loss of JmjC catalysis, and, for the truncating alleles, loss of the PHD-finger/nuclear-targeting module - because the F279S missense allele abolishes catalysis while leaving the N-terminal PHD finger intact, and the K177X nonsense allele removes both.
 </div>
 
@@ -5632,6 +5675,7 @@ This pathophysiological event involves PHF8 (hgnc:20672). hgnc:20672 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-jmjc-domain-histone-demethylase-activity" data-dismech-node="Loss of JmjC-Domain Histone Demethylase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of JmjC-Domain Histone Demethylase Activity</div>
+
 
                 <div class="item-desc">PHF8 is an Fe(II)- and 2-oxoglutarate-dependent oxygenase of the double-stranded beta-helix class. Its JmjC domain removes mono- and dimethyl marks from lysine but not trimethyl marks. Patient alleles clustered in the JmjC-encoding exons abolish this catalysis: the F279S missense variant, which substitutes a residue in a conserved hydrophobic region of the JmjC domain, is catalytically inactive against both peptide and intact-histone substrates, and truncating alleles remove the domain outright. Because the reaction requires molecular oxygen, PHF8 activity is oxygen-dependent, a property that has been proposed - though not demonstrated in patients - to link the catalytic arm to the known association between maternal hypoxia and cleft lip in mouse studies.
 </div>
@@ -5838,6 +5882,7 @@ This pathophysiological event involves decreased histone H3K9 demethylase activi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-phd-finger-h3k4me3-reading-and-nuclear-targeting" data-dismech-node="Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting</div>
 
+
                 <div class="item-desc">The N-terminal PHD finger of PHF8 binds H3K4me3/me2, the mark that decorates active transcription start sites, and this reader function is what recruits the enzyme to the promoters it acts on. Truncating patient alleles remove not only the JmjC domain but also the nuclear localisation signals, so the residual protein cannot reach chromatin at all. This is modelled as a sibling of the catalytic arm rather than a downstream consequence, because the F279S catalytic-dead allele leaves the PHD finger intact while the K177X nonsense allele removes both modules - the two arms are separable in the patient allele series.
 </div>
 
@@ -6003,6 +6048,7 @@ This pathophysiological event involves decreased histone H3K4me3 reader activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-repressive-h4k20me1-at-target-promoters" data-dismech-node="Persistence of Repressive H4K20me1 at Target Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Repressive H4K20me1 at Target Promoters</div>
+
 
                 <div class="item-desc">PHF8 is the founding H4K20me1 demethylase. When catalysis is lost, H4K20me1 accumulates at the transcription start sites of PHF8 target genes and the genes stay repressed. Two H4K20me1-dependent target sets have been mapped directly: cytoskeletal and cell-adhesion regulators (RHOA, RAC1, GSK3B) whose promoters PHF8 demethylates, and RSK1, whose derepression is the entry point into the mTOR arm. In astrocytes the related H4K20me3 mark accumulates at synaptogenic genes when PHF8 is depleted, extending the same heterochromatinisation logic to glia.
 </div>
@@ -6173,6 +6219,7 @@ This pathophysiological event involves abnormal Chromatin organization (GO:00063
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-repressive-h3k9me1-me2-marks" data-dismech-node="Persistence of Repressive H3K9me1/me2 Marks" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Repressive H3K9me1/me2 Marks</div>
 
+
                 <div class="item-desc">PHF8 also erases mono- and dimethylated H3K9, a repressive mark associated with facultative heterochromatin. Recombinant PHF8 is selective for H3K9me2 and H3K9me1 and does not accept H3K9me3, so the enzyme trims the repressive mark toward the unmethylated state rather than resolving constitutive heterochromatin. In cells, PHF8 depletion raises H3K9me1 at transcription start sites and H3K9me2 at non-TSS sites. Loss of this activity is one of the two routes by which target promoters fail to be activated.
 </div>
 
@@ -6335,6 +6382,7 @@ This pathophysiological event involves decreased histone H3K9me/H3K9me2 demethyl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-rna-polymerase-ii-coupled-transcriptional-coactivation" data-dismech-node="Failure of RNA Polymerase II-Coupled Transcriptional Coactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of RNA Polymerase II-Coupled Transcriptional Coactivation</div>
+
 
                 <div class="item-desc">The convergence point of the chromatin arms. PHF8 occupies the transcription start sites of thousands of active or poised genes, mirroring the distribution of RNA polymerase II and H3K4me3-marked nucleosomes, and contacts the RNAPII C-terminal domain directly; it therefore acts as a promoter-resident transcriptional coactivator whose activation function depends on PHD binding to H3K4me3. Patient alleles are defective in coactivation as well as in demethylation. PHF8 additionally partners with the XLID transcription factor ZNF711 at a shared target set, and co-occupies promoters with the REST/NRSF repressor, so the net transcriptional output at any locus can be activating or repressive; the dominant documented effect is loss of activation. Downstream of this node the disease diversifies into distinct neural and craniofacial cell-type programmes.
 </div>
@@ -6563,6 +6611,7 @@ This pathophysiological event involves decreased transcription coactivator activ
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rsk1-derepression-and-mtor-pathway-hyperactivation" data-dismech-node="RSK1 Derepression and mTOR Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RSK1 Derepression and mTOR Pathway Hyperactivation</div>
 
+
                 <div class="item-desc">A specific, pharmacologically actionable branch of the H4K20me1 arm. In Phf8 knockout mice, failure to demethylate H4K20me1 at the RSK1 locus derepresses RSK1, and the mTOR signalling pathway becomes hyperactive in hippocampus. This is the one node in the entry with a demonstrated rescue: rapamycin normalises both long-term potentiation and cognitive performance in the knockout. The evidence is entirely from the mouse; no patient has been treated on this rationale.
 </div>
 
@@ -6700,6 +6749,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-differentiation-and-neurite-outgrowth" data-dismech-node="Impaired Neuronal Differentiation and Neurite Outgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Differentiation and Neurite Outgrowth</div>
+
 
                 <div class="item-desc">PHF8 is required for neuronal differentiation and for the cytoskeletal programme that builds neurites. Knockdown in P19 embryonal carcinoma cells impairs retinoic-acid-induced neuronal differentiation, and overexpression of wild-type but not the catalytically dead F279S variant pushes the cells toward a neuronal fate - a clean genotype-to-cell-phenotype link through a patient allele. In differentiated neurons, PHF8 depletion downregulates cytoskeletal genes and produces deficient neurite outgrowth, which the authors propose is the cellular substrate of the cognitive phenotype.
 </div>
@@ -6933,6 +6983,7 @@ This pathophysiological event involves decreased Neuron projection development (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-astrocyte-differentiation-and-synaptic-gene-silencing" data-dismech-node="Impaired Astrocyte Differentiation and Synaptic Gene Silencing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Astrocyte Differentiation and Synaptic Gene Silencing</div>
 
+
                 <div class="item-desc">A non-cell-autonomous arm. PHF8 acts in astrocytes through a regulatory crosstalk with Notch signalling that balances expression of the master astrocytic transcription factor Nfia, and it keeps synaptogenic genes accessible by holding H4K20me3 low. Depleting PHF8 in astrocytes alone is sufficient to disrupt neuronal synapse formation and maturation in vitro, so part of the synaptic phenotype originates outside the neuron. Evidence is from mouse astrocytic culture.
 </div>
 
@@ -7129,6 +7180,13 @@ This pathophysiological event involves abnormal Astrocyte differentiation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perturbed-oligodendroglial-development" data-dismech-node="Perturbed Oligodendroglial Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Perturbed Oligodendroglial Development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A third glial arm, and the least clinically anchored of the three. Phf8 promotes proliferation of oligodendrocyte progenitor cells and restrains their differentiation into oligodendrocytes, acting largely through Olig2, whose regulatory regions it occupies; ectopic Olig2 rescues the proliferation defect in Phf8-deficient cells. Notably, human iPSC-derived oligodendrocyte generation did not require PHF8 when Olig2 was force-expressed, so the human requirement is conditional. No white-matter abnormality has been documented in patients with this syndrome, so this node is marked provisional.
 </div>
@@ -7328,6 +7386,7 @@ This pathophysiological event involves abnormal Oligodendrocyte differentiation 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-serine-biosynthesis-in-neural-progenitors" data-dismech-node="Impaired Serine Biosynthesis in Neural Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Serine Biosynthesis in Neural Progenitors</div>
 
+
                 <div class="item-desc">The most recently described arm, and the one that connects chromatin regulation to metabolism. In neural stem cells PHF8 drives the serine biosynthesis pathway by tuning chromatin accessibility at the promoters of metabolic genes, safeguarding the intracellular serine pool that progenitor proliferation depends on. Loss of PHF8 disrupts amino-acid metabolism, blocks autophagy and impairs vesicle formation, and culminates in replication defects, DNA damage and proliferation arrest; in mouse embryos PHF8 deficiency halts progenitor expansion and neuron generation in the developing brain. Evidence is from neural stem cells and mouse embryos, not from patients.
 </div>
 
@@ -7524,6 +7583,7 @@ This pathophysiological event involves decreased L-serine biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-crest-and-craniofacial-midline-development" data-dismech-node="Impaired Neural Crest and Craniofacial Midline Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Crest and Craniofacial Midline Development</div>
+
 
                 <div class="item-desc">The craniofacial arm. PHF8 is required for jaw development in zebrafish, where it acts in part by directly regulating the homeodomain transcription factor MSX1/MSXB, an integrator of several craniofacial signalling pathways; Phf8 is independently implicated in neural crest defects in mice and humans. The clinical inference of a midline-formation role predates the molecular work and was drawn directly from the co-segregation of intellectual disability with cleft lip/palate in the original families. Because PHF8 catalysis consumes molecular oxygen, an oxygen-sensing link to the known maternal-hypoxia effect on murine cleft lip has been proposed, but this remains a hypothesis.
 </div>
@@ -7758,6 +7818,7 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synaptic-plasticity-and-hippocampal-long-term-potentiation" data-dismech-node="Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation</div>
 
+
                 <div class="item-desc">The convergence point of the neuronal, astrocytic and mTOR arms. Phf8 knockout mice show impaired hippocampal long-term potentiation together with impaired learning and memory, and - importantly for interpreting the human phenotype - without gross morphological brain defects, matching the absence of a consistent structural brain abnormality in patients. The synaptic deficit is reversible in the mouse: rapamycin restores the weakened LTP.
 </div>
 
@@ -7930,6 +7991,7 @@ This pathophysiological event involves decreased Long-term synaptic potentiation
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cognitive-development" data-dismech-node="Impaired Cognitive Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cognitive Development</div>
 
+
                 <div class="item-desc">The terminal neurodevelopmental output: developmental delay in essentially all affected individuals and borderline to severe intellectual disability in the large majority, with a behavioural profile that includes autism spectrum disorder and attention deficit hyperactivity disorder. The severity range is wide enough that two individuals in the largest cohort had no intellectual disability at all, one with dyscalculia and one with mild learning difficulties.
 </div>
 
@@ -8054,6 +8116,7 @@ This pathophysiological event involves decreased Learning or memory (GO:0007611)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-orofacial-clefting-and-craniofacial-dysmorphology" data-dismech-node="Orofacial Clefting and Craniofacial Dysmorphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Orofacial Clefting and Craniofacial Dysmorphology</div>
+
 
                 <div class="item-desc">The terminal craniofacial output: cleft lip and/or cleft palate, unilateral or bilateral, together with a mild dysmorphic gestalt that has been described as a long face with broad nasal tip, and in the contemporary series as hypertelorism, microcephaly, elongated face, ptosis and mild facial asymmetry. Clefting was near-universal in the cleft-clinic-ascertained founding families and is present in a minority of exome-ascertained cases, so the apparent frequency of this node is strongly ascertainment-dependent.
 </div>
@@ -8202,7 +8265,7 @@ This pathophysiological event involves abnormal Roof of mouth development (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the chromatin arms. PHF8 occupies the transcription start sites of thousands of active or poised genes, mirroring the distribution of RNA polymerase II and H3K4me3-marked nucleosomes, and contacts the RNAPII C-terminal domain directly; it therefore acts as a promoter-resident transcriptional coactivator whose activation function depends on PHD binding to H3K4me3. Patient alleles are defective in coactivation as well as in demethylation. PHF8 additionally partners with the XLID transcription factor ZNF711 at a shared target set, and co-occupies promoters with the REST/NRSF repressor, so the net transcriptional output at any locus can be activating or repressive; the dominant documented effect is loss of activation. Downstream of this node the disease diversifies into distinct neural and craniofacial cell-type programmes.\\n\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"Regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"transcription coactivator activity\"]}}, {\"id\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A non-cell-autonomous arm. PHF8 acts in astrocytes through a regulatory crosstalk with Notch signalling that balances expression of the master astrocytic transcription factor Nfia, and it keeps synaptogenic genes accessible by holding H4K20me3 low. Depleting PHF8 in astrocytes alone is sufficient to disrupt neuronal synapse formation and maturation in vitro, so part of the synaptic phenotype originates outside the neuron. Evidence is from mouse astrocytic culture.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"Astrocyte differentiation\"]}}, {\"id\": \"Impaired Cognitive Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal neurodevelopmental output: developmental delay in essentially all affected individuals and borderline to severe intellectual disability in the large majority, with a behavioural profile that includes autism spectrum disorder and attention deficit hyperactivity disorder. The severity range is wide enough that two individuals in the largest cohort had no intellectual disability at all, one with dyscalculia and one with mild learning difficulties.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Learning or memory\"]}}, {\"id\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The craniofacial arm. PHF8 is required for jaw development in zebrafish, where it acts in part by directly regulating the homeodomain transcription factor MSX1/MSXB, an integrator of several craniofacial signalling pathways; Phf8 is independently implicated in neural crest defects in mice and humans. The clinical inference of a midline-formation role predates the molecular work and was drawn directly from the co-segregation of intellectual disability with cleft lip/palate in the original families. Because PHF8 catalysis consumes molecular oxygen, an oxygen-sensing link to the known maternal-hypoxia effect on murine cleft lip has been proposed, but this remains a hypothesis.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"Embryonic cranial skeleton morphogenesis\", \"Roof of mouth development\"]}}, {\"id\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is required for neuronal differentiation and for the cytoskeletal programme that builds neurites. Knockdown in P19 embryonal carcinoma cells impairs retinoic-acid-induced neuronal differentiation, and overexpression of wild-type but not the catalytically dead F279S variant pushes the cells toward a neuronal fate - a clean genotype-to-cell-phenotype link through a patient allele. In differentiated neurons, PHF8 depletion downregulates cytoskeletal genes and produces deficient neurite outgrowth, which the authors propose is the cellular substrate of the cognitive phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Neuron differentiation\", \"Neuron projection development\"]}}, {\"id\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most recently described arm, and the one that connects chromatin regulation to metabolism. In neural stem cells PHF8 drives the serine biosynthesis pathway by tuning chromatin accessibility at the promoters of metabolic genes, safeguarding the intracellular serine pool that progenitor proliferation depends on. Loss of PHF8 disrupts amino-acid metabolism, blocks autophagy and impairs vesicle formation, and culminates in replication defects, DNA damage and proliferation arrest; in mouse embryos PHF8 deficiency halts progenitor expansion and neuron generation in the developing brain. Evidence is from neural stem cells and mouse embryos, not from patients.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"L-serine biosynthetic process\"]}}, {\"id\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the neuronal, astrocytic and mTOR arms. Phf8 knockout mice show impaired hippocampal long-term potentiation together with impaired learning and memory, and - importantly for interpreting the human phenotype - without gross morphological brain defects, matching the absence of a consistent structural brain abnormality in patients. The synaptic deficit is reversible in the mouse: rapamycin restores the weakened LTP.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Long-term synaptic potentiation\"]}}, {\"id\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is an Fe(II)- and 2-oxoglutarate-dependent oxygenase of the double-stranded beta-helix class. Its JmjC domain removes mono- and dimethyl marks from lysine but not trimethyl marks. Patient alleles clustered in the JmjC-encoding exons abolish this catalysis: the F279S missense variant, which substitutes a residue in a conserved hydrophobic region of the JmjC domain, is catalytically inactive against both peptide and intact-histone substrates, and truncating alleles remove the domain outright. Because the reaction requires molecular oxygen, PHF8 activity is oxygen-dependent, a property that has been proposed - though not demonstrated in patients - to link the catalytic arm to the known association between maternal hypoxia and cleft lip in mouse studies.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone H4K20 demethylase activity\", \"histone H3K9 demethylase activity\"]}}, {\"id\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The N-terminal PHD finger of PHF8 binds H3K4me3/me2, the mark that decorates active transcription start sites, and this reader function is what recruits the enzyme to the promoters it acts on. Truncating patient alleles remove not only the JmjC domain but also the nuclear localisation signals, so the residual protein cannot reach chromatin at all. This is modelled as a sibling of the catalytic arm rather than a downstream consequence, because the F279S catalytic-dead allele leaves the PHD finger intact while the K177X nonsense allele removes both modules - the two arms are separable in the patient allele series.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone H3K4me3 reader activity\"]}}, {\"id\": \"Orofacial Clefting and Craniofacial Dysmorphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal craniofacial output: cleft lip and/or cleft palate, unilateral or bilateral, together with a mild dysmorphic gestalt that has been described as a long face with broad nasal tip, and in the contemporary series as hypertelorism, microcephaly, elongated face, ptosis and mild facial asymmetry. Clefting was near-universal in the cleft-clinic-ascertained founding families and is present in a minority of exome-ascertained cases, so the apparent frequency of this node is strongly ascertainment-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Roof of mouth development\"]}}, {\"id\": \"PHF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"association\": \"Causative\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PHF8 p.Lys177Ter\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A nonsense allele (p.K177X) reported in a male with intellectual disability and cleft lip/palate. It truncates the protein upstream of the JmjC domain and removes five nuclear localisation signals, so it is the cleanest example of the null end of the allele spectrum and the reason the PHD/nuclear-targeting arm is modelled separately from the catalytic arm.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"variant_type\": \"NONSENSE\"}}, {\"id\": \"PHF8 p.Phe279Ser\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.836C\u003eT (p.F279S) missense allele, identified in a Finnish family with multiply affected males. It is the reference functional allele for this disorder: it substitutes a conserved hydrophobic residue in the JmjC domain and is catalytically dead in assays against both peptide and intact-histone substrates, in two independent laboratories, while leaving the rest of the protein intact. It is also the allele used to show that catalytic activity is required for PHF8 to drive neuronal differentiation.\\n\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"variant_type\": \"MISSENSE\"}}, {\"id\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared upstream lesion is a hemizygous loss-of-function variant in PHF8 at Xp11.22. The reported allele spectrum is small but mechanistically coherent: nonsense and frameshift alleles that truncate the protein before or within the JmjC domain and remove the nuclear localisation signals, splice alleles, missense alleles clustered in the JmjC-encoding exons, and whole-gene microdeletions. All reported mechanisms converge on loss of function; no dominant-negative or gain-of-function mechanism has been demonstrated for the germline neurodevelopmental phenotype. Two consequences fan out from this node in parallel rather than in series - loss of JmjC catalysis, and, for the truncating alleles, loss of the PHD-finger/nuclear-targeting module - because the F279S missense allele abolishes catalysis while leaving the N-terminal PHD finger intact, and the K177X nonsense allele removes both.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}]}}, {\"id\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 also erases mono- and dimethylated H3K9, a repressive mark associated with facultative heterochromatin. Recombinant PHF8 is selective for H3K9me2 and H3K9me1 and does not accept H3K9me3, so the enzyme trims the repressive mark toward the unmethylated state rather than resolving constitutive heterochromatin. In cells, PHF8 depletion raises H3K9me1 at transcription start sites and H3K9me2 at non-TSS sites. Loss of this activity is one of the two routes by which target promoters fail to be activated.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H3K9me/H3K9me2 demethylase activity\"]}}, {\"id\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is the founding H4K20me1 demethylase. When catalysis is lost, H4K20me1 accumulates at the transcription start sites of PHF8 target genes and the genes stay repressed. Two H4K20me1-dependent target sets have been mapped directly: cytoskeletal and cell-adhesion regulators (RHOA, RAC1, GSK3B) whose promoters PHF8 demethylates, and RSK1, whose derepression is the entry point into the mTOR arm. In astrocytes the related H4K20me3 mark accumulates at synaptogenic genes when PHF8 is depleted, extending the same heterochromatinisation logic to glia.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Chromatin organization\"]}}, {\"id\": \"Perturbed Oligodendroglial Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A third glial arm, and the least clinically anchored of the three. Phf8 promotes proliferation of oligodendrocyte progenitor cells and restrains their differentiation into oligodendrocytes, acting largely through Olig2, whose regulatory regions it occupies; ectopic Olig2 rescues the proliferation defect in Phf8-deficient cells. Notably, human iPSC-derived oligodendrocyte generation did not require PHF8 when Olig2 was force-expressed, so the human requirement is conditional. No white-matter abnormality has been documented in patients with this syndrome, so this node is marked provisional.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte precursor cell\"], \"biological_processes\": [\"Oligodendrocyte differentiation\"]}}, {\"id\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A specific, pharmacologically actionable branch of the H4K20me1 arm. In Phf8 knockout mice, failure to demethylate H4K20me1 at the RSK1 locus derepresses RSK1, and the mTOR signalling pathway becomes hyperactive in hippocampus. This is the one node in the entry with a demonstrated rescue: rapamycin normalises both long-term potentiation and cognitive performance in the knockout. The evidence is entirely from the mouse; no patient has been treated on this rationale.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\"]}}], \"edges\": [{\"source\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"target\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"target\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"target\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"target\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"target\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Perturbed Oligodendroglial Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Perturbed Oligodendroglial Development\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"target\": \"Orofacial Clefting and Craniofacial Dysmorphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PHF8\", \"target\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHF8 p.Phe279Ser\", \"target\": \"PHF8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PHF8 p.Lys177Ter\", \"target\": \"PHF8\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the chromatin arms. PHF8 occupies the transcription start sites of thousands of active or poised genes, mirroring the distribution of RNA polymerase II and H3K4me3-marked nucleosomes, and contacts the RNAPII C-terminal domain directly; it therefore acts as a promoter-resident transcriptional coactivator whose activation function depends on PHD binding to H3K4me3. Patient alleles are defective in coactivation as well as in demethylation. PHF8 additionally partners with the XLID transcription factor ZNF711 at a shared target set, and co-occupies promoters with the REST/NRSF repressor, so the net transcriptional output at any locus can be activating or repressive; the dominant documented effect is loss of activation. Downstream of this node the disease diversifies into distinct neural and craniofacial cell-type programmes.\\n\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"Regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"transcription coactivator activity\"]}}, {\"id\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A non-cell-autonomous arm. PHF8 acts in astrocytes through a regulatory crosstalk with Notch signalling that balances expression of the master astrocytic transcription factor Nfia, and it keeps synaptogenic genes accessible by holding H4K20me3 low. Depleting PHF8 in astrocytes alone is sufficient to disrupt neuronal synapse formation and maturation in vitro, so part of the synaptic phenotype originates outside the neuron. Evidence is from mouse astrocytic culture.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"Astrocyte differentiation\"]}}, {\"id\": \"Impaired Cognitive Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal neurodevelopmental output: developmental delay in essentially all affected individuals and borderline to severe intellectual disability in the large majority, with a behavioural profile that includes autism spectrum disorder and attention deficit hyperactivity disorder. The severity range is wide enough that two individuals in the largest cohort had no intellectual disability at all, one with dyscalculia and one with mild learning difficulties.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Learning or memory\"]}}, {\"id\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The craniofacial arm. PHF8 is required for jaw development in zebrafish, where it acts in part by directly regulating the homeodomain transcription factor MSX1/MSXB, an integrator of several craniofacial signalling pathways; Phf8 is independently implicated in neural crest defects in mice and humans. The clinical inference of a midline-formation role predates the molecular work and was drawn directly from the co-segregation of intellectual disability with cleft lip/palate in the original families. Because PHF8 catalysis consumes molecular oxygen, an oxygen-sensing link to the known maternal-hypoxia effect on murine cleft lip has been proposed, but this remains a hypothesis.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"Embryonic cranial skeleton morphogenesis\", \"Roof of mouth development\"]}}, {\"id\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is required for neuronal differentiation and for the cytoskeletal programme that builds neurites. Knockdown in P19 embryonal carcinoma cells impairs retinoic-acid-induced neuronal differentiation, and overexpression of wild-type but not the catalytically dead F279S variant pushes the cells toward a neuronal fate - a clean genotype-to-cell-phenotype link through a patient allele. In differentiated neurons, PHF8 depletion downregulates cytoskeletal genes and produces deficient neurite outgrowth, which the authors propose is the cellular substrate of the cognitive phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Neuron differentiation\", \"Neuron projection development\"]}}, {\"id\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most recently described arm, and the one that connects chromatin regulation to metabolism. In neural stem cells PHF8 drives the serine biosynthesis pathway by tuning chromatin accessibility at the promoters of metabolic genes, safeguarding the intracellular serine pool that progenitor proliferation depends on. Loss of PHF8 disrupts amino-acid metabolism, blocks autophagy and impairs vesicle formation, and culminates in replication defects, DNA damage and proliferation arrest; in mouse embryos PHF8 deficiency halts progenitor expansion and neuron generation in the developing brain. Evidence is from neural stem cells and mouse embryos, not from patients.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"L-serine biosynthetic process\"]}}, {\"id\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of the neuronal, astrocytic and mTOR arms. Phf8 knockout mice show impaired hippocampal long-term potentiation together with impaired learning and memory, and - importantly for interpreting the human phenotype - without gross morphological brain defects, matching the absence of a consistent structural brain abnormality in patients. The synaptic deficit is reversible in the mouse: rapamycin restores the weakened LTP.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"Long-term synaptic potentiation\"]}}, {\"id\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is an Fe(II)- and 2-oxoglutarate-dependent oxygenase of the double-stranded beta-helix class. Its JmjC domain removes mono- and dimethyl marks from lysine but not trimethyl marks. Patient alleles clustered in the JmjC-encoding exons abolish this catalysis: the F279S missense variant, which substitutes a residue in a conserved hydrophobic region of the JmjC domain, is catalytically inactive against both peptide and intact-histone substrates, and truncating alleles remove the domain outright. Because the reaction requires molecular oxygen, PHF8 activity is oxygen-dependent, a property that has been proposed - though not demonstrated in patients - to link the catalytic arm to the known association between maternal hypoxia and cleft lip in mouse studies.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone H4K20 demethylase activity\", \"histone H3K9 demethylase activity\"]}}, {\"id\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The N-terminal PHD finger of PHF8 binds H3K4me3/me2, the mark that decorates active transcription start sites, and this reader function is what recruits the enzyme to the promoters it acts on. Truncating patient alleles remove not only the JmjC domain but also the nuclear localisation signals, so the residual protein cannot reach chromatin at all. This is modelled as a sibling of the catalytic arm rather than a downstream consequence, because the F279S catalytic-dead allele leaves the PHD finger intact while the K177X nonsense allele removes both modules - the two arms are separable in the patient allele series.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone H3K4me3 reader activity\"]}}, {\"id\": \"Orofacial Clefting and Craniofacial Dysmorphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal craniofacial output: cleft lip and/or cleft palate, unilateral or bilateral, together with a mild dysmorphic gestalt that has been described as a long face with broad nasal tip, and in the contemporary series as hypertelorism, microcephaly, elongated face, ptosis and mild facial asymmetry. Clefting was near-universal in the cleft-clinic-ascertained founding families and is present in a minority of exome-ascertained cases, so the apparent frequency of this node is strongly ascertainment-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Roof of mouth development\"]}}, {\"id\": \"PHF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"association\": \"Causative\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PHF8 p.Lys177Ter\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A nonsense allele (p.K177X) reported in a male with intellectual disability and cleft lip/palate. It truncates the protein upstream of the JmjC domain and removes five nuclear localisation signals, so it is the cleanest example of the null end of the allele spectrum and the reason the PHD/nuclear-targeting arm is modelled separately from the catalytic arm.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"variant_type\": \"NONSENSE\"}}, {\"id\": \"PHF8 p.Phe279Ser\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.836C\u003eT (p.F279S) missense allele, identified in a Finnish family with multiply affected males. It is the reference functional allele for this disorder: it substitutes a conserved hydrophobic residue in the JmjC domain and is catalytically dead in assays against both peptide and intact-histone substrates, in two independent laboratories, while leaving the rest of the protein intact. It is also the allele used to show that catalytic activity is required for PHF8 to drive neuronal differentiation.\\n\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}], \"variant_type\": \"MISSENSE\"}}, {\"id\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared upstream lesion is a hemizygous loss-of-function variant in PHF8 at Xp11.22. The reported allele spectrum is small but mechanistically coherent: nonsense and frameshift alleles that truncate the protein before or within the JmjC domain and remove the nuclear localisation signals, splice alleles, missense alleles clustered in the JmjC-encoding exons, and whole-gene microdeletions. All reported mechanisms converge on loss of function; no dominant-negative or gain-of-function mechanism has been demonstrated for the germline neurodevelopmental phenotype. Two consequences fan out from this node in parallel rather than in series - loss of JmjC catalysis, and, for the truncating alleles, loss of the PHD-finger/nuclear-targeting module - because the F279S missense allele abolishes catalysis while leaving the N-terminal PHD finger intact, and the K177X nonsense allele removes both.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHF8\"], \"gene_terms\": [{\"label\": \"PHF8\", \"id\": \"hgnc:20672\"}]}}, {\"id\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 also erases mono- and dimethylated H3K9, a repressive mark associated with facultative heterochromatin. Recombinant PHF8 is selective for H3K9me2 and H3K9me1 and does not accept H3K9me3, so the enzyme trims the repressive mark toward the unmethylated state rather than resolving constitutive heterochromatin. In cells, PHF8 depletion raises H3K9me1 at transcription start sites and H3K9me2 at non-TSS sites. Loss of this activity is one of the two routes by which target promoters fail to be activated.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H3K9me/H3K9me2 demethylase activity\"]}}, {\"id\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHF8 is the founding H4K20me1 demethylase. When catalysis is lost, H4K20me1 accumulates at the transcription start sites of PHF8 target genes and the genes stay repressed. Two H4K20me1-dependent target sets have been mapped directly: cytoskeletal and cell-adhesion regulators (RHOA, RAC1, GSK3B) whose promoters PHF8 demethylates, and RSK1, whose derepression is the entry point into the mTOR arm. In astrocytes the related H4K20me3 mark accumulates at synaptogenic genes when PHF8 is depleted, extending the same heterochromatinisation logic to glia.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Chromatin organization\"]}}, {\"id\": \"Perturbed Oligodendroglial Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A third glial arm, and the least clinically anchored of the three. Phf8 promotes proliferation of oligodendrocyte progenitor cells and restrains their differentiation into oligodendrocytes, acting largely through Olig2, whose regulatory regions it occupies; ectopic Olig2 rescues the proliferation defect in Phf8-deficient cells. Notably, human iPSC-derived oligodendrocyte generation did not require PHF8 when Olig2 was force-expressed, so the human requirement is conditional. No white-matter abnormality has been documented in patients with this syndrome, so this node is marked provisional.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte precursor cell\"], \"biological_processes\": [\"Oligodendrocyte differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A specific, pharmacologically actionable branch of the H4K20me1 arm. In Phf8 knockout mice, failure to demethylate H4K20me1 at the RSK1 locus derepresses RSK1, and the mTOR signalling pathway becomes hyperactive in hippocampus. This is the one node in the entry with a demonstrated rescue: rapamycin normalises both long-term potentiation and cognitive performance in the knockout. The evidence is entirely from the mouse; no patient has been treated on this rationale.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\"]}}], \"edges\": [{\"source\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"target\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"target\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"target\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of JmjC-Domain Histone Demethylase Activity\", \"target\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of PHD-Finger H3K4me3 Reading and Nuclear Targeting\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H4K20me1 at Target Promoters\", \"target\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistence of Repressive H3K9me1/me2 Marks\", \"target\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Perturbed Oligodendroglial Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of RNA Polymerase II-Coupled Transcriptional Coactivation\", \"target\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RSK1 Derepression and mTOR Pathway Hyperactivation\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Neuronal Differentiation and Neurite Outgrowth\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Astrocyte Differentiation and Synaptic Gene Silencing\", \"target\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Perturbed Oligodendroglial Development\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Serine Biosynthesis in Neural Progenitors\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Neural Crest and Craniofacial Midline Development\", \"target\": \"Orofacial Clefting and Craniofacial Dysmorphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Synaptic Plasticity and Hippocampal Long-Term Potentiation\", \"target\": \"Impaired Cognitive Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PHF8\", \"target\": \"Pathogenic PHF8 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHF8 p.Phe279Ser\", \"target\": \"PHF8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PHF8 p.Lys177Ter\", \"target\": \"PHF8\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8265,6 +8328,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8337,6 +8403,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8418,6 +8487,9 @@ This clinical feature is Orofacial cleft (HP:0000202). HP:0000202 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8518,6 +8590,9 @@ This clinical feature is Cleft lip (HP:0410030). HP:0410030 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8582,6 +8657,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8658,6 +8736,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8725,6 +8806,9 @@ This clinical feature is Long face (HP:0000276). HP:0000276 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8827,6 +8911,9 @@ This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8892,6 +8979,9 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8970,6 +9060,9 @@ This clinical feature is Large hands (HP:0001176). HP:0001176 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9056,6 +9149,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9123,6 +9219,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9249,6 +9348,9 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9370,6 +9472,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9463,6 +9568,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9584,6 +9692,9 @@ This disease-associated gene is PHF8 (hgnc:20672). hgnc:20672 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -9695,6 +9806,7 @@ This disease-associated gene is PHF8 (hgnc:20672). hgnc:20672 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9714,11 +9826,17 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The c.836C&gt;T (p.F279S) missense allele, identified in a Finnish family with multiply affected males. It is the reference functional allele for this disorder: it substitutes a conserved hydrophobic residue in the JmjC domain and is catalytically dead in assays against both peptide and intact-histone substrates, in two independent laboratories, while leaving the rest of the protein intact. It is also the allele used to show that catalytic activity is required for PHF8 to drive neuronal differentiation.
@@ -9832,6 +9950,7 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9851,11 +9970,17 @@ This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense allele (p.K177X) reported in a male with intellectual disability and cleft lip/palate. It truncates the protein upstream of the JmjC domain and removes five nuclear localisation signals, so it is the cleanest example of the null end of the allele spectrum and the reason the PHD/nuclear-targeting arm is modelled separately from the catalytic arm.

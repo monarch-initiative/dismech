@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1596,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">genomic_instability_aging</span>
-                <span class="badge badge-count">4 disorders</span>
+                <span class="badge badge-count">5 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
                 
@@ -1823,7 +1860,7 @@ A naked mole-rat (Heterocephalus glaber) comparative negative model is attached 
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
             
             <div class="crosslink-list">
@@ -1837,6 +1874,21 @@ A naked mole-rat (Heterocephalus glaber) comparative negative model is attached 
                         
                         
                         Genomic instability and impaired DNA repair → Declining Genome Maintenance and Erroneous Repair
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/RECON_Progeroid_Syndrome.html">RECON Progeroid Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Impaired Repair of Topoisomerase-Associated DNA Breaks → Declining Genome Maintenance and Erroneous Repair
                         
                         
                     </span>
@@ -1952,11 +2004,13 @@ A naked mole-rat (Heterocephalus glaber) comparative negative model is attached 
             
             <div class="item-box anchor-target" id="module-pathophysiology-accumulating-dna-damage" data-dismech-node="Accumulating DNA Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulating DNA Damage</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Somatic cells are continuously exposed to endogenous and environmental sources of DNA damage - reactive oxygen species, spontaneous replication errors, UV and ionizing radiation, and environmental mutagens - that introduce a very large number of chemical lesions into the genome each day. This continuous genotoxic burden is the initiating input of the hallmark.</div>
                 
@@ -2032,11 +2086,13 @@ This pathophysiological event involves increased DNA Damage Response (GO:0006974
             
             <div class="item-box anchor-target" id="module-pathophysiology-declining-genome-maintenance-and-erroneous-repair" data-dismech-node="Declining Genome Maintenance and Erroneous Repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Declining Genome Maintenance and Erroneous Repair</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Genome-maintenance and DNA-repair capacity is normally sufficient to remove damage and restore the correct sequence, but with age this capacity declines while damage continues to accrue, and repair is sometimes erroneous (as is replication during division). The failure to fully and faithfully repair accumulating damage is the central effector that disease-specific genome-maintenance defects converge upon.</div>
                 
@@ -2092,6 +2148,13 @@ This pathophysiological event involves decreased DNA Repair (GO:0006281). GO:000
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/RECON_Progeroid_Syndrome.html">RECON Progeroid Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Impaired Repair of Topoisomerase-Associated DNA Breaks</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Rothmund-Thomson_Syndrome.html">Rothmund-Thomson Syndrome</a>
                             
                             <span class="crosslink-desc">as Impaired DNA Replication and Repair</span>
@@ -2133,11 +2196,13 @@ This pathophysiological event involves decreased DNA Repair (GO:0006281). GO:000
             
             <div class="item-box anchor-target" id="module-pathophysiology-accumulation-of-somatic-mutations-and-genomic-damage" data-dismech-node="Accumulation of Somatic Mutations and Genomic Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Somatic Mutations and Genomic Damage</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Unrepaired and misrepaired lesions leave a rising burden of somatic mutations, epimutations, and persistent DNA damage that accumulates in various organs and tissues over the lifespan. This is the conserved measure of genomic instability in the aging frame, upstream of its cellular consequences.</div>
                 
@@ -2188,11 +2253,13 @@ This pathophysiological event involves decreased DNA Repair (GO:0006281). GO:000
             
             <div class="item-box anchor-target" id="module-pathophysiology-dna-damage-driven-cellular-dysfunction-and-aging" data-dismech-node="DNA-Damage-Driven Cellular Dysfunction and Aging" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA-Damage-Driven Cellular Dysfunction and Aging</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In the aging frame, the accumulated DNA damage and mutation burden drives cellular dysfunction, senescence, and cell loss - affecting most aspects of the aging phenotype and acting as a potentially unifying cause of aging. This is the conserved consequence that distinguishes the aging arm from the cancer arm (mutator phenotype and clonal evolution); the specific organ or disease phenotype is supplied by the conforming disorder, and targeting DNA damage is a rationale for anti-aging intervention.</div>
                 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4345,6 +4387,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coronary-atherothrombosis" data-dismech-node="Coronary Atherothrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Coronary Atherothrombosis</div>
 
+
                 <div class="item-desc">A coronary atherosclerotic plaque with a thin fibrous cap and a large necrotic core ruptures (or, less often, erodes), exposing highly thrombogenic necrotic-core material and subendothelial collagen to flowing blood. Platelet adhesion and activation with activation of the coagulation cascade form an occlusive or near-occlusive coronary thrombus that abruptly interrupts blood flow to the downstream myocardium. Systemic inflammation, including that accompanying acute respiratory infection, can destabilize vulnerable plaque and promote a procoagulant state.
 </div>
 
@@ -4664,6 +4707,7 @@ This pathophysiological event occurs in coronary artery (UBERON:0001621). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-ischemia-and-cardiomyocyte-death" data-dismech-node="Myocardial Ischemia and Cardiomyocyte Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Ischemia and Cardiomyocyte Death</div>
 
+
                 <div class="item-desc">Sustained interruption of coronary perfusion causes regional myocardial ischemia. If flow is not restored, cardiomyocytes undergo necrosis and apoptosis, releasing cardiac troponin into the circulation (the biomarker basis of MI diagnosis). Loss of contractile myocardium reduces left ventricular systolic function and provides an arrhythmogenic substrate, and can progress to heart failure.
 </div>
 
@@ -4967,6 +5011,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ischemia-reperfusion-injury" data-dismech-node="Ischemia-Reperfusion Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Ischemia-Reperfusion Injury</div>
+
 
                 <div class="item-desc">Restoration of coronary blood flow (by primary PCI or fibrinolysis) is essential to salvage ischemic myocardium but paradoxically inflicts additional damage — myocardial ischemia-reperfusion injury (MIRI) — that can account for up to half of the final infarct size. Reperfusion drives a burst of reactive oxygen species, cytosolic and mitochondrial calcium overload, and sustained opening of the mitochondrial permeability transition pore (MPTP) with collapse of the mitochondrial membrane potential and cessation of ATP production, together with endothelial dysfunction, NLRP3 inflammasome activation, and multiple regulated cell-death programs (apoptosis, necroptosis, pyroptosis, ferroptosis) and dysregulated autophagy.
 </div>
@@ -5290,6 +5335,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-infarction-inflammation-and-cardiac-repair" data-dismech-node="Post-Infarction Inflammation and Cardiac Repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Post-Infarction Inflammation and Cardiac Repair</div>
+
 
                 <div class="item-desc">Massive cardiomyocyte death releases damage-associated molecular patterns (DAMPs/alarmins) that engage pattern-recognition receptors (TLRs, NLRs), driving cytokine (IL-1, TNF-alpha, IL-6) and chemokine (CCL2) production and recruitment of neutrophils and monocytes. Expansion and diversification of cardiac macrophages clears dead cells; efferocytosis then triggers anti-inflammatory mediators (IL-10, TGF-beta) that restrain inflammation and activate reparative fibroblasts and vascular cells. This tightly regulated inflammatory-to-reparative transition is essential for healing, but an excessive or unresolved response promotes adverse outcomes.
 </div>
@@ -5624,6 +5670,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-fibrosis-and-ventricular-remodeling" data-dismech-node="Cardiac Fibrosis and Ventricular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Fibrosis and Ventricular Remodeling</div>
+
 
                 <div class="item-desc">Loss of contractile myocardium and sustained inflammatory/neurohormonal drive produce adverse structural remodeling of the ventricle. Cardiac fibroblasts differentiate into myofibroblasts that deposit a collagen-based extracellular matrix; a well-organized scar protects against rupture and limits acute dilation, but excessive, prolonged, or dysregulated fibrogenic signaling drives interstitial fibrosis, chamber dilation, and contractile dysfunction, progressing to heart failure. This node conforms to the conserved ventricular-remodeling step of the maladaptive-cardiomyopathy module, substituting the ischemic infarct scar as the disorder-specific insult.
 </div>
@@ -6038,6 +6085,9 @@ This clinical feature is Myocardial infarction (HP:0001658). HP:0001658 is a phe
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-cardiac-troponin" data-dismech-node="Elevated cardiac troponin" data-dismech-type="phenotype">
@@ -6074,6 +6124,9 @@ This clinical feature is Increased circulating troponin concentration, annotated
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-arrhythmia" data-dismech-node="Arrhythmia" data-dismech-type="phenotype">
@@ -6099,6 +6152,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6142,6 +6198,9 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6210,6 +6269,9 @@ This clinical feature is Angina pectoris (HP:0001681), qualified as temporality 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-fibrillation" data-dismech-node="Ventricular fibrillation" data-dismech-type="phenotype">
@@ -6235,6 +6297,9 @@ This clinical feature is Ventricular fibrillation (HP:0001663). HP:0001663 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6278,6 +6343,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
@@ -6303,6 +6371,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6346,6 +6417,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6407,6 +6481,9 @@ This clinical feature is Chest pain (HP:0100749), qualified as temporality acute
 
 
                     </div>
+
+
+
 
 
 

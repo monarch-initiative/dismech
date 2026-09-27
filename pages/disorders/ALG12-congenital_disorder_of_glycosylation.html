@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3992,7 +4034,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -4842,6 +4884,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alg12-mannosyltransferase-deficiency" data-dismech-node="ALG12 mannosyltransferase deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ALG12 mannosyltransferase deficiency</div>
 
+
                 <div class="item-desc">Pathogenic ALG12 variants impair the alpha-mannosyltransferase step needed for dolichol-linked oligosaccharide biosynthesis and N-glycan precursor formation.</div>
 
 
@@ -5130,6 +5173,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-n-glycan-precursor-formation-defect" data-dismech-node="N-glycan precursor formation defect" data-dismech-type="pathophysiology">
                 <div class="item-name">N-glycan precursor formation defect</div>
 
+
                 <div class="item-desc">Impaired N-glycan precursor formation leads to hypoglycosylation of transferrin and other plasma proteins, consistent with a type I CDG biochemical pattern.</div>
 
 
@@ -5309,6 +5353,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-glycoprotein-dysfunction" data-dismech-node="Multisystem glycoprotein dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem glycoprotein dysfunction</div>
+
 
                 <div class="item-desc">Defective N-glycosylation disrupts many glycoproteins and is associated with neurodevelopmental, growth, immune, coagulation, dysmorphic, and genitourinary manifestations. Rare severe prenatal renal-skeletal and exceptional adult cardioskeletal observations are modeled as separately bounded branches rather than core consequences.</div>
 
@@ -5561,6 +5606,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-serum-and-igg-n-glycosylation" data-dismech-node="Abnormal serum and IgG N-glycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal serum and IgG N-glycosylation</div>
 
+
                 <div class="item-desc">Abnormal total-serum and IgG N-glycan profiles co-occur with low immunoglobulins, recurrent infections, and hypoglycosylated coagulation proteins. The evidence does not establish a specific responsible cell type or a direct causal path to the immune findings.</div>
 
 
@@ -5759,6 +5805,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-brain-involvement" data-dismech-node="Neurodevelopmental and brain involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental and brain involvement</div>
+
 
                 <div class="item-desc">ALG12-CDG neurodevelopmental involvement includes developmental delay, intellectual disability, hypotonia, and reported brain anomalies.</div>
 
@@ -5980,6 +6027,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-and-feeding-impairment" data-dismech-node="Growth and feeding impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth and feeding impairment</div>
 
+
                 <div class="item-desc">ALG12-CDG can impair somatic growth and feeding, presenting as failure to thrive, growth retardation, anorexia, or short stature.</div>
 
 
@@ -6122,6 +6170,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysmorphic-and-genitourinary-developmental-involvement" data-dismech-node="Dysmorphic and genitourinary developmental involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysmorphic and genitourinary developmental involvement</div>
 
+
                 <div class="item-desc">ALG12-CDG can involve craniofacial dysmorphism and male genitourinary developmental abnormalities.</div>
 
 
@@ -6263,6 +6312,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-and-skeletal-developmental-involvement" data-dismech-node="Renal and skeletal developmental involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal and skeletal developmental involvement</div>
+
 
                 <div class="item-desc">Severe ALG12-CDG can involve prenatal renal malformation and skeletal-dysplasia-like abnormalities.</div>
 
@@ -6516,6 +6566,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adult-cardioskeletal-structural-involvement" data-dismech-node="Adult cardioskeletal structural involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Adult cardioskeletal structural involvement</div>
 
+
                 <div class="item-desc">A single exceptional adult had ventricular septal defect and severe scoliosis. Coexisting ALG6 and KMT2D variants confound attribution, so this node records a bounded clinical association rather than an established consequence of ALG12 deficiency.</div>
 
 
@@ -6706,7 +6757,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">14</span>
+                <span class="card-count">16</span>
             </div>
 
 
@@ -6722,11 +6773,13 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6762,6 +6815,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6831,6 +6887,9 @@ This clinical feature is Coagulation abnormalities, annotated with Abnormality o
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6939,6 +6998,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7042,6 +7104,9 @@ This clinical feature is Male genital hypoplasia, annotated with Hypoplastic mal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7136,6 +7201,9 @@ This clinical feature is Multicystic kidney dysplasia (HP:0000003). HP:0000003 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7211,6 +7279,9 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7319,6 +7390,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7365,8 +7439,89 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-talipes-equinovarus" data-dismech-node="Talipes equinovarus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Talipes equinovarus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001762</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, skeletal abnormalities resembling a skeletal dysplasia including shortened long bones and talipes equinovarus have been seen in more severe neonatal presentation of this disorder."</div>
+
+
+                <div class="evidence-explanation">Named in the report as one of the skeletal findings of the severe neonatal presentation. The source gives no frequency for the individual finding, so this entry carries none.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
@@ -7383,15 +7538,18 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7438,6 +7596,78 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-long-bone" data-dismech-node="Short long bone" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short long bone
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003026</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is shortened long bones, annotated with Short long bone (HP:0003026). HP:0003026 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, skeletal abnormalities resembling a skeletal dysplasia including shortened long bones and talipes equinovarus have been seen in more severe neonatal presentation of this disorder."</div>
+
+
+                <div class="evidence-explanation">Named in the report as one of the skeletal findings of the severe neonatal presentation. The source gives no frequency for the individual finding, so this entry carries none.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-dysplasia-like-abnormalities" data-dismech-node="Skeletal-dysplasia-like abnormalities" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skeletal-dysplasia-like abnormalities
@@ -7454,15 +7684,24 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000924</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000924</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal-dysplasia-like abnormalities, annotated with Abnormality of the skeletal system (HP:0000924). HP:0000924 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification" title="Bound at organ-system level deliberately: involvement of this system is recurrent but its form varies between patients, with no characteristic finding to bind.">Coarse binding: variable spectrum</span>
+
+    </div>
+
 
 
 
@@ -7523,15 +7762,18 @@ This clinical feature is Skeletal-dysplasia-like abnormalities, annotated with A
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7605,7 +7847,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -7626,15 +7868,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7695,15 +7940,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7777,7 +8025,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -7798,15 +8046,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7867,15 +8118,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7979,10 +8233,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         Gene: ALG12
 
 
-    <a href="https://bioregistry.io/hgnc:19358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:19358</a>
+    <a href="https://bioregistry.io/hgnc:19358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:19358</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7994,6 +8248,9 @@ This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8113,7 +8370,7 @@ This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">immunoglobulin infusion therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">immunoglobulin infusion therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8155,11 +8412,11 @@ This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2701" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C2701</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2701" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C2701</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses Therapeutic Immune Globulin (NCIT:C2701). NCIT:C2701 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8197,11 +8454,11 @@ This treatment uses Therapeutic Immune Globulin (NCIT:C2701). NCIT:C2701 is a th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0004313</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0004313</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8214,11 +8471,11 @@ This treatment targets Hypogammaglobulinemia, annotated with Decreased circulati
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002719</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8685,11 +8942,11 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
         clinical laboratory procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C25294</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C25294</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8800,11 +9057,11 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
         clinical laboratory procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C25294</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C25294</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8890,11 +9147,11 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -10436,6 +10693,46 @@ phenotypes:
       features, coagulation abnormalities and genitourinary abnormalities.
     explanation: &gt;-
       ClinGen supports genitourinary abnormalities as common in ALG12-CDG.
+- name: Short long bone
+  category: Musculoskeletal
+  phenotype_term:
+    preferred_term: shortened long bones
+    term:
+      id: HP:0003026
+      label: Short long bone
+  evidence:
+  - reference: PMID:38717015
+    reference_title: Expanded prenatal phenotype of ALG12-associated congenital disorder of glycosylation including bilateral multicystic kidneys.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In addition, skeletal abnormalities resembling a skeletal dysplasia
+      including shortened long bones and talipes equinovarus have been seen in
+      more severe neonatal presentation of this disorder.
+    explanation: &gt;-
+      Named in the report as one of the skeletal findings of the severe neonatal
+      presentation. The source gives no frequency for the individual finding, so
+      this entry carries none.
+- name: Talipes equinovarus
+  category: Musculoskeletal
+  phenotype_term:
+    preferred_term: talipes equinovarus
+    term:
+      id: HP:0001762
+      label: Talipes equinovarus
+  evidence:
+  - reference: PMID:38717015
+    reference_title: Expanded prenatal phenotype of ALG12-associated congenital disorder of glycosylation including bilateral multicystic kidneys.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In addition, skeletal abnormalities resembling a skeletal dysplasia
+      including shortened long bones and talipes equinovarus have been seen in
+      more severe neonatal presentation of this disorder.
+    explanation: &gt;-
+      Named in the report as one of the skeletal findings of the severe neonatal
+      presentation. The source gives no frequency for the individual finding, so
+      this entry carries none.
 - name: Skeletal-dysplasia-like abnormalities
   category: Musculoskeletal
   description: &gt;-
@@ -10447,6 +10744,7 @@ phenotypes:
     term:
       id: HP:0000924
       label: Abnormality of the skeletal system
+    coarse_binding_basis: VARIABLE_SPECTRUM
   evidence:
   - reference: PMID:38717015
     reference_title: Expanded prenatal phenotype of ALG12-associated congenital disorder of glycosylation including bilateral multicystic kidneys.
@@ -11575,7 +11873,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ALG12-congenital disorder of glycosylation", "mondoId": "MONDO:0011783", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALG12-congenital_disorder_of_glycosylation", "yamlRevision": "048ddbb5efd8"};
+        const OS_CONFIG = {"diseaseName": "ALG12-congenital disorder of glycosylation", "mondoId": "MONDO:0011783", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALG12-congenital_disorder_of_glycosylation", "yamlRevision": "6cbc76f5372c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

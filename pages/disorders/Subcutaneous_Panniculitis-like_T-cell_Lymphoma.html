@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4616,6 +4658,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-tim-3-loss-of-function" data-dismech-node="Germline TIM-3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline TIM-3 Loss of Function</div>
 
+
                 <div class="item-desc">Germline missense variants in HAVCR2 substitute conserved residues in the extracellular immunoglobulin variable-like domain of TIM-3. The variant proteins misfold and never reach the plasma membrane, so the inhibitory receptor is functionally absent from the surface of T cells and of the myeloid cells that normally use it to damp innate activation. The geographic split between the two commonest alleles - p.Tyr82Cys on an East Asian and Polynesian founder haplotype, p.Ile97Met in European-ancestry patients - is a strong argument that these are ancestral, not somatic, lesions.</div>
 
 
@@ -4804,6 +4847,8 @@ This genetic context concerns HAVCR2 (hgnc:18437). hgnc:18437 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4819,6 +4864,9 @@ This genetic context concerns HAVCR2 (hgnc:18437). hgnc:18437 is a gene from the
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous or compound heterozygous germline missense alleles; the commonest genotype reported is homozygous p.Tyr82Cys.</div>
 
@@ -4979,6 +5027,13 @@ This pathophysiological event involves negative regulation of inflammatory respo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestrained-innate-immune-activation" data-dismech-node="Unrestrained Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained Innate Immune Activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">With TIM-3 missing from the cell surface, myeloid cells sustain innate signalling that would normally be terminated. The measured consequence in patient material is persistent immune activation with excess production of inflammatory cytokines, notably TNF and interleukin-1 beta. Inflammasome assembly is the proposed proximal route to interleukin-1 family cytokine release; that step is inferred from TIM-3 biology rather than demonstrated directly in SPTCL tissue, and is recorded here at lower confidence than the cytokine measurements themselves.</div>
 
@@ -5293,6 +5348,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-cytotoxic-alpha-beta-t-cell-expansion" data-dismech-node="Clonal Cytotoxic Alpha-Beta T-cell Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Cytotoxic Alpha-Beta T-cell Expansion</div>
 
+
                 <div class="item-desc">A clonal population of CD3-positive, CD4-negative, CD8-positive, CD56-negative, betaF1-positive cytotoxic T cells expands and homes to subcutaneous fat. Cooperating somatic mutations in epigenetic regulators and signal transducers accompany the germline lesion. In HAVCR2 p.Tyr82Cys tumours the transcriptional program is enriched for IL6-JAK-STAT3 and for TNF signalling via NF-kappaB, which is the stated rationale for JAK inhibition.</div>
 
 
@@ -5545,6 +5601,7 @@ This pathophysiological event occurs in subcutaneous adipose tissue (UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipocyte-rimming-and-lobular-panniculitis" data-dismech-node="Adipocyte Rimming and Lobular Panniculitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipocyte Rimming and Lobular Panniculitis</div>
+
 
                 <div class="item-desc">The histologic hallmark of the disease: atypical cytotoxic lymphocytes surround individual adipocytes in a lace-like pattern within a lobular panniculitis, with karyorrhexis and fat necrosis and without epidermal involvement. Adipocyte death is the direct tissue-level readout of T-cell-mediated cytotoxicity in this compartment.</div>
 
@@ -5803,6 +5860,7 @@ This pathophysiological event occurs in subcutaneous adipose tissue (UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-hyperactivation-and-hemophagocytosis" data-dismech-node="Macrophage Hyperactivation and Hemophagocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Hyperactivation and Hemophagocytosis</div>
+
 
                 <div class="item-desc">In a substantial minority of patients the innate activation described above escalates into full hemophagocytic lymphohistiocytosis, with activated macrophages engulfing blood cells in marrow, spleen and liver and a systemic cytokine excess producing fever, cytopenias, hyperferritinaemia, hypertriglyceridaemia and hypofibrinogenaemia. HLH risk tracks HAVCR2 genotype dose and is higher in children and in males.</div>
 
@@ -6138,7 +6196,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adipocyte Rimming and Lobular Panniculitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histologic hallmark of the disease: atypical cytotoxic lymphocytes surround individual adipocytes in a lace-like pattern within a lobular panniculitis, with karyorrhexis and fat necrosis and without epidermal involvement. Adipocyte death is the direct tissue-level readout of T-cell-mediated cytotoxicity in this compartment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\", \"CD8-positive, alpha-beta cytotoxic T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"apoptotic process\"], \"locations\": [\"subcutaneous adipose tissue\"]}}, {\"id\": \"Clonal Cytotoxic Alpha-Beta T-cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A clonal population of CD3-positive, CD4-negative, CD8-positive, CD56-negative, betaF1-positive cytotoxic T cells expands and homes to subcutaneous fat. Cooperating somatic mutations in epigenetic regulators and signal transducers accompany the germline lesion. In HAVCR2 p.Tyr82Cys tumours the transcriptional program is enriched for IL6-JAK-STAT3 and for TNF signalling via NF-kappaB, which is the stated rationale for JAK inhibition.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive, alpha-beta cytotoxic T cell\"], \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\", \"canonical NF-kappaB signal transduction\"], \"locations\": [\"subcutaneous adipose tissue\"]}}, {\"id\": \"Corticosteroid-based Immunosuppressive Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic corticosteroids alone or combined with low-dose methotrexate or cyclosporine A. This is now the usual first-line choice for uncomplicated cutaneous disease, and gives high complete response rates without the toxicity of anthracycline-based chemotherapy. Corticosteroid monotherapy relapses more often than corticosteroids combined with another immunoregulatory agent.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"prednisone\", \"methotrexate\", \"cyclosporin A\"]}}, {\"id\": \"Germline TIM-3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline missense variants in HAVCR2 substitute conserved residues in the extracellular immunoglobulin variable-like domain of TIM-3. The variant proteins misfold and never reach the plasma membrane, so the inhibitory receptor is functionally absent from the surface of T cells and of the myeloid cells that normally use it to damp innate activation. The geographic split between the two commonest alleles - p.Tyr82Cys on an East Asian and Polynesian founder haplotype, p.Ile97Met in European-ancestry patients - is a strong argument that these are ancestral, not somatic, lesions.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive, alpha-beta T cell\", \"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"negative regulation of inflammatory response\"], \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous germline missense alleles; the commonest genotype reported is homozygous p.Tyr82Cys.\", \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}]}}}, {\"id\": \"HAVCR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"frequency\": \"Reported in roughly 50% to 86% of patients depending on cohort ancestry and on whether the series is enriched for paediatric or HLH-complicated disease.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"HAVCR2 c.245A\u003eG p.Tyr82Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The commonest reported allele, carried on a probable founder chromosome in patients of East Asian and Polynesian ancestry. Causes TIM-3 misfolding and loss of plasma membrane expression.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"HAVCR2 c.291A\u003eG p.Ile97Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The predominant allele in patients of European ancestry, with the same misfolding and trafficking defect as p.Tyr82Cys.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"HAVCR2 p.Thr101Ile\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A third recurrent allele, reported in compound heterozygosity with p.Tyr82Cys.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Hemophagocytic Lymphohistiocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A systemic hyperinflammatory syndrome complicating a substantial minority of cases, defined by the HLH-2004 criteria. It is the dominant adverse prognostic factor and the main cause of disease-related death. Reported frequency varies widely with the population studied - about 17% in the adult-weighted EORTC series, about two thirds in a paediatric cohort selected for HAVCR2 sequencing.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012156\"}}, {\"id\": \"Macrophage Hyperactivation and Hemophagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a substantial minority of patients the innate activation described above escalates into full hemophagocytic lymphohistiocytosis, with activated macrophages engulfing blood cells in marrow, spleen and liver and a systemic cytokine excess producing fever, cytopenias, hyperferritinaemia, hypertriglyceridaemia and hypofibrinogenaemia. HLH risk tracks HAVCR2 genotype dose and is higher in children and in males.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"macrophage activation\", \"inflammatory response\"]}}, {\"id\": \"Ruxolitinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A JAK1/JAK2 inhibitor. Its use follows directly from the mechanism: TIM-3 loss drives cytokine-mediated inflammation and HAVCR2-mutant tumours are transcriptionally enriched for IL6-JAK-STAT3 signalling. Reported responses in HAVCR2-mutant children have been rapid and durable after corticosteroids, other immunosuppressants and chemotherapy had all failed.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ruxolitinib\"]}}, {\"id\": \"Subcutaneous Nodules and Plaques\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple, usually painless subcutaneous nodules and plaques, preferentially on the legs and trunk. They are the presenting complaint in nearly all patients and are routinely mistaken for a benign panniculitis, cellulitis or erythema nodosum, which is the main source of diagnostic delay.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001482\"}}, {\"id\": \"Unrestrained Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With TIM-3 missing from the cell surface, myeloid cells sustain innate signalling that would normally be terminated. The measured consequence in patient material is persistent immune activation with excess production of inflammatory cytokines, notably TNF and interleukin-1 beta. Inflammasome assembly is the proposed proximal route to interleukin-1 family cytokine release; that step is inferred from TIM-3 biology rather than demonstrated directly in SPTCL tissue, and is recorded here at lower confidence than the cytokine measurements themselves.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"activation of innate immune response\", \"tumor necrosis factor production\", \"interleukin-1 beta production\", \"NLRP3 inflammasome complex assembly\"]}}], \"edges\": [{\"source\": \"Germline TIM-3 Loss of Function\", \"target\": \"Unrestrained Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent surface TIM-3 removes an inhibitory input on macrophages and dendritic cells, lowering the threshold for innate activation.\"}, {\"source\": \"Unrestrained Innate Immune Activation\", \"target\": \"Macrophage Hyperactivation and Hemophagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained innate activation escalates into the systemic macrophage activation syndrome recognised clinically as HLH.\"}, {\"source\": \"Unrestrained Innate Immune Activation\", \"target\": \"Clonal Cytotoxic Alpha-Beta T-cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chronic inflammatory milieu is the proposed context in which a cytotoxic T-cell clone emerges and is sustained.\"}, {\"source\": \"Clonal Cytotoxic Alpha-Beta T-cell Expansion\", \"target\": \"Adipocyte Rimming and Lobular Panniculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanded cytotoxic clone encircles and kills individual adipocytes within the fat lobule.\"}, {\"source\": \"Adipocyte Rimming and Lobular Panniculitis\", \"target\": \"Subcutaneous Nodules and Plaques\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Destructive lobular panniculitis is what the patient feels and the clinician sees as nodules and plaques.\"}, {\"source\": \"Macrophage Hyperactivation and Hemophagocytosis\", \"target\": \"Hemophagocytic Lymphohistiocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic macrophage activation is the mechanism behind the clinical HLH syndrome.\"}, {\"source\": \"Corticosteroid-based Immunosuppressive Therapy\", \"target\": \"Unrestrained Innate Immune Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ruxolitinib\", \"target\": \"Clonal Cytotoxic Alpha-Beta T-cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ruxolitinib\", \"target\": \"Macrophage Hyperactivation and Hemophagocytosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HAVCR2\", \"target\": \"Germline TIM-3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HAVCR2 c.245A\u003eG p.Tyr82Cys\", \"target\": \"HAVCR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HAVCR2 c.291A\u003eG p.Ile97Met\", \"target\": \"HAVCR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HAVCR2 p.Thr101Ile\", \"target\": \"HAVCR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adipocyte Rimming and Lobular Panniculitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histologic hallmark of the disease: atypical cytotoxic lymphocytes surround individual adipocytes in a lace-like pattern within a lobular panniculitis, with karyorrhexis and fat necrosis and without epidermal involvement. Adipocyte death is the direct tissue-level readout of T-cell-mediated cytotoxicity in this compartment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\", \"CD8-positive, alpha-beta cytotoxic T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"apoptotic process\"], \"locations\": [\"subcutaneous adipose tissue\"]}}, {\"id\": \"Clonal Cytotoxic Alpha-Beta T-cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A clonal population of CD3-positive, CD4-negative, CD8-positive, CD56-negative, betaF1-positive cytotoxic T cells expands and homes to subcutaneous fat. Cooperating somatic mutations in epigenetic regulators and signal transducers accompany the germline lesion. In HAVCR2 p.Tyr82Cys tumours the transcriptional program is enriched for IL6-JAK-STAT3 and for TNF signalling via NF-kappaB, which is the stated rationale for JAK inhibition.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive, alpha-beta cytotoxic T cell\"], \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\", \"canonical NF-kappaB signal transduction\"], \"locations\": [\"subcutaneous adipose tissue\"]}}, {\"id\": \"Corticosteroid-based Immunosuppressive Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic corticosteroids alone or combined with low-dose methotrexate or cyclosporine A. This is now the usual first-line choice for uncomplicated cutaneous disease, and gives high complete response rates without the toxicity of anthracycline-based chemotherapy. Corticosteroid monotherapy relapses more often than corticosteroids combined with another immunoregulatory agent.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"prednisone\", \"methotrexate\", \"cyclosporin A\"]}}, {\"id\": \"Germline TIM-3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline missense variants in HAVCR2 substitute conserved residues in the extracellular immunoglobulin variable-like domain of TIM-3. The variant proteins misfold and never reach the plasma membrane, so the inhibitory receptor is functionally absent from the surface of T cells and of the myeloid cells that normally use it to damp innate activation. The geographic split between the two commonest alleles - p.Tyr82Cys on an East Asian and Polynesian founder haplotype, p.Ile97Met in European-ancestry patients - is a strong argument that these are ancestral, not somatic, lesions.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive, alpha-beta T cell\", \"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"negative regulation of inflammatory response\"], \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous germline missense alleles; the commonest genotype reported is homozygous p.Tyr82Cys.\", \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}]}}}, {\"id\": \"HAVCR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"frequency\": \"Reported in roughly 50% to 86% of patients depending on cohort ancestry and on whether the series is enriched for paediatric or HLH-complicated disease.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"HAVCR2 c.245A\u003eG p.Tyr82Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The commonest reported allele, carried on a probable founder chromosome in patients of East Asian and Polynesian ancestry. Causes TIM-3 misfolding and loss of plasma membrane expression.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"HAVCR2 c.291A\u003eG p.Ile97Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The predominant allele in patients of European ancestry, with the same misfolding and trafficking defect as p.Tyr82Cys.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"HAVCR2 p.Thr101Ile\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A third recurrent allele, reported in compound heterozygosity with p.Tyr82Cys.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HAVCR2\"], \"gene_terms\": [{\"label\": \"HAVCR2\", \"id\": \"hgnc:18437\"}], \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Hemophagocytic Lymphohistiocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A systemic hyperinflammatory syndrome complicating a substantial minority of cases, defined by the HLH-2004 criteria. It is the dominant adverse prognostic factor and the main cause of disease-related death. Reported frequency varies widely with the population studied - about 17% in the adult-weighted EORTC series, about two thirds in a paediatric cohort selected for HAVCR2 sequencing.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012156\"}}, {\"id\": \"Macrophage Hyperactivation and Hemophagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a substantial minority of patients the innate activation described above escalates into full hemophagocytic lymphohistiocytosis, with activated macrophages engulfing blood cells in marrow, spleen and liver and a systemic cytokine excess producing fever, cytopenias, hyperferritinaemia, hypertriglyceridaemia and hypofibrinogenaemia. HLH risk tracks HAVCR2 genotype dose and is higher in children and in males.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"macrophage activation\", \"inflammatory response\"]}}, {\"id\": \"Ruxolitinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A JAK1/JAK2 inhibitor. Its use follows directly from the mechanism: TIM-3 loss drives cytokine-mediated inflammation and HAVCR2-mutant tumours are transcriptionally enriched for IL6-JAK-STAT3 signalling. Reported responses in HAVCR2-mutant children have been rapid and durable after corticosteroids, other immunosuppressants and chemotherapy had all failed.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ruxolitinib\"]}}, {\"id\": \"Subcutaneous Nodules and Plaques\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple, usually painless subcutaneous nodules and plaques, preferentially on the legs and trunk. They are the presenting complaint in nearly all patients and are routinely mistaken for a benign panniculitis, cellulitis or erythema nodosum, which is the main source of diagnostic delay.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001482\"}}, {\"id\": \"Unrestrained Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With TIM-3 missing from the cell surface, myeloid cells sustain innate signalling that would normally be terminated. The measured consequence in patient material is persistent immune activation with excess production of inflammatory cytokines, notably TNF and interleukin-1 beta. Inflammasome assembly is the proposed proximal route to interleukin-1 family cytokine release; that step is inferred from TIM-3 biology rather than demonstrated directly in SPTCL tissue, and is recorded here at lower confidence than the cytokine measurements themselves.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"activation of innate immune response\", \"tumor necrosis factor production\", \"interleukin-1 beta production\", \"NLRP3 inflammasome complex assembly\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Germline TIM-3 Loss of Function\", \"target\": \"Unrestrained Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent surface TIM-3 removes an inhibitory input on macrophages and dendritic cells, lowering the threshold for innate activation.\"}, {\"source\": \"Unrestrained Innate Immune Activation\", \"target\": \"Macrophage Hyperactivation and Hemophagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained innate activation escalates into the systemic macrophage activation syndrome recognised clinically as HLH.\"}, {\"source\": \"Unrestrained Innate Immune Activation\", \"target\": \"Clonal Cytotoxic Alpha-Beta T-cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chronic inflammatory milieu is the proposed context in which a cytotoxic T-cell clone emerges and is sustained.\"}, {\"source\": \"Clonal Cytotoxic Alpha-Beta T-cell Expansion\", \"target\": \"Adipocyte Rimming and Lobular Panniculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanded cytotoxic clone encircles and kills individual adipocytes within the fat lobule.\"}, {\"source\": \"Adipocyte Rimming and Lobular Panniculitis\", \"target\": \"Subcutaneous Nodules and Plaques\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Destructive lobular panniculitis is what the patient feels and the clinician sees as nodules and plaques.\"}, {\"source\": \"Macrophage Hyperactivation and Hemophagocytosis\", \"target\": \"Hemophagocytic Lymphohistiocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic macrophage activation is the mechanism behind the clinical HLH syndrome.\"}, {\"source\": \"Corticosteroid-based Immunosuppressive Therapy\", \"target\": \"Unrestrained Innate Immune Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ruxolitinib\", \"target\": \"Clonal Cytotoxic Alpha-Beta T-cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ruxolitinib\", \"target\": \"Macrophage Hyperactivation and Hemophagocytosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HAVCR2\", \"target\": \"Germline TIM-3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HAVCR2 c.245A\u003eG p.Tyr82Cys\", \"target\": \"HAVCR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HAVCR2 c.291A\u003eG p.Ile97Met\", \"target\": \"HAVCR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"HAVCR2 p.Thr101Ile\", \"target\": \"HAVCR2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6203,6 +6261,9 @@ This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6306,6 +6367,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6386,6 +6450,9 @@ This clinical feature is Panniculitis (HP:0012490). HP:0012490 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6461,6 +6528,9 @@ This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6569,6 +6639,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6635,6 +6708,9 @@ This clinical feature is Increased circulating ferritin concentration (HP:000328
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6755,6 +6831,9 @@ This disease-associated gene is HAVCR2 (hgnc:18437). hgnc:18437 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6805,6 +6884,7 @@ This disease-associated gene is HAVCR2 (hgnc:18437). hgnc:18437 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6826,7 +6906,13 @@ This variant is in HAVCR2 (hgnc:18437). hgnc:18437 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The commonest reported allele, carried on a probable founder chromosome in patients of East Asian and Polynesian ancestry. Causes TIM-3 misfolding and loss of plasma membrane expression.</div>
@@ -6889,6 +6975,7 @@ This variant is in HAVCR2 (hgnc:18437). hgnc:18437 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6910,7 +6997,13 @@ This variant is in HAVCR2 (hgnc:18437). hgnc:18437 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The predominant allele in patients of European ancestry, with the same misfolding and trafficking defect as p.Tyr82Cys.</div>
@@ -6973,6 +7066,7 @@ This variant is in HAVCR2 (hgnc:18437). hgnc:18437 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6994,7 +7088,13 @@ This variant is in HAVCR2 (hgnc:18437). hgnc:18437 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A third recurrent allele, reported in compound heterozygosity with p.Tyr82Cys.</div>

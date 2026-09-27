@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4656,6 +4698,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-pacs2-p-glu209lys-missense-variant" data-dismech-node="De Novo PACS2 p.Glu209Lys Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo PACS2 p.Glu209Lys Missense Variant</div>
 
+
                 <div class="item-desc">A heterozygous de novo missense variant, in nearly all reported individuals the recurrent c.625G&gt;A p.(Glu209Lys) change. This node records the lesion only. Note the disorder is defined by one recurrent substitution rather than by a spectrum of loss-of-function alleles, which is why the downstream arms are all consequences of a single specific protein change rather than of absent protein.</div>
 
 
@@ -4739,6 +4782,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pacs2-autoregulatory-domain-function" data-dismech-node="Impaired PACS2 Autoregulatory Domain Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PACS2 Autoregulatory Domain Function</div>
+
 
                 <div class="item-desc">The variant reduces the ability of the predicted autoregulatory domain to modulate the interaction between the PACS2 cargo/furin-binding region and its client proteins. This is the trafficking-control arm, and it is separate from the proteostasis arm below because the two were established by different experiments.</div>
 
@@ -4839,6 +4883,7 @@ This pathophysiological event involves dysregulated intracellular protein transp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-pacs2-proteostasis" data-dismech-node="Altered PACS2 Proteostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered PACS2 Proteostasis</div>
 
+
                 <div class="item-desc">The E209K protein has a slower turnover rate and longer half-life than wild type. Curated separately from the autoregulatory arm because it is a stability change rather than an interaction-control change, and because it is what the increased 14-3-3-epsilon association was attributed to.</div>
 
 
@@ -4932,6 +4977,7 @@ This pathophysiological event involves dysregulated intracellular protein transp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-14-3-3-epsilon-association" data-dismech-node="Increased 14-3-3-epsilon Association" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased 14-3-3-epsilon Association</div>
 
+
                 <div class="item-desc">The variant protein shows increased association with 14-3-3-epsilon, a regulatory protein in neurodevelopment. This is the specific altered interaction that the proteostasis change produces, and the one the apoptosis phenotype is attributed to.</div>
 
 
@@ -5007,6 +5053,7 @@ This pathophysiological event involves dysregulated intracellular protein transp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-susceptibility-to-stress-induced-apoptosis" data-dismech-node="Increased Susceptibility to Stress-Induced Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Susceptibility to Stress-Induced Apoptosis</div>
+
 
                 <div class="item-desc">Cells expressing E209K die more readily than wild-type-expressing cells when challenged with staurosporine. The conditional framing matters and is preserved here: this is increased susceptibility under an applied stressor, not constitutive cell death. The cell type in which it was measured is a serious limitation, recorded in the discussions.</div>
 
@@ -5164,6 +5211,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-dysgenesis" data-dismech-node="Cerebellar Dysgenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Dysgenesis</div>
 
+
                 <div class="item-desc">Foliar distortion of the cerebellum with vermis hypoplasia and posterior fossa anomalies. This is the imaging finding that most distinguishes DEE66 from other developmental and epileptic encephalopathies, and it is a malformation rather than a degenerative change.</div>
 
 
@@ -5314,6 +5362,7 @@ This pathophysiological event involves granule cell (CL:0000120). CL:0000120 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability" data-dismech-node="Cortical Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability</div>
 
+
                 <div class="item-desc">Cortical networks become seizure-prone in the neonatal period. This node is inferred from the clinical seizure phenotype: no electrophysiological characterisation of excitability has been published in any PACS2 model or in patient-derived neurons, which is a stated gap rather than an oversight.</div>
 
 
@@ -5424,6 +5473,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-onset-epilepsy-with-age-dependent-improvement" data-dismech-node="Neonatal-Onset Epilepsy with Age-Dependent Improvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal-Onset Epilepsy with Age-Dependent Improvement</div>
 
+
                 <div class="item-desc">Mixed focal and generalised seizures begin in the neonatal period and are difficult to control through the first year, but many patients improve in early childhood. The age-dependent improvement is curated as part of this node rather than as a separate outcome, because it is a property of the seizure disorder itself and distinguishes DEE66 from most developmental and epileptic encephalopathies.</div>
 
 
@@ -5524,6 +5574,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Developmental Delay</div>
+
 
                 <div class="item-desc">Delayed motor and speech milestones with intellectual disability of variable degree. Two upstream routes converge here - the cerebellar and cortical malformation arm, and the neonatal seizure burden - and no published analysis separates their contributions.</div>
 
@@ -5686,6 +5737,9 @@ This clinical feature is Abnormality of blood and blood-forming tissues (HP:0001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5763,6 +5817,9 @@ This clinical feature is Abnormal cardiac septum morphology (HP:0001671). HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5846,6 +5903,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5910,6 +5970,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5983,6 +6046,9 @@ This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6068,6 +6134,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6148,6 +6217,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6212,6 +6284,9 @@ This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6283,6 +6358,9 @@ This clinical feature is Enlarged cisterna magna (HP:0002280). HP:0002280 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6370,6 +6448,9 @@ This clinical feature is Abnormality of limbs (HP:0040064). HP:0040064 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6445,6 +6526,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6559,6 +6643,9 @@ This clinical feature is Seizure (HP:0001250), qualified as neonatal onset. HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6623,6 +6710,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6699,6 +6789,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6765,6 +6858,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6839,6 +6935,9 @@ This clinical feature is Broad-based gait (HP:0002136). HP:0002136 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6903,6 +7002,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6979,6 +7081,9 @@ This clinical feature is Cerebellar dysplasia (HP:0007033). HP:0007033 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7048,6 +7153,9 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7112,6 +7220,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7228,6 +7339,9 @@ This disease-associated gene is PACS2 (hgnc:23794). hgnc:23794 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5083,6 +5125,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-snip1-p-glu366gly-founder-substitution" data-dismech-node="Biallelic SNIP1 p.Glu366Gly Founder Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SNIP1 p.Glu366Gly Founder Substitution</div>
 
+
                 <div class="item-desc">Homozygosity for NM_024700.4:c.1097A&gt;G, p.(Glu366Gly) in exon 4 of SNIP1 (1p34.3) is the single molecular lesion underlying every molecularly confirmed case. Glu366 lies in the conserved C-terminal 30 amino acids, immediately adjacent to the forkhead-associated (FHA) domain, within a low-complexity or intrinsically disordered region that is strongly conserved across species orthologues. The variant is a hypomorph rather than a null: Snip1 knockout mice are embryonic lethal, so a complete loss-of-function allele would not be compatible with the viable human phenotype.</div>
 
 
@@ -5280,6 +5323,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-snip1-protein-abundance-and-altered-nuclear-distribution" data-dismech-node="Reduced SNIP1 Protein Abundance and Altered Nuclear Distribution" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SNIP1 Protein Abundance and Altered Nuclear Distribution</div>
+
 
                 <div class="item-desc">Transcript levels of the mutant allele are comparable to wild type, so the lesion acts post-transcriptionally. Overexpressed mutant protein is markedly less abundant than wild type on Western blot and adopts an aggregated rather than a punctate nuclear distribution, indicating impaired protein stability and impaired assembly into nuclear transcriptional and splicing complexes. This dosage reduction is the shared upstream cause of both the splicing and the transcriptional arms of the disease.</div>
 
@@ -5487,6 +5531,7 @@ This pathophysiological event involves abnormal nuclear speck (GO:0016607). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-snip1-fha-domain-phosphopeptide-recognition" data-dismech-node="Impaired SNIP1 FHA-Domain Phosphopeptide Recognition" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired SNIP1 FHA-Domain Phosphopeptide Recognition</div>
 
+
                 <div class="item-desc">The forkhead-associated (FHA) domain is a phosphothreonine/phosphoserine reader module. In the spliceosome cycle, CDK11 phosphorylates the threonine-proline repeats of SF3B1 during spliceosome activation, and the SNIP1 FHA domain recognises phosphorylated SF3B1. Disease-associated FHA domain mutations, explicitly including the neurodevelopmental disorder-associated E366G variant, impair that phosphopeptide binding. This is the most direct available molecular explanation of what the Amish allele actually breaks.</div>
 
 
@@ -5668,6 +5713,7 @@ This pathophysiological event involves decreased phosphoserine residue binding (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-res-complex-recruitment-to-the-activated-spliceosome" data-dismech-node="Defective RES Complex Recruitment to the Activated Spliceosome" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective RES Complex Recruitment to the Activated Spliceosome</div>
+
 
                 <div class="item-desc">SNIP1 is a component of the human activated (B-act) spliceosome and forms the retention-and-splicing (RES) complex together with BUD13 and RBMX2. RES is required for efficient intron definition and splicing of a defined subset of short, GC-rich introns. Acute SNIP1 depletion disrupts RES incorporation and causes widespread splicing defects, and loss of RES components in vertebrates produces a global intron-splicing defect with a marked neural phenotype.</div>
 
@@ -5880,6 +5926,7 @@ This pathophysiological event involves abnormal spliceosomal complex (GO:0005681
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-widespread-pre-mrna-splicing-dysregulation" data-dismech-node="Widespread Pre-mRNA Splicing Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Widespread Pre-mRNA Splicing Dysregulation</div>
 
+
                 <div class="item-desc">Reduced RES loading degrades splicing of RES-dependent introns, which are characteristically short, GC-rich and flanked by GC-depleted exons, i.e. introns that depend on intron definition rather than exon definition. The net effect is a transcriptome-wide shift in splicing efficiency rather than a single mis-spliced gene product, which is consistent with the multisystem phenotype.</div>
 
 
@@ -6026,6 +6073,7 @@ This pathophysiological event involves decreased mRNA splicing, via spliceosome 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-detained-intron-splicing-brake-dysregulation-in-neurons" data-dismech-node="Detained-Intron Splicing Brake Dysregulation in Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Detained-Intron Splicing Brake Dysregulation in Neurons</div>
+
 
                 <div class="item-desc">Beyond bulk splicing, SNIP1 together with RNPS1 forms a molecular brake that pauses the spliceosome at the B-act state on detained introns, holding intron-detaining transcripts in the nucleus as a rapidly deployable mRNA pool. Conditional Snip1 deletion in mouse cerebellum reduces detained-intron splicing efficiency and causes neurodegeneration, identifying neurons as a tissue in which the timing of detained-intron release is SNIP1-dependent and functionally critical.</div>
 
@@ -6199,6 +6247,7 @@ This pathophysiological event involves dysregulated regulation of alternative mR
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-snip1-co-regulation-of-cbp-p300-dependent-transcription" data-dismech-node="Disrupted SNIP1 Co-Regulation of CBP/p300-Dependent Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted SNIP1 Co-Regulation of CBP/p300-Dependent Transcription</div>
+
 
                 <div class="item-desc">SNIP1 sets a threshold for CBP/p300-dependent transcriptional activation. Its N-terminus binds both Smad4 and the coactivator CBP/p300, and SNIP1 competitively inhibits both Smad4/p300 complex formation and NF-kappaB (RelA) access to the C/H1 domain of CBP/p300. Its C-terminus binds c-MYC, stabilising it against proteasomal degradation and bridging a c-MYC/p300 complex. Reduced SNIP1 abundance therefore simultaneously releases restraint on TGF-beta/Smad and NF-kappaB output and withdraws support from c-MYC, which is the transcriptional arm of this disease.</div>
 
@@ -6471,6 +6520,7 @@ This pathophysiological event involves dysregulated transcription coactivator ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepressed-tgf-beta-smad-transcriptional-output" data-dismech-node="Derepressed TGF-beta/Smad Transcriptional Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepressed TGF-beta/Smad Transcriptional Output</div>
 
+
                 <div class="item-desc">With less SNIP1 available to restrain Smad4/p300 complex formation, TGF-beta pathway transcriptional output rises. Blood transcriptome analysis of six affected individuals found TGF-beta receptor signalling in epithelial-to-mesenchymal transition to be the single most overrepresented dysregulated Reactome pathway, and identified two downregulated TGF-beta pathway genes (BMPR1A and ACVR1C). Because disorders of TGF-beta/BMP signalling characteristically produce craniofacial, skeletal and cardiovascular malformation, this node is the most plausible mechanistic route to the non-neurological half of the syndrome.</div>
 
 
@@ -6651,6 +6701,7 @@ This pathophysiological event involves dysregulated transforming growth factor b
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepressed-nf-kappab-transcriptional-output" data-dismech-node="Derepressed NF-kappaB Transcriptional Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepressed NF-kappaB Transcriptional Output</div>
 
+
                 <div class="item-desc">SNIP1 normally competes with the RelA subunit of NF-kappaB for the C/H1 domain of CBP/p300. Reduced SNIP1 therefore raises NF-kappaB-dependent transcription. Two consequences are relevant here. In brain, inappropriate increases in NF-kappaB signalling have been shown to initiate epileptogenesis in mouse. In heart, SNIP1 deficiency worsens pressure-overload hypertrophy through NF-kappaB, and blocking NF-kappaB rescues it, which is notable because left ventricular non-compaction occurs in this disorder.</div>
 
 
@@ -6822,6 +6873,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-prc2-genomic-occupancy-and-h3k27me3-turnover" data-dismech-node="Aberrant PRC2 Genomic Occupancy and H3K27me3 Turnover" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant PRC2 Genomic Occupancy and H3K27me3 Turnover</div>
+
 
                 <div class="item-desc">A third, epigenetic arm of SNIP1 function, established in mouse neural-progenitor-specific knockout. SNIP1 facilitates the genomic occupancy of the Polycomb repressive complex PRC2 and instructs H3K27me3 turnover at target genes; the SNIP1 target genes concerned are ones that promote cell survival and neurogenesis, and SNIP1 activity at them is itself influenced by TGF-beta and NF-kappaB signalling, which ties this arm back to the transcriptional co-regulation arm. Loss of this function mislocalises repressive H3K27 marks and silences a survival programme. The decisive evidence is a rescue: depleting PRC2 is sufficient to reduce apoptosis and brain dysplasia in the SNIP1-depleted brain.</div>
 
@@ -7015,6 +7067,7 @@ This pathophysiological event involves dysregulated histone H3K27 trimethyltrans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-progenitor-cell-apoptosis-and-reduced-neurogenesis" data-dismech-node="Neural Progenitor Cell Apoptosis and Reduced Neurogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Progenitor Cell Apoptosis and Reduced Neurogenesis</div>
+
 
                 <div class="item-desc">The pivotal cellular hub of the neurological arm. SNIP1 promotes neural progenitor cell survival and neurogenesis, and the SNIP1-depleted brain exhibits dysplasia with robust induction of caspase-9-dependent apoptosis, i.e. death by the intrinsic mitochondrial pathway rather than by death receptors. The same convergence is reproduced in a second vertebrate by a completely different route: zebrafish RES-complex mutants, including snip1, show increased cell death in the brain and a decrease in differentiated neurons. Two independent organisms and two independent mechanistic entry points (PRC2 and splicing) therefore arrive at the same cellular lesion.</div>
 
@@ -7278,6 +7331,7 @@ This pathophysiological event involves decreased cerebral cortex neuron differen
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-neurodevelopmental-gene-expression-programme" data-dismech-node="Altered Neurodevelopmental Gene Expression Programme" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Neurodevelopmental Gene Expression Programme</div>
 
+
                 <div class="item-desc">The convergent output of the splicing and transcriptional arms is a reproducible shift in the expression of genes with established neurodevelopmental and neuropathological roles. Whole-transcriptome sequencing of six affected individuals identified 75 significantly upregulated and 109 significantly downregulated genes. Of the most strongly altered transcripts with a known clinical association, 24 had a previously established association with neurological disease, and five of those (ROBO1, SOX5, CNTNAP2, PAFAH1B1 and TSNARE1) are seizure genes. ROBO1, the most upregulated gene, is an axon guidance receptor; PAFAH1B1 (LIS1) is a canonical neuronal migration gene.</div>
 
 
@@ -7457,6 +7511,7 @@ This pathophysiological event involves dysregulated regulation of transcription 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-axon-guidance-and-neuronal-migration" data-dismech-node="Impaired Axon Guidance and Neuronal Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Axon Guidance and Neuronal Migration</div>
+
 
                 <div class="item-desc">ROBO1, the most upregulated transcript in affected individuals, is a neural cell adhesion molecule family axon guidance receptor, and PAFAH1B1 is among the dysregulated genes associated with brain structural abnormality. Perturbation of axon guidance and cortical neuronal migration is the cell-biological step that best accounts for the observed white matter, corpus callosum and cortical ribbon abnormalities.</div>
 
@@ -7695,6 +7750,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-brain-malformation-and-white-matter-abnormality" data-dismech-node="Structural Brain Malformation and White Matter Abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Brain Malformation and White Matter Abnormality</div>
 
+
                 <div class="item-desc">Neuroimaging is abnormal in essentially all individuals assessed. The reported spectrum comprises hydrocephalus, ventriculomegaly, white matter abnormalities, thin corpus callosum, hypomyelination, an irregular cortical ribbon that follows the undulating inner skull contour, Chiari malformation, absence of the septum pellucidum, hypoplastic optic nerves and septo-optic dysplasia. The cortical ribbon finding is mechanistically interesting because it couples the brain and calvarial phenotypes.</div>
 
 
@@ -7865,6 +7921,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability" data-dismech-node="Cortical Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability</div>
+
 
                 <div class="item-desc">The combination of derepressed NF-kappaB and TGF-beta/Smad2 signalling in brain, dysregulated synaptic and neuron-glia genes (CNTNAP2, TSNARE1, SYT1), and structural cortical maldevelopment produces a diffusely hyperexcitable cortical network. EEG is abnormal in all individuals assessed, with diffuse background slowing and frequent focal or multifocal discharges and no single characteristic pattern.</div>
 
@@ -8047,6 +8104,7 @@ This pathophysiological event involves dysregulated modulation of chemical synap
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-infantile-onset-drug-resistant-epilepsy" data-dismech-node="Infantile-Onset Drug-Resistant Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Infantile-Onset Drug-Resistant Epilepsy</div>
 
+
                 <div class="item-desc">Every affected individual develops epilepsy. Seizure types include focal and generalised intractable seizures (myoclonic, absence, tonic-clonic) of infantile or childhood onset, and multiple intractable seizure types can afflict a single patient. Seizures may present initially as apnoea or breath-holding spells, and subclinical seizures occur. Febrile illness, sleep deprivation and hypoglycaemic episodes are recognised triggers. No antiepileptic medication has been identified that consistently provides effective seizure control.</div>
 
 
@@ -8172,6 +8230,7 @@ This pathophysiological event involves dysregulated modulation of chemical synap
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-status-epilepticus" data-dismech-node="Status Epilepticus" data-dismech-type="pathophysiology">
                 <div class="item-name">Status Epilepticus</div>
 
+
                 <div class="item-desc">Refractory epilepsy in this disorder is not merely a comorbidity; it is an active driver of further neurological loss, and status epilepticus is the acute event through which that loss is delivered. Some individuals suffered severe developmental regression following status epilepticus, two with subsequent permanent hemiparesis. Preventing status epilepticus is named by the cohort authors as an explicit goal of anticonvulsant optimisation, which makes this the acquired and potentially preventable entry point to the acquired component of the phenotype.</div>
 
 
@@ -8281,6 +8340,7 @@ This pathophysiological event involves dysregulated modulation of chemical synap
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoxic-ischaemic-secondary-brain-injury" data-dismech-node="Hypoxic-Ischaemic Secondary Brain Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoxic-Ischaemic Secondary Brain Injury</div>
 
+
                 <div class="item-desc">The tissue-level consequence of prolonged and inadequately controlled seizure activity. Individuals identified in late childhood or adolescence are often diagnosed with mixed-tone spastic quadriplegic cerebral palsy that the cohort authors attribute to hypoxic injury after long-term untreated or unrecognised seizures rather than to a primary pyramidal lesion. This is the acquired, and therefore potentially preventable, component of the phenotype.</div>
 
 
@@ -8364,6 +8424,7 @@ This pathophysiological event involves dysregulated modulation of chemical synap
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-global-developmental-impairment" data-dismech-node="Severe Global Developmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Global Developmental Impairment</div>
+
 
                 <div class="item-desc">The convergent clinical endpoint of the neurological arm. Global developmental delay and hypotonia with hyporeflexia are present in all affected individuals, and developmental delay is characterised as severe and non-verbal. Most affected individuals nonetheless achieve independent ambulation between 3 and 10 years, and some communicate with signs, gestures and sounds, so the disorder is severe but not uniformly without motor progress.</div>
 
@@ -8497,6 +8558,7 @@ This pathophysiological event involves dysregulated modulation of chemical synap
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-craniofacial-and-calvarial-morphogenesis" data-dismech-node="Aberrant Craniofacial and Calvarial Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Craniofacial and Calvarial Morphogenesis</div>
+
 
                 <div class="item-desc">Cranial neural crest derived facial skeleton and the membranous calvarium are both affected. Skull morphology ranges from normocephaly to severe multi-suture craniosynostosis with a cloverleaf skull, and characteristically includes an irregular skull surface with variable calvarial thickness and bony dysplasia. Facial features comprise midface hypoplasia, a wide mouth with downturned corners and thin cupid&#39;s bow upper lip, large tongue, high arched palate, microretrognathia with or without Pierre Robin sequence and cleft palate, malocclusion, small upturned bulbous nose, long palpebral fissures, and proptosis where craniosynostosis is present.</div>
 
@@ -8797,6 +8859,7 @@ This pathophysiological event involves abnormal embryonic cranial skeleton morph
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cardiac-and-outflow-tract-morphogenesis" data-dismech-node="Aberrant Cardiac and Outflow Tract Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Cardiac and Outflow Tract Morphogenesis</div>
 
+
                 <div class="item-desc">Congenital cardiac malformation affects a majority of individuals and spans the septation, valvular and aortic arch compartments: hypoplastic left heart syndrome, aortic stenosis and bicuspid aortic valve, aortic coarctation, aortic root dilatation, atrial and ventricular septal defects, patent ductus arteriosus, pulmonary artery stenosis and mitral regurgitation. This distribution is characteristic of perturbed TGF-beta/BMP signalling in cardiac neural crest and second heart field derivatives.</div>
 
 
@@ -8945,6 +9008,7 @@ This pathophysiological event involves abnormal heart morphogenesis (GO:0003007)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-myocardial-stress-adaptation" data-dismech-node="Impaired Myocardial Stress Adaptation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Myocardial Stress Adaptation</div>
 
+
                 <div class="item-desc">Distinct from the structural congenital lesions, a minority of individuals develop cardiomyopathy, specifically left ventricular non-compaction. Mouse work showing that SNIP1 deficiency exacerbates and SNIP1 overexpression rescues pressure-overload hypertrophy through NF-kappaB provides a candidate mechanism for a myocardial rather than a morphogenetic contribution, though this link has not been demonstrated in patients.</div>
 
 
@@ -9079,6 +9143,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-laryngeal-and-pharyngeal-cartilage-development" data-dismech-node="Aberrant Laryngeal and Pharyngeal Cartilage Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Laryngeal and Pharyngeal Cartilage Development</div>
+
 
                 <div class="item-desc">Three quarters of individuals have upper airway abnormalities: laryngomalacia, pharyngomalacia and subglottic stenosis of variable severity, producing a weak cry, stridor and apnoea and occasionally requiring tracheostomy and home oxygen. The common feature of malacia and subglottic narrowing is inadequate laryngeal and pharyngeal cartilage support, and TGF-beta/BMP pathway disruption characteristically affects connective tissue and cartilage, which is why this node is placed downstream of the TGF-beta arm. The mechanism has not been demonstrated directly in this disorder and the placement is an inference, flagged as such below.</div>
 
@@ -9230,6 +9295,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-distal-limb-and-digit-development" data-dismech-node="Aberrant Distal Limb and Digit Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Distal Limb and Digit Development</div>
+
 
                 <div class="item-desc">Distal limb findings comprise short hands with tapered fingers in just over half of individuals, plus brachydactyly, broad thumbs, single palmar crease, congenital talipes equinovarus, pes planus and toenail hypoplasia. The discovery paper&#39;s mechanistic rationale is that disruption of c-MYC or CBP/p300 signalling in mice produces abnormal development of brain, skull, craniofacial bones and distal limbs, which is precisely the combination seen here; the brachydactyly syndromes are separately TGF-beta pathway disorders.</div>
 
@@ -9397,6 +9463,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-feeding-failure-and-aspiration-risk" data-dismech-node="Neonatal Feeding Failure and Aspiration Risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Feeding Failure and Aspiration Risk</div>
+
 
                 <div class="item-desc">Poor feeding in the neonatal period is universal, and pulmonary aspiration with or without a gastrostomy tube affects 46%. This is the single most actionable node in the entry: elective gastrostomy is one of two interventions the cohort authors single out as able to reduce hospitalisations, alleviate suffering and prolong life. The proximate mechanism is not established, and more than one contributor is plausible (central hypotonia with poor suck and swallow coordination, upper airway malacia, and gastroesophageal reflux are all documented in the same individuals), so no single mechanism is asserted.</div>
 
@@ -9612,6 +9679,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band FREQUENT derived from 60% in the founder cohort (PMID:34570759 Table 1). Umbrella node for congenital heart disease of any type; the individual lesions are not separately banded because per-lesion denominators are not published. Founder-cohort derived.</div>
 
 
@@ -9710,6 +9780,9 @@ This clinical feature is Left ventricular noncompaction cardiomyopathy (HP:00116
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band OCCASIONAL derived from 12% in the founder cohort. Founder-cohort derived.</div>
 
 
@@ -9790,6 +9863,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OBLIGATE from 35/35 in the founder cohort. Founder-cohort derived.</div>
@@ -9888,6 +9964,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; reported qualitatively without a denominator.</div>
 
 
@@ -9957,6 +10036,9 @@ This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band; reported qualitatively without a denominator.</div>
@@ -10030,6 +10112,9 @@ This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OCCASIONAL derived from the 21% Table 1 figure, which pools umbilical and inguinal hernias; the umbilical-specific rate is therefore lower than 21%. Founder-cohort derived.</div>
@@ -10112,6 +10197,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OCCASIONAL derived from the 21% Table 1 figure (20% in the prose) in the founder cohort. Founder-cohort derived.</div>
@@ -10221,6 +10309,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band OCCASIONAL derived from 25% in the founder cohort. Founder-cohort derived.</div>
 
 
@@ -10301,6 +10392,9 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; the source conditions this finding on craniosynostosis without giving a numerator.</div>
 
 
@@ -10372,6 +10466,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band FREQUENT derived from the composite 45% Table 1 row for &#34;horizontal nystagmus and/or strabismus&#34;; the strabismus-specific rate is therefore at or below 45%. Founder-cohort derived.</div>
@@ -10470,6 +10567,9 @@ This clinical feature is Horizontal nystagmus (HP:0000666). HP:0000666 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">No independent band; the only published denominator (45%) pools nystagmus with strabismus and is carried on the Strabismus entry to avoid asserting the same denominator twice for two different features.</div>
 
 
@@ -10539,6 +10639,9 @@ This clinical feature is Septo-optic dysplasia (HP:0100842). HP:0100842 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band; no numerator is published for this finding.</div>
@@ -10621,6 +10724,9 @@ This clinical feature is Abnormal skull morphology (HP:0000929). HP:0000929 is a
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OBLIGATE from 35/35 in the founder cohort. Founder-cohort derived.</div>
@@ -10719,6 +10825,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately unbanded. The only quotable count in the source, five individuals, is specifically the severe multi-suture cloverleaf subgroup, and that count now carries its own band on the Cloverleaf Skull phenotype. Craniosynostosis of any degree has no published denominator of its own: milder craniosynostosis is subsumed in the 100% &#34;abnormal skull shape&#34; row of Table 1, which is not a craniosynostosis row. Per this entry&#39;s one-band, one-denominator rule the band is omitted here rather than inherited from the cloverleaf subgroup, which would understate the true proportion.</div>
 
 
@@ -10790,6 +10899,9 @@ This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OCCASIONAL derived from 5/35 = 14%. Founder-cohort derived: the denominator is the 35 comprehensively evaluated individuals of the Old Order Amish p.Glu366Gly kindred, which is largely one extended family, so this is a kindred proportion and not a general disease frequency. Split out of the Craniosynostosis phenotype so that the 5/35 count bands the subgroup it actually counts.</div>
@@ -10865,6 +10977,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band OBLIGATE from 35/35 in the founder cohort. Founder-cohort derived.</div>
 
 
@@ -10936,6 +11051,9 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OBLIGATE from 35/35 in the founder cohort. Founder-cohort derived.</div>
@@ -11034,6 +11152,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band. Midface hypoplasia is described qualitatively in the craniofacial narrative and does not appear as a numbered row in Table 1, so no denominator is available.</div>
 
 
@@ -11105,6 +11226,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band FREQUENT derived from the 30% Table 1 figure in the founder cohort, which sits at the lower boundary of the 30-79% band. Founder-cohort derived.</div>
@@ -11180,6 +11304,9 @@ This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band OCCASIONAL derived from 3/35 = 9% in the founder cohort. Founder-cohort derived.</div>
 
 
@@ -11249,6 +11376,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band. The source gives &#34;with or without cleft palate in three patients&#34;, so the cleft-specific numerator is unknown even within the three-patient subset.</div>
@@ -11322,6 +11452,9 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; large tongue is not a numbered Table 1 row.</div>
 
 
@@ -11393,6 +11526,9 @@ This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; not a numbered Table 1 row.</div>
 
 
@@ -11462,6 +11598,9 @@ This clinical feature is Long palpebral fissure (HP:0000637). HP:0000637 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band; not a numbered Table 1 row.</div>
@@ -11544,6 +11683,9 @@ This clinical feature is Hypoplastic toenails (HP:0001800). HP:0001800 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; not a numbered Table 1 row.</div>
 
 
@@ -11624,6 +11766,9 @@ This clinical feature is Tapered finger (HP:0001182). HP:0001182 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band FREQUENT derived from the composite 54% Table 1 row for &#34;short hands with tapered fingers&#34;. Founder-cohort derived.</div>
@@ -11722,6 +11867,9 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; not a numbered Table 1 row.</div>
 
 
@@ -11791,6 +11939,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band; not a numbered Table 1 row.</div>
@@ -11864,6 +12015,9 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OCCASIONAL derived from 13% in the founder cohort. Founder-cohort derived.</div>
@@ -11948,6 +12102,9 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band. Pharmacoresistance is described qualitatively (&#34;several individuals&#34;) without a denominator, so per curation policy the band is omitted rather than guessed. HPO has no &#34;drug-resistant epilepsy&#34; class, so the binding is HP:0020174 Refractory drug response (a descendant of HP:0000118 Phenotypic abnormality via HP:0020169 Abnormal drug response), with the epilepsy context carried by the phenotype name and description. A previous revision bound this phenotype to HP:0002353 EEG abnormality, which is a different concept rather than a broader one; the electrographic finding now has its own phenotype entry.</div>
 
 
@@ -12019,6 +12176,9 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OCCASIONAL derived from 21% in the founder cohort. Founder-cohort derived.</div>
@@ -12128,6 +12288,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band OBLIGATE from 35/35 in the founder cohort. Founder-cohort derived, not a general disease frequency.</div>
 
 
@@ -12224,6 +12387,9 @@ This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; &#34;often&#34; is given without a denominator.</div>
 
 
@@ -12297,6 +12463,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band OCCASIONAL derived from the composite spinal-abnormality figure (23% in prose, 21% in Table 1) in the founder cohort. Scoliosis is one of three pooled findings, so its individual rate is lower. Founder-cohort derived.</div>
 
 
@@ -12366,6 +12535,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band; reported qualitatively.</div>
@@ -12450,6 +12622,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band OBLIGATE derives from 35/35 in the founder cohort (PMID:34570759 Table 1). This is a single extended Amish kindred homozygous for one allele, so the band describes that genotype in that population and is not a general disease frequency.</div>
 
 
@@ -12519,6 +12694,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band assigned. Intellectual disability is named as cardinal but is not a separate row in the Table 1 frequency tabulation, which reports &#34;global developmental delay (severe, non-verbal)&#34; instead. Rather than reuse the developmental delay denominator for a different construct, the band is omitted.</div>
@@ -12619,6 +12797,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band OBLIGATE derives from 35/35 in the founder cohort (PMID:34570759 Table 1, &#34;Seizures 100%&#34;), supported by the prose statement that all affected individuals develop epilepsy. Founder-cohort derived.</div>
 
 
@@ -12715,6 +12896,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted. The source states the finding was present in all individuals assessed but does not give the number assessed, so there is no denominator; consistent with the rest of this entry a band is omitted rather than inferred from the 35-individual founder cohort denominator, which would misrepresent an unstated assessment subset. Split out of the Drug-Resistant Epilepsy phenotype, which previously carried this snippet under an HP:0002353 binding that did not match its own name.</div>
 
 
@@ -12786,6 +12970,9 @@ This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band OBLIGATE from 35/35 in the founder cohort. Founder-cohort derived.</div>
@@ -12884,6 +13071,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band for ventriculomegaly specifically. The Table 1 row &#34;abnormal brain MRI (ventriculomegaly, white matter defects) 50%&#34; pools imaging findings across the whole cohort of 35, whereas the prose reports 18/18 abnormal among those actually imaged. Those two denominators are not interchangeable, and no ventriculomegaly-specific numerator is published, so no band is asserted.</div>
 
 
@@ -12980,6 +13170,9 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band, for the same denominator reason given on the Ventriculomegaly entry.</div>
 
 
@@ -13049,6 +13242,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band; no callosum-specific numerator is published.</div>
@@ -13122,6 +13318,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band FREQUENT derived from the composite 75% behavioural-problems row, which pools irritability, autistic features and ADHD. The autism-specific rate is therefore at or below 75%; the band is carried here because autism is the named formal diagnosis. Founder-cohort derived.</div>
@@ -13220,6 +13419,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No independent band; the 75% denominator is composite and is carried on the Autism entry rather than asserted twice.</div>
 
 
@@ -13289,6 +13491,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No band; described qualitatively without a denominator. Clinically important because sleep deprivation is itself a documented seizure trigger in this disorder.</div>
@@ -13362,6 +13567,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; &#34;some individuals&#34; is given without a denominator.</div>
 
 
@@ -13431,6 +13639,9 @@ This clinical feature is Tethered cord (HP:0002144). HP:0002144 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No independent band; the 23% denominator is composite and is carried on the Scoliosis entry rather than asserted three times.</div>
@@ -13513,6 +13724,9 @@ This clinical feature is Laryngomalacia (HP:0001601). HP:0001601 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band FREQUENT derived from the 75% Table 1 figure for &#34;upper airway abnormalities&#34;, of which laryngomalacia is the named exemplar. The band therefore applies to the composite airway category rather than to laryngomalacia in isolation. Founder-cohort derived.</div>
@@ -13611,6 +13825,9 @@ This clinical feature is Subglottic stenosis (HP:0001607). HP:0001607 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">No band; reported as occurring in &#34;some patients&#34; without a denominator.</div>
 
 
@@ -13680,6 +13897,9 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No separate band. Apnoea is folded into the 75% &#34;upper airway abnormalities&#34; Table 1 row and also occurs as a seizure manifestation, so no clean denominator exists for apnoea as such.</div>
@@ -13753,6 +13973,9 @@ This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band FREQUENT derived from 46% in the founder cohort. Founder-cohort derived.</div>
@@ -13835,6 +14058,9 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band FREQUENT derived from 54% in the founder cohort. Founder-cohort derived.</div>
@@ -13984,6 +14210,9 @@ This disease-associated gene is SNIP1 (hgnc:30587). hgnc:30587 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -14086,6 +14315,7 @@ This disease-associated gene is SNIP1 (hgnc:30587). hgnc:30587 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -14105,11 +14335,17 @@ This variant is in SNIP1 (hgnc:30587). hgnc:30587 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The single founder allele underlying every molecularly confirmed case reported to date. It is a missense substitution in exon 4 of SNIP1 (Chr1:g.37537842T&gt;C, hg38) replacing a conserved glutamate at residue 366 near the C-terminal forkhead-associated domain, and it was assessed as pathogenic under ACMG/AMP criteria by the cohort authors. Disease occurs in the homozygous state; no compound heterozygote has been published.</div>

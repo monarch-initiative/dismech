@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4693,6 +4735,13 @@ Whether the distinction is worth drawing is itself open. Genotype-stratified out
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-odad3-loss-of-function" data-dismech-node="Biallelic ODAD3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ODAD3 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion. ODAD3 encodes a 595-amino-acid protein with three highly conserved coiled-coil domains, and every reported disease allele is loss-of-function. Seven had been reported as of the 2021 review cited below: three nonsense, three frameshift, and - the one that does not fit a simple truncation story - a canonical splice-donor variant, c.244+1G&gt;A.
 No missense allele has been reported. That matters for variant interpretation, because it leaves no worked example of an ODAD3 change that alters the protein without destroying it, and so nothing to calibrate a new missense variant against. The splice-donor allele is the nearest thing available and is not close: donor-site loss usually produces exon skipping or intron retention with a frameshifted, decay-prone transcript, which lands back in the same functional class rather than giving a graded one. So the disease as described remains the phenotype of complete protein loss, and nothing is known about partial loss in humans.</div>
 
@@ -4754,6 +4803,8 @@ This pathophysiological event involves ODAD3 (hgnc:28303). hgnc:28303 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4764,6 +4815,9 @@ This pathophysiological event involves ODAD3 (hgnc:28303). hgnc:28303 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as loss of function on the strength of the allele classes reported - three nonsense, three frameshift and one canonical splice-donor variant - together with the measured consequence: ODAD3 protein is absent from patients&#39; respiratory cilia. `zygosity` is left unset at the disease level because reported patients are variously homozygous and compound heterozygous.</div>
 
@@ -4884,6 +4938,13 @@ This pathophysiological event involves ODAD3 (hgnc:28303). hgnc:28303 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-dynein-arm-docking-complex-assembly-failure" data-dismech-node="Outer Dynein Arm Docking Complex Assembly Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Outer Dynein Arm Docking Complex Assembly Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The step that defines the disease. The ODA docking complex is a multi-subunit structure, and ODAD3&#39;s loss takes the rest of it with it: in patients&#39; respiratory cilia the docking-complex members ODAD1 (CCDC114) and ODAD2 (ARMC4) fail to assemble onto the axoneme along with ODAD3 itself. The physical basis for the co-dependence is that ODAD3 and ODAD1 are binding partners - they co-immunoprecipitate.
 The functional distinction worth holding onto: outer dynein arms are *produced and preassembled in the cytosol* and then transported into the cilium, so a docking-complex defect is not a failure to build motors. It is a failure to install them.</div>
@@ -5102,6 +5163,13 @@ This pathophysiological event involves decreased axonemal dynein complex assembl
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-outer-dynein-arms-from-the-axoneme" data-dismech-node="Absence of Outer Dynein Arms from the Axoneme" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of Outer Dynein Arms from the Axoneme</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The structural endpoint, and the one a diagnostic laboratory sees. Patients&#39; cilia show a complete loss of outer dynein arms on electron microscopy. The arms are what generate most of the sliding force between axonemal doublets, so their absence is sufficient to explain the beat failure without invoking any additional lesion.</div>
 
 
@@ -5230,6 +5298,13 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motile-ciliary-beat-failure" data-dismech-node="Motile Ciliary Beat Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Motile Ciliary Beat Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Cilia that are assembled but cannot beat. In the airway this abolishes mucociliary clearance; at the embryonic left-right organiser the same failure in motile monocilia removes the directional flow that breaks symmetry. Both limbs of the module node are evidenced here rather than assumed: the ciliary-dysmotility half from patients&#39; severely impaired beating, and the laterality half from expression of Ccdc151 in vertebrate left-right organisers together with the situs defects seen in patients and in three model species.
 Conformance note: this node matches the module&#39;s motile-cilia node directly and completely, which is the expected shape for a classical axonemal PCD gene. It is a different relationship from the one the module has with the reduced-generation-of-multiple-motile-cilia forms of PCD, where the cilia are too few rather than immotile.</div>
@@ -5476,6 +5551,13 @@ This pathophysiological event involves abnormal determination of left/right symm
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucociliary-clearance-failure" data-dismech-node="Mucociliary Clearance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucociliary Clearance Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The immediate tissue-level consequence of cilia that cannot beat: the mucus escalator stops. Nothing is yet infected or destroyed at this step - the airway surface simply loses the directional fluid movement that normally clears it, and with it the host defence that movement constitutes.
 Curated as its own node rather than folded into the airway disease below because it is the step a therapy would have to act on. Everything downstream is secondary damage; this is the primary functional loss.</div>
 
@@ -5623,6 +5705,13 @@ This pathophysiological event involves decreased mucociliary clearance (GO:01201
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-airway-infection-and-neutrophilic-inflammation" data-dismech-node="Chronic Airway Infection and Neutrophilic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Airway Infection and Neutrophilic Inflammation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Retained mucus is colonised, and the airway mounts a neutrophilic response that never resolves because the stimulus is never cleared. This is the self-sustaining middle of the disease and the reason it is progressive rather than static: each cycle of infection recruits inflammation that damages the airway, and the damaged airway clears even less well.
 Typed as an amplifier for that reason. It is also the step at which the disease becomes treatable in practice - airway clearance and antibiotics act here, not on the axoneme - which is why it is worth having as a node even though no ODAD3-specific study addresses it.</div>
 
@@ -5744,6 +5833,13 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bronchiectasis-and-airway-wall-destruction" data-dismech-node="Bronchiectasis and Airway Wall Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Bronchiectasis and Airway Wall Destruction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The irreversible endpoint, and the reason early diagnosis matters: the bronchial wall is destroyed by the inflammation above and does not recover. Diffuse bronchiectasis is documented in the individually described 35-year-old ODAD3 patient and in the Kartagener-syndrome case.
 What is ODAD3-specific here is that clinical observation. The sequence that produces it - retention, infection, inflammation, wall destruction - is the general PCD mechanism, cited as such on the nodes above, and no study has examined it in this genotype.</div>
 
@@ -5826,6 +5922,13 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-randomised-left-right-body-asymmetry" data-dismech-node="Randomised Left-Right Body Asymmetry" data-dismech-type="pathophysiology">
                 <div class="item-name">Randomised Left-Right Body Asymmetry</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Laterality is not reversed by this disease; it is randomised. That is the correct way to describe a nodal-flow defect and it explains the observed spread - situs solitus, situs inversus totalis, and complex heterotaxy with congenital heart disease all occur, and all three were seen in the vertebrate models.
 On frequency: the defining paper&#39;s abstract records laterality defects in the reported individuals but gives no fraction, and its cached record is abstract-only. The deep-research report committed with this entry, which read the full text, records four of the five with a laterality defect and one with a ventricular septal defect. That is an uncited lead, and with a denominator of five it would in any case describe those three families rather than estimate penetrance.</div>
@@ -5994,7 +6097,7 @@ This pathophysiological event involves abnormal determination of left/right symm
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absence of Outer Dynein Arms from the Axoneme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural endpoint, and the one a diagnostic laboratory sees. Patients\u0027 cilia show a complete loss of outer dynein arms on electron microscopy. The arms are what generate most of the sliding force between axonemal doublets, so their absence is sufficient to explain the beat failure without invoking any additional lesion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"role\": \"central_effector\", \"locations\": [\"bronchus\"]}}, {\"id\": \"Biallelic ODAD3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. ODAD3 encodes a 595-amino-acid protein with three highly conserved coiled-coil domains, and every reported disease allele is loss-of-function. Seven had been reported as of the 2021 review cited below: three nonsense, three frameshift, and - the one that does not fit a simple truncation story - a canonical splice-donor variant, c.244+1G\u003eA.\\nNo missense allele has been reported. That matters for variant interpretation, because it leaves no worked example of an ODAD3 change that alters the protein without destroying it, and so nothing to calibrate a new missense variant against. The splice-donor allele is the nearest thing available and is not close: donor-site loss usually produces exon skipping or intron retention with a frameshifted, decay-prone transcript, which lands back in the same functional class rather than giving a graded one. So the disease as described remains the phenotype of complete protein loss, and nothing is known about partial loss in humans.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"ODAD3\"], \"gene_terms\": [{\"label\": \"ODAD3\", \"id\": \"hgnc:28303\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as loss of function on the strength of the allele classes reported - three nonsense, three frameshift and one canonical splice-donor variant - together with the measured consequence: ODAD3 protein is absent from patients\u0027 respiratory cilia. `zygosity` is left unset at the disease level because reported patients are variously homozygous and compound heterozygous.\"}, \"role\": \"trigger\"}}, {\"id\": \"Bronchiectasis and Airway Wall Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The irreversible endpoint, and the reason early diagnosis matters: the bronchial wall is destroyed by the inflammation above and does not recover. Diffuse bronchiectasis is documented in the individually described 35-year-old ODAD3 patient and in the Kartagener-syndrome case.\\nWhat is ODAD3-specific here is that clinical observation. The sequence that produces it - retention, infection, inflammation, wall destruction - is the general PCD mechanism, cited as such on the nodes above, and no study has examined it in this genotype.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"bronchus\"]}}, {\"id\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A targeted-deletion mouse null for Ccdc151. It reproduces the laterality defect and the male infertility of human ODAD3 disease, and adds a phenotype the human disease does not have: perinatally lethal communicating hydrocephalus. A beta-galactosidase reporter localises the gene\u0027s expression to the ependymal cells lining the ventricular system, which explains the hydrocephalus mechanistically - the ependymal motile cilia that drive cerebrospinal fluid flow are the same machinery - without making it a human finding.\"}, {\"id\": \"Ccdc151 morphant zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The zebrafish work that identified CCDC151 as an outer-dynein-arm docking protein before any human patient was known - it shares ancient features with the outer dynein arm-docking complex 2 of Chlamydomonas. Depletion gives left-right asymmetry defects and kidney cysts, and the motility defect was localised to the two motile-ciliated structures that matter: Kupffer\u0027s vesicle, the fish left-right organiser, and the pronephros.\"}, {\"id\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained mucus is colonised, and the airway mounts a neutrophilic response that never resolves because the stimulus is never cleared. This is the self-sustaining middle of the disease and the reason it is progressive rather than static: each cycle of infection recruits inflammation that damages the airway, and the damaged airway clears even less well.\\nTyped as an amplifier for that reason. It is also the step at which the disease becomes treatable in practice - airway clearance and antibiotics act here, not on the axoneme - which is why it is worth having as a node even though no ODAD3-specific study addresses it.\", \"meta\": {\"evidence_count\": 2, \"role\": \"amplifier\", \"locations\": [\"bronchus\"]}}, {\"id\": \"Motile Ciliary Beat Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cilia that are assembled but cannot beat. In the airway this abolishes mucociliary clearance; at the embryonic left-right organiser the same failure in motile monocilia removes the directional flow that breaks symmetry. Both limbs of the module node are evidenced here rather than assumed: the ciliary-dysmotility half from patients\u0027 severely impaired beating, and the laterality half from expression of Ccdc151 in vertebrate left-right organisers together with the situs defects seen in patients and in three model species.\\nConformance note: this node matches the module\u0027s motile-cilia node directly and completely, which is the expected shape for a classical axonemal PCD gene. It is a different relationship from the one the module has with the reduced-generation-of-multiple-motile-cilia forms of PCD, where the cilia are too few rather than immotile.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"cilium movement\", \"determination of left/right symmetry\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"species\": \"Mouse\", \"genotype\": \"Ccdc151 targeted deletion, homozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The null reproduces motile-cilia failure in the ependyma and the male reproductive tract, but the tissue whose failure defines the human disease - the conducting airway - cannot be assessed because the animals die perinatally.\"}, {\"name\": \"Odad3 conditional knockout mouse (adult male)\", \"species\": \"Mouse\", \"genotype\": \"Odad3 conditional deletion in adult males; and Odad3 heterozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The sperm flagellum is a motile axoneme with the same outer dynein arm and docking machinery as an airway cilium, so flagellar failure in this model is the same lesion read out in a different cell. The model additionally shows that Odad3 loss disrupts flagellar *morphogenesis*, not only motility.\"}]}}, {\"id\": \"Mucociliary Clearance Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immediate tissue-level consequence of cilia that cannot beat: the mucus escalator stops. Nothing is yet infected or destroyed at this step - the airway surface simply loses the directional fluid movement that normally clears it, and with it the host defence that movement constitutes.\\nCurated as its own node rather than folded into the airway disease below because it is the step a therapy would have to act on. Everything downstream is secondary damage; this is the primary functional loss.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"mucociliary clearance\"], \"role\": \"effector\"}}, {\"id\": \"ODAD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ODAD3\"], \"gene_terms\": [{\"label\": \"ODAD3\", \"id\": \"hgnc:28303\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Odad3 conditional knockout mouse (adult male)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conditional deletion that removes Odad3 in adult males and so escapes the perinatal lethality of the constitutive null. It gives the only detailed account of what ODAD3 loss does to a flagellum: asthenoteratozoospermia with multiple morphological abnormalities of the sperm flagella, and spermatogenesis arrested at the spermiogenesis and spermiation stages. The same study reports a heterozygote effect - reduced sperm count and motility, abnormal morphology, and a shorter fertile lifespan in Odad3+/- males - which is a gene-dosage claim with no human counterpart and is the subject of an open discussion below.\"}, {\"id\": \"Outer Dynein Arm Docking Complex Assembly Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that defines the disease. The ODA docking complex is a multi-subunit structure, and ODAD3\u0027s loss takes the rest of it with it: in patients\u0027 respiratory cilia the docking-complex members ODAD1 (CCDC114) and ODAD2 (ARMC4) fail to assemble onto the axoneme along with ODAD3 itself. The physical basis for the co-dependence is that ODAD3 and ODAD1 are binding partners - they co-immunoprecipitate.\\nThe functional distinction worth holding onto: outer dynein arms are *produced and preassembled in the cytosol* and then transported into the cilium, so a docking-complex defect is not a failure to build motors. It is a failure to install them.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"axonemal dynein complex assembly\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Ccdc151 morphant zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"ccdc151 morpholino knockdown; and homozygous ccdc151(ts272a)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Ccdc151 depletion impairs motile ciliary function by controlling dynein arm assembly, which is the same molecular step as the human lesion, established in this species before the human disease existed.\"}]}}, {\"id\": \"Randomised Left-Right Body Asymmetry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Laterality is not reversed by this disease; it is randomised. That is the correct way to describe a nodal-flow defect and it explains the observed spread - situs solitus, situs inversus totalis, and complex heterotaxy with congenital heart disease all occur, and all three were seen in the vertebrate models.\\nOn frequency: the defining paper\u0027s abstract records laterality defects in the reported individuals but gives no fraction, and its cached record is abstract-only. The deep-research report committed with this entry, which read the full text, records four of the five with a laterality defect and one with a ventricular septal defect. That is an uncited lead, and with a denominator of five it would in any case describe those three families rather than estimate penetrance.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"determination of left/right symmetry\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"species\": \"Mouse\", \"genotype\": \"Ccdc151 targeted deletion, homozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Congenital left-right asymmetry defects occur in the null animals, matching the human laterality phenotype and its nodal-cilia mechanism.\"}]}}], \"edges\": [{\"source\": \"Biallelic ODAD3 Loss of Function\", \"target\": \"Outer Dynein Arm Docking Complex Assembly Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outer Dynein Arm Docking Complex Assembly Failure\", \"target\": \"Absence of Outer Dynein Arms from the Axoneme\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absence of Outer Dynein Arms from the Axoneme\", \"target\": \"Motile Ciliary Beat Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Mucociliary Clearance Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Randomised Left-Right Body Asymmetry\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucociliary Clearance Failure\", \"target\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis and Airway Wall Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"target\": \"Randomised Left-Right Body Asymmetry\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Congenital left-right asymmetry defects occur in the null animals, matching the human laterality phenotype and its nodal-cilia mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Perinatal lethality means the model cannot be followed into the chronic airway disease that dominates the human illness, so its usefulness is confined to developmental phenotypes.\"}, {\"source\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"target\": \"Motile Ciliary Beat Failure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The null reproduces motile-cilia failure in the ependyma and the male reproductive tract, but the tissue whose failure defines the human disease - the conducting airway - cannot be assessed because the animals die perinatally.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Perinatal lethality from hydrocephalus prevents any study of chronic airway disease, bronchiectasis, or the natural history that constitutes most of the human illness. The dominant phenotype of the model is one the human disease does not have; see the HUMAN_MODEL_MISMATCH discussion.\"}, {\"source\": \"Odad3 conditional knockout mouse (adult male)\", \"target\": \"Motile Ciliary Beat Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The sperm flagellum is a motile axoneme with the same outer dynein arm and docking machinery as an airway cilium, so flagellar failure in this model is the same lesion read out in a different cell. The model additionally shows that Odad3 loss disrupts flagellar *morphogenesis*, not only motility.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fidelity is graded MODERATE, not HIGH, for two reasons. The readout is a single motile cell type and not the multiciliated airway epithelium whose failure defines the human disease. And the conditional deletion is imposed on an adult animal whose spermatogenic machinery developed normally, which is not the situation of a patient who has lacked ODAD3 since conception.\"}, {\"source\": \"Ccdc151 morphant zebrafish\", \"target\": \"Outer Dynein Arm Docking Complex Assembly Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Ccdc151 depletion impairs motile ciliary function by controlling dynein arm assembly, which is the same molecular step as the human lesion, established in this species before the human disease existed.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Morpholino knockdown is transient and incomplete rather than a null, and the same study reports that vertebrate CCDC151 has acquired functions beyond motility - a role in oriented cell division in the pronephros and in the regulation of primary cilium length in mammalian cells. Those additional functions are not part of the human PCD phenotype, so a zebrafish phenotype cannot be assumed to be the motility phenotype.\"}, {\"source\": \"ODAD3\", \"target\": \"Biallelic ODAD3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absence of Outer Dynein Arms from the Axoneme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural endpoint, and the one a diagnostic laboratory sees. Patients\u0027 cilia show a complete loss of outer dynein arms on electron microscopy. The arms are what generate most of the sliding force between axonemal doublets, so their absence is sufficient to explain the beat failure without invoking any additional lesion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"role\": \"central_effector\", \"locations\": [\"bronchus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Biallelic ODAD3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. ODAD3 encodes a 595-amino-acid protein with three highly conserved coiled-coil domains, and every reported disease allele is loss-of-function. Seven had been reported as of the 2021 review cited below: three nonsense, three frameshift, and - the one that does not fit a simple truncation story - a canonical splice-donor variant, c.244+1G\u003eA.\\nNo missense allele has been reported. That matters for variant interpretation, because it leaves no worked example of an ODAD3 change that alters the protein without destroying it, and so nothing to calibrate a new missense variant against. The splice-donor allele is the nearest thing available and is not close: donor-site loss usually produces exon skipping or intron retention with a frameshifted, decay-prone transcript, which lands back in the same functional class rather than giving a graded one. So the disease as described remains the phenotype of complete protein loss, and nothing is known about partial loss in humans.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"ODAD3\"], \"gene_terms\": [{\"label\": \"ODAD3\", \"id\": \"hgnc:28303\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as loss of function on the strength of the allele classes reported - three nonsense, three frameshift and one canonical splice-donor variant - together with the measured consequence: ODAD3 protein is absent from patients\u0027 respiratory cilia. `zygosity` is left unset at the disease level because reported patients are variously homozygous and compound heterozygous.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Bronchiectasis and Airway Wall Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The irreversible endpoint, and the reason early diagnosis matters: the bronchial wall is destroyed by the inflammation above and does not recover. Diffuse bronchiectasis is documented in the individually described 35-year-old ODAD3 patient and in the Kartagener-syndrome case.\\nWhat is ODAD3-specific here is that clinical observation. The sequence that produces it - retention, infection, inflammation, wall destruction - is the general PCD mechanism, cited as such on the nodes above, and no study has examined it in this genotype.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"bronchus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A targeted-deletion mouse null for Ccdc151. It reproduces the laterality defect and the male infertility of human ODAD3 disease, and adds a phenotype the human disease does not have: perinatally lethal communicating hydrocephalus. A beta-galactosidase reporter localises the gene\u0027s expression to the ependymal cells lining the ventricular system, which explains the hydrocephalus mechanistically - the ependymal motile cilia that drive cerebrospinal fluid flow are the same machinery - without making it a human finding.\"}, {\"id\": \"Ccdc151 morphant zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The zebrafish work that identified CCDC151 as an outer-dynein-arm docking protein before any human patient was known - it shares ancient features with the outer dynein arm-docking complex 2 of Chlamydomonas. Depletion gives left-right asymmetry defects and kidney cysts, and the motility defect was localised to the two motile-ciliated structures that matter: Kupffer\u0027s vesicle, the fish left-right organiser, and the pronephros.\"}, {\"id\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained mucus is colonised, and the airway mounts a neutrophilic response that never resolves because the stimulus is never cleared. This is the self-sustaining middle of the disease and the reason it is progressive rather than static: each cycle of infection recruits inflammation that damages the airway, and the damaged airway clears even less well.\\nTyped as an amplifier for that reason. It is also the step at which the disease becomes treatable in practice - airway clearance and antibiotics act here, not on the axoneme - which is why it is worth having as a node even though no ODAD3-specific study addresses it.\", \"meta\": {\"evidence_count\": 2, \"role\": \"amplifier\", \"locations\": [\"bronchus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Motile Ciliary Beat Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cilia that are assembled but cannot beat. In the airway this abolishes mucociliary clearance; at the embryonic left-right organiser the same failure in motile monocilia removes the directional flow that breaks symmetry. Both limbs of the module node are evidenced here rather than assumed: the ciliary-dysmotility half from patients\u0027 severely impaired beating, and the laterality half from expression of Ccdc151 in vertebrate left-right organisers together with the situs defects seen in patients and in three model species.\\nConformance note: this node matches the module\u0027s motile-cilia node directly and completely, which is the expected shape for a classical axonemal PCD gene. It is a different relationship from the one the module has with the reduced-generation-of-multiple-motile-cilia forms of PCD, where the cilia are too few rather than immotile.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"cilium movement\", \"determination of left/right symmetry\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"species\": \"Mouse\", \"genotype\": \"Ccdc151 targeted deletion, homozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The null reproduces motile-cilia failure in the ependyma and the male reproductive tract, but the tissue whose failure defines the human disease - the conducting airway - cannot be assessed because the animals die perinatally.\"}, {\"name\": \"Odad3 conditional knockout mouse (adult male)\", \"species\": \"Mouse\", \"genotype\": \"Odad3 conditional deletion in adult males; and Odad3 heterozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The sperm flagellum is a motile axoneme with the same outer dynein arm and docking machinery as an airway cilium, so flagellar failure in this model is the same lesion read out in a different cell. The model additionally shows that Odad3 loss disrupts flagellar *morphogenesis*, not only motility.\"}]}}, {\"id\": \"Mucociliary Clearance Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immediate tissue-level consequence of cilia that cannot beat: the mucus escalator stops. Nothing is yet infected or destroyed at this step - the airway surface simply loses the directional fluid movement that normally clears it, and with it the host defence that movement constitutes.\\nCurated as its own node rather than folded into the airway disease below because it is the step a therapy would have to act on. Everything downstream is secondary damage; this is the primary functional loss.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"mucociliary clearance\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ODAD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ODAD3\"], \"gene_terms\": [{\"label\": \"ODAD3\", \"id\": \"hgnc:28303\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Odad3 conditional knockout mouse (adult male)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conditional deletion that removes Odad3 in adult males and so escapes the perinatal lethality of the constitutive null. It gives the only detailed account of what ODAD3 loss does to a flagellum: asthenoteratozoospermia with multiple morphological abnormalities of the sperm flagella, and spermatogenesis arrested at the spermiogenesis and spermiation stages. The same study reports a heterozygote effect - reduced sperm count and motility, abnormal morphology, and a shorter fertile lifespan in Odad3+/- males - which is a gene-dosage claim with no human counterpart and is the subject of an open discussion below.\"}, {\"id\": \"Outer Dynein Arm Docking Complex Assembly Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that defines the disease. The ODA docking complex is a multi-subunit structure, and ODAD3\u0027s loss takes the rest of it with it: in patients\u0027 respiratory cilia the docking-complex members ODAD1 (CCDC114) and ODAD2 (ARMC4) fail to assemble onto the axoneme along with ODAD3 itself. The physical basis for the co-dependence is that ODAD3 and ODAD1 are binding partners - they co-immunoprecipitate.\\nThe functional distinction worth holding onto: outer dynein arms are *produced and preassembled in the cytosol* and then transported into the cilium, so a docking-complex defect is not a failure to build motors. It is a failure to install them.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"axonemal dynein complex assembly\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ccdc151 morphant zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"ccdc151 morpholino knockdown; and homozygous ccdc151(ts272a)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Ccdc151 depletion impairs motile ciliary function by controlling dynein arm assembly, which is the same molecular step as the human lesion, established in this species before the human disease existed.\"}]}}, {\"id\": \"Randomised Left-Right Body Asymmetry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Laterality is not reversed by this disease; it is randomised. That is the correct way to describe a nodal-flow defect and it explains the observed spread - situs solitus, situs inversus totalis, and complex heterotaxy with congenital heart disease all occur, and all three were seen in the vertebrate models.\\nOn frequency: the defining paper\u0027s abstract records laterality defects in the reported individuals but gives no fraction, and its cached record is abstract-only. The deep-research report committed with this entry, which read the full text, records four of the five with a laterality defect and one with a ventricular septal defect. That is an uncited lead, and with a denominator of five it would in any case describe those three families rather than estimate penetrance.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"determination of left/right symmetry\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"species\": \"Mouse\", \"genotype\": \"Ccdc151 targeted deletion, homozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Congenital left-right asymmetry defects occur in the null animals, matching the human laterality phenotype and its nodal-cilia mechanism.\"}]}}], \"edges\": [{\"source\": \"Biallelic ODAD3 Loss of Function\", \"target\": \"Outer Dynein Arm Docking Complex Assembly Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outer Dynein Arm Docking Complex Assembly Failure\", \"target\": \"Absence of Outer Dynein Arms from the Axoneme\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absence of Outer Dynein Arms from the Axoneme\", \"target\": \"Motile Ciliary Beat Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Mucociliary Clearance Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Randomised Left-Right Body Asymmetry\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucociliary Clearance Failure\", \"target\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis and Airway Wall Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"target\": \"Randomised Left-Right Body Asymmetry\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Congenital left-right asymmetry defects occur in the null animals, matching the human laterality phenotype and its nodal-cilia mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Perinatal lethality means the model cannot be followed into the chronic airway disease that dominates the human illness, so its usefulness is confined to developmental phenotypes.\"}, {\"source\": \"Ccdc151 knockout mouse (targeted gene deletion)\", \"target\": \"Motile Ciliary Beat Failure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The null reproduces motile-cilia failure in the ependyma and the male reproductive tract, but the tissue whose failure defines the human disease - the conducting airway - cannot be assessed because the animals die perinatally.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Perinatal lethality from hydrocephalus prevents any study of chronic airway disease, bronchiectasis, or the natural history that constitutes most of the human illness. The dominant phenotype of the model is one the human disease does not have; see the HUMAN_MODEL_MISMATCH discussion.\"}, {\"source\": \"Odad3 conditional knockout mouse (adult male)\", \"target\": \"Motile Ciliary Beat Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The sperm flagellum is a motile axoneme with the same outer dynein arm and docking machinery as an airway cilium, so flagellar failure in this model is the same lesion read out in a different cell. The model additionally shows that Odad3 loss disrupts flagellar *morphogenesis*, not only motility.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fidelity is graded MODERATE, not HIGH, for two reasons. The readout is a single motile cell type and not the multiciliated airway epithelium whose failure defines the human disease. And the conditional deletion is imposed on an adult animal whose spermatogenic machinery developed normally, which is not the situation of a patient who has lacked ODAD3 since conception.\"}, {\"source\": \"Ccdc151 morphant zebrafish\", \"target\": \"Outer Dynein Arm Docking Complex Assembly Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Ccdc151 depletion impairs motile ciliary function by controlling dynein arm assembly, which is the same molecular step as the human lesion, established in this species before the human disease existed.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Morpholino knockdown is transient and incomplete rather than a null, and the same study reports that vertebrate CCDC151 has acquired functions beyond motility - a role in oriented cell division in the pronephros and in the regulation of primary cilium length in mammalian cells. Those additional functions are not part of the human PCD phenotype, so a zebrafish phenotype cannot be assumed to be the motility phenotype.\"}, {\"source\": \"ODAD3\", \"target\": \"Biallelic ODAD3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6061,6 +6164,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6135,6 +6241,9 @@ This clinical feature is Dextrocardia (HP:0001651). HP:0001651 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6203,6 +6312,9 @@ This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6308,6 +6420,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6434,6 +6549,9 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6539,6 +6657,9 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6635,6 +6756,9 @@ This clinical feature is Abnormal sperm motility (HP:0012206). HP:0012206 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6726,6 +6850,9 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6836,6 +6963,9 @@ This clinical feature is Chronic sinusitis (HP:0011109). HP:0011109 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6927,6 +7057,9 @@ This clinical feature is Nasal polyposis (HP:0100582). HP:0100582 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7050,6 +7183,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205), qualifie
 
 
                     </div>
+
+
+
 
 
 
@@ -7183,6 +7319,9 @@ This clinical feature is Absent outer dynein arms (HP:0012256). HP:0012256 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7247,6 +7386,9 @@ This clinical feature is Abnormal ciliary motility (HP:0012262). HP:0012262 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7343,6 +7485,9 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7457,6 +7602,9 @@ This clinical feature is Productive cough (HP:0031245), qualified as temporality
 
 
                     </div>
+
+
+
 
 
 
@@ -7587,6 +7735,9 @@ This clinical feature is Neonatal respiratory distress (HP:0002643), qualified a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7698,6 +7849,9 @@ This disease-associated gene is ODAD3 (hgnc:28303). hgnc:28303 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

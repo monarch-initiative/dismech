@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4429,6 +4471,7 @@ The same gene causes cyclic neutropenia, curated separately as Cyclic Hematopoie
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elane-mutation-and-neutrophil-elastase-misfolding" data-dismech-node="ELANE Mutation and Neutrophil Elastase Misfolding" data-dismech-type="pathophysiology">
                 <div class="item-name">ELANE Mutation and Neutrophil Elastase Misfolding</div>
 
+
                 <div class="item-desc">The initiating lesion. A heterozygous ELANE mutation yields a neutrophil elastase that fails to fold and traffic correctly. Instead of reaching azurophil granules the mutant protein accumulates in the cytoplasm as a nonfunctional species, and both the regulated and the constitutive secretory routes are impaired. The consequences fall on the granulocytic lineage because elastase is synthesised in neutrophil precursors during primary granule formation. Note that the consequence is not a simple loss of enzyme: cellular elastase activity is reduced in patient neutrophils irrespective of mutation status, while the mutant protein itself is pathogenic through its mislocalisation and the stress response it provokes.</div>
 
 
@@ -4558,6 +4601,8 @@ This genetic context concerns ELANE (hgnc:3309). hgnc:3309 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4570,6 +4615,9 @@ This genetic context concerns ELANE (hgnc:3309). hgnc:3309 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Recorded as DOMINANT_NEGATIVE rather than LOSS_OF_FUNCTION because the phenotype does not follow from absent enzyme. The mutant allele acts through the misfolded protein it produces: a nonfunctional species accumulating in the cytoplasm that activates the unfolded protein response and kills the precursor, in a protease-independent fashion. A heterozygous null would not be expected to do this, and the mechanism is one of proteotoxicity rather than haploinsufficiency.</div>
 
@@ -4732,6 +4780,7 @@ This pathophysiological event involves decreased neutrophil elastase activity, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-stress-and-unfolded-protein-response" data-dismech-node="Endoplasmic Reticulum Stress and Unfolded Protein Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum Stress and Unfolded Protein Response</div>
+
 
                 <div class="item-desc">Accumulated mutant elastase activates the unfolded protein response in granulocytic precursors, with induction of BiP/GRP78, XBP1 splicing and CHOP. The magnitude of activation tracks the clinical severity of the causal allele, which is the strongest argument that this branch is on the disease path rather than beside it. The response has also been measured in primary granulocytic precursors taken from patients, not only in expression systems.</div>
 
@@ -4999,6 +5048,7 @@ This pathophysiological event involves decreased protein folding (GO:0006457). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptosis-of-granulocytic-precursors" data-dismech-node="Apoptosis of Granulocytic Precursors" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptosis of Granulocytic Precursors</div>
 
+
                 <div class="item-desc">Accelerated death of promyelocytes and their descendants. This is the step that converts a protein-folding defect into a blood count: granulopoiesis becomes ineffective, precursors are consumed rather than matured, and the marrow shows the arrest that follows.</div>
 
 
@@ -5210,6 +5260,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-maturation-arrest-at-the-promyelocyte-stage" data-dismech-node="Myeloid Maturation Arrest at the Promyelocyte Stage" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid Maturation Arrest at the Promyelocyte Stage</div>
+
 
                 <div class="item-desc">The marrow lesion, and the finding that distinguishes this disease from peripheral causes of neutropenia. The normal maturation pyramid of granulocyte precursors is replaced by an arrest at the promyelocyte stage, characteristically accompanied by marrow eosinophilia and monocytosis.</div>
 
@@ -5448,6 +5499,7 @@ This pathophysiological event involves decreased neutrophil differentiation (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-persistent-neutropenia" data-dismech-node="Profound Persistent Neutropenia" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Persistent Neutropenia</div>
 
+
                 <div class="item-desc">The defining laboratory state: an absolute neutrophil count persistently below 0.5 x 10^9/L, present from the first weeks of life. Unlike the allelic cyclic disease the deficit is fixed rather than oscillating, and infection risk rises steeply as the count falls, being particularly high below 0.2 x 10^9/L.</div>
 
 
@@ -5591,6 +5643,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-innate-defence-and-recurrent-bacterial-infection" data-dismech-node="Impaired Innate Defence and Recurrent Bacterial Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Innate Defence and Recurrent Bacterial Infection</div>
 
+
                 <div class="item-desc">The infectious arm of the disease. Omphalitis in the newborn period is often the first sign; untreated children then develop diarrhoea, pneumonia and deep abscesses of liver, lung and subcutaneous tissue in the first year, alongside oral ulceration, gingivitis and pharyngitis. Before G-CSF this was the cause of death in most patients.</div>
 
 
@@ -5646,6 +5699,14 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent Bacterial Infections</span>
+
+	                            <span class="crosslink-desc">The clinical expression of this node: omphalitis, skin and perirectal abscess, otitis and pneumonia from the first months of life.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neonatal Omphalitis</span>
@@ -5807,6 +5868,13 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquisition-of-somatic-csf3r-mutations" data-dismech-node="Acquisition of Somatic CSF3R Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquisition of Somatic CSF3R Mutations</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Somatic nonsense mutations in CSF3R truncate the cytoplasmic tail of the G-CSF receptor, removing one to all four tyrosine residues that carry its differentiation signal while leaving the proliferative signal intact. The resulting clone proliferates under G-CSF without maturing. This is recorded as provisional rather than established: the mutations are highly predictive of transformation and appear early, but they are explicitly not a necessary condition, and the authors who described them state that cooperating events remain to be defined.</div>
 
 
@@ -5902,6 +5970,8 @@ This genetic context concerns CSF3R (hgnc:2439). hgnc:2439 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5912,6 +5982,9 @@ This genetic context concerns CSF3R (hgnc:2439). hgnc:2439 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Truncating mutations remove the receptor&#39;s differentiation-signalling tyrosines while preserving proliferative signalling, so the functional consequence is partial and selective rather than a complete loss of receptor function.</div>
 
@@ -6072,6 +6145,13 @@ This pathophysiological event involves dysregulated granulocyte colony-stimulati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-evolution-to-myelodysplasia-and-acute-myeloid-leukaemia" data-dismech-node="Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Severe congenital neutropenia is a preleukaemic bone marrow failure syndrome. A clone bearing a truncated G-CSF receptor expands, acquires RUNX1 mutations and other leukaemia-associated lesions including ASXL1 and chromatin remodellers, and the marrow progresses to myelodysplasia or acute myeloid leukaemia. RUNX1 mutation is far commoner here than in de novo paediatric AML, which is what marks this out as a distinct leukaemogenic route rather than ordinary AML arising in a neutropenic patient.</div>
 
@@ -6385,7 +6465,7 @@ This pathophysiological event involves decreased myeloid cell differentiation, a
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquisition of Somatic CSF3R Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic nonsense mutations in CSF3R truncate the cytoplasmic tail of the G-CSF receptor, removing one to all four tyrosine residues that carry its differentiation signal while leaving the proliferative signal intact. The resulting clone proliferates under G-CSF without maturing. This is recorded as provisional rather than established: the mutations are highly predictive of transformation and appear early, but they are explicitly not a necessary condition, and the authors who described them state that cooperating events remain to be defined.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"granulocyte colony-stimulating factor signaling pathway\"], \"genes\": [\"CSF3R\"], \"gene_terms\": [{\"label\": \"CSF3R\", \"id\": \"hgnc:2439\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Truncating mutations remove the receptor\u0027s differentiation-signalling tyrosines while preserving proliferative signalling, so the functional consequence is partial and selective rather than a complete loss of receptor function.\", \"gene_terms\": [{\"label\": \"CSF3R\", \"id\": \"hgnc:2439\"}]}}}, {\"id\": \"Acute Myeloid Leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukaemic transformation, the endpoint of the CSF3R-to-RUNX1 clonal sequence. The annual hazard rises over the first decade on G-CSF and then plateaus at about 2.3% per year.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004808\"}}, {\"id\": \"Allogeneic Haematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only curative option, and the standard route for patients refractory to high-dose G-CSF or who have transformed. Donor haematopoiesis replaces the ELANE-mutant clone outright. Outcomes are acceptable but not benign: three-year overall survival of 82% with 17% transplant-related mortality in the European series, better in children under ten and with matched donors.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Antimicrobial Prophylaxis and Prompt Treatment of Infection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prophylaxis, usually with trimethoprim-sulfamethoxazole, plus immediate broad-spectrum treatment of any febrile episode. Symptomatic rather than disease-modifying: it addresses the infectious consequences of the neutropenia without touching the granulopoietic defect. Abdominal pain in a neutropenic patient needs assessment for peritonitis and bacteraemia.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"trimethoprim-sulfamethoxazole\"]}}, {\"id\": \"Apoptosis of Granulocytic Precursors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accelerated death of promyelocytes and their descendants. This is the step that converts a protein-folding defect into a blood count: granulopoiesis becomes ineffective, precursors are consumed rather than matured, and the marrow shows the arrest that follows.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"promyelocyte\", \"neutrophilic myelocyte\"], \"biological_processes\": [\"apoptotic process\", \"intrinsic apoptotic signaling pathway in response to endoplasmic reticulum stress\"]}}, {\"id\": \"CSF3R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CSF3R\"], \"gene_terms\": [{\"label\": \"CSF3R\", \"id\": \"hgnc:2439\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe congenital neutropenia is a preleukaemic bone marrow failure syndrome. A clone bearing a truncated G-CSF receptor expands, acquires RUNX1 mutations and other leukaemia-associated lesions including ASXL1 and chromatin remodellers, and the marrow progresses to myelodysplasia or acute myeloid leukaemia. RUNX1 mutation is far commoner here than in de novo paediatric AML, which is what marks this out as a distinct leukaemogenic route rather than ordinary AML arising in a neutropenic patient.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"myeloid cell differentiation\"], \"genes\": [\"RUNX1\", \"CSF3R\"], \"gene_terms\": [{\"label\": \"RUNX1\", \"id\": \"hgnc:10471\"}, {\"label\": \"CSF3R\", \"id\": \"hgnc:2439\"}]}}, {\"id\": \"Deep and Cutaneous Abscesses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abscesses of liver, lung and subcutaneous tissue. Without neutrophils, pyogenic organisms are contained poorly and collections form.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031292\"}}, {\"id\": \"Dental Hygiene and Periodontal Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Good dental hygiene with routine immunisations. Curated separately rather than folded into supportive care because gingivitis and periodontitis are modelled here as phenotypes, and this is the intervention that addresses them.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ELANE\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"ELANE\"], \"gene_terms\": [{\"label\": \"ELANE\", \"id\": \"hgnc:3309\"}], \"frequency\": \"the most common cause of severe congenital neutropenia\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ELANE Mutation and Neutrophil Elastase Misfolding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. A heterozygous ELANE mutation yields a neutrophil elastase that fails to fold and traffic correctly. Instead of reaching azurophil granules the mutant protein accumulates in the cytoplasm as a nonfunctional species, and both the regulated and the constitutive secretory routes are impaired. The consequences fall on the granulocytic lineage because elastase is synthesised in neutrophil precursors during primary granule formation. Note that the consequence is not a simple loss of enzyme: cellular elastase activity is reduced in patient neutrophils irrespective of mutation status, while the mutant protein itself is pathogenic through its mislocalisation and the stress response it provokes.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"promyelocyte\"], \"molecular_functions\": [\"neutrophil elastase activity\"], \"genes\": [\"ELANE\"], \"gene_terms\": [{\"label\": \"ELANE\", \"id\": \"hgnc:3309\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"Recorded as DOMINANT_NEGATIVE rather than LOSS_OF_FUNCTION because the phenotype does not follow from absent enzyme. The mutant allele acts through the misfolded protein it produces: a nonfunctional species accumulating in the cytoplasm that activates the unfolded protein response and kills the precursor, in a protease-independent fashion. A heterozygous null would not be expected to do this, and the mechanism is one of proteotoxicity rather than haploinsufficiency.\", \"gene_terms\": [{\"label\": \"ELANE\", \"id\": \"hgnc:3309\"}]}}}, {\"id\": \"Endoplasmic Reticulum Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated mutant elastase activates the unfolded protein response in granulocytic precursors, with induction of BiP/GRP78, XBP1 splicing and CHOP. The magnitude of activation tracks the clinical severity of the causal allele, which is the strongest argument that this branch is on the disease path rather than beside it. The response has also been measured in primary granulocytic precursors taken from patients, not only in expression systems.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"promyelocyte\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"response to endoplasmic reticulum stress\", \"protein folding\"]}}, {\"id\": \"Gingivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gingival inflammation, which in the absence of neutrophils follows from ordinary oral bacterial colonisation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000230\"}}, {\"id\": \"Granulocyte Colony-Stimulating Factor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The treatment of choice and the intervention that changed the natural history of this disease. Daily subcutaneous filgrastim raises the neutrophil count, roughly halves infection-related events and shortens antibiotic use. It drives residual granulopoiesis harder rather than correcting the misfolding lesion, so patients remain on it indefinitely, and severe patients need large doses. Common adverse effects are bone pain, headache, rash and asymptomatic splenomegaly; long-term treatment at high dose is associated with the leukaemic risk recorded under progression.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"filgrastim\"]}}, {\"id\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The infectious arm of the disease. Omphalitis in the newborn period is often the first sign; untreated children then develop diarrhoea, pneumonia and deep abscesses of liver, lung and subcutaneous tissue in the first year, alongside oral ulceration, gingivitis and pharyngitis. Before G-CSF this was the cause of death in most patients.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Myelodysplastic Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clonal myelodysplasia, characteristically with monosomy 7, arising on the background of the preleukaemic marrow. Reported together with AML in the registry literature; the combined risk after 15 years of G-CSF is approximately 15 to 25%.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002863\"}}, {\"id\": \"Myeloid Maturation Arrest at the Promyelocyte Stage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The marrow correlate: granulocytic maturation stops at the promyelocyte stage, with few later forms, often alongside marrow eosinophilia and monocytosis. Demonstrating it is what separates a production defect from peripheral destruction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033607\"}}, {\"id\": \"Neonatal Omphalitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infection of the umbilical stump immediately after birth, often the presenting sign of the disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032435\"}}, {\"id\": \"Oral Ulceration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful mouth ulcers, part of the oropharyngeal inflammation that runs through ELANE-related neutropenia and often the manifestation that brings the patient to a dentist first.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000155\"}}, {\"id\": \"Periodontitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic periodontal disease arising from repeated neutropenic gingival infection, capable of leaving permanent tissue loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000704\"}}, {\"id\": \"Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower respiratory tract infection, common in the first year of life in untreated children.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002090\"}}, {\"id\": \"Profound Persistent Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An absolute neutrophil count persistently below 0.5 x 10^9/L, present from the first weeks of life and, unlike the allelic cyclic disease, not oscillating. This is the defining laboratory phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0410252\"}}, {\"id\": \"RUNX1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RUNX1\"], \"gene_terms\": [{\"label\": \"RUNX1\", \"id\": \"hgnc:10471\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Recurrent Bacterial Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent, often life-threatening pyogenic infection beginning in the first months of life, and more severe than in the allelic cyclic disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Recurrent Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Febrile episodes accompanying recurrent infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Sepsis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bloodstream infection. Historically the usual cause of death in infancy; even in a G-CSF-treated registry cohort the annual sepsis mortality is close to 1%.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100806\"}}], \"edges\": [{\"source\": \"ELANE Mutation and Neutrophil Elastase Misfolding\", \"target\": \"Endoplasmic Reticulum Stress and Unfolded Protein Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Misfolded elastase accumulating in the secretory pathway triggers the endoplasmic reticulum stress response in granulocytic precursors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endoplasmic Reticulum Stress and Unfolded Protein Response\", \"target\": \"Apoptosis of Granulocytic Precursors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unfolded protein response in these cells is not merely adaptive: it induces CHOP and kills the precursor, and it does so without requiring elastase proteolytic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apoptosis of Granulocytic Precursors\", \"target\": \"Myeloid Maturation Arrest at the Promyelocyte Stage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Precursor death at the promyelocyte stage is what the marrow shows as an arrest: the maturation pyramid stops at promyelocytes, with few or no later granulocytic forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Myeloid Maturation Arrest at the Promyelocyte Stage\", \"target\": \"Profound Persistent Neutropenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An arrested marrow produces no mature neutrophils, so the peripheral count falls and stays low.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Profound Persistent Neutropenia\", \"target\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophils are the primary cellular defence against pyogenic bacteria, so their absence is the whole of the infectious susceptibility. The relationship is quantitative: risk scales inversely with the count.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Profound Persistent Neutropenia\", \"target\": \"Acquisition of Somatic CSF3R Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe disease requires sustained high-dose G-CSF to maintain a workable count, and it is the patients who respond least well to the largest doses who carry the highest risk of malignant events. The intermediate steps are the chronic proliferative pressure on a stressed progenitor compartment and the selection of clones bearing truncated G-CSF receptors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Neonatal Omphalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection of the umbilical stump in the days after birth, frequently the presenting event.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower respiratory tract infection, common in untreated infants.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Deep and Cutaneous Abscesses\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abscess formation in liver, lung and subcutaneous tissue, reflecting failure to contain pyogenic organisms without neutrophils.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Oral Ulceration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucosal breakdown of the mouth, part of the oropharyngeal inflammatory picture shared across ELANE-related neutropenia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Gingivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gingival inflammation from bacterial colonisation that neutrophils would otherwise control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Periodontitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated gingival infection produces cumulative periodontal destruction, described in the congenital neutropenias as chronic periodontal disease that leaves permanent sequelae.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Recurrent Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Febrile episodes accompanying each infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Sepsis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream infection, historically the usual cause of death and still a steady hazard on treatment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acquisition of Somatic CSF3R Mutations\", \"target\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CSF3R-mutant clone acquires further leukaemia-associated mutations, RUNX1 most often, and the combination confers G-CSF-driven proliferation with blocked myeloid differentiation. Single-cell work places the two mutations in the same clone, and sequential sampling places RUNX1 late.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"target\": \"Myelodysplastic Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clone first manifests as myelodysplasia, frequently with monosomy 7.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"target\": \"Acute Myeloid Leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frank leukaemic transformation, the endpoint of the multistep clonal process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Granulocyte Colony-Stimulating Factor\", \"target\": \"Profound Persistent Neutropenia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Granulocyte Colony-Stimulating Factor\", \"target\": \"Profound Persistent Neutropenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Granulocyte Colony-Stimulating Factor\", \"target\": \"Recurrent Bacterial Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Allogeneic Haematopoietic Stem Cell Transplantation\", \"target\": \"ELANE Mutation and Neutrophil Elastase Misfolding\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Prophylaxis and Prompt Treatment of Infection\", \"target\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dental Hygiene and Periodontal Care\", \"target\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ELANE\", \"target\": \"ELANE Mutation and Neutrophil Elastase Misfolding\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSF3R\", \"target\": \"Acquisition of Somatic CSF3R Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSF3R\", \"target\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RUNX1\", \"target\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquisition of Somatic CSF3R Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic nonsense mutations in CSF3R truncate the cytoplasmic tail of the G-CSF receptor, removing one to all four tyrosine residues that carry its differentiation signal while leaving the proliferative signal intact. The resulting clone proliferates under G-CSF without maturing. This is recorded as provisional rather than established: the mutations are highly predictive of transformation and appear early, but they are explicitly not a necessary condition, and the authors who described them state that cooperating events remain to be defined.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"granulocyte colony-stimulating factor signaling pathway\"], \"genes\": [\"CSF3R\"], \"gene_terms\": [{\"label\": \"CSF3R\", \"id\": \"hgnc:2439\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Truncating mutations remove the receptor\u0027s differentiation-signalling tyrosines while preserving proliferative signalling, so the functional consequence is partial and selective rather than a complete loss of receptor function.\", \"gene_terms\": [{\"label\": \"CSF3R\", \"id\": \"hgnc:2439\"}]}, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Acute Myeloid Leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukaemic transformation, the endpoint of the CSF3R-to-RUNX1 clonal sequence. The annual hazard rises over the first decade on G-CSF and then plateaus at about 2.3% per year.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004808\"}}, {\"id\": \"Allogeneic Haematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only curative option, and the standard route for patients refractory to high-dose G-CSF or who have transformed. Donor haematopoiesis replaces the ELANE-mutant clone outright. Outcomes are acceptable but not benign: three-year overall survival of 82% with 17% transplant-related mortality in the European series, better in children under ten and with matched donors.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Antimicrobial Prophylaxis and Prompt Treatment of Infection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prophylaxis, usually with trimethoprim-sulfamethoxazole, plus immediate broad-spectrum treatment of any febrile episode. Symptomatic rather than disease-modifying: it addresses the infectious consequences of the neutropenia without touching the granulopoietic defect. Abdominal pain in a neutropenic patient needs assessment for peritonitis and bacteraemia.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"trimethoprim-sulfamethoxazole\"]}}, {\"id\": \"Apoptosis of Granulocytic Precursors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accelerated death of promyelocytes and their descendants. This is the step that converts a protein-folding defect into a blood count: granulopoiesis becomes ineffective, precursors are consumed rather than matured, and the marrow shows the arrest that follows.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"promyelocyte\", \"neutrophilic myelocyte\"], \"biological_processes\": [\"apoptotic process\", \"intrinsic apoptotic signaling pathway in response to endoplasmic reticulum stress\"]}}, {\"id\": \"CSF3R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CSF3R\"], \"gene_terms\": [{\"label\": \"CSF3R\", \"id\": \"hgnc:2439\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe congenital neutropenia is a preleukaemic bone marrow failure syndrome. A clone bearing a truncated G-CSF receptor expands, acquires RUNX1 mutations and other leukaemia-associated lesions including ASXL1 and chromatin remodellers, and the marrow progresses to myelodysplasia or acute myeloid leukaemia. RUNX1 mutation is far commoner here than in de novo paediatric AML, which is what marks this out as a distinct leukaemogenic route rather than ordinary AML arising in a neutropenic patient.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"myeloid cell differentiation\"], \"genes\": [\"RUNX1\", \"CSF3R\"], \"gene_terms\": [{\"label\": \"RUNX1\", \"id\": \"hgnc:10471\"}, {\"label\": \"CSF3R\", \"id\": \"hgnc:2439\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Deep and Cutaneous Abscesses\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abscesses of liver, lung and subcutaneous tissue. Without neutrophils, pyogenic organisms are contained poorly and collections form.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031292\"}}, {\"id\": \"Dental Hygiene and Periodontal Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Good dental hygiene with routine immunisations. Curated separately rather than folded into supportive care because gingivitis and periodontitis are modelled here as phenotypes, and this is the intervention that addresses them.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ELANE\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"ELANE\"], \"gene_terms\": [{\"label\": \"ELANE\", \"id\": \"hgnc:3309\"}], \"frequency\": \"the most common cause of severe congenital neutropenia\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ELANE Mutation and Neutrophil Elastase Misfolding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. A heterozygous ELANE mutation yields a neutrophil elastase that fails to fold and traffic correctly. Instead of reaching azurophil granules the mutant protein accumulates in the cytoplasm as a nonfunctional species, and both the regulated and the constitutive secretory routes are impaired. The consequences fall on the granulocytic lineage because elastase is synthesised in neutrophil precursors during primary granule formation. Note that the consequence is not a simple loss of enzyme: cellular elastase activity is reduced in patient neutrophils irrespective of mutation status, while the mutant protein itself is pathogenic through its mislocalisation and the stress response it provokes.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"promyelocyte\"], \"molecular_functions\": [\"neutrophil elastase activity\"], \"genes\": [\"ELANE\"], \"gene_terms\": [{\"label\": \"ELANE\", \"id\": \"hgnc:3309\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"Recorded as DOMINANT_NEGATIVE rather than LOSS_OF_FUNCTION because the phenotype does not follow from absent enzyme. The mutant allele acts through the misfolded protein it produces: a nonfunctional species accumulating in the cytoplasm that activates the unfolded protein response and kills the precursor, in a protease-independent fashion. A heterozygous null would not be expected to do this, and the mechanism is one of proteotoxicity rather than haploinsufficiency.\", \"gene_terms\": [{\"label\": \"ELANE\", \"id\": \"hgnc:3309\"}]}}}, {\"id\": \"Endoplasmic Reticulum Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated mutant elastase activates the unfolded protein response in granulocytic precursors, with induction of BiP/GRP78, XBP1 splicing and CHOP. The magnitude of activation tracks the clinical severity of the causal allele, which is the strongest argument that this branch is on the disease path rather than beside it. The response has also been measured in primary granulocytic precursors taken from patients, not only in expression systems.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"promyelocyte\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"response to endoplasmic reticulum stress\", \"protein folding\"]}}, {\"id\": \"Gingivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gingival inflammation, which in the absence of neutrophils follows from ordinary oral bacterial colonisation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000230\"}}, {\"id\": \"Granulocyte Colony-Stimulating Factor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The treatment of choice and the intervention that changed the natural history of this disease. Daily subcutaneous filgrastim raises the neutrophil count, roughly halves infection-related events and shortens antibiotic use. It drives residual granulopoiesis harder rather than correcting the misfolding lesion, so patients remain on it indefinitely, and severe patients need large doses. Common adverse effects are bone pain, headache, rash and asymptomatic splenomegaly; long-term treatment at high dose is associated with the leukaemic risk recorded under progression.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"filgrastim\"]}}, {\"id\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The infectious arm of the disease. Omphalitis in the newborn period is often the first sign; untreated children then develop diarrhoea, pneumonia and deep abscesses of liver, lung and subcutaneous tissue in the first year, alongside oral ulceration, gingivitis and pharyngitis. Before G-CSF this was the cause of death in most patients.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Myelodysplastic Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clonal myelodysplasia, characteristically with monosomy 7, arising on the background of the preleukaemic marrow. Reported together with AML in the registry literature; the combined risk after 15 years of G-CSF is approximately 15 to 25%.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002863\"}}, {\"id\": \"Myeloid Maturation Arrest at the Promyelocyte Stage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The marrow correlate: granulocytic maturation stops at the promyelocyte stage, with few later forms, often alongside marrow eosinophilia and monocytosis. Demonstrating it is what separates a production defect from peripheral destruction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033607\"}}, {\"id\": \"Neonatal Omphalitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infection of the umbilical stump immediately after birth, often the presenting sign of the disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032435\"}}, {\"id\": \"Oral Ulceration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful mouth ulcers, part of the oropharyngeal inflammation that runs through ELANE-related neutropenia and often the manifestation that brings the patient to a dentist first.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000155\"}}, {\"id\": \"Periodontitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic periodontal disease arising from repeated neutropenic gingival infection, capable of leaving permanent tissue loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000704\"}}, {\"id\": \"Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower respiratory tract infection, common in the first year of life in untreated children.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002090\"}}, {\"id\": \"Profound Persistent Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An absolute neutrophil count persistently below 0.5 x 10^9/L, present from the first weeks of life and, unlike the allelic cyclic disease, not oscillating. This is the defining laboratory phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0410252\"}}, {\"id\": \"RUNX1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RUNX1\"], \"gene_terms\": [{\"label\": \"RUNX1\", \"id\": \"hgnc:10471\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Recurrent Bacterial Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent, often life-threatening pyogenic infection beginning in the first months of life, and more severe than in the allelic cyclic disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Recurrent Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Febrile episodes accompanying recurrent infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Sepsis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bloodstream infection. Historically the usual cause of death in infancy; even in a G-CSF-treated registry cohort the annual sepsis mortality is close to 1%.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100806\"}}], \"edges\": [{\"source\": \"ELANE Mutation and Neutrophil Elastase Misfolding\", \"target\": \"Endoplasmic Reticulum Stress and Unfolded Protein Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Misfolded elastase accumulating in the secretory pathway triggers the endoplasmic reticulum stress response in granulocytic precursors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endoplasmic Reticulum Stress and Unfolded Protein Response\", \"target\": \"Apoptosis of Granulocytic Precursors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unfolded protein response in these cells is not merely adaptive: it induces CHOP and kills the precursor, and it does so without requiring elastase proteolytic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apoptosis of Granulocytic Precursors\", \"target\": \"Myeloid Maturation Arrest at the Promyelocyte Stage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Precursor death at the promyelocyte stage is what the marrow shows as an arrest: the maturation pyramid stops at promyelocytes, with few or no later granulocytic forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Myeloid Maturation Arrest at the Promyelocyte Stage\", \"target\": \"Profound Persistent Neutropenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An arrested marrow produces no mature neutrophils, so the peripheral count falls and stays low.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Profound Persistent Neutropenia\", \"target\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophils are the primary cellular defence against pyogenic bacteria, so their absence is the whole of the infectious susceptibility. The relationship is quantitative: risk scales inversely with the count.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Profound Persistent Neutropenia\", \"target\": \"Acquisition of Somatic CSF3R Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe disease requires sustained high-dose G-CSF to maintain a workable count, and it is the patients who respond least well to the largest doses who carry the highest risk of malignant events. The intermediate steps are the chronic proliferative pressure on a stressed progenitor compartment and the selection of clones bearing truncated G-CSF receptors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Recurrent Bacterial Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical expression of this node: omphalitis, skin and perirectal abscess, otitis and pneumonia from the first months of life.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Neonatal Omphalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection of the umbilical stump in the days after birth, frequently the presenting event.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower respiratory tract infection, common in untreated infants.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Deep and Cutaneous Abscesses\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abscess formation in liver, lung and subcutaneous tissue, reflecting failure to contain pyogenic organisms without neutrophils.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Oral Ulceration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucosal breakdown of the mouth, part of the oropharyngeal inflammatory picture shared across ELANE-related neutropenia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Gingivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gingival inflammation from bacterial colonisation that neutrophils would otherwise control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Periodontitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated gingival infection produces cumulative periodontal destruction, described in the congenital neutropenias as chronic periodontal disease that leaves permanent sequelae.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Recurrent Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Febrile episodes accompanying each infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"target\": \"Sepsis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream infection, historically the usual cause of death and still a steady hazard on treatment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acquisition of Somatic CSF3R Mutations\", \"target\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CSF3R-mutant clone acquires further leukaemia-associated mutations, RUNX1 most often, and the combination confers G-CSF-driven proliferation with blocked myeloid differentiation. Single-cell work places the two mutations in the same clone, and sequential sampling places RUNX1 late.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"target\": \"Myelodysplastic Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clone first manifests as myelodysplasia, frequently with monosomy 7.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"target\": \"Acute Myeloid Leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frank leukaemic transformation, the endpoint of the multistep clonal process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Granulocyte Colony-Stimulating Factor\", \"target\": \"Profound Persistent Neutropenia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Granulocyte Colony-Stimulating Factor\", \"target\": \"Profound Persistent Neutropenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Granulocyte Colony-Stimulating Factor\", \"target\": \"Recurrent Bacterial Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Allogeneic Haematopoietic Stem Cell Transplantation\", \"target\": \"ELANE Mutation and Neutrophil Elastase Misfolding\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Prophylaxis and Prompt Treatment of Infection\", \"target\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dental Hygiene and Periodontal Care\", \"target\": \"Impaired Innate Defence and Recurrent Bacterial Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ELANE\", \"target\": \"ELANE Mutation and Neutrophil Elastase Misfolding\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSF3R\", \"target\": \"Acquisition of Somatic CSF3R Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSF3R\", \"target\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RUNX1\", \"target\": \"Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6470,6 +6550,9 @@ This clinical feature is Persistently decreased total neutrophil count (HP:04102
 
 
                     </div>
+
+
+
 
 
 
@@ -6566,6 +6649,9 @@ This clinical feature is Bone marrow arrest at the promyelocytic stage (HP:00336
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6669,6 +6755,9 @@ This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6760,6 +6849,9 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6868,6 +6960,9 @@ This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6932,6 +7027,9 @@ This clinical feature is Gingivitis (HP:0000230). HP:0000230 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7019,6 +7117,9 @@ This clinical feature is Periodontitis (HP:0000704), qualified as course progres
 
 
                     </div>
+
+
+
 
 
 
@@ -7122,6 +7223,9 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7216,6 +7320,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7285,6 +7392,9 @@ This clinical feature is Cutaneous abscess (HP:0031292). HP:0031292 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7349,6 +7459,9 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7450,6 +7563,9 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7523,6 +7639,9 @@ This clinical feature is Neonatal omphalitis (HP:0032435). HP:0032435 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7639,6 +7758,9 @@ This disease-associated gene is ELANE (hgnc:3309). hgnc:3309 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7769,6 +7891,9 @@ This disease-associated gene is CSF3R (hgnc:2439). hgnc:2439 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7864,6 +7989,9 @@ This disease-associated gene is RUNX1 (hgnc:10471). hgnc:10471 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -10063,6 +10191,10 @@ pathophysiology:
       Grades this node against the allelic disorder, which is the clinical
       distinction that justifies curating the two separately.
   downstream:
+  - target: Recurrent Bacterial Infections
+    causal_link_type: DIRECT
+    description: &gt;-
+      The clinical expression of this node: omphalitis, skin and perirectal abscess, otitis and pneumonia from the first months of life.
   - target: Neonatal Omphalitis
     causal_link_type: DIRECT
     description: &gt;-
@@ -11943,7 +12075,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Severe Congenital Neutropenia 1, Autosomal Dominant", "mondoId": "MONDO:0042490", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Severe_Congenital_Neutropenia_1,_Autosomal_Dominant", "yamlRevision": "3b9e29932b42"};
+        const OS_CONFIG = {"diseaseName": "Severe Congenital Neutropenia 1, Autosomal Dominant", "mondoId": "MONDO:0042490", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Severe_Congenital_Neutropenia_1,_Autosomal_Dominant", "yamlRevision": "23be41fe2153"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

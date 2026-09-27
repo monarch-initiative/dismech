@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from linkml.validator import Validator
+from linkml.validator.plugins import JsonschemaValidationPlugin
 
 from dismech.stubs import (
     build_coverage_index,
@@ -56,7 +57,31 @@ def issues():
 
 @pytest.fixture(scope="module")
 def stub_validator():
-    return Validator(str(STUB_SCHEMA_PATH))
+    # An explicit plugin is required: a plugin-less Validator returns an empty
+    # report for any instance, making every assertion vacuous (dismech#8320).
+    # `closed=True` is the `linkml-validate` CLI default, so pytest and CI
+    # agree on unknown properties as well as on required ones.
+    return Validator(
+        str(STUB_SCHEMA_PATH),
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
+
+
+def test_stub_validator_fixture_is_not_inert(stub_validator):
+    """Guard: the ``stub_validator`` fixture must actually validate.
+
+    A plugin-less ``Validator`` short-circuits to an empty report, turning
+    every stub conformance assertion into a no-op (dismech#8320).
+    """
+    report = stub_validator.validate(
+        {"label": "no mondo_id"}, target_class="CurationStub"
+    )
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert errors, (
+        "stub_validator produced no errors for a CurationStub missing its required "
+        "`mondo_id` — it has no validation plugins and every test using it is vacuous"
+    )
 
 
 def test_stub_dir_exists():

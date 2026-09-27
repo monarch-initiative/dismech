@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Dermatosparaxis%20Ehlers-Danlos%20Syndrome"
@@ -4019,7 +4061,7 @@ This is what separates dermatosparaxis from the rest of the EDS family. The clas
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4054,12 +4096,20 @@ This is what separates dermatosparaxis from the rest of the EDS family. The clas
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4069,7 +4119,7 @@ This is what separates dermatosparaxis from the rest of the EDS family. The clas
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4078,7 +4128,7 @@ This is what separates dermatosparaxis from the rest of the EDS family. The clas
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -4513,7 +4563,8 @@ This is what separates dermatosparaxis from the rest of the EDS family. The clas
 
                 <div class="item-desc" style="margin-top: 10px;">The 2016 series reported that three of five new patients were much milder than any previously published case, and it did so while identifying alleles that are, on their face, of the same class as the severe ones - homozygous frameshift and splice variants. If the mechanism is simple loss of enzyme, and the alleles are all null, the severity range has no obvious explanation within the gene.
 Several possibilities are open and none has been tested. Residual ADAMTS2 activity from leaky splicing or from an alternative transcript would predict a genotype-severity relationship that has not been looked for. Compensation by ADAMTS3 or ADAMTS14, whose contribution to skin has been assumed rather than measured, would predict variation driven outside the ADAMTS2 locus. Ascertainment is the third and most deflating candidate: the severe phenotype was defined from the first ten patients, so a milder tail may always have existed and simply never reached a specialist.
-Distinguishing these matters clinically, because the 2016 authors proposed revised diagnostic criteria on the strength of the milder cases, and how those criteria should be applied depends on whether mild disease is a distinct biological state or the bottom of one distribution.</div>
+Distinguishing these matters clinically, because the 2016 authors proposed revised diagnostic criteria on the strength of the milder cases, and how those criteria should be applied depends on whether mild disease is a distinct biological state or the bottom of one distribution.
+A 2022 canine report (see animal_models) adds a cross-species data point without settling the question. Six dogs homozygous for a truncating ADAMTS2 allele were all euthanized for severe skin fragility by 13 weeks of age, while a dog homozygous for a distinct catalytic-domain missense allele survived at least nine years with a milder course - superficially the same allele-class-versus-severity pattern seen in the human series. But the paper is explicit that this is not a controlled comparison: the truncating-allele puppies were euthanized at owner discretion once fragility became apparent, so whether they would have gone on to a longer, milder course like the missense dog is unknown. The ascertainment candidate explanation above therefore has a direct veterinary analogue, not just a human one.</div>
 
 
                 <div class="experiment-section">
@@ -4618,6 +4669,13 @@ Distinguishing these matters clinically, because the 2016 authors proposed revis
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-adamts2-loss-of-function" data-dismech-node="Biallelic ADAMTS2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ADAMTS2 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Both ADAMTS2 alleles carry variants that abolish procollagen I N-proteinase activity. The reported alleles are overwhelmingly truncating - nonsense, frameshift and splice variants distributed across the gene rather than clustered in one domain - which is consistent with the mechanism being simple loss of the enzyme rather than any position-specific effect on how it behaves. Five of the first six patients identified were homozygous for the same nonsense allele, Q225X.</div>
 
 
@@ -4709,9 +4767,14 @@ This genetic context concerns ADAMTS2 (hgnc:218). hgnc:218 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4775,6 +4838,19 @@ This pathophysiological event involves procollagen I N-proteinase activity, anno
 
 
                             <span class="crosslink-desc">A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.</span>
+
+                        </div>
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-dermatosparactic-white-dorper-sheep-adamts2-nonsense-allele">Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)</a>
+
+                            <span class="crosslink-meta">Sheep</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">A naturally occurring ovine ADAMTS2 nonsense allele, independently confirming loss-of-function ADAMTS2 mutation as causative outside the bovine and canine truncating-allele models.</span>
 
                         </div>
 
@@ -4863,6 +4939,13 @@ This pathophysiological event involves procollagen I N-proteinase activity, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-procollagen-n-propeptide-excision" data-dismech-node="Failure of Procollagen N-Propeptide Excision" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Procollagen N-Propeptide Excision</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ADAMTS2 normally cleaves the aminoterminal propeptide from types I, II and III procollagen. Without it the N-propeptide is retained and the secreted molecule remains pN-collagen. This is a processing defect, not a synthesis defect: the amount of collagen protein reaching the matrix is not reduced, only its maturation state. ADAMTS3 and ADAMTS14 are homologous N-proteinases but do not compensate in skin, which is why the phenotype is dermatological even though the substrate is ubiquitous.</div>
 
@@ -5082,6 +5165,13 @@ This pathophysiological event involves abnormal collagen biosynthetic process (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hieroglyphic-collagen-fibril-assembly" data-dismech-node="Hieroglyphic Collagen Fibril Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Hieroglyphic Collagen Fibril Assembly</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Retained N-propeptides end up on the surface of the assembling fibril, in the overlap zone of the D-period. Being there, they prevent the fibril from achieving a circular cross-section, and the fibril grows as a flattened, branching ribbon - &#34;hieroglyphic&#34; in transverse section, and in the most severely affected skin appearing as sheets rather than discrete fibrils. The dermatosparactic calf, in which this was quantified, carried 57% pN-collagen in its dermal fibrils. Notably the propeptides on such fibrils can no longer be removed even by exogenous N-proteinase, so the lesion is self-locking once assembly has occurred.</div>
 
 
@@ -5208,6 +5298,19 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
                         </div>
 
+                        <div class="crosslink-item">
+                            <a href="#animal-model-canine-dermatosparaxis-adamts2-c-10delc-truncating-allele">Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)</a>
+
+                            <span class="crosslink-meta">Dog</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">Post-mortem dermal, tendon, and ligament collagen from affected puppies showed the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease, extending the ultrastructural phenotype beyond dermis to tendon and ligament.</span>
+
+                        </div>
+
                     </div>
                 </div>
 
@@ -5318,6 +5421,13 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-dermal-tensile-strength" data-dismech-node="Loss of Dermal Tensile Strength" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Dermal Tensile Strength</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The tensile strength of dermis depends on near-cylindrical fibrils packing closely enough to interact along their length. Ribbon-shaped fibrils cannot do that, so load is no longer distributed between fibrils and the tissue tears at low force. This is the step at which a molecular processing defect becomes a mechanical one, and it explains why the skin is simultaneously fragile and redundant - the same loss of fibril-fibril engagement that lets it tear also lets it stretch and hang.</div>
 
@@ -5477,6 +5587,13 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalised-connective-tissue-fragility" data-dismech-node="Generalised Connective Tissue Fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalised Connective Tissue Fragility</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Type I collagen is not confined to skin, so the processing defect is expressed wherever fibrillar collagen carries load. Clinically this appears as umbilical and inguinal herniation, joint laxity, craniofacial features reflecting a soft cranial vault with wide sutures and large fontanelles, and - in the more severely affected - visceral and vascular fragility including bladder and diaphragmatic rupture. The severity of this systemic component is what the 2016 expansion of the phenotype turned on: three of five newly reported patients were substantially milder than every previously published case, so the multisystem burden is variable rather than obligate.</div>
 
 
@@ -5623,7 +5740,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADAMTS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADAMTS2\"], \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Adamts2/Adamts14 double-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Built to ask whether the closest paralogue of ADAMTS2 compensates for it. The answer is that it does not: Adamts14-deficient mice are healthy with normal aminoprocollagen processing, and removing both enzymes produces no worse procollagen processing and no worse fibril pathology than removing ADAMTS2 alone. That negative result is what licenses this entry to describe ADAMTS2 as the non-redundant dermal N-proteinase rather than merely the principal one.\"}, {\"id\": \"Biallelic ADAMTS2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both ADAMTS2 alleles carry variants that abolish procollagen I N-proteinase activity. The reported alleles are overwhelmingly truncating - nonsense, frameshift and splice variants distributed across the gene rather than clustered in one domain - which is consistent with the mechanism being simple loss of the enzyme rather than any position-specific effect on how it behaves. Five of the first six patients identified were homozygous for the same nonsense allele, Q225X.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"molecular_functions\": [\"procollagen I N-proteinase activity\"], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}]}, \"animal_models\": [{\"name\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"species\": \"Sheep\", \"genotype\": \"ADAMTS2 p.Val15Met (catalytic-domain missense)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.\"}]}}, {\"id\": \"Dermatosparactic calf\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Bovine dermatosparaxis is the disease in which the enzymatic defect was first characterised, decades before the human condition was recognised. It is a naturally occurring homologue rather than an engineered model, and the causative allele was identified in the same study that solved the human disease.\"}, {\"id\": \"Failure of Procollagen N-Propeptide Excision\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADAMTS2 normally cleaves the aminoterminal propeptide from types I, II and III procollagen. Without it the N-propeptide is retained and the secreted molecule remains pN-collagen. This is a processing defect, not a synthesis defect: the amount of collagen protein reaching the matrix is not reduced, only its maturation state. ADAMTS3 and ADAMTS14 are homologous N-proteinases but do not compensate in skin, which is why the phenotype is dermatological even though the substrate is ubiquitous.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein processing\", \"collagen biosynthetic process\"], \"animal_models\": [{\"name\": \"Adamts2/Adamts14 double-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Adamts2 and Adamts14 double-deficient\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the processing defect and the fibril alterations, and adds the paralogue test that human genetics cannot supply.\"}]}}, {\"id\": \"Generalised Connective Tissue Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I collagen is not confined to skin, so the processing defect is expressed wherever fibrillar collagen carries load. Clinically this appears as umbilical and inguinal herniation, joint laxity, craniofacial features reflecting a soft cranial vault with wide sutures and large fontanelles, and - in the more severely affected - visceral and vascular fragility including bladder and diaphragmatic rupture. The severity of this systemic component is what the 2016 expansion of the phenotype turned on: three of five newly reported patients were substantially milder than every previously published case, so the multisystem burden is variable rather than obligate.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Hieroglyphic Collagen Fibril Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained N-propeptides end up on the surface of the assembling fibril, in the overlap zone of the D-period. Being there, they prevent the fibril from achieving a circular cross-section, and the fibril grows as a flattened, branching ribbon - \\\"hieroglyphic\\\" in transverse section, and in the most severely affected skin appearing as sheets rather than discrete fibrils. The dermatosparactic calf, in which this was quantified, carried 57% pN-collagen in its dermal fibrils. Notably the propeptides on such fibrils can no longer be removed even by exogenous N-proteinase, so the lesion is self-locking once assembly has occurred.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"locations\": [\"dermis\"], \"animal_models\": [{\"name\": \"Dermatosparactic calf\", \"species\": \"Cattle\", \"genotype\": \"ADAMTS2 17-bp deletion, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The calf reproduces the human fibril pathology and is the system in which it was quantified - dermal fibrils containing 57% pN-collagen, irregularly bundled and hieroglyphic in cross-section.\"}]}}, {\"id\": \"In-frame exon-skipping genomic deletions (exons 3-5, exons 14-16)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A distinct allele class alongside the predominant truncating (nonsense/frameshift/splice) alleles. Genomic deletions remove exons 3-5 or exons 14-16 from the transcript without shifting the reading frame, so the resulting ADAMTS2 protein is missing an internal domain rather than being absent or grossly truncated. Neither deleted region had previously been recognised as functionally critical, but aminoprocollagen processing was still strongly impaired, so this class extends the requirement for intact enzyme structure beyond the domains already implicated by nonsense alleles.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADAMTS2\"], \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}], \"variant_type\": \"in-frame deletion (exon skipping)\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Loss of Dermal Tensile Strength\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tensile strength of dermis depends on near-cylindrical fibrils packing closely enough to interact along their length. Ribbon-shaped fibrils cannot do that, so load is no longer distributed between fibrils and the tissue tears at low force. This is the step at which a molecular processing defect becomes a mechanical one, and it explains why the skin is simultaneously fragile and redundant - the same loss of fibril-fibril engagement that lets it tear also lets it stretch and hang.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring missense allele identified in a commercial sheep flock with clinical dermatosparaxis. Unlike the bovine and mouse models already in this entry, both of which are null alleles, this substitution falls within the catalytic domain itself, and its damaging effect is predicted computationally rather than shown by a direct enzymatic assay.\"}, {\"id\": \"Skin Protection and Wound Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No therapy addresses the enzymatic defect, and that is a documented position rather than an absence of searching: the EDS care-pathway review states there is no specific treatment for non-vascular EDS and that management is symptomatic, multidisciplinary and personalised. In practice that means avoiding trauma, careful consideration of skin closure techniques and manual handling, thorough investigation of acute pain, and caution with adhesive dressings, which can themselves tear the skin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Surgical Resection of Redundant Skin Folds\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Redundant skin folds often grow enough in adulthood to require surgical resection. Recorded as its own treatment because it is an intervention performed on the tissue consequence, in a disease whose skin tears easily and heals atrophically - so the operation carries the disease\u0027s own risk. Hernia repair falls in the same category.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cultured dermal fibroblast\"], \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Failure of Procollagen N-Propeptide Excision\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Direct biochemical demonstration, in patient-derived cells, of the unprocessed procollagen species that the enzymatic defect is predicted to leave behind.\"}]}}], \"edges\": [{\"source\": \"Biallelic ADAMTS2 Loss of Function\", \"target\": \"Failure of Procollagen N-Propeptide Excision\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Procollagen N-Propeptide Excision\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hieroglyphic Collagen Fibril Assembly\", \"target\": \"Loss of Dermal Tensile Strength\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Dermal Tensile Strength\", \"target\": \"Generalised Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skin Protection and Wound Care\", \"target\": \"Loss of Dermal Tensile Strength\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection of Redundant Skin Folds\", \"target\": \"Generalised Connective Tissue Fragility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dermatosparactic calf\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The calf reproduces the human fibril pathology and is the system in which it was quantified - dermal fibrils containing 57% pN-collagen, irregularly bundled and hieroglyphic in cross-section.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The bovine allele is a 17-bp deletion causing a reading-frame shift, so it models complete loss of function specifically. It says nothing about the milder human phenotypes reported in 2016, whose molecular basis is not a different class of allele but is not fully explained either.\"}, {\"source\": \"Adamts2/Adamts14 double-deficient mouse\", \"target\": \"Failure of Procollagen N-Propeptide Excision\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the processing defect and the fibril alterations, and adds the paralogue test that human genetics cannot supply.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The double-knockout develops a spontaneous atopic-dermatitis-like phenotype from about two months of age, driven by abnormal Th1 T-lymphocyte activation. That is not a reported feature of human dermatosparaxis EDS, so any skin finding in aged animals of this genotype has to be read against an immune phenotype the human disease does not have.\"}, {\"source\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"target\": \"Biallelic ADAMTS2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Pathogenicity rests on SIFT/PolyPhen-2 prediction and three-dimensional structural modelling rather than a measured enzymatic or fibril-ultrastructure readout, making this a weaker evidentiary class than the bovine and mouse models, both of which have direct biochemical or histological confirmation.\"}, {\"source\": \"Failure of Procollagen N-Propeptide Excision\", \"target\": \"pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Direct biochemical demonstration, in patient-derived cells, of the unprocessed procollagen species that the enzymatic defect is predicted to leave behind.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"In-frame exon-skipping genomic deletions (exons 3-5, exons 14-16)\", \"target\": \"ADAMTS2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADAMTS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADAMTS2\"], \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Adamts2/Adamts14 double-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Built to ask whether the closest paralogue of ADAMTS2 compensates for it. The answer is that it does not: Adamts14-deficient mice are healthy with normal aminoprocollagen processing, and removing both enzymes produces no worse procollagen processing and no worse fibril pathology than removing ADAMTS2 alone. That negative result is what licenses this entry to describe ADAMTS2 as the non-redundant dermal N-proteinase rather than merely the principal one.\"}, {\"id\": \"Biallelic ADAMTS2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both ADAMTS2 alleles carry variants that abolish procollagen I N-proteinase activity. The reported alleles are overwhelmingly truncating - nonsense, frameshift and splice variants distributed across the gene rather than clustered in one domain - which is consistent with the mechanism being simple loss of the enzyme rather than any position-specific effect on how it behaves. Five of the first six patients identified were homozygous for the same nonsense allele, Q225X.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"molecular_functions\": [\"procollagen I N-proteinase activity\"], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}]}, \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"species\": \"Sheep\", \"genotype\": \"ADAMTS2 p.Val15Met (catalytic-domain missense)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.\"}, {\"name\": \"Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)\", \"species\": \"Sheep\", \"genotype\": \"ADAMTS2 nonsense variant (zygosity not recorded in the available source)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"description\": \"A naturally occurring ovine ADAMTS2 nonsense allele, independently confirming loss-of-function ADAMTS2 mutation as causative outside the bovine and canine truncating-allele models.\"}]}}, {\"id\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring truncating allele found in six Alapaha Blue Blood Bulldog and Pit Bull Terrier puppies, all euthanized for severe skin fragility by 13 weeks of age. The same report also describes an adult Catahoula Leopard Dog homozygous for a distinct catalytic-domain missense allele (p.Arg966His) with a much milder course, surviving at least 9 years -- a within-species severity contrast the paper itself declines to attribute conclusively to residual enzyme activity, since euthanasia timing for the truncating-allele puppies also reflected owner decision-making rather than a measured biological endpoint.\"}, {\"id\": \"Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring ADAMTS2 nonsense allele reported in a White Dorper flock in Switzerland. It is a second, independent ovine allele alongside the V15M catalytic-domain missense model above, and a null rather than a missense one -- so the two together give a within-species contrast between a null allele and a catalytic-domain missense one.\"}, {\"id\": \"Dermatosparactic calf\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Bovine dermatosparaxis is the disease in which the enzymatic defect was first characterised, decades before the human condition was recognised. It is a naturally occurring homologue rather than an engineered model, and the causative allele was identified in the same study that solved the human disease.\"}, {\"id\": \"Failure of Procollagen N-Propeptide Excision\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADAMTS2 normally cleaves the aminoterminal propeptide from types I, II and III procollagen. Without it the N-propeptide is retained and the secreted molecule remains pN-collagen. This is a processing defect, not a synthesis defect: the amount of collagen protein reaching the matrix is not reduced, only its maturation state. ADAMTS3 and ADAMTS14 are homologous N-proteinases but do not compensate in skin, which is why the phenotype is dermatological even though the substrate is ubiquitous.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein processing\", \"collagen biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Adamts2/Adamts14 double-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Adamts2 and Adamts14 double-deficient\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the processing defect and the fibril alterations, and adds the paralogue test that human genetics cannot supply.\"}]}}, {\"id\": \"Generalised Connective Tissue Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I collagen is not confined to skin, so the processing defect is expressed wherever fibrillar collagen carries load. Clinically this appears as umbilical and inguinal herniation, joint laxity, craniofacial features reflecting a soft cranial vault with wide sutures and large fontanelles, and - in the more severely affected - visceral and vascular fragility including bladder and diaphragmatic rupture. The severity of this systemic component is what the 2016 expansion of the phenotype turned on: three of five newly reported patients were substantially milder than every previously published case, so the multisystem burden is variable rather than obligate.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hieroglyphic Collagen Fibril Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained N-propeptides end up on the surface of the assembling fibril, in the overlap zone of the D-period. Being there, they prevent the fibril from achieving a circular cross-section, and the fibril grows as a flattened, branching ribbon - \\\"hieroglyphic\\\" in transverse section, and in the most severely affected skin appearing as sheets rather than discrete fibrils. The dermatosparactic calf, in which this was quantified, carried 57% pN-collagen in its dermal fibrils. Notably the propeptides on such fibrils can no longer be removed even by exogenous N-proteinase, so the lesion is self-locking once assembly has occurred.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"locations\": [\"dermis\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Dermatosparactic calf\", \"species\": \"Cattle\", \"genotype\": \"ADAMTS2 17-bp deletion, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The calf reproduces the human fibril pathology and is the system in which it was quantified - dermal fibrils containing 57% pN-collagen, irregularly bundled and hieroglyphic in cross-section.\"}, {\"name\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"species\": \"Dog\", \"genotype\": \"ADAMTS2 c.10delC, p.(Pro4ArgfsTer175), homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Post-mortem dermal, tendon, and ligament collagen from affected puppies showed the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease, extending the ultrastructural phenotype beyond dermis to tendon and ligament.\"}]}}, {\"id\": \"In-frame exon-skipping genomic deletions (exons 3-5, exons 14-16)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A distinct allele class alongside the predominant truncating (nonsense/frameshift/splice) alleles. Genomic deletions remove exons 3-5 or exons 14-16 from the transcript without shifting the reading frame, so the resulting ADAMTS2 protein is missing an internal domain rather than being absent or grossly truncated. Neither deleted region had previously been recognised as functionally critical, but aminoprocollagen processing was still strongly impaired, so this class extends the requirement for intact enzyme structure beyond the domains already implicated by nonsense alleles.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADAMTS2\"], \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}], \"variant_type\": \"in-frame deletion (exon skipping)\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Loss of Dermal Tensile Strength\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tensile strength of dermis depends on near-cylindrical fibrils packing closely enough to interact along their length. Ribbon-shaped fibrils cannot do that, so load is no longer distributed between fibrils and the tissue tears at low force. This is the step at which a molecular processing defect becomes a mechanical one, and it explains why the skin is simultaneously fragile and redundant - the same loss of fibril-fibril engagement that lets it tear also lets it stretch and hang.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"skin of body\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring missense allele identified in a commercial sheep flock with clinical dermatosparaxis. Unlike the bovine and mouse models already in this entry, both of which are null alleles, this substitution falls within the catalytic domain itself, and its damaging effect is predicted computationally rather than shown by a direct enzymatic assay.\"}, {\"id\": \"Skin Protection and Wound Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No therapy addresses the enzymatic defect, and that is a documented position rather than an absence of searching: the EDS care-pathway review states there is no specific treatment for non-vascular EDS and that management is symptomatic, multidisciplinary and personalised. In practice that means avoiding trauma, careful consideration of skin closure techniques and manual handling, thorough investigation of acute pain, and caution with adhesive dressings, which can themselves tear the skin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Surgical Resection of Redundant Skin Folds\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Redundant skin folds often grow enough in adulthood to require surgical resection. Recorded as its own treatment because it is an intervention performed on the tissue consequence, in a disease whose skin tears easily and heals atrophically - so the operation carries the disease\u0027s own risk. Hernia repair falls in the same category.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cultured dermal fibroblast\"], \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Failure of Procollagen N-Propeptide Excision\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Direct biochemical demonstration, in patient-derived cells, of the unprocessed procollagen species that the enzymatic defect is predicted to leave behind.\"}]}}], \"edges\": [{\"source\": \"Biallelic ADAMTS2 Loss of Function\", \"target\": \"Failure of Procollagen N-Propeptide Excision\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Procollagen N-Propeptide Excision\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hieroglyphic Collagen Fibril Assembly\", \"target\": \"Loss of Dermal Tensile Strength\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Dermal Tensile Strength\", \"target\": \"Generalised Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skin Protection and Wound Care\", \"target\": \"Loss of Dermal Tensile Strength\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection of Redundant Skin Folds\", \"target\": \"Generalised Connective Tissue Fragility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dermatosparactic calf\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The calf reproduces the human fibril pathology and is the system in which it was quantified - dermal fibrils containing 57% pN-collagen, irregularly bundled and hieroglyphic in cross-section.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The bovine allele is a 17-bp deletion causing a reading-frame shift, so it models complete loss of function specifically. It says nothing about the milder human phenotypes reported in 2016, whose molecular basis is not a different class of allele but is not fully explained either.\"}, {\"source\": \"Adamts2/Adamts14 double-deficient mouse\", \"target\": \"Failure of Procollagen N-Propeptide Excision\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the processing defect and the fibril alterations, and adds the paralogue test that human genetics cannot supply.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The double-knockout develops a spontaneous atopic-dermatitis-like phenotype from about two months of age, driven by abnormal Th1 T-lymphocyte activation. That is not a reported feature of human dermatosparaxis EDS, so any skin finding in aged animals of this genotype has to be read against an immune phenotype the human disease does not have.\"}, {\"source\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"target\": \"Biallelic ADAMTS2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Pathogenicity rests on SIFT/PolyPhen-2 prediction and three-dimensional structural modelling rather than a measured enzymatic or fibril-ultrastructure readout, making this a weaker evidentiary class than the bovine and mouse models, both of which have direct biochemical or histological confirmation.\"}, {\"source\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Post-mortem dermal, tendon, and ligament collagen from affected puppies showed the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease, extending the ultrastructural phenotype beyond dermis to tendon and ligament.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The truncating-allele dogs were all euthanized in early puppyhood at owner discretion once skin fragility became apparent, so the natural adult course of this specific genotype is unknown; the paper explicitly states it is unclear whether these puppies would have eventually developed life-threatening injuries or continued to accrue manageable wounds. The milder missense-allele dog\u0027s long survival is presented as a plausible but unproven case for residual enzyme activity as a severity determinant.\"}, {\"source\": \"Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)\", \"target\": \"Biallelic ADAMTS2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A naturally occurring ovine ADAMTS2 nonsense allele, independently confirming loss-of-function ADAMTS2 mutation as causative outside the bovine and canine truncating-allele models.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"limitations\": \"No abstract is available for this record, so nothing beyond the title and indexed subject terms could be verified. No phenotypic, biochemical, or ultrastructural detail is recorded here, no evidence quote is attached to this link, and `fidelity` is left UNKNOWN rather than asserted. The breed-level phenotype is therefore not established from this entry\u0027s sources, and the link records only the causative allele class.\"}, {\"source\": \"Failure of Procollagen N-Propeptide Excision\", \"target\": \"pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Direct biochemical demonstration, in patient-derived cells, of the unprocessed procollagen species that the enzymatic defect is predicted to leave behind.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ADAMTS2\", \"target\": \"Biallelic ADAMTS2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"In-frame exon-skipping genomic deletions (exons 3-5, exons 14-16)\", \"target\": \"ADAMTS2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5696,6 +5813,9 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5824,6 +5944,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5924,6 +6047,9 @@ This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6059,6 +6185,9 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6164,6 +6293,9 @@ This clinical feature is Large fontanelles (HP:0000239). HP:0000239 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6260,6 +6392,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6337,6 +6472,9 @@ This clinical feature is Fragile skin (HP:0001030). HP:0001030 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6433,6 +6571,9 @@ This clinical feature is Redundant skin (HP:0001582). HP:0001582 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6536,6 +6677,9 @@ This clinical feature is Soft skin (HP:0000977). HP:0000977 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6634,6 +6778,9 @@ This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6716,6 +6863,9 @@ This clinical feature is Short limbs, annotated with Limb undergrowth (HP:000982
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6791,6 +6941,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6894,6 +7047,9 @@ This clinical feature is Increased susceptibility to fractures (HP:0002659). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6987,6 +7143,9 @@ This clinical feature is Congenital diaphragmatic hernia (HP:0000776). HP:000077
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7087,6 +7246,9 @@ This clinical feature is Short stature (HP:0004322), qualified as course progres
 
 
                     </div>
+
+
+
 
 
 
@@ -7230,6 +7392,9 @@ This disease-associated gene is ADAMTS2 (hgnc:218). hgnc:218 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7291,6 +7456,7 @@ This disease-associated gene is ADAMTS2 (hgnc:218). hgnc:218 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7310,11 +7476,17 @@ This variant is in ADAMTS2 (hgnc:218). hgnc:218 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame deletion (exon skipping)</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A distinct allele class alongside the predominant truncating (nonsense/frameshift/splice) alleles. Genomic deletions remove exons 3-5 or exons 14-16 from the transcript without shifting the reading frame, so the resulting ADAMTS2 protein is missing an internal domain rather than being absent or grossly truncated. Neither deleted region had previously been recognised as functionally critical, but aminoprocollagen processing was still strongly impaired, so this class extends the requirement for intact enzyme structure beyond the domains already implicated by nonsense alleles.</div>
@@ -7993,7 +8165,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
                 <h2 class="card-title">Diagnosis</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box anchor-target" id="diagnosis-skin-biopsy-with-transmission-electron-microscopy">
@@ -8160,6 +8332,94 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                 <div class="evidence-explanation">Demonstrates molecular confirmation by ADAMTS2 sequencing in a clinical series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-coagulation-studies-can-be-normal-despite-clinically-significant-bleeding">
+                <div class="item-name">
+                    Coagulation Studies Can Be Normal Despite Clinically Significant Bleeding
+
+                </div>
+
+                <div class="item-desc">Routine coagulation testing is not a reliable way to rule out or explain the bleeding complications seen in this disease, because the underlying defect is structural (connective-tissue and vascular fragility) rather than a disorder of the coagulation cascade itself. A negative coagulation workup should not be read as evidence against a bleeding complication being disease-related.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        coagulation testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C112239" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C112239</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42261541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42261541" target="_blank">PMID:42261541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complete blood count, basic metabolic panel, lipid panel, and coagulation profile were normal. Factor assay and rotational thromboelastometry were within normal limits."</div>
+
+
+                <div class="evidence-explanation">An adolescent with dEDS presenting with persistent hematemesis and mucocutaneous bleeding had entirely normal coagulation studies, including factor assay and rotational thromboelastometry, illustrating that a normal coagulation workup does not exclude disease-related bleeding.</div>
 
 
 
@@ -8379,6 +8639,114 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse343646">
+                <div class="item-name">
+                    A Patient-Analog Adamts2 Knock-In Murine Model Reveals Fibroblast-Centered Extracellular Matrix Failure in Dermatosparaxis Ehlers–Danlos Syndrome (dEDS)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE343646" target="_blank">geo:GSE343646</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Single-nucleus RNA sequencing and digital pathology of skin from a patient-analog Adamts2 Q226* knock-in mouse, the first genetically faithful (patient-allele) mouse model of dermatosparaxis EDS. Identifies dermal fibroblasts as the cell population most transcriptionally disrupted by ADAMTS2 loss and quantifies collagen architecture defects beyond what the earlier bovine, double-knockout mouse, and sheep models captured.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=4</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">No associated peer-reviewed publication (PMID) was found for this 2026 GEO deposit at the time of curation; PubMed searches for the study title and the Adamts2 Q226* knock-in allele returned no hits. Cited here as a dataset record per the geo: reference workflow rather than as a full animal_models entry, since AnimalModel.publication requires a PMID. If a manuscript is later published, this dataset and its findings should be promoted to a full animal_models entry with modeled_mechanisms links.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="GEO:GSE343646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/GEO:GSE343646" target="_blank">GEO:GSE343646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we generated a patient-analog Adamts2Q226*/Q226* knock-in mouse model and used histologic, ultrastructural, biochemical, digital pathology, and single-nucleus transcriptomic approaches to define the consequences of ADAMTS2 loss in skin"</div>
+
+
+                <div class="evidence-explanation">Establishes the model as carrying the actual patient nonsense allele (Q226*) rather than an engineered null, distinguishing it from the frameshift/deletion alleles in the calf and double-knockout mouse models already in this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="GEO:GSE343646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/GEO:GSE343646" target="_blank">GEO:GSE343646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Single-nucleus RNA sequencing identified fibroblasts as the cell population most strongly affected by Adamts2 deficiency, with coordinated downregulation of collagen, microfibrillar, and other ECM-associated genes."</div>
+
+
+                <div class="evidence-explanation">Reports the study&#39;s central novel finding -- fibroblasts as the transcriptionally dominant affected cell population -- which is not established by any of the entry&#39;s existing animal models.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -8393,7 +8761,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
                 <h2 class="card-title">Animal Models</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
 
 
@@ -8924,6 +9292,270 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
     </div>
 
 
+
+
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-canine-dermatosparaxis-adamts2-c-10delc-truncating-allele" data-dismech-node="Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)
+
+                </div>
+
+                <div class="item-desc">A naturally occurring truncating allele found in six Alapaha Blue Blood Bulldog and Pit Bull Terrier puppies, all euthanized for severe skin fragility by 13 weeks of age. The same report also describes an adult Catahoula Leopard Dog homozygous for a distinct catalytic-domain missense allele (p.Arg966His) with a much milder course, surviving at least 9 years -- a within-species severity contrast the paper itself declines to attribute conclusively to residual enzyme activity, since euthanasia timing for the truncating-allele puppies also reflected owner decision-making rather than a measured biological endpoint.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Dog</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">ADAMTS2 c.10delC, p.(Pro4ArgfsTer175), homozygous</div>
+                    </div>
+
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36421833" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:36421833">PMID:36421833</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-hieroglyphic-collagen-fibril-assembly">Hieroglyphic Collagen Fibril Assembly</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: high</span>
+
+
+                <span class="crosslink-desc">Post-mortem dermal, tendon, and ligament collagen from affected puppies showed the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease, extending the ultrastructural phenotype beyond dermis to tendon and ligament.</span>
+
+
+                <div class="mapping-notes">Limitations: The truncating-allele dogs were all euthanized in early puppyhood at owner discretion once skin fragility became apparent, so the natural adult course of this specific genotype is unknown; the paper explicitly states it is unclear whether these puppies would have eventually developed life-threatening injuries or continued to accrue manageable wounds. The milder missense-allele dog&#39;s long survival is presented as a plausible but unproven case for residual enzyme activity as a severity determinant.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Dermal, tendon, and ligament collagen fibril ultrastructure</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: Direct ultrastructural confirmation of abnormal fibrillogenesis in a second connective-tissue compartment (tendon/ligament) beyond the dermis already characterized in the bovine model.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36421833" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36421833" target="_blank">PMID:36421833</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the dermal collagen fibrils of the affected puppies had curved linear profiles in cross-section"</div>
+
+
+                <div class="evidence-explanation">The ultrastructural finding in dermis, described elsewhere in the paper as hieroglyphic-like.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36421833" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36421833" target="_blank">PMID:36421833</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cross sections of collagen fibrils in post-mortem dermal tissues from 2 of these dogs showed hieroglyphic-like figures similar to those from cases of severe dermatosparaxis in other species."</div>
+
+
+                <div class="evidence-explanation">Establishes this natural canine allele as a fourth species (alongside human, bovine, and ovine) reproducing the hieroglyphic fibril phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Reported by the same group that authored the sheep V15M report above. Genotyping of archived DNA found the truncating deletion allele at a frequency of 0.27 in a tested Alapaha Blue Blood Bulldog cohort, indicating the allele is not vanishingly rare within that breed.</div>
+
+
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-dermatosparactic-white-dorper-sheep-adamts2-nonsense-allele" data-dismech-node="Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)
+
+                </div>
+
+                <div class="item-desc">A naturally occurring ADAMTS2 nonsense allele reported in a White Dorper flock in Switzerland. It is a second, independent ovine allele alongside the V15M catalytic-domain missense model above, and a null rather than a missense one -- so the two together give a within-species contrast between a null allele and a catalytic-domain missense one.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Sheep</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">ADAMTS2 nonsense variant (zygosity not recorded in the available source)</div>
+                    </div>
+
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28856769" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:28856769">PMID:28856769</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-biallelic-adamts2-loss-of-function">Biallelic ADAMTS2 Loss of Function</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: unknown</span>
+
+
+                <span class="crosslink-desc">A naturally occurring ovine ADAMTS2 nonsense allele, independently confirming loss-of-function ADAMTS2 mutation as causative outside the bovine and canine truncating-allele models.</span>
+
+
+                <div class="mapping-notes">Limitations: No abstract is available for this record, so nothing beyond the title and indexed subject terms could be verified. No phenotypic, biochemical, or ultrastructural detail is recorded here, no evidence quote is attached to this link, and `fidelity` is left UNKNOWN rather than asserted. The breed-level phenotype is therefore not established from this entry&#39;s sources, and the link records only the causative allele class.</div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Carried at title-and-MeSH level only. `references_cache/PMID_28856769.md` has no abstract, so per the evidence SOP no snippet was manufactured from the title; the model is recorded with its limitation disclosed instead of being dropped, since the allele class it contributes is not otherwise represented in the ovine models here.
+Zygosity is unsourced. Dermatosparaxis EDS is autosomal recessive, so a homozygous nonsense genotype is the expected finding, but neither the title nor the indexed MeSH terms state it, so `genotype` records the allele class only rather than asserting a zygosity this entry&#39;s sources cannot support.
+Opposing view on record. PR #10177 deliberately omitted this model, on the grounds that a model with no quotable evidence should wait until someone can quote it. That argument is recorded here so a future curator can act on it by deleting this one list entry, rather than having to re-derive it.</div>
 
 
 
@@ -9815,6 +10447,30 @@ diagnosis:
     snippet: mutation (c.2T&gt;C, p.? and c.884_887delTGAA, p.(Met295Thrfs26*)) in ADAMTS2 in five patients from
       four unrelated families
     explanation: Demonstrates molecular confirmation by ADAMTS2 sequencing in a clinical series.
+- name: Coagulation Studies Can Be Normal Despite Clinically Significant Bleeding
+  description: &gt;-
+    Routine coagulation testing is not a reliable way to rule out or explain the bleeding
+    complications seen in this disease, because the underlying defect is structural
+    (connective-tissue and vascular fragility) rather than a disorder of the coagulation cascade
+    itself. A negative coagulation workup should not be read as evidence against a bleeding
+    complication being disease-related.
+  diagnosis_term:
+    preferred_term: coagulation testing
+    term:
+      id: NCIT:C112239
+      label: Coagulation Index Measurement
+  evidence:
+  - reference: PMID:42261541
+    reference_title: &#39;Exploring the Hemorrhagic Manifestations of an Adolescent With
+      Dermatosparaxis-Type Ehlers-Danlos Syndrome: A Case Report.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Complete blood count, basic metabolic panel, lipid panel, and coagulation profile
+      were normal. Factor assay and rotational thromboelastometry were within normal limits.
+    explanation: An adolescent with dEDS presenting with persistent hematemesis and mucocutaneous
+      bleeding had entirely normal coagulation studies, including factor assay and rotational
+      thromboelastometry, illustrating that a normal coagulation workup does not exclude
+      disease-related bleeding.
 treatments:
 - name: Skin Protection and Wound Care
   therapeutic_modality: BEHAVIORAL
@@ -10020,6 +10676,116 @@ animal_models:
         methionine molecule (V15M) affecting the catalytic domain of the enzyme.
       explanation: Identifies the naturally occurring catalytic-domain missense allele in the
         affected sheep flock.
+- name: Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)
+  species: Dog
+  genotype: ADAMTS2 c.10delC, p.(Pro4ArgfsTer175), homozygous
+  publication: PMID:36421833
+  description: &gt;-
+    A naturally occurring truncating allele found in six Alapaha Blue Blood
+    Bulldog and Pit Bull Terrier puppies, all euthanized for severe skin
+    fragility by 13 weeks of age. The same report also describes an adult
+    Catahoula Leopard Dog homozygous for a distinct catalytic-domain missense
+    allele (p.Arg966His) with a much milder course, surviving at least 9
+    years -- a within-species severity contrast the paper itself declines to
+    attribute conclusively to residual enzyme activity, since euthanasia
+    timing for the truncating-allele puppies also reflected owner
+    decision-making rather than a measured biological endpoint.
+  modeled_mechanisms:
+  - target: Hieroglyphic Collagen Fibril Assembly
+    relationship: RECAPITULATES
+    fidelity: HIGH
+    description: Post-mortem dermal, tendon, and ligament collagen from affected puppies showed
+      the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease,
+      extending the ultrastructural phenotype beyond dermis to tendon and ligament.
+    limitations: &gt;-
+      The truncating-allele dogs were all euthanized in early puppyhood at owner discretion once
+      skin fragility became apparent, so the natural adult course of this specific genotype is
+      unknown; the paper explicitly states it is unclear whether these puppies would have
+      eventually developed life-threatening injuries or continued to accrue manageable wounds.
+      The milder missense-allele dog&#39;s long survival is presented as a plausible but unproven
+      case for residual enzyme activity as a severity determinant.
+    readouts:
+    - name: Dermal, tendon, and ligament collagen fibril ultrastructure
+      target: Hieroglyphic Collagen Fibril Assembly
+      direction: ALTERED
+      interpretation: Direct ultrastructural confirmation of abnormal fibrillogenesis in a second
+        connective-tissue compartment (tendon/ligament) beyond the dermis already characterized
+        in the bovine model.
+      evidence:
+      - reference: PMID:36421833
+        reference_title: Novel Homozygous ADAMTS2 Variants and Associated Disease Phenotypes in
+          Dogs with Dermatosparactic Ehlers-Danlos Syndrome.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: the dermal collagen fibrils of the affected puppies had curved linear profiles
+          in cross-section
+        explanation: The ultrastructural finding in dermis, described elsewhere in the paper as
+          hieroglyphic-like.
+      - reference: PMID:36421833
+        reference_title: Novel Homozygous ADAMTS2 Variants and Associated Disease Phenotypes in
+          Dogs with Dermatosparactic Ehlers-Danlos Syndrome.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: the collagen fibrils in tendons and ligaments from the two affected puppies that
+          were markedly smaller in diameter and irregularly shaped
+        explanation: Extends the fibril-ultrastructure defect to tendon and ligament, tissues not
+          examined in the other animal models in this entry.
+    evidence:
+    - reference: PMID:36421833
+      reference_title: Novel Homozygous ADAMTS2 Variants and Associated Disease Phenotypes in
+        Dogs with Dermatosparactic Ehlers-Danlos Syndrome.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Cross sections of collagen fibrils in post-mortem dermal tissues from 2 of these
+        dogs showed hieroglyphic-like figures similar to those from cases of severe dermatosparaxis
+        in other species.
+      explanation: Establishes this natural canine allele as a fourth species (alongside human,
+        bovine, and ovine) reproducing the hieroglyphic fibril phenotype.
+  notes: &gt;-
+    Reported by the same group that authored the sheep V15M report above. Genotyping of archived
+    DNA found the truncating deletion allele at a frequency of 0.27 in a tested Alapaha Blue Blood
+    Bulldog cohort, indicating the allele is not vanishingly rare within that breed.
+- name: Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)
+  species: Sheep
+  genotype: ADAMTS2 nonsense variant (zygosity not recorded in the available source)
+  publication: PMID:28856769
+  description: &gt;-
+    A naturally occurring ADAMTS2 nonsense allele reported in a White Dorper
+    flock in Switzerland. It is a second, independent ovine allele alongside the
+    V15M catalytic-domain missense model above, and a null rather than a
+    missense one -- so the two together give a within-species contrast between
+    a null allele and a catalytic-domain missense one.
+  modeled_mechanisms:
+  - target: Biallelic ADAMTS2 Loss of Function
+    relationship: RECAPITULATES
+    fidelity: UNKNOWN
+    description: &gt;-
+      A naturally occurring ovine ADAMTS2 nonsense allele, independently
+      confirming loss-of-function ADAMTS2 mutation as causative outside the
+      bovine and canine truncating-allele models.
+    limitations: &gt;-
+      No abstract is available for this record, so nothing beyond the title and
+      indexed subject terms could be verified. No phenotypic, biochemical, or
+      ultrastructural detail is recorded here, no evidence quote is attached to
+      this link, and `fidelity` is left UNKNOWN rather than asserted. The
+      breed-level phenotype is therefore not established from this entry&#39;s
+      sources, and the link records only the causative allele class.
+  notes: &gt;-
+    Carried at title-and-MeSH level only. `references_cache/PMID_28856769.md`
+    has no abstract, so per the evidence SOP no snippet was manufactured from
+    the title; the model is recorded with its limitation disclosed instead of
+    being dropped, since the allele class it contributes is not otherwise
+    represented in the ovine models here.
+
+    Zygosity is unsourced. Dermatosparaxis EDS is autosomal recessive, so a
+    homozygous nonsense genotype is the expected finding, but neither the title
+    nor the indexed MeSH terms state it, so `genotype` records the allele class
+    only rather than asserting a zygosity this entry&#39;s sources cannot support.
+
+    Opposing view on record. PR #10177 deliberately omitted this model, on the
+    grounds that a model with no quotable evidence should wait until someone can
+    quote it. That argument is recorded here so a future curator can act on it by
+    deleting this one list entry, rather than having to re-derive it.
 definitions:
 - name: 2016 revised clinical diagnostic criteria for dermatosparaxis EDS
   definition_type: DIAGNOSTIC_CRITERIA
@@ -10139,7 +10905,16 @@ discussions:
 
     Distinguishing these matters clinically, because the 2016 authors proposed revised diagnostic criteria
     on the strength of the milder cases, and how those criteria should be applied depends on whether mild disease
-    is a distinct biological state or the bottom of one distribution.&#39;
+    is a distinct biological state or the bottom of one distribution.
+
+    A 2022 canine report (see animal_models) adds a cross-species data point without settling the question.
+    Six dogs homozygous for a truncating ADAMTS2 allele were all euthanized for severe skin fragility by 13
+    weeks of age, while a dog homozygous for a distinct catalytic-domain missense allele survived at least
+    nine years with a milder course - superficially the same allele-class-versus-severity pattern seen in the
+    human series. But the paper is explicit that this is not a controlled comparison: the truncating-allele
+    puppies were euthanized at owner discretion once fragility became apparent, so whether they would have
+    gone on to a longer, milder course like the missense dog is unknown. The ascertainment candidate explanation
+    above therefore has a direct veterinary analogue, not just a human one.&#39;
   proposed_experiments:
   - experiment_id: deds_residual_adamts2_activity_vs_severity
     name: Quantify residual N-proteinase activity against reported allele severity
@@ -10181,6 +10956,11 @@ references:
 - reference: PMID:25354687
   title: In silico identification and three-dimensional modelling of the missense mutation in ADAMTS2 in
     a sheep flock with dermatosparaxis.
+- reference: PMID:28856769
+  title: &#39;Dermatosparaxis in White Dorper sheep: confirmation of a causative nonsense mutation in ADAMTS2.&#39;
+- reference: PMID:36421833
+  title: Novel Homozygous ADAMTS2 Variants and Associated Disease Phenotypes in Dogs with Dermatosparactic
+    Ehlers-Danlos Syndrome.
 notes: &#39;This entry is deliberately separate from the umbrella Ehlers-Danlos_Syndrome entry, which lists Dermatosparaxis
   EDS among its has_subtypes. That follows the repository&#39;&#39;s existing practice, where Vascular, Hypermobile,
   Musculocontractural, Spondylodysplastic and Cardiac Valvular EDS all carry their own entries in addition
@@ -10224,6 +11004,48 @@ progression:
     becomes a monitoring concern after a low-impact fracture or the menopause. Until 2025 the oldest reported
     patient was 19, so the adult natural history is new information rather than established knowledge.
   age_range: 22-42 years
+datasets:
+- accession: geo:GSE343646
+  title: &#34;A Patient-Analog Adamts2 Knock-In Murine Model Reveals Fibroblast-Centered Extracellular Matrix Failure in Dermatosparaxis Ehlers–Danlos Syndrome (dEDS)&#34;
+  description: &gt;-
+    Single-nucleus RNA sequencing and digital pathology of skin from a
+    patient-analog Adamts2 Q226* knock-in mouse, the first genetically
+    faithful (patient-allele) mouse model of dermatosparaxis EDS. Identifies
+    dermal fibroblasts as the cell population most transcriptionally
+    disrupted by ADAMTS2 loss and quantifies collagen architecture defects
+    beyond what the earlier bovine, double-knockout mouse, and sheep models
+    captured.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 4
+  genes:
+  - preferred_term: ADAMTS2
+    term:
+      id: hgnc:218
+      label: ADAMTS2
+  evidence:
+  - reference: GEO:GSE343646
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;we generated a patient-analog Adamts2Q226*/Q226* knock-in mouse model and used histologic, ultrastructural, biochemical, digital pathology, and single-nucleus transcriptomic approaches to define the consequences of ADAMTS2 loss in skin&#34;
+    explanation: Establishes the model as carrying the actual patient nonsense allele (Q226*) rather than an engineered null, distinguishing it from the frameshift/deletion alleles in the calf and double-knockout mouse models already in this entry.
+  - reference: GEO:GSE343646
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Single-nucleus RNA sequencing identified fibroblasts as the cell population most strongly affected by Adamts2 deficiency, with coordinated downregulation of collagen, microfibrillar, and other ECM-associated genes.&#34;
+    explanation: Reports the study&#39;s central novel finding -- fibroblasts as the transcriptionally dominant affected cell population -- which is not established by any of the entry&#39;s existing animal models.
+  notes: &gt;-
+    No associated peer-reviewed publication (PMID) was found for this 2026
+    GEO deposit at the time of curation; PubMed searches for the study title
+    and the Adamts2 Q226* knock-in allele returned no hits. Cited here as a
+    dataset record per the geo: reference workflow rather than as a full
+    animal_models entry, since AnimalModel.publication requires a PMID. If a
+    manuscript is later published, this dataset and its findings should be
+    promoted to a full animal_models entry with modeled_mechanisms links.
 </pre>
             </div>
         </div>
@@ -10239,7 +11061,7 @@ progression:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">11</span>
+                    <span class="card-count">13</span>
                 </div>
 
                 <div class="reference-entry">
@@ -10429,18 +11251,52 @@ progression:
 
                 </div>
 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28856769" target="_blank">PMID:28856769</a>
+                            </div>
+
+                            <div class="reference-title">Dermatosparaxis in White Dorper sheep: confirmation of a causative nonsense mutation in ADAMTS2.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36421833" target="_blank">PMID:36421833</a>
+                            </div>
+
+                            <div class="reference-title">Novel Homozygous ADAMTS2 Variants and Associated Disease Phenotypes in Dogs with Dermatosparactic Ehlers-Danlos Syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
             </div>
 
 
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
                 </div>
                 <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
 
                 <details class="research-reviews">
-                    <summary>Evaluations and curation notes (2)</summary>
+                    <summary>Evaluations and curation notes (3)</summary>
 
                     <div>
                         <p><strong>Record notes</strong></p>
@@ -10451,6 +11307,12 @@ Phenotype frequencies. The bands come from the counted findings table in PMID:26
                     </div>
 
                     <div>
+                        <p><strong>Augment: Dermatosparaxis Ehlers-Danlos Syndrome (deep-research cross-check)</strong> · 2026-09-15T22:55:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dermatosparaxis_Ehlers-Danlos_Syndrome/2026-09-15T225517Z-claude-code-1e6d8c.yaml">View source</a></p>
+                        <p class="research-review-text">This entry already existed as an exceptionally mature, actively-maintained curation (91.0% compliance, 1277 lines, animal_models/definitions/discussions/progression sections all present, its own prior OpenScientist deep-research pass documented in notes:) -- so this session&#39;s task was augmentation, not creation. Per /curate instructions, a fresh deep-research pass was run via &#39;just dr_fallback=--fallback research-disorder falcon Dermatosparaxis_Ehlers-Danlos_Syndrome&#39; (falcon/Edison Scientific ran successfully this time, 628s, 34 citations, 11/11 references resolved, 0 confabulated; needs_review:true was driven only by a harmless template-placeholder artifact (&#39;if available&#39; leaking into the MONDO label field) plus one pre-existing obsolete GO term not used in this entry). Before running deep research, just discover-datasets surfaced a highly relevant, previously-uncited 2026 GEO dataset (geo:GSE343646, a patient-analog Adamts2 Q226* knock-in mouse with single-nucleus RNA-seq identifying fibroblasts as the most transcriptionally disrupted cell population) which was verified via just verify-datasets and added as a datasets: entry -- not as a full animal_models entry, since AnimalModel.publication requires a PMID and no peer-reviewed publication for this 2026 GEO deposit could be found via PubMed search. Cross-checking the fresh deep-research report&#39;s body against the existing entry found it substantially corroborated already-cited content, but surfaced two genuinely new, previously-uncited primary sources (fetched and verified before use, both full-text): PMID:36421833 (Jaffey et al. 2022, a natural canine dermatosparaxis model reporting two ADAMTS2 genotypes with strikingly different severity -- a truncating allele in 6 dogs all euthanized by 13 weeks vs. a catalytic-domain missense allele in a dog surviving 9+ years) and PMID:42261541 (a 2026 case report of an adolescent with dEDS presenting with hemorrhagic complications despite entirely normal coagulation studies). Added the canine model as a new animal_models entry (modeled_mechanisms -&gt; Hieroglyphic Collagen Fibril Assembly, extending the ultrastructural phenotype to tendon/ligament beyond the dermis already characterized in the bovine model), explicitly preserving the source paper&#39;s own hedging that euthanasia timing for the truncating-allele puppies reflected owner discretion rather than a measured biological endpoint -- this was then woven into the existing deds_mild_phenotype_molecular_basis_unexplained discussion&#39;s rationale as a cross-species data point that parallels but does not resolve the human ascertainment-vs-biology question. Added the case report&#39;s coagulation-testing nuance as a new diagnosis: entry (normal coagulation panel/factor assay/thromboelastometry does not exclude disease-related bleeding). Considered and declined the report&#39;s large phenotype-frequency table (hypertrichosis, pes planus, additional ocular/dental findings, etc.) since it draws from the same underlying source (Van Damme et al. 2016 = PMID:26765342) already exhaustively and deliberately mined by the entry&#39;s existing curator with documented methodology in its notes: field: re-deriving frequency bands from a table the falcon report merely re-quotes would not add information and risked contradicting the existing curator&#39;s already-careful frequency-sourcing decisions. Revalidated with: just validate (schema/term/reference, 73/73 snippets verified), just validate-disorders (CI-authoritative batched gate, passed), just check-causal-targets (0 new dangling targets), just check-entity-refs, just check-duplicate-keys, just check-enum-values, just check-snippet-length (whole-KB, exit 0), and just list-gene-term-mismatches (0 mismatches across 4 gene bindings). Compliance (just compliance): 90.6% global / 90.4% weighted (essentially unchanged from the pre-existing 91.0%/91.5%, since most additions populated previously-empty optional slots such as datasets: alongside new required fields). Note: an unrelated, unexplained stray file references_cache/GEO_GSE130749.md (a testis-development CBX2/Wnt dataset with no connection to EDS or this session&#39;s work) appeared in the working tree during this session; it was not referenced by either deep-research report and was left uncommitted/unstaged rather than included here.
+</p>
+                    </div>
+
+                    <div>
                         <p><strong>Create: Dermatosparaxis_Ehlers-Danlos_Syndrome</strong> · 2026-08-28T22:08:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dermatosparaxis_Ehlers-Danlos_Syndrome/2026-08-28T220836Z-claude-code-794ceb.yaml">View source</a></p>
                         <p class="research-review-text">De novo curation of dermatosparaxis Ehlers-Danlos syndrome, MONDO:0009161, claimed via issue #9938. One OpenScientist deep-research report was run: research/Dermatosparaxis_Ehlers-Danlos_Syndrome-deep-research-openscientist.md. Its reference validation reported 13/13 verified with no unsupported quotes; its term validation flagged two obsolete GO terms and a cosmetic CL label variant, none of which are bound in this entry. Evidence was drawn from independently fetched PubMed abstracts rather than from report-supplied quotes. The report&#39;s substantive contribution was the Adamts2/Adamts14 double-knockout result, which substantiates the non-compensation claim. Validated with just validate at 57/57 snippets verified after review rounds, plus check-duplicate-keys and check-entity-refs.
 </p>
@@ -10458,6 +11320,1061 @@ Phenotype frequencies. The bands come from the counted findings table in PMID:26
 
                 </details>
 
+
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Falcon</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+
+                        <div class="report-meta">
+
+                            <div class="report-subtitle">Disease Characteristics Research Template</div>
+
+
+                            <span class="report-badge">Edison Scientific Literature</span>
+
+
+                            <span class="report-badge">34 citations</span>
+
+
+                            <span class="report-meta-text">2026-09-15T22:46:03.890319</span>
+
+                        </div>
+
+                        <div class="report-content">
+                            <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Dermatosparaxis Ehlers-Danlos Syndrome</li>
+<li><strong>MONDO ID:</strong> MONDO:0009161 (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Dermatosparaxis Ehlers-Danlos Syndrome</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Present this section as an ordered causal chain first, then the detail below.</strong>
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.</p>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Dermatosparaxis Ehlers–Danlos syndrome: disease-characteristics report</h1>
+<h2>Executive summary and evidence scope</h2>
+<p>Dermatosparaxis Ehlers–Danlos syndrome (dEDS) is an ultra-rare, autosomal-recessive connective-tissue disorder caused by biallelic pathogenic variants in <strong>ADAMTS2</strong>. Deficient ADAMTS-2-mediated removal of amino-terminal propeptides from fibrillar procollagens—especially types I and III in skin—produces abnormally organized collagen fibrils and extreme tissue fragility. Hallmarks are congenital or early-childhood skin fragility, easy bruising, soft/doughy or redundant skin, characteristic craniofacial findings, joint hypermobility, umbilical hernia, and postnatal growth restriction. Visceral, vascular, and hemorrhagic complications occur but are incompletely quantified. The best quantified human dataset remains only 15 molecularly confirmed individuals; consequently, percentages below are descriptive, not robust population estimates. A 2024 expert review still classified prevalence as below 1 per 1,000,000 and noted only 15 reported children, with very limited adult follow-up. (dijk2024clinicaldiagnosisof pages 3-4)</p>
+<p>Evidence types are labeled where important: <strong>human clinical/genetic</strong>, <strong>human fibroblast/in-vitro</strong>, <strong>mouse knockout</strong>, <strong>natural veterinary disease</strong>, or <strong>expert review</strong>. Recent dEDS-specific research in 2023–2024 was sparse; the principal 2024 advances were updated clinical and molecular diagnostic guidance rather than therapeutic trials. (dijk2024clinicaldiagnosisof pages 3-4, zschocke2024geneticdiagnosisof pages 8-9)</p>
+<h2>1. Disease information</h2>
+<h3>Definition and nomenclature</h3>
+<p>dEDS is one of the monogenic Ehlers–Danlos syndromes, characterized by connective-tissue fragility arising from defective collagen processing. Historical names include <strong>Ehlers–Danlos syndrome type VIIC</strong>, <strong>EDS VIIC</strong>, <strong>human dermatosparaxis</strong>, <strong>dermatosparactic EDS</strong>, and <strong>EDS dermatosparaxis type</strong>. (kapfererseebacher2020dentalmanifestationsof pages 1-2, malek2021theroleof pages 2-3, colige1999humanehlersdanlossyndrome pages 1-2)</p>
+<p><strong>Identifiers</strong></p>
+<ul>
+<li><strong>MONDO:</strong> MONDO:0009161, as supplied in the target specification.</li>
+<li><strong>OMIM/MIM:</strong> <strong>225410</strong>. (neto2024unravelingthegenetic pages 5-6, malek2021theroleof pages 2-3, colige1999humanehlersdanlossyndrome pages 1-2)</li>
+<li><strong>Causal-gene disease label:</strong> ADAMTS2-related dermatosparaxis EDS.</li>
+<li><strong>Orphanet:</strong> an Orphanet disease entry exists, but its numeric ORPHA identifier was not established by the retrieved primary texts and should be verified directly before database loading.</li>
+<li><strong>ICD-10:</strong> no dEDS-specific code was established in the retrieved literature; it is generally subsumed under Ehlers–Danlos syndrome/congenital connective-tissue-malformation coding rather than represented as a subtype-specific diagnosis.</li>
+<li><strong>ICD-11 and MeSH:</strong> no dEDS-specific identifiers were verified in the retrieved full texts; use the broader Ehlers–Danlos syndrome concept with an ADAMTS2/dEDS qualifier after direct terminology-service validation.</li>
+</ul>
+<p>The evidence summarized here is predominantly <strong>aggregated disease-level literature</strong>—case series, reviews, and experimental studies—not longitudinal EHR-derived data. Individual-patient observations from published case reports/series underpin many phenotype claims.</p>
+<h2>2. Etiology, risk, protection, and environment</h2>
+<h3>Primary cause</h3>
+<p>The necessary initiating lesion is usually <strong>biallelic germline loss of ADAMTS2 function</strong>. ADAMTS2 encodes an extracellular zinc metalloprotease, historically called procollagen-I N-proteinase, that removes amino-terminal propeptides from major fibrillar procollagens. The landmark study found homozygous p.Gln225Ter in five of six then-known patients and homozygous p.Trp795Ter in the sixth, directly linking absent enzyme activity to human EDS VIIC. (colige1999humanehlersdanlossyndrome pages 1-2)</p>
+<h3>Genetic risk factors</h3>
+<p>Risk is determined primarily by inheriting two pathogenic alleles. Reported mechanisms include nonsense, frameshift, canonical splice-site, start-loss, and likely hypomorphic missense variants. Homozygosity is common in consanguineous families, although compound heterozygosity and affected individuals from nonconsanguineous families occur. In the 15-person summary, three individuals had known consanguineous parents; this is ascertainment evidence, not a population risk estimate. (damme2016expandingtheclinical pages 2-3, damme2016expandingtheclinical pages 7-8)</p>
+<p>The 2016 human study reported:</p>
+<ul>
+<li>c.2927_2928delCT, p.(Pro976Argfs*42), homozygous;</li>
+<li>c.669_670dupG, p.(Pro224Argfs*24), homozygous;</li>
+<li>c.2751-2A&gt;T, causing out-of-frame exon-19 skipping, homozygous;</li>
+<li>compound heterozygous c.2T&gt;C, p.? and c.884_887delTGAA, p.(Met295Thrfs*26). (damme2016expandingtheclinical pages 1-2, damme2016expandingtheclinical pages 5-7, damme2016expandingtheclinical pages 7-8)</li>
+</ul>
+<p>These variants were absent from the population databases queried at the time—1000 Genomes, ESP6500, and ExAC—and several truncated transcripts underwent nonsense-mediated decay, demonstrated by markedly reduced fibroblast ADAMTS2 RNA. Modern gnomAD frequencies and current ClinVar classifications must be checked variant-by-variant; historical absence is not a substitute for current frequency data. (damme2016expandingtheclinical pages 2-3, damme2016expandingtheclinical pages 7-8)</p>
+<h3>Modifiers and protective factors</h3>
+<p>No validated human modifier gene or protective allele is known. <strong>ADAMTS3 and ADAMTS14 are biologically plausible tissue-specific compensators</strong>, not established clinical protective factors: ADAMTS3 processed procollagen I in dermatosparactic fibroblasts, while Adamts14 overlapped with Adamts2 in mature mouse dermis. Their differential expression may explain why skin is more severely affected than cartilage, tendon, bone, cornea, or aorta. (goff2006regulationofprocollagen pages 1-2, goff2006regulationofprocollagen pages 7-8)</p>
+<p>There are no demonstrated dietary, lifestyle, pharmacological, or environmental factors that prevent the genotype from causing disease. Trauma and invasive procedures do not cause dEDS, but mechanically challenge fragile tissue and can precipitate tears, hematomas, hemorrhage, prolapse, or rupture. Avoidance of trauma is therefore complication prevention, not etiologic prevention.</p>
+<h3>Environmental and infectious factors</h3>
+<p>No toxin, radiation, pollution, occupational exposure, lifestyle behavior, or infectious organism is known to initiate dEDS. Smoking, alcohol, diet, and exercise have not been evaluated as disease-susceptibility factors. Gene–environment interaction is principally mechanical: genetically abnormal collagen reduces tissue tensile strength, while trauma, vomiting, defecation, surgery, and other physical stresses can reveal or exacerbate manifestations. Diaphragmatic rupture after vomiting and severe rectal prolapse/bleeding exemplify this interaction. (dijk2024clinicaldiagnosisof pages 3-4, damme2016expandingtheclinical pages 2-3, damme2016expandingtheclinical pages 3-5)</p>
+<h2>3. Phenotypes</h2>
+<p>The most useful quantified summary comes from 15 molecularly confirmed individuals from 14 families. Missing entries meant “not reported,” so the following fractions are not unbiased penetrance estimates. (damme2016expandingtheclinical pages 5-7, damme2016expandingtheclinical pages 7-8)</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Feature</th>
+<th style="text-align: right;">Reported count / denominator</th>
+<th style="text-align: right;">Approx. percentage</th>
+<th>Onset/course</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skin</td>
+<td>Severe skin fragility/skin tears</td>
+<td style="text-align: right;">14/15</td>
+<td style="text-align: right;">93%</td>
+<td>Congenital in 2; predominantly postnatal and may become more apparent with activity/age</td>
+<td>Skin fragility (HP:0001030); Skin ulcer (HP:0200042)</td>
+</tr>
+<tr>
+<td>Eye</td>
+<td>Blue sclerae</td>
+<td style="text-align: right;">13/15</td>
+<td style="text-align: right;">87%</td>
+<td>Usually congenital or evident in early childhood</td>
+<td>Blue sclerae (HP:0000592)</td>
+</tr>
+<tr>
+<td>Growth</td>
+<td>Postnatal growth restriction</td>
+<td style="text-align: right;">13/15</td>
+<td style="text-align: right;">87%</td>
+<td>Develops after birth; persistent short stature common</td>
+<td>Postnatal growth retardation (HP:0008897)</td>
+</tr>
+<tr>
+<td>Skin</td>
+<td>Soft, doughy skin</td>
+<td style="text-align: right;">12/15</td>
+<td style="text-align: right;">80%</td>
+<td>Congenital or early childhood; persistent</td>
+<td>Soft skin (HP:0000977)</td>
+</tr>
+<tr>
+<td>Craniofacial</td>
+<td>Epicanthic folds</td>
+<td style="text-align: right;">12/15</td>
+<td style="text-align: right;">80%</td>
+<td>Congenital/early childhood</td>
+<td>Epicanthus (HP:0000286)</td>
+</tr>
+<tr>
+<td>Craniofacial</td>
+<td>Micrognathia</td>
+<td style="text-align: right;">12/15</td>
+<td style="text-align: right;">80%</td>
+<td>Congenital or progressively recognizable in childhood</td>
+<td>Micrognathia (HP:0000347)</td>
+</tr>
+<tr>
+<td>Craniofacial</td>
+<td>Large fontanel/delayed closure</td>
+<td style="text-align: right;">11/15</td>
+<td style="text-align: right;">73%</td>
+<td>Congenital; closure delayed into childhood</td>
+<td>Large fontanelle (HP:0000239); Delayed closure of the anterior fontanelle (HP:0001476)</td>
+</tr>
+<tr>
+<td>Skin</td>
+<td>Sagging or redundant skin</td>
+<td style="text-align: right;">11/15</td>
+<td style="text-align: right;">73%</td>
+<td>Often congenital in severe disease; may become more apparent postnatally</td>
+<td>Redundant skin (HP:0001582)</td>
+</tr>
+<tr>
+<td>Musculoskeletal</td>
+<td>Joint hypermobility</td>
+<td style="text-align: right;">11/15</td>
+<td style="text-align: right;">73%</td>
+<td>Congenital or recognized in early childhood; persistent</td>
+<td>Generalized joint hypermobility (HP:0002761)</td>
+</tr>
+<tr>
+<td>Musculoskeletal/growth</td>
+<td>Short limbs, hands, and feet</td>
+<td style="text-align: right;">11/15</td>
+<td style="text-align: right;">73%</td>
+<td>Postnatal growth pattern; generally persistent</td>
+<td>Short limb (HP:0009826); Short hand (HP:0200055); Short foot (HP:0001773)</td>
+</tr>
+<tr>
+<td>Hematologic/skin</td>
+<td>Easy bruising</td>
+<td style="text-align: right;">11/15</td>
+<td style="text-align: right;">73%</td>
+<td>Usually begins in infancy or childhood; recurrent</td>
+<td>Easy bruisability (HP:0000978)</td>
+</tr>
+<tr>
+<td>Development</td>
+<td>Delayed motor development</td>
+<td style="text-align: right;">8/15</td>
+<td style="text-align: right;">53%</td>
+<td>Infancy/early childhood; variable severity</td>
+<td>Motor delay (HP:0001270)</td>
+</tr>
+<tr>
+<td>Hemorrhagic</td>
+<td>Bleeding complications</td>
+<td style="text-align: right;">7/15</td>
+<td style="text-align: right;">47%</td>
+<td>Congenital through later childhood; episodic and potentially severe</td>
+<td>Abnormal bleeding (HP:0001892)</td>
+</tr>
+<tr>
+<td>Visceral</td>
+<td>Visceral fragility</td>
+<td style="text-align: right;">5/15</td>
+<td style="text-align: right;">33%</td>
+<td>Congenital or postnatal; episodic rupture/prolapse complications</td>
+<td>Visceral tissue fragility (closest available: HP:0003549)</td>
+</tr>
+<tr>
+<td>Abdominal wall</td>
+<td>Umbilical hernia</td>
+<td style="text-align: right;">14/15</td>
+<td style="text-align: right;">93%</td>
+<td>Usually congenital</td>
+<td>Umbilical hernia (HP:0001537)</td>
+</tr>
+<tr>
+<td>Pregnancy/birth</td>
+<td>Preterm birth</td>
+<td style="text-align: right;">9/15</td>
+<td style="text-align: right;">60%</td>
+<td>Prenatal/perinatal; mean gestational age across 14 individuals was 34 weeks 4 days</td>
+<td>Premature birth (HP:0001622)</td>
+</tr>
+<tr>
+<td>Pregnancy/birth</td>
+<td>Preterm premature rupture of membranes (PPROM)</td>
+<td style="text-align: right;">6/15</td>
+<td style="text-align: right;">40%</td>
+<td>Prenatal; precedes some preterm deliveries</td>
+<td>Premature rupture of membranes (HP:0001788)</td>
+</tr>
+<tr>
+<td>Demographic</td>
+<td>Sex ratio</td>
+<td style="text-align: right;">11 male:4 female</td>
+<td style="text-align: right;">73% male; 27% female</td>
+<td>Cohort composition, not a phenotype or established sex predisposition</td>
+<td>Biological sex (metadata; no disease-phenotype HPO term)</td>
+</tr>
+<tr>
+<td>Evidence note</td>
+<td>Missingness/ascertainment limitation</td>
+<td style="text-align: right;">15 molecularly confirmed individuals</td>
+<td style="text-align: right;">Not applicable</td>
+<td>Blank entries were “not reported”; counts therefore are not strict prevalence estimates</td>
+<td>Evidence qualifier: incomplete phenotype ascertainment</td>
+</tr>
+<tr>
+<td>Source</td>
+<td>Van Damme et al., <em>Genetics in Medicine</em> (2016), DOI: 10.1038/gim.2015.188</td>
+<td style="text-align: right;">15 individuals from 14 families</td>
+<td style="text-align: right;">Not applicable</td>
+<td>Published September 2016</td>
+<td>(damme2016expandingtheclinical pages 3-5, damme2016expandingtheclinical pages 5-7, damme2016expandingtheclinical pages 7-8)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Table: Key clinical findings in the 15 molecularly confirmed individuals summarized by Van Damme et al. Counts reflect reported observations with incomplete ascertainment, so percentages should not be interpreted as unbiased prevalence estimates.</em></p>
+<p>Additional reported manifestations include facial or mucosal lacerations, delayed healing, papyraceous or widened atrophic scars, translucent skin with visible veins, subcutaneous hematomas, hypertrichosis, hypotonia, pes planus, kyphoscoliosis, osteopenia, fractures including congenital skull fractures, myopia, microcornea, glaucoma, gingival hyperplasia or bleeding, microdontia/oligodontia, rectal prolapse, hiatal hernia, bladder diverticula/rupture, diaphragmatic rupture, mitral-valve prolapse, fatigue, and chronic joint pain. Dental evidence remains sparse and cannot support reliable frequencies. (dijk2024clinicaldiagnosisof pages 3-4, damme2016expandingtheclinical pages 3-5, damme2016expandingtheclinical pages 5-7, damme2016expandingtheclinical pages 7-8)</p>
+<p><strong>Phenotype type and course.</strong> Skin tears, bruising, hemorrhage, hernia, prolapse, and rupture are clinical signs or complications; joint pain and fatigue are symptoms; hypermobility, craniofacial gestalt, short extremities, and redundant skin are examination findings. Routine coagulation testing can be normal despite severe bleeding, as illustrated by a later adolescent case with normal CBC, coagulation factors, and rotational thromboelastometry. (balagopal2026exploringthehemorrhagic pages 1-4)</p>
+<p><strong>Onset.</strong> Severe disease can be evident prenatally or at birth through premature membrane rupture, prematurity, friable umbilical cord, congenital tears, skull fractures, or hemorrhage. Milder disease may initially be facial/oral fragility and become more generalized as childhood activity increases. Mean diagnosis age in the 2016 dataset was 62 months, ranging from birth to 13 years, illustrating diagnostic delay and variable expressivity. (damme2016expandingtheclinical pages 7-8)</p>
+<p><strong>Quality of life.</strong> No dEDS-specific EQ-5D, SF-36, PROMIS, or validated disease-specific quality-of-life study was found. Published patients nevertheless experienced recurrent suturing, surgery, activity-limiting tissue injury, progressive widespread joint pain, fatigue, gastrointestinal symptoms, bleeding, and intensive medical follow-up. These observations indicate potentially substantial functional and psychosocial burden but cannot be converted into population-level utility scores. (damme2016expandingtheclinical pages 2-3, damme2016expandingtheclinical pages 3-5)</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Causal gene and protein</h3>
+<ul>
+<li><strong>Gene:</strong> ADAMTS2; biallelic pathogenic variants.</li>
+<li><strong>Protein:</strong> ADAMTS-2/procollagen-I N-proteinase, a secreted disintegrin-like metalloprotease with thrombospondin motifs, a zinc-binding catalytic site, cysteine-rich/disintegrin-like regions, and C-terminal ancillary domains. (goff2006regulationofprocollagen pages 1-2, colige1999humanehlersdanlossyndrome pages 1-2)</li>
+<li><strong>Disease mechanism:</strong> predominantly loss of function through premature termination, aberrant splicing, or nonsense-mediated RNA decay.</li>
+<li><strong>Origin:</strong> constitutional/germline. Somatic ADAMTS2 variants are not the cause of inherited dEDS.</li>
+</ul>
+<p>The evidence for causality is strong: recessive segregation, recurrent truncating variants, absent/reduced enzymatic activity, abnormal procollagen processing, fibroblast transcript loss, collagen-fibril abnormalities, concordant animal disease, and knockout phenocopy. (colige1999humanehlersdanlossyndrome pages 1-2, damme2016expandingtheclinical pages 5-7, damme2016expandingtheclinical pages 7-8)</p>
+<h3>Variant interpretation</h3>
+<p>Established biallelic null alleles are generally pathogenic under ACMG/AMP concepts because loss of function is the known mechanism. Missense variants require caution: rarity and computational prediction alone are insufficient, and enzymatic, RNA, biochemical, segregation, or collagen-ultrastructure evidence is desirable. A VUS should not by itself confirm dEDS; a 2024 expert review warned that indiscriminate testing can create misleading VUS-based diagnoses. (zschocke2024geneticdiagnosisof pages 2-3)</p>
+<p>No validated dominant-negative or gain-of-function dEDS mechanism is known. Large deletions are biologically possible and should be detectable through copy-number analysis, but no recurrent chromosomal rearrangement or aneuploidy defines dEDS. No disease-specific DNA-methylation signature, histone alteration, or other epigenetic biomarker has been established.</p>
+<h3>Genotype–phenotype relationship</h3>
+<p>The 2016 cohort expanded the phenotype to include markedly milder patients despite molecularly demonstrated deficient ADAMTS-2 activity and abnormal procollagen processing. In natural canine disease, early truncating c.10delC/p.(Pro4ArgfsTer175) produced catastrophic juvenile skin fragility with euthanasia before 13 weeks in six dogs, whereas a homozygous p.(Arg966His) dog survived at least nine years, consistent with residual activity as a plausible—but unproven—explanation. This supports quantitative residual function as a candidate severity determinant but does not establish a human prognostic rule. (jaffey2022novelhomozygousadamts2 pages 1-2)</p>
+<h2>5. Environmental information</h2>
+<p>Environmental causation is <strong>not applicable</strong>. Practical exposure modifiers include trauma, friction, contact sports, falls, poorly fitted equipment, surgery, endoscopy, arterial puncture, forceful vomiting, and constipation/straining. These can precipitate complications in genetically fragile tissue. No infectious trigger, transmissible agent, or zoonotic risk exists.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic pathogenic ADAMTS2 variants lead to</strong> absent or markedly reduced functional extracellular ADAMTS-2.</li>
+<li><strong>Reduced ADAMTS-2 activity leads to</strong> deficient cleavage of N-terminal propeptides from procollagens I and III; effects on type II collagen are often limited by tissue-specific ADAMTS3 compensation. (goff2006regulationofprocollagen pages 1-2, goff2006regulationofprocollagen pages 7-8)</li>
+<li><strong>Failed cleavage leads to</strong> accumulation of pN-collagen/procollagen species retaining amino-terminal propeptides, directly demonstrated in patient fibroblasts and Adamts2-null tissues. (colige1999humanehlersdanlossyndrome pages 1-2, damme2016expandingtheclinical pages 5-7)</li>
+<li><strong>Retained propeptides lead to</strong> abnormal lateral packing and assembly of collagen monomers into thin, branched, ribbon-like or “hieroglyphic” fibrils rather than regular cylindrical fibrils. (goff2006regulationofprocollagen pages 1-2, colige1999humanehlersdanlossyndrome pages 1-2)</li>
+<li><strong>Abnormal fibrillogenesis leads to</strong> reduced extracellular-matrix tensile strength, most prominently in dermis and other mechanically stressed connective tissues.</li>
+<li><strong>Reduced tensile strength leads to</strong> skin tearing, poor wound healing, bruising/hematoma, hernias, joint laxity, mucosal and visceral fragility, and—in some patients—major hemorrhage or organ rupture.</li>
+<li><strong>Branch A: tissue-specific ADAMTS3/ADAMTS14 expression leads to</strong> partial rescue of procollagen processing in cartilage, bone, muscle/tendon, mature dermis, cornea, and possibly aorta; this branch is experimentally supported in mice/in-vitro but remains inferred as a human severity modifier. (goff2006regulationofprocollagen pages 1-2, goff2006regulationofprocollagen pages 7-8, jaffey2022novelhomozygousadamts2 pages 14-15)</li>
+<li><strong>Branch B: severe deficiency of type III procollagen processing in lung leads to</strong> distal-airspace enlargement in Adamts2-null mice; pulmonary surveillance relevance in humans is plausible but not established. (goff2006regulationofprocollagen pages 7-8)</li>
+</ol>
+<h3>Detailed biology and ontology suggestions</h3>
+<p>This is primarily an <strong>extracellular-matrix biosynthesis/assembly disorder</strong>, not a canonical Wnt, MAPK, mTOR, or PI3K–AKT signaling disease. Relevant biological processes include collagen biosynthesis and modification, extracellular-matrix organization, collagen-fibril organization, proteolysis, wound healing, and connective-tissue development. Suggested GO annotations include <strong>extracellular matrix organization (GO:0030198)</strong>, <strong>collagen fibril organization (GO:0030199)</strong>, <strong>proteolysis (GO:0006508)</strong>, <strong>wound healing (GO:0042060)</strong>, and <strong>metalloendopeptidase activity (GO:0004222)</strong>.</p>
+<p>The main cell type is the collagen-producing <strong>fibroblast</strong> (suggested CL:0000057), with relevant mesenchymal cells including dermal fibroblasts, tendon/ligament fibroblasts, chondrocytes (CL:0000138), osteoblast-lineage cells (CL:0000062), vascular smooth-muscle cells (CL:0000359), and lung mesenchymal cells. Expression in mouse lung occurred in mesenchyme rather than bronchial epithelium. (goff2006regulationofprocollagen pages 7-8)</p>
+<p>Subcellular/localization annotations include the <strong>extracellular region (GO:0005576)</strong>, <strong>extracellular matrix (GO:0031012)</strong>, <strong>collagen-containing extracellular matrix (GO:0062023)</strong>, and secretory pathway/ER for procollagen synthesis. The pathogenic cleavage and fibril-assembly defect is mainly extracellular; no primary mitochondrial, lysosomal, nuclear, autophagic, apoptotic, metabolic, or immune defect is established.</p>
+<p><strong>Molecular profiling.</strong> Patient fibroblast qPCR showed severely reduced ADAMTS2 expression for truncating alleles; radiolabeled-procollagen electrophoresis showed accumulation of pNα1(I)/pNα2(I) and near absence of pCα1(I)/pCα2(I); TEM showed irregular, branched fibrils, sometimes milder than the classic hieroglyphic pattern. These are targeted transcript, protein-processing, and ultrastructural findings—not unbiased transcriptomics, proteomics, metabolomics, lipidomics, single-cell, spatial, or multi-omics profiles. (damme2016expandingtheclinical pages 5-7, damme2016expandingtheclinical pages 7-8)</p>
+<p>No dEDS-specific single-cell atlas, spatial transcriptomic map, metabolomic/lipidomic signature, patient organoid, iPSC model, or published therapeutic CRISPR screen was identified.</p>
+<p><strong>Exact primary-literature statement:</strong> Colige et al. reported that retained-propeptide molecules “self-assemble into abnormal ribbonlike fibrils that fail to provide normal tensile strength to tissues.” (colige1999humanehlersdanlossyndrome pages 1-2)</p>
+<h2>7. Anatomical structures affected</h2>
+<p><strong>Primary organs/tissues:</strong> skin—especially dermis—and subcutaneous connective tissue; suggested <strong>UBERON:0002097 (skin of body)</strong> and <strong>UBERON:0002067 (dermis)</strong>. The extracellular collagen-fibril network is the primary tissue target.</p>
+<p><strong>Additional structures:</strong> joints, ligaments, tendons, skeletal connective tissue, craniofacial soft tissues, oral/gingival tissues, abdominal wall and umbilicus, gastrointestinal and pelvic-support tissues, diaphragm, bladder, eyes/sclera, and potentially vessels and lungs. Suggested terms include sclera (UBERON:0001775), lung (UBERON:0002048), urinary bladder (UBERON:0001255), diaphragm (UBERON:0001103), and umbilical region/umbilical cord where appropriate.</p>
+<p>No consistent lateralization is expected. Findings are generally generalized or bilateral; individual tears, hematomas, fractures, or prolapses may be anatomically focal.</p>
+<p>At the cellular level, dermal fibroblasts synthesize abnormal procollagen substrates, while the defect is manifested in collagen-containing ECM. At the subcellular level, procollagen synthesis begins in rough ER/Golgi, but pathogenic N-propeptide retention and fibril malassembly occur after secretion in the extracellular compartment. (goff2006regulationofprocollagen pages 1-2)</p>
+<h2>8. Temporal development and natural history</h2>
+<p>The molecular defect is present from conception, and the disease is congenital and lifelong. Prenatal/perinatal vulnerability includes membrane rupture, prematurity, friable or ruptured umbilical cord, congenital skin injury, skull fracture, and hemorrhage. In the 15-person series, nine were preterm, six had premature membrane rupture, mean gestational age among 14 was 34 weeks 4 days (range 28–41 weeks), and one newborn died from hemorrhage and shock. (damme2016expandingtheclinical pages 7-8)</p>
+<p>During infancy and childhood, activity exposes skin and mucosal fragility; joint hypermobility, delayed motor development, postnatal growth restriction, and characteristic facial appearance become more apparent. Milder patients may lack striking neonatal redundant skin and develop generalized fragility later. Chronic later manifestations may include pain, fatigue, scarring, prolapse, varicose veins, ocular disease, and recurrent hemorrhage. (damme2016expandingtheclinical pages 2-3, damme2016expandingtheclinical pages 3-5, damme2016expandingtheclinical pages 7-8)</p>
+<p>There is no validated staging system, remission pattern, or quantified progression rate. The disorder does not remit because the collagen-processing defect persists, although injury frequency may change with age, activity, protection, and residual enzyme function. Critical periods are pregnancy/delivery, early mobility, surgery or invasive procedures, and episodes of vomiting or straining.</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is <strong>autosomal recessive</strong>. For two confirmed heterozygous parents, each pregnancy carries a 25% probability of an affected child, 50% probability of an unaffected carrier, and 25% probability of a child inheriting neither familial variant. Unaffected siblings have a 2/3 carrier probability after excluding disease.</p>
+<p>Clinical penetrance for two true null alleles appears high, but precise penetrance is unknown and hypomorphic alleles may produce subtle disease. Expressivity is clearly variable. Anticipation is not expected. Germline mosaicism has not been established as a characteristic mechanism but cannot be excluded for an apparently de novo parental allele. Consanguinity increases the probability that both partners carry the same rare allele. No validated human founder mutation, carrier frequency, ethnic enrichment, geographic endemicity, or incidence rate is available.</p>
+<p>Prevalence is estimated at <strong>&lt;1:1,000,000</strong>. The 2016 synthesis contained 15 molecularly proven patients from 14 families; the 2024 review continued to emphasize only 15 reported childhood cases and extremely limited adult observation. This is a literature count rather than incidence surveillance. (dijk2024clinicaldiagnosisof pages 3-4, damme2016expandingtheclinical pages 7-8)</p>
+<p>The 2016 cohort sex ratio was 11 male:4 female, but autosomal inheritance and extreme sample size provide no evidence of biological male predominance. Reported families span multiple ancestries and regions; dEDS should not be considered ethnicity-specific. (damme2016expandingtheclinical pages 7-8)</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical recognition and criteria</h3>
+<p>The 2017 framework uses nine major criteria; a 2024 expert review considered the most discriminating combination to be: (1) extreme skin fragility with congenital or postnatal tears, (2) characteristic craniofacial appearance, (3) redundant/lax skin with wrist and ankle folds, and (4) severe bruising with subcutaneous hematoma/hemorrhage risk. Molecular confirmation is essential because milder dEDS can resemble classical EDS. (dijk2024clinicaldiagnosisof pages 3-4)</p>
+<p>The 2016 proposed clinical criteria comprised severe skin fragility; sagging/redundant skin; easy bruising; characteristic congenital or progressive facial gestalt with periorbital swelling, blue sclerae, downslanting palpebral fissures, epicanthi, micrognathia, delayed fontanel closure, and dental anomalies; postnatal growth restriction; short extremities; joint hypermobility; umbilical hernia; and congenital/postnatal visceral or vascular fragility. (damme2016expandingtheclinical pages 7-8)</p>
+<h3>Recommended genetic testing</h3>
+<ol>
+<li>Obtain detailed personal, pregnancy/birth, wound, bleeding, surgical, and three-generation family histories plus examination documenting skin fragility, scars, bruising, redundant skin, craniofacial findings, hernia, hypermobility, growth, eyes, teeth, and prolapse.</li>
+<li>Use a <strong>massively parallel inherited-connective-tissue/monogenic-EDS panel</strong> including ADAMTS2. A 2024 review calls panel testing the current gold standard for monogenic EDS confirmation. Extreme skin fragility specifically prioritizes ADAMTS2. (zschocke2024geneticdiagnosisof pages 8-9)</li>
+<li>Include full coding/splice-region sequencing and deletion/duplication analysis; phase two variants and perform parental segregation.</li>
+<li>If panel/exome sequencing is negative despite strong suspicion, consider genome sequencing, analysis of deep intronic/promoter/regulatory regions, RNA sequencing/transcript studies, and reanalysis. Standard exome calling can miss copy-number, intronic, or structurally complex variants. (zschocke2024geneticdiagnosisof pages 8-9)</li>
+<li>WES or WGS is useful where phenotype overlaps classical EDS, cutis laxa, osteogenesis imperfecta, brittle-cornea syndrome, or skeletal dysplasia. WGS offers better noncoding and structural-variant coverage but does not automatically resolve VUS.</li>
+<li>CMA, karyotyping, FISH, mitochondrial DNA testing, and repeat-expansion assays are not first-line for isolated typical dEDS because it is a sequence-level single-gene disorder.</li>
+</ol>
+<h3>Functional and pathology tests</h3>
+<ul>
+<li><strong>Skin-biopsy TEM:</strong> irregular, branched, ribbon-like or hieroglyphic collagen fibrils support the diagnosis, but mild cases may lack the classic severe pattern; a normal/nonspecific biopsy therefore does not exclude dEDS. (damme2016expandingtheclinical pages 5-7, damme2016expandingtheclinical pages 7-8)</li>
+<li><strong>Cultured fibroblast procollagen analysis:</strong> accumulation of pN-collagen chains and deficient mature processing can demonstrate ADAMTS-2 dysfunction. (damme2016expandingtheclinical pages 5-7)</li>
+<li><strong>RNA studies/qPCR:</strong> useful for splice variants and suspected nonsense-mediated decay. (damme2016expandingtheclinical pages 7-8)</li>
+<li><strong>Routine hemostasis:</strong> CBC, PT/aPTT, coagulation factors, and thromboelastometry may be normal despite bruising or bleeding; no validated circulating biomarker exists. (balagopal2026exploringthehemorrhagic pages 1-4)</li>
+<li><strong>Imaging:</strong> targeted echocardiography, ophthalmic assessment, skeletal imaging, ultrasound/CT/MRI, or organ imaging is driven by manifestations; no diagnostic imaging signature exists.</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<p>Important alternatives include classical EDS (COL5A1/COL5A2), classical-like EDS (TNXB/AEBP1), arthrochalasia EDS (COL1A1/COL1A2 exon-6-related), vascular EDS (COL3A1), kyphoscoliotic EDS (PLOD1/FKBP14), brittle-cornea syndrome (ZNF469/PRDM5), musculocontractural EDS (CHST14/DSE), periodontal EDS (C1R/C1S), osteogenesis imperfecta/COL1 overlap disorders, cutis laxa syndromes, and nonaccidental injury when unexplained bruises or tears occur. dEDS is favored by extreme congenital/postnatal skin fragility, redundant wrist/ankle skin, characteristic face, blue sclerae, short plump extremities, umbilical hernia, and biallelic ADAMTS2 variants.</p>
+<h3>Screening</h3>
+<p>There is no population or newborn screening program. Appropriate strategies are <strong>cascade testing</strong> for adult relatives, targeted familial-variant prenatal testing, and preimplantation genetic testing after molecular confirmation. Carrier screening is reasonable in known families or partners from a high-consanguinity pedigree but is not part of universal screening.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>No reliable 5-year/10-year survival, life expectancy, mortality rate, disability-adjusted burden, prognostic score, or biomarker has been published. Outcomes range from fatal neonatal hemorrhage to survival into adulthood. In the historic 15-person dataset, one infant died shortly after birth from severe hemorrhage/shock, while only two had follow-up into puberty/adulthood; the 2024 review cited one individual followed to age 19. (dijk2024clinicaldiagnosisof pages 3-4, damme2016expandingtheclinical pages 7-8)</p>
+<p>Major morbidity arises from recurrent skin/mucosal wounds, scars, bruising and hematomas, bleeding, hernias, prolapse, pain, fatigue, growth and motor delay, ocular/dental complications, and visceral rupture. Recovery from individual injuries is possible, but healing may be slow and structurally fragile tissue persists. Prognosis is plausibly worse with complete enzyme loss, congenital hemorrhage, major organ fragility, or recurrent traumatic exposure; this remains unvalidated in humans.</p>
+<p>The absence of large adult cohorts is a major knowledge gap. Normal coagulation results do not imply low hemorrhagic risk, and mild childhood skin ultrastructure does not guarantee benign long-term disease. (balagopal2026exploringthehemorrhagic pages 1-4, damme2016expandingtheclinical pages 7-8)</p>
+<h2>12. Treatment and current applications</h2>
+<h3>Disease-modifying therapy</h3>
+<p>There is <strong>no approved dEDS-specific drug, enzyme replacement, gene therapy, cell therapy, RNA therapy, CRISPR treatment, or validated targeted therapy</strong>. The ClinicalTrials.gov search returned no relevant dEDS interventional trial. No treatment-response rates or pharmacogenomic recommendations exist.</p>
+<h3>Supportive management</h3>
+<p>Management is individualized and multidisciplinary, ideally involving clinical genetics, dermatology/wound care, pediatrics/internal medicine, physiotherapy/occupational therapy, pain medicine, ophthalmology, dentistry, gastroenterology/colorectal or urologic specialists, surgery/anesthesia, hematology for severe bleeding, and high-risk obstetrics where relevant.</p>
+<p>Recommended practical measures, based on pathophysiology and rare-disease expert practice rather than trials, include:</p>
+<ul>
+<li>minimize friction, falls, contact sports, heavy collision activity, and unnecessary invasive procedures;</li>
+<li>use protective clothing/padding and adapt home/school/work environments;</li>
+<li>gentle wound handling, low-tension closure strategies, prolonged support, and specialist wound review;</li>
+<li>treat constipation, vomiting, and cough promptly to reduce mechanical stress;</li>
+<li>individualized low-impact strengthening/proprioceptive therapy while avoiding forceful manipulation and end-range loading;</li>
+<li>standard analgesia tailored to comorbidity and bleeding risk;</li>
+<li>regular dental and ophthalmic care;</li>
+<li>establish an emergency plan describing tissue and bleeding fragility;</li>
+<li>undertake surgery or endoscopy only when clinically justified, with experienced teams and anticipation of difficult hemostasis and poor wound healing. General EDS guidance advises reserving surgery for necessary complications because of wound risk. (balagopal2026exploringthehemorrhagic pages 6-7, islam2021ehlersdanlossyndromeimmunologic pages 1-8)</li>
+</ul>
+<p>Ascorbic acid, zinc, desmopressin, or celiprolol have occasionally been discussed across EDS care, but dEDS-specific efficacy is unproven. Celiprolol evidence from vascular EDS must not be transferred to dEDS, and supplementation should not be presented as correction of ADAMTS-2 deficiency. A 2026 case used celiprolol and vitamin C, but one uncontrolled case cannot establish benefit. (balagopal2026exploringthehemorrhagic pages 1-4, balagopal2026exploringthehemorrhagic pages 6-7)</p>
+<p>Suggested NCIT intervention concepts include <strong>Genetic Counseling</strong>, <strong>Physical Therapy</strong>, <strong>Occupational Therapy</strong>, <strong>Wound Care</strong>, <strong>Pain Management</strong>, <strong>Surgical Procedure</strong>, <strong>Genetic Testing</strong>, and <strong>Supportive Care</strong>; exact NCIT codes should be resolved against the current NCI Thesaurus release.</p>
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> the phenotype cannot be prevented by vaccination, diet, or environmental modification after an affected genotype is present. Reproductive options include carrier testing, partner testing, preimplantation genetic testing, chorionic-villus/amniotic-fluid testing for known familial variants, donor gametes, and informed family planning.</p>
+<p><strong>Secondary prevention:</strong> early clinical recognition and molecular confirmation permit anticipatory guidance, cascade testing, protection from trauma, and targeted surveillance. There is no newborn biochemical screen.</p>
+<p><strong>Tertiary prevention:</strong> prevent tears, hematomas, hemorrhage, poor surgical outcomes, prolapse, and organ rupture through environmental adaptation, prompt wound care, constipation/vomiting control, cautious procedures, rehabilitation, and emergency planning. Standard immunizations remain appropriate but do not specifically alter dEDS; injection technique and post-injection pressure may need adaptation for bruising.</p>
+<p>Genetic counseling should explain recessive recurrence risks, variable expressivity, limitations of prenatal phenotype prediction, and the possibility that a hypomorphic genotype may be milder but not harmless.</p>
+<h2>14. Other species and natural disease</h2>
+<p>Naturally occurring dermatosparaxis has been reported in cattle, sheep, cats, dogs, and other domestic species. The disease is homologous rather than infectious and has no zoonotic transmission. In the original bovine strain, a homozygous 17-bp ADAMTS2 deletion shifted the reading frame, while affected calf tissues accumulated incompletely processed procollagen and abnormal ribbon-like fibrils. (damme2016expandingtheclinical pages 1-2, colige1999humanehlersdanlossyndrome pages 1-2)</p>
+<p><strong>Dog—Canis lupus familiaris, NCBI Taxon 9615.</strong> A 2022 study identified homozygous ADAMTS2 variants in Pit Bull Terrier, Alapaha Blue Blood Bulldog, Catahoula Leopard Dog, and previously a Doberman Pinscher. Six dogs homozygous for c.10delC/p.(Pro4ArgfsTer175) had wounds, scars, hyperextensible skin, joint hypermobility and swelling; all were euthanized before 13 weeks. Dermal fibrils in two had hieroglyphic cross-sections. By contrast, a p.(Arg966His) Catahoula survived at least nine years. (jaffey2022novelhomozygousadamts2 pages 10-11, jaffey2022novelhomozygousadamts2 pages 1-2)</p>
+<p>Among 167 sampled Alapaha Blue Blood Bulldogs selected for carrying at least one likely causal allele, the c.10delC allele frequency was 0.27; because sampling was enriched, this is not a breed-population carrier estimate. In a collection of 26 canine EDS whole genomes, only four had likely causal homozygous ADAMTS2 variants, emphasizing genetic heterogeneity in canine EDS. (jaffey2022novelhomozygousadamts2 pages 10-11, jaffey2022novelhomozygousadamts2 pages 14-15)</p>
+<p>Veterinary relevance includes early recognition, avoidance of repeated injury, molecular subclassification, responsible breeding, and carrier testing within affected lineages. Suggested breed concepts require current VBO lookup; the source literature names the breeds but does not provide VBO identifiers.</p>
+<p>Comparative pathology is highly conserved: recessive ADAMTS2 deficiency, retained procollagen propeptides, abnormal dermal fibrils, skin hyperextensibility/fragility, wounds, and joint laxity parallel the human condition. Species and genotype differences in survival and extracutaneous disease limit direct prognosis extrapolation.</p>
+<h2>15. Model organisms and experimental systems</h2>
+<h3>Adamts2-null mouse</h3>
+<p>The principal engineered mammalian model is the <strong>Adamts2 knockout mouse</strong>. It reproduces deficient fibrillar-procollagen processing and abnormal dermal fibrils/skin fragility, while enabling tissue-specific mechanistic study. Mouse work demonstrated that Adamts2 is a major procollagen-III N-proteinase; mutant tissues showed markedly reduced type III processing. Mutant lungs had enlarged distal airspaces and reduced parenchymal density without inflammation or overt fibrosis, whereas two-month-old aortic histology and fibril ultrastructure appeared normal despite impaired collagen I/III processing. (goff2006regulationofprocollagen pages 1-2, goff2006regulationofprocollagen pages 7-8)</p>
+<p>The model’s major application is resolving protease redundancy: Adamts3 co-expression with Col2a1 in cartilage and Col1a1 in bone/musculotendinous tissue, plus in-vitro rescue of procollagen-I processing, supports compensation outside skin; Adamts14 co-expression in mature dermis may account for residual processing. (goff2006regulationofprocollagen pages 1-2, goff2006regulationofprocollagen pages 7-8)</p>
+<p><strong>Limitations:</strong> mouse tissue compensation differs from humans; severe human craniofacial, hemorrhagic, hernia, growth, and visceral manifestations are not comprehensively reproduced; normal young-mouse aortic structure does not exclude later or stress-dependent vascular disease.</p>
+<h3>Natural and cellular models</h3>
+<p>Dermatosparactic cattle and dogs provide large-animal natural models with striking collagen ultrastructure and mechanical fragility. Dogs offer genotype-severity contrasts and clinically realistic wound burden, but euthanasia and breed structure complicate natural-history inference. Patient-derived dermal fibroblasts are useful for transcript analysis, procollagen-processing assays, TEM correlation, splice validation, and candidate rescue studies. ADAMTS3-mediated rescue of procollagen-I processing is a proof-of-mechanism in-vitro result, not a therapy. (goff2006regulationofprocollagen pages 1-2, damme2016expandingtheclinical pages 5-7)</p>
+<p>No validated zebrafish, Drosophila, C. elegans, yeast, human organoid, or iPSC disease model was identified in the retrieved evidence. Relevant resources for model registration include MGI/IMSR for mice and OMIA for natural veterinary disease.</p>
+<h2>Recent developments, expert interpretation, and research priorities</h2>
+<p>The important 2024 development was refinement of clinical and molecular diagnosis. Experts emphasized that monogenic EDS should be confirmed by phenotype-directed massively parallel panel testing, that extreme skin fragility prioritizes ADAMTS2, and that negative exome testing may warrant copy-number, noncoding, genome, or transcript analysis. They also warned against overinterpreting VUS. (zschocke2024geneticdiagnosisof pages 2-3, zschocke2024geneticdiagnosisof pages 8-9)</p>
+<p>The central expert interpretation is that dEDS severity cannot be inferred solely from the presence of biallelic variants. Residual function, variant position, nonsense-mediated decay, and tissue-specific ADAMTS3/14 compensation probably shape phenotype; however, this model is supported much more strongly by fibroblast, mouse, and canine evidence than by adequately powered human genotype–phenotype studies. (jaffey2022novelhomozygousadamts2 pages 1-2, goff2006regulationofprocollagen pages 1-2, goff2006regulationofprocollagen pages 7-8, damme2016expandingtheclinical pages 7-8)</p>
+<p>Highest-priority research needs are: an international longitudinal registry; systematic adult natural history; prospective hemorrhage, vascular, pulmonary, pregnancy, surgical, and quality-of-life outcomes; current ClinVar/gnomAD curation and functional classification of missense/splice variants; standardized procollagen biomarkers; patient-derived iPSC/3D-skin models; and preclinical testing of ADAMTS2 replacement or gene restoration.</p>
+<h2>Key sources, publication dates, URLs, and quotations</h2>
+<ol>
+<li><strong>van Dijk et al., “Clinical diagnosis of the monogenic Ehlers-Danlos syndromes,” November 2024.</strong> DOI/URL: https://doi.org/10.1515/medgen-2024-2060. It reports dEDS prevalence below 1:1,000,000 and stresses extreme skin fragility, characteristic craniofacial findings, redundant wrist/ankle skin, and severe bruising. (dijk2024clinicaldiagnosisof pages 3-4)</li>
+<li><strong>Zschocke et al., “Genetic diagnosis of the Ehlers-Danlos syndromes,” November 2024.</strong> DOI/URL: https://doi.org/10.1515/medgen-2024-2061. Abstract quotation: “Gene panel testing with massively parallel sequencing is currently gold standard to confirm diagnoses of the monogenic EDS types.” (zschocke2024geneticdiagnosisof pages 2-3, zschocke2024geneticdiagnosisof pages 8-9)</li>
+<li><strong>Van Damme et al., “Expanding the clinical and mutational spectrum…,” online January 14, 2016; print September 2016.</strong> DOI/URL: https://doi.org/10.1038/gim.2015.188. This primary human study added five patients, bringing the molecularly confirmed total to 15, and directly demonstrated reduced transcript, abnormal procollagen processing, and collagen-fibril defects. (damme2016expandingtheclinical pages 1-2, damme2016expandingtheclinical pages 2-3, damme2016expandingtheclinical pages 5-7, damme2016expandingtheclinical pages 7-8)</li>
+<li><strong>Colige et al., “Human Ehlers-Danlos syndrome type VII C and bovine dermatosparaxis…,” electronically published June 23, 1999.</strong> DOI/URL: https://doi.org/10.1086/302504. Abstract quotation: “These data provide direct evidence that EDS type VIIC and dermatosparaxis result from mutations in the pNPI gene.” PMID was not present in the retrieved full text. (colige1999humanehlersdanlossyndrome pages 1-2)</li>
+<li><strong>Le Goff et al., “Regulation of procollagen amino-propeptide processing…,” April 2006.</strong> DOI/URL: https://doi.org/10.1242/dev.02308. Abstract quotation: “Not all collagen-rich tissues are affected to the same degree, which suggests compensation by the ADAMTS2 homologs ADAMTS3 and ADAMTS14.” (goff2006regulationofprocollagen pages 1-2)</li>
+<li><strong>Jaffey et al., “Novel Homozygous ADAMTS2 Variants…in Dogs,” published November 19, 2022.</strong> DOI/URL: https://doi.org/10.3390/genes13112158. Abstract quotation: “Due to severe skin fragility, the owners of all 6 dogs elected euthanasia before the dogs reached 13 weeks of age.” (jaffey2022novelhomozygousadamts2 pages 1-2)</li>
+</ol>
+<p>PMIDs were not exposed in the retrieved full-text records and are therefore not guessed. DOI URLs above provide stable primary-source links.</p>
+<p>References</p>
+<ol>
+<li>
+<p>(dijk2024clinicaldiagnosisof pages 3-4): Fleur S. van Dijk, Chloe Angwin, Serwet Demirdas, Neeti Ghali, and Johannes Zschocke. Clinical diagnosis of the monogenic ehlers-danlos syndromes. Medizinische Genetik, 36:225-234, Nov 2024. URL: https://doi.org/10.1515/medgen-2024-2060, doi:10.1515/medgen-2024-2060. This article has 4 citations.</p>
+</li>
+<li>
+<p>(zschocke2024geneticdiagnosisof pages 8-9): Johannes Zschocke, Serwet Demirdas, and Fleur S. van Dijk. Genetic diagnosis of the ehlers-danlos syndromes. Medizinische Genetik, 36:235-245, Nov 2024. URL: https://doi.org/10.1515/medgen-2024-2061, doi:10.1515/medgen-2024-2061. This article has 7 citations.</p>
+</li>
+<li>
+<p>(kapfererseebacher2020dentalmanifestationsof pages 1-2): I. Kapferer-Seebacher, D. Schnabl, J. Zschocke, and F. Pope. Dental manifestations of ehlers-danlos syndromes: a systematic review. Acta Dermato-Venereologica, 100:adv00092-160, Mar 2020. URL: https://doi.org/10.2340/00015555-3428, doi:10.2340/00015555-3428. This article has 48 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(malek2021theroleof pages 2-3): Sabeeha Malek and Darius V. Köster. The role of cell adhesion and cytoskeleton dynamics in the pathogenesis of the ehlers-danlos syndromes and hypermobility spectrum disorders. Frontiers in Cell and Developmental Biology, Apr 2021. URL: https://doi.org/10.3389/fcell.2021.649082, doi:10.3389/fcell.2021.649082. This article has 27 citations.</p>
+</li>
+<li>
+<p>(colige1999humanehlersdanlossyndrome pages 1-2): Alain Colige, Aleksander L. Sieron, Shi-Wu Li, Ulrike Schwarze, Elizabeth Petty, Wladimir Wertelecki, William Wilcox, Deborah Krakow, Daniel H. Cohn, W. Reardon, Peter H. Byers, Charles M. Lapière, Darwin J. Prockop, and Betty V. Nusgens. Human ehlers-danlos syndrome type vii c and bovine dermatosparaxis are caused by mutations in the procollagen i n-proteinase gene. American journal of human genetics, 65 2:308-17, Aug 1999. URL: https://doi.org/10.1086/302504, doi:10.1086/302504. This article has 482 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(neto2024unravelingthegenetic pages 5-6): Nilton Salles Rosa Neto, Ivânio Alves Pereira, Flávio Roberto Sztajnbok, and Valderílio Feijó Azevedo. Unraveling the genetic collagen connection: clinical and therapeutic insights on genetic connective tissue disorders. Advances in Rheumatology, Apr 2024. URL: https://doi.org/10.1186/s42358-024-00373-z, doi:10.1186/s42358-024-00373-z. This article has 11 citations.</p>
+</li>
+<li>
+<p>(damme2016expandingtheclinical pages 2-3): Tim Van Damme, Alain Colige, Delfien Syx, Cecilia Giunta, Uschi Lindert, Marianne Rohrbach, Omid Aryani, Yasemin Alanay, Pelin Özlem Simsek-Kiper, Hester Y. Kroes, Koen Devriendt, Marc Thiry, Sofie Symoens, Anne De Paepe, and Fransiska Malfait. Expanding the clinical and mutational spectrum of the ehlers–danlos syndrome, dermatosparaxis type. Sep 2016. URL: https://doi.org/10.1038/gim.2015.188, doi:10.1038/gim.2015.188. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(damme2016expandingtheclinical pages 7-8): Tim Van Damme, Alain Colige, Delfien Syx, Cecilia Giunta, Uschi Lindert, Marianne Rohrbach, Omid Aryani, Yasemin Alanay, Pelin Özlem Simsek-Kiper, Hester Y. Kroes, Koen Devriendt, Marc Thiry, Sofie Symoens, Anne De Paepe, and Fransiska Malfait. Expanding the clinical and mutational spectrum of the ehlers–danlos syndrome, dermatosparaxis type. Sep 2016. URL: https://doi.org/10.1038/gim.2015.188, doi:10.1038/gim.2015.188. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(damme2016expandingtheclinical pages 1-2): Tim Van Damme, Alain Colige, Delfien Syx, Cecilia Giunta, Uschi Lindert, Marianne Rohrbach, Omid Aryani, Yasemin Alanay, Pelin Özlem Simsek-Kiper, Hester Y. Kroes, Koen Devriendt, Marc Thiry, Sofie Symoens, Anne De Paepe, and Fransiska Malfait. Expanding the clinical and mutational spectrum of the ehlers–danlos syndrome, dermatosparaxis type. Sep 2016. URL: https://doi.org/10.1038/gim.2015.188, doi:10.1038/gim.2015.188. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(damme2016expandingtheclinical pages 5-7): Tim Van Damme, Alain Colige, Delfien Syx, Cecilia Giunta, Uschi Lindert, Marianne Rohrbach, Omid Aryani, Yasemin Alanay, Pelin Özlem Simsek-Kiper, Hester Y. Kroes, Koen Devriendt, Marc Thiry, Sofie Symoens, Anne De Paepe, and Fransiska Malfait. Expanding the clinical and mutational spectrum of the ehlers–danlos syndrome, dermatosparaxis type. Sep 2016. URL: https://doi.org/10.1038/gim.2015.188, doi:10.1038/gim.2015.188. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(goff2006regulationofprocollagen pages 1-2): Carine Le Goff, Robert P. T. Somerville, Frederic Kesteloot, Kimerly Powell, David E. Birk, Alain C. Colige, and Suneel S. Apte. Regulation of procollagen amino-propeptide processing during mouse embryogenesis by specialization of homologous adamts proteases: insights on collagen biosynthesis and dermatosparaxis. Development, 133(8):1587-1596, Apr 2006. URL: https://doi.org/10.1242/dev.02308, doi:10.1242/dev.02308. This article has 142 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(goff2006regulationofprocollagen pages 7-8): Carine Le Goff, Robert P. T. Somerville, Frederic Kesteloot, Kimerly Powell, David E. Birk, Alain C. Colige, and Suneel S. Apte. Regulation of procollagen amino-propeptide processing during mouse embryogenesis by specialization of homologous adamts proteases: insights on collagen biosynthesis and dermatosparaxis. Development, 133(8):1587-1596, Apr 2006. URL: https://doi.org/10.1242/dev.02308, doi:10.1242/dev.02308. This article has 142 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p>(damme2016expandingtheclinical pages 3-5): Tim Van Damme, Alain Colige, Delfien Syx, Cecilia Giunta, Uschi Lindert, Marianne Rohrbach, Omid Aryani, Yasemin Alanay, Pelin Özlem Simsek-Kiper, Hester Y. Kroes, Koen Devriendt, Marc Thiry, Sofie Symoens, Anne De Paepe, and Fransiska Malfait. Expanding the clinical and mutational spectrum of the ehlers–danlos syndrome, dermatosparaxis type. Sep 2016. URL: https://doi.org/10.1038/gim.2015.188, doi:10.1038/gim.2015.188. This article has 68 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p>(balagopal2026exploringthehemorrhagic pages 1-4): Akshaya Kumar Balagopal, Santhi T S, Ashokraj Selvam, and Vimalraj Vijayakumar. Exploring the hemorrhagic manifestations of an adolescent with dermatosparaxis-type ehlers-danlos syndrome: a case report. Cureus, May 2026. URL: https://doi.org/10.7759/cureus.108459, doi:10.7759/cureus.108459. This article has 0 citations.</p>
+</li>
+<li>
+<p>(zschocke2024geneticdiagnosisof pages 2-3): Johannes Zschocke, Serwet Demirdas, and Fleur S. van Dijk. Genetic diagnosis of the ehlers-danlos syndromes. Medizinische Genetik, 36:235-245, Nov 2024. URL: https://doi.org/10.1515/medgen-2024-2061, doi:10.1515/medgen-2024-2061. This article has 7 citations.</p>
+</li>
+<li>
+<p>(jaffey2022novelhomozygousadamts2 pages 1-2): Jared A. Jaffey, Garrett Bullock, Juyuan Guo, Tendai Mhlanga-Mutangadura, Dennis P. O’Brien, Joan R. Coates, Rochelle Morrissey, Robert Hutchison, Kevin S. Donnelly, Leah A. Cohn, Martin L. Katz, and Gary S. Johnson. Novel homozygous adamts2 variants and associated disease phenotypes in dogs with dermatosparactic ehlers–danlos syndrome. Nov 2022. URL: https://doi.org/10.3390/genes13112158, doi:10.3390/genes13112158. This article has 16 citations.</p>
+</li>
+<li>
+<p>(jaffey2022novelhomozygousadamts2 pages 14-15): Jared A. Jaffey, Garrett Bullock, Juyuan Guo, Tendai Mhlanga-Mutangadura, Dennis P. O’Brien, Joan R. Coates, Rochelle Morrissey, Robert Hutchison, Kevin S. Donnelly, Leah A. Cohn, Martin L. Katz, and Gary S. Johnson. Novel homozygous adamts2 variants and associated disease phenotypes in dogs with dermatosparactic ehlers–danlos syndrome. Nov 2022. URL: https://doi.org/10.3390/genes13112158, doi:10.3390/genes13112158. This article has 16 citations.</p>
+</li>
+<li>
+<p>(balagopal2026exploringthehemorrhagic pages 6-7): Akshaya Kumar Balagopal, Santhi T S, Ashokraj Selvam, and Vimalraj Vijayakumar. Exploring the hemorrhagic manifestations of an adolescent with dermatosparaxis-type ehlers-danlos syndrome: a case report. Cureus, May 2026. URL: https://doi.org/10.7759/cureus.108459, doi:10.7759/cureus.108459. This article has 0 citations.</p>
+</li>
+<li>
+<p>(islam2021ehlersdanlossyndromeimmunologic pages 1-8): Mareesa Islam, Christopher Chang, and M. Eric Gershwin. Ehlers-danlos syndrome: immunologic contrasts and connective tissue comparisons. Jan 2021. URL: https://doi.org/10.1016/j.jtauto.2020.100077, doi:10.1016/j.jtauto.2020.100077. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(jaffey2022novelhomozygousadamts2 pages 10-11): Jared A. Jaffey, Garrett Bullock, Juyuan Guo, Tendai Mhlanga-Mutangadura, Dennis P. O’Brien, Joan R. Coates, Rochelle Morrissey, Robert Hutchison, Kevin S. Donnelly, Leah A. Cohn, Martin L. Katz, and Gary S. Johnson. Novel homozygous adamts2 variants and associated disease phenotypes in dogs with dermatosparactic ehlers–danlos syndrome. Nov 2022. URL: https://doi.org/10.3390/genes13112158, doi:10.3390/genes13112158. This article has 16 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Dermatosparaxis_Ehlers-Danlos_Syndrome-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>11</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0009161</code> (2 mentions) - the report calls it "if available"; MONDO calls it <strong>Ehlers-Danlos syndrome, dermatosparaxis type</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0062023</code> (obsolete collagen-containing extracellular matrix) (1 mention) - replaced by <code>GO:0031012</code></li>
+</ul>
+                        </div>
+                    </div>
+                </div>
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11176,7 +13093,7 @@ visceral/vascular/skeletal fragility (clinical dEDS)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dermatosparaxis Ehlers-Danlos Syndrome", "mondoId": "MONDO:0009161", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatosparaxis_Ehlers-Danlos_Syndrome", "yamlRevision": "f46a8d34c927"};
+        const OS_CONFIG = {"diseaseName": "Dermatosparaxis Ehlers-Danlos Syndrome", "mondoId": "MONDO:0009161", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatosparaxis_Ehlers-Danlos_Syndrome", "yamlRevision": "fbba3f3cc497"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

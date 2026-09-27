@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4467,6 +4509,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-etec-colonization-factor-adhesion-to-small-intestinal-enterocytes" data-dismech-node="ETEC colonization-factor adhesion to small-intestinal enterocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">ETEC colonization-factor adhesion to small-intestinal enterocytes</div>
 
+
                 <div class="item-desc">In the ETEC subset of traveler&#39;s diarrhea, bacterial colonization factors bind receptors on small-intestinal enterocytes and establish close epithelial colonization, positioning toxin-producing organisms at the mucosal surface.</div>
 
 
@@ -4639,6 +4682,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heat-stable-enterotoxin-activation-of-epithelial-gucy2c" data-dismech-node="Heat-stable enterotoxin activation of epithelial GUCY2C" data-dismech-type="pathophysiology">
                 <div class="item-name">Heat-stable enterotoxin activation of epithelial GUCY2C</div>
+
 
                 <div class="item-desc">ETEC heat-stable enterotoxin binds guanylyl cyclase C (GUCY2C) on intestinal epithelium and increases the receptor&#39;s guanylate-cyclase activity.</div>
 
@@ -4852,6 +4896,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heat-labile-enterotoxin-activation-of-epithelial-g-protein-adenylyl-cyclase" data-dismech-node="Heat-labile enterotoxin activation of epithelial G protein-adenylyl cyclase" data-dismech-type="pathophysiology">
                 <div class="item-name">Heat-labile enterotoxin activation of epithelial G protein-adenylyl cyclase</div>
 
+
                 <div class="item-desc">ETEC heat-labile enterotoxin binds an intestinal epithelial receptor and delivers an enzymatic subunit that modifies the G protein coupled to adenylyl cyclase, increasing cyclase activity.</div>
 
 
@@ -5020,6 +5065,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gucy2c-dependent-cgmp-production" data-dismech-node="GUCY2C-dependent cGMP production" data-dismech-type="pathophysiology">
                 <div class="item-name">GUCY2C-dependent cGMP production</div>
+
 
                 <div class="item-desc">Activated epithelial GUCY2C increases intracellular cGMP, initiating the secretory signaling branch.</div>
 
@@ -5258,6 +5304,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adenylyl-cyclase-dependent-camp-production" data-dismech-node="Adenylyl-cyclase-dependent cAMP production" data-dismech-type="pathophysiology">
                 <div class="item-name">Adenylyl-cyclase-dependent cAMP production</div>
 
+
                 <div class="item-desc">Toxin-activated epithelial adenylyl cyclase increases intracellular cAMP and drives the secretory signaling branch.</div>
 
 
@@ -5426,6 +5473,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cftr-mediated-epithelial-chloride-secretion" data-dismech-node="CFTR-mediated epithelial chloride secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">CFTR-mediated epithelial chloride secretion</div>
+
 
                 <div class="item-desc">cGMP/PKG and cAMP/PKA signaling increase opening of apical CFTR channels and chloride secretion into the intestinal lumen.</div>
 
@@ -5694,6 +5742,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inhibition-of-nhe3-mediated-epithelial-sodium-absorption" data-dismech-node="Inhibition of NHE3-mediated epithelial sodium absorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Inhibition of NHE3-mediated epithelial sodium absorption</div>
 
+
                 <div class="item-desc">GUCY2C/cGMP signaling inhibits the apical sodium-hydrogen exchanger, decreasing epithelial sodium absorption.</div>
 
 
@@ -5944,6 +5993,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-net-intestinal-electrolyte-and-water-secretion" data-dismech-node="Net intestinal electrolyte and water secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Net intestinal electrolyte and water secretion</div>
 
+
                 <div class="item-desc">Increased anion secretion together with reduced sodium absorption produces net electrolyte and water accumulation in the intestinal lumen.</div>
 
 
@@ -6065,6 +6115,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shigella-invasion-of-the-colonic-epithelium" data-dismech-node="Shigella invasion of the colonic epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Shigella invasion of the colonic epithelium</div>
+
 
                 <div class="item-desc">In the Shigella subset of traveler&#39;s diarrhea, organisms invade the colonic epithelium and deliver type III secretion-system effectors into host cells. This branch is pathogen-conditioned and is separate from the ETEC enterotoxin mechanism.</div>
 
@@ -6196,6 +6247,7 @@ This pathophysiological event occurs in colonic epithelium (UBERON:0000397). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-mediated-colonic-inflammation" data-dismech-node="Cytokine-mediated colonic inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-mediated colonic inflammation</div>
+
 
                 <div class="item-desc">In Shigella-associated disease, epithelial invasion triggers a cytokine-mediated inflammatory response in the colon. This inflammation is separated from the downstream epithelial necrosis and ulceration that it promotes.</div>
 
@@ -6340,6 +6392,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-colonic-epithelial-necrosis-and-mucosal-ulceration" data-dismech-node="Colonic epithelial necrosis and mucosal ulceration" data-dismech-type="pathophysiology">
                 <div class="item-name">Colonic epithelial necrosis and mucosal ulceration</div>
 
+
                 <div class="item-desc">In severe Shigella-associated colitis, inflammatory and cytotoxic injury produces necrosis of the colonic epithelium and ulceration of the mucosa.</div>
 
 
@@ -6471,6 +6524,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protozoal-infection-associated-with-persistent-traveler-s-diarrhea" data-dismech-node="Protozoal infection associated with persistent traveler&#39;s diarrhea" data-dismech-type="pathophysiology">
                 <div class="item-name">Protozoal infection associated with persistent traveler&#39;s diarrhea</div>
 
+
                 <div class="item-desc">Intestinal protozoa are a pathogen-conditioned cause of protracted diarrhea during or after travel. This syndrome-level node does not assign one parasite-specific epithelial mechanism to Giardia, Cryptosporidium, Cyclospora, and other protozoa.</div>
 
 
@@ -6546,6 +6600,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-gyrase-and-topoisomerase-iv-fluoroquinolone-target" data-dismech-node="DNA Gyrase and Topoisomerase IV (Fluoroquinolone Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA Gyrase and Topoisomerase IV (Fluoroquinolone Target)</div>
+
 
                 <div class="item-desc">Susceptible bacterial causes of traveler&#39;s diarrhea depend on DNA gyrase and topoisomerase IV; fluoroquinolones trap their DNA-enzyme complexes and block bacterial DNA replication. This is a therapeutic vulnerability rather than a syndrome-wide causal mechanism.</div>
 
@@ -6642,6 +6697,7 @@ This pathophysiological event involves DNA Topological Change (GO:0006265). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-mrna-translation-by-the-ribosome" data-dismech-node="Bacterial mRNA Translation by the Ribosome" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial mRNA Translation by the Ribosome</div>
 
+
                 <div class="item-desc">Bacterial ribosomal translation is the conserved molecular target of macrolides such as azithromycin. This node represents an antibiotic vulnerability of susceptible bacterial etiologies, not a mechanism of viral or protozoal disease.</div>
 
 
@@ -6736,6 +6792,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-rna-polymerase-rifamycin-target" data-dismech-node="Bacterial RNA Polymerase (Rifamycin Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial RNA Polymerase (Rifamycin Target)</div>
+
 
                 <div class="item-desc">Bacterial DNA-dependent RNA polymerase is the molecular target of rifamycins, including the nonabsorbed derivative rifaximin used for selected noninvasive E. coli disease.</div>
 
@@ -6920,6 +6977,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6986,6 +7046,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7062,6 +7125,9 @@ This clinical feature is Bowel urgency (HP:0012701). HP:0012701 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7126,6 +7192,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7200,6 +7269,9 @@ This clinical feature is Bloody diarrhea (HP:0025085). HP:0025085 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7266,6 +7338,9 @@ This clinical feature is Protracted diarrhea (HP:0004385). HP:0004385 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7349,6 +7424,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7413,6 +7491,9 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7498,6 +7579,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7571,6 +7655,9 @@ This clinical feature is irritable bowel syndrome (MONDO:0005052). MONDO:0005052
                     </span>
 
                     </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Meester-Loeys%20Syndrome"
@@ -4019,7 +4061,7 @@ Dissections occur at young ages and males are affected more severely and more pe
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4406,6 +4448,7 @@ Dissections occur at young ages and males are affected more severely and more pe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-function-bgn-variants" data-dismech-node="Loss-of-Function BGN Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss-of-Function BGN Variants</div>
 
+
                 <div class="item-desc">Reported disease alleles are loss-of-function: truncating, splice-affecting or whole-gene deletions. Notably, no pathogenic missense variant *without* an additional predicted or demonstrated splice effect has been found across 18 probands, which is why the reporting group recommends proving loss of function at cDNA or protein level before calling a BGN missense variant pathogenic.</div>
 
 
@@ -4463,9 +4506,14 @@ This genetic context concerns BGN (hgnc:1044). hgnc:1044 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4561,6 +4609,7 @@ This genetic context concerns BGN (hgnc:1044). hgnc:1044 is a gene from the HUGO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-biglycan-from-the-arterial-extracellular-matrix" data-dismech-node="Loss of Biglycan from the Arterial Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Biglycan from the Arterial Extracellular Matrix</div>
+
 
                 <div class="item-desc">Biglycan is a small leucine-rich proteoglycan of the arterial media. Its loss changes the matrix without destroying its elastic architecture: the elastic fibres are preserved. That distinguishes Meester-Loeys histology from the elastic-fibre fragmentation of classical medial degeneration and is a point where the disease diverges from its clinical mimics.</div>
 
@@ -4735,6 +4784,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-tgf-beta-signaling-in-the-aortic-wall" data-dismech-node="Increased TGF-beta Signaling in the Aortic Wall" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased TGF-beta Signaling in the Aortic Wall</div>
 
+
                 <div class="item-desc">Fluorescent staining of the aortic wall shows increased nuclear pSMAD2, the canonical readout of active TGF-beta signalling. This is the mechanistic link to the wider heritable-aortopathy literature, where TGF-beta dysregulation is the recurring theme. It is also the least settled part of the model: how loss of biglycan produces it is described by the discoverers themselves as largely unresolved, and a 2025 family found the aortic-wall signal without a matching change in patient dermal fibroblasts.</div>
 
 
@@ -4900,6 +4950,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-medial-weakening-and-progressive-arterial-dilatation" data-dismech-node="Medial Weakening and Progressive Arterial Dilatation" data-dismech-type="pathophysiology">
                 <div class="item-name">Medial Weakening and Progressive Arterial Dilatation</div>
+
 
                 <div class="item-desc">The clinical endpoint, and it is not confined to the thoracic aorta. The expanded cohort found aneurysms and dissections across the arterial tree, and one family presented with multiple visceral artery aneurysms in a proband initially diagnosed as Ehlers-Danlos syndrome. Dissection occurs at young ages.</div>
 
@@ -5161,7 +5212,7 @@ This pathophysiological event involves increased transforming growth factor beta
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dissection at young ages, most often in males. This is the event the disease is diagnosed and surveilled to prevent.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic root aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic root dilatation, the presenting cardiovascular lesion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arterial aneurysm and dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aneurysmal disease beyond the aortic root, including visceral arteries. Bound to the general vascular dilatation term because HPO has no term for the tree-wide arterial involvement the expanded cohort describes, and the aortic terms would contradict evidence that is explicitly about vessels beyond the aorta; the specific visceral-artery finding is quoted in the evidence.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002617\"}}, {\"id\": \"Bgn-deficient BALB/cA mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Biglycan-deficient male mice on a BALB/cA background die of aortic rupture. This model predates the human disease and is what made BGN a candidate gene worth resequencing in unexplained thoracic aortic disease.\"}, {\"id\": \"Cardiovascular Surveillance of the Whole Arterial Tree\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one management step that is specific to this disease rather than borrowed from Marfan or Loeys-Dietz practice, and the reason molecular diagnosis matters. Two things make it MRLS-specific: the vascular risk is substantially higher than that of the hypermobility syndromes these patients are otherwise labelled with, and the imaging field has to cover the whole arterial tree rather than the aortic root alone, because aneurysms and dissections occur throughout it.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Increased TGF-beta Signaling in the Aortic Wall\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fluorescent staining of the aortic wall shows increased nuclear pSMAD2, the canonical readout of active TGF-beta signalling. This is the mechanistic link to the wider heritable-aortopathy literature, where TGF-beta dysregulation is the recurring theme. It is also the least settled part of the model: how loss of biglycan produces it is described by the discoverers themselves as largely unresolved, and a 2025 family found the aortic-wall signal without a matching change in patient dermal fibroblasts.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Loss of Biglycan from the Arterial Extracellular Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biglycan is a small leucine-rich proteoglycan of the arterial media. Its loss changes the matrix without destroying its elastic architecture: the elastic fibres are preserved. That distinguishes Meester-Loeys histology from the elastic-fibre fragmentation of classical medial degeneration and is a point where the disease diverges from its clinical mimics.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Loss-of-Function BGN Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reported disease alleles are loss-of-function: truncating, splice-affecting or whole-gene deletions. Notably, no pathogenic missense variant *without* an additional predicted or demonstrated splice effect has been found across 18 probands, which is why the reporting group recommends proving loss of function at cDNA or protein level before calling a BGN missense variant pathogenic.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"BGN\", \"id\": \"hgnc:1044\"}]}}}, {\"id\": \"Medial Weakening and Progressive Arterial Dilatation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint, and it is not confined to the thoracic aorta. The expanded cohort found aneurysms and dissections across the arterial tree, and one family presented with multiple visceral artery aneurysms in a proband initially diagnosed as Ehlers-Danlos syndrome. Dissection occurs at young ages.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Bgn-deficient BALB/cA mouse\", \"species\": \"Mouse\", \"genotype\": \"Bgn null, hemizygous male\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Fatal aortic rupture in hemizygous males reproduces the severe, male-predominant vascular endpoint of the human disease.\"}]}}], \"edges\": [{\"source\": \"Loss-of-Function BGN Variants\", \"target\": \"Loss of Biglycan from the Arterial Extracellular Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss-of-function alleles remove the proteoglycan from the matrix.\"}, {\"source\": \"Loss of Biglycan from the Arterial Extracellular Matrix\", \"target\": \"Increased TGF-beta Signaling in the Aortic Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biglycan sequesters latent TGF-beta in the matrix; without it, signalling is released.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Increased TGF-beta Signaling in the Aortic Wall\", \"target\": \"Medial Weakening and Progressive Arterial Dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained TGF-beta signalling accompanies the wall remodelling that permits dilatation, but the earlier wording put it in the wrong layer: the increase in the media was slight, and significantly more pronounced in the adventitia, which is the major site of biglycan deposition.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Medial Weakening and Progressive Arterial Dilatation\", \"target\": \"Aortic root aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Medial Weakening and Progressive Arterial Dilatation\", \"target\": \"Aortic dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Medial Weakening and Progressive Arterial Dilatation\", \"target\": \"Arterial aneurysm and dilatation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiovascular Surveillance of the Whole Arterial Tree\", \"target\": \"Medial Weakening and Progressive Arterial Dilatation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bgn-deficient BALB/cA mouse\", \"target\": \"Medial Weakening and Progressive Arterial Dilatation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Fatal aortic rupture in hemizygous males reproduces the severe, male-predominant vascular endpoint of the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The phenotype is strain-dependent (reported on BALB/cA), and the mouse endpoint is rupture rather than the progressive dilatation-then-dissection course that is surveilled in patients. The syndromic features that make this a syndrome rather than an isolated aortopathy, the craniofacial and skeletal findings, are not part of the cited mouse result.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dissection at young ages, most often in males. This is the event the disease is diagnosed and surveilled to prevent.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic root aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic root dilatation, the presenting cardiovascular lesion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arterial aneurysm and dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aneurysmal disease beyond the aortic root, including visceral arteries. Bound to the general vascular dilatation term because HPO has no term for the tree-wide arterial involvement the expanded cohort describes, and the aortic terms would contradict evidence that is explicitly about vessels beyond the aorta; the specific visceral-artery finding is quoted in the evidence.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002617\"}}, {\"id\": \"BGN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BGN\"], \"gene_terms\": [{\"label\": \"BGN\", \"id\": \"hgnc:1044\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Bgn-deficient BALB/cA mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Biglycan-deficient male mice on a BALB/cA background die of aortic rupture. This model predates the human disease and is what made BGN a candidate gene worth resequencing in unexplained thoracic aortic disease.\"}, {\"id\": \"Cardiovascular Surveillance of the Whole Arterial Tree\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one management step that is specific to this disease rather than borrowed from Marfan or Loeys-Dietz practice, and the reason molecular diagnosis matters. Two things make it MRLS-specific: the vascular risk is substantially higher than that of the hypermobility syndromes these patients are otherwise labelled with, and the imaging field has to cover the whole arterial tree rather than the aortic root alone, because aneurysms and dissections occur throughout it.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Increased TGF-beta Signaling in the Aortic Wall\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fluorescent staining of the aortic wall shows increased nuclear pSMAD2, the canonical readout of active TGF-beta signalling. This is the mechanistic link to the wider heritable-aortopathy literature, where TGF-beta dysregulation is the recurring theme. It is also the least settled part of the model: how loss of biglycan produces it is described by the discoverers themselves as largely unresolved, and a 2025 family found the aortic-wall signal without a matching change in patient dermal fibroblasts.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Loss of Biglycan from the Arterial Extracellular Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biglycan is a small leucine-rich proteoglycan of the arterial media. Its loss changes the matrix without destroying its elastic architecture: the elastic fibres are preserved. That distinguishes Meester-Loeys histology from the elastic-fibre fragmentation of classical medial degeneration and is a point where the disease diverges from its clinical mimics.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Loss-of-Function BGN Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reported disease alleles are loss-of-function: truncating, splice-affecting or whole-gene deletions. Notably, no pathogenic missense variant *without* an additional predicted or demonstrated splice effect has been found across 18 probands, which is why the reporting group recommends proving loss of function at cDNA or protein level before calling a BGN missense variant pathogenic.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"BGN\", \"id\": \"hgnc:1044\"}]}}}, {\"id\": \"Medial Weakening and Progressive Arterial Dilatation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint, and it is not confined to the thoracic aorta. The expanded cohort found aneurysms and dissections across the arterial tree, and one family presented with multiple visceral artery aneurysms in a proband initially diagnosed as Ehlers-Danlos syndrome. Dissection occurs at young ages.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Bgn-deficient BALB/cA mouse\", \"species\": \"Mouse\", \"genotype\": \"Bgn null, hemizygous male\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Fatal aortic rupture in hemizygous males reproduces the severe, male-predominant vascular endpoint of the human disease.\"}]}}], \"edges\": [{\"source\": \"Loss-of-Function BGN Variants\", \"target\": \"Loss of Biglycan from the Arterial Extracellular Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss-of-function alleles remove the proteoglycan from the matrix.\"}, {\"source\": \"Loss of Biglycan from the Arterial Extracellular Matrix\", \"target\": \"Increased TGF-beta Signaling in the Aortic Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biglycan sequesters latent TGF-beta in the matrix; without it, signalling is released.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Increased TGF-beta Signaling in the Aortic Wall\", \"target\": \"Medial Weakening and Progressive Arterial Dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained TGF-beta signalling accompanies the wall remodelling that permits dilatation, but the earlier wording put it in the wrong layer: the increase in the media was slight, and significantly more pronounced in the adventitia, which is the major site of biglycan deposition.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Medial Weakening and Progressive Arterial Dilatation\", \"target\": \"Aortic root aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Medial Weakening and Progressive Arterial Dilatation\", \"target\": \"Aortic dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Medial Weakening and Progressive Arterial Dilatation\", \"target\": \"Arterial aneurysm and dilatation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiovascular Surveillance of the Whole Arterial Tree\", \"target\": \"Medial Weakening and Progressive Arterial Dilatation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bgn-deficient BALB/cA mouse\", \"target\": \"Medial Weakening and Progressive Arterial Dilatation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Fatal aortic rupture in hemizygous males reproduces the severe, male-predominant vascular endpoint of the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The phenotype is strain-dependent (reported on BALB/cA), and the mouse endpoint is rupture rather than the progressive dilatation-then-dissection course that is surveilled in patients. The syndromic features that make this a syndrome rather than an isolated aortopathy, the craniofacial and skeletal findings, are not part of the cited mouse result.\"}, {\"source\": \"BGN\", \"target\": \"Loss-of-Function BGN Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5243,6 +5294,9 @@ This clinical feature is Aortic root aneurysm (HP:0002616), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5307,6 +5361,9 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5378,6 +5435,9 @@ This clinical feature is aneurysms throughout the arterial tree, annotated with 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5486,6 +5546,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5566,6 +5629,9 @@ This clinical feature is pectus deformity, annotated with Abnormal sternum morph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5630,6 +5696,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5729,6 +5798,9 @@ This clinical feature is contractures, annotated with Flexion contracture (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5811,6 +5883,9 @@ This clinical feature is mild skeletal dysplasia, annotated with Skeletal dyspla
 
 
                     </div>
+
+
+
 
 
 
@@ -5925,6 +6000,9 @@ This disease-associated gene is BGN (hgnc:1044). hgnc:1044 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 

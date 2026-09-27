@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Karyomegalic%20Interstitial%20Nephritis"
@@ -3993,7 +4035,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4088,6 +4130,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-fan1-loss-of-function" data-dismech-node="Biallelic FAN1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic FAN1 Loss of Function</div>
 
+
                 <div class="item-desc">Karyomegalic interstitial nephritis is caused by biallelic loss-of-function variants in FAN1 (FANCD2/FANCI-associated nuclease 1), a structure-specific DNA repair nuclease. Loss of FAN1 activity abolishes its role in the repair of DNA interstrand crosslinks and in the protection and restart of stalled replication forks. KIN is genetically and clinically distinct from Fanconi anemia.</div>
 
 
@@ -4140,6 +4183,8 @@ This genetic context concerns FAN1 (hgnc:29170). hgnc:29170 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4150,6 +4195,9 @@ This genetic context concerns FAN1 (hgnc:29170). hgnc:29170 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline loss-of-function FAN1 variants cause KIN. Reported pathogenic alleles span truncating and missense changes and include the homozygous nonsense variant c.2260C&gt;T (p.Arg754Ter), the recurrent European founder frameshift c.2616delA (p.Asp873ThrfsTer17), and the novel frameshift c.2603delT (p.Leu868ArgfsTer22).</div>
 
@@ -4317,6 +4365,7 @@ This pathophysiological event involves structure-specific 5&#39;-flap DNA endonu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-interstrand-crosslink-repair" data-dismech-node="Defective Interstrand Crosslink Repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Interstrand Crosslink Repair</div>
 
+
                 <div class="item-desc">Without FAN1, cells cannot properly excise and repair DNA interstrand crosslinks, so crosslink lesions persist and block replication.</div>
 
 
@@ -4454,6 +4503,7 @@ This pathophysiological event involves decreased interstrand cross-link repair (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-replication-fork-protection" data-dismech-node="Defective Replication Fork Protection" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Replication Fork Protection</div>
 
+
                 <div class="item-desc">Independently of interstrand-crosslink repair, FAN1 nuclease activity restrains and processes stalled replication forks. Loss of this fork-protective function produces chromosome abnormalities and genome instability even without exogenous crosslinks, and may be the more KIN-relevant FAN1 function, since FAN1-deficient cells accumulate damage from endogenous replication stress rather than from crosslink exposure.</div>
 
 
@@ -4590,6 +4640,7 @@ This pathophysiological event involves decreased stalled replication fork protec
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability-and-replication-stress" data-dismech-node="Genomic Instability and Replication Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic Instability and Replication Stress</div>
+
 
                 <div class="item-desc">Persistent unrepaired DNA lesions produce chromosomal instability, aberrant cell-cycle progression, and chronic replication stress in dividing renal tubular epithelial cells. In FAN1-deficient kidneys, endogenous reactive oxygen species are an important source of the ongoing DNA damage.</div>
 
@@ -4804,6 +4855,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polyploidy-and-karyomegaly-of-tubular-epithelial-cells" data-dismech-node="Polyploidy and Karyomegaly of Tubular Epithelial Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Polyploidy and Karyomegaly of Tubular Epithelial Cells</div>
 
+
                 <div class="item-desc">Cell-cycle dysregulation drives DNA endoreduplication and polyploidy in tubular epithelial cells, which manifests histologically as karyomegaly: markedly enlarged, hyperchromatic, and pleomorphic tubular cell nuclei, the diagnostic hallmark of the disease. Karyomegalic changes can also occur in extrarenal organs.</div>
 
 
@@ -5001,6 +5053,7 @@ This pathophysiological event involves increased DNA endoreduplication (GO:00420
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-tubulointerstitial-nephritis-and-fibrosis" data-dismech-node="Chronic Tubulointerstitial Nephritis and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Tubulointerstitial Nephritis and Fibrosis</div>
 
+
                 <div class="item-desc">Progressive injury and death of karyomegalic tubular epithelial cells provokes a chronic tubulointerstitial inflammatory response with interstitial fibrosis and tubular atrophy.</div>
 
 
@@ -5080,6 +5133,7 @@ This pathophysiological event involves increased DNA endoreduplication (GO:00420
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-chronic-kidney-disease" data-dismech-node="Progressive Chronic Kidney Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Chronic Kidney Disease</div>
+
 
                 <div class="item-desc">Ongoing nephron loss produces a slowly progressive decline in renal function, typically presenting in the third to fifth decade and progressing to end-stage renal disease.</div>
 
@@ -5203,7 +5257,7 @@ This pathophysiological event involves increased DNA endoreduplication (GO:00420
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic FAN1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Karyomegalic interstitial nephritis is caused by biallelic loss-of-function variants in FAN1 (FANCD2/FANCI-associated nuclease 1), a structure-specific DNA repair nuclease. Loss of FAN1 activity abolishes its role in the repair of DNA interstrand crosslinks and in the protection and restart of stalled replication forks. KIN is genetically and clinically distinct from Fanconi anemia.\", \"meta\": {\"evidence_count\": 5, \"molecular_functions\": [\"structure-specific 5\u0027-flap DNA endonuclease activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic germline loss-of-function FAN1 variants cause KIN. Reported pathogenic alleles span truncating and missense changes and include the homozygous nonsense variant c.2260C\u003eT (p.Arg754Ter), the recurrent European founder frameshift c.2616delA (p.Asp873ThrfsTer17), and the novel frameshift c.2603delT (p.Leu868ArgfsTer22).\", \"gene_terms\": [{\"label\": \"FAN1\", \"id\": \"hgnc:29170\"}]}}}, {\"id\": \"Chronic Tubulointerstitial Nephritis and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive injury and death of karyomegalic tubular epithelial cells provokes a chronic tubulointerstitial inflammatory response with interstitial fibrosis and tubular atrophy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Defective Interstrand Crosslink Repair\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without FAN1, cells cannot properly excise and repair DNA interstrand crosslinks, so crosslink lesions persist and block replication.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interstrand cross-link repair\"]}}, {\"id\": \"Defective Replication Fork Protection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independently of interstrand-crosslink repair, FAN1 nuclease activity restrains and processes stalled replication forks. Loss of this fork-protective function produces chromosome abnormalities and genome instability even without exogenous crosslinks, and may be the more KIN-relevant FAN1 function, since FAN1-deficient cells accumulate damage from endogenous replication stress rather than from crosslink exposure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"stalled replication fork protection and processing\"]}}, {\"id\": \"Elevated serum creatinine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003259\"}}, {\"id\": \"Exposure to genotoxic and alkylating drugs\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Genotoxic and alkylating drugs that generate DNA interstrand crosslinks \\u2014 including busulfan, pyrrolizidine alkaloids, and platinum agents such as cisplatin \\u2014 can produce a KIN-like phenotype and act as an additional genotoxic burden (\\\"second hit\\\") on the FAN1-deficient repair capacity. Chronic low-dose cisplatin is the trigger used to elicit KIN in the Fan1-knockout mouse model.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exposure to ochratoxin A (mycotoxin)\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The mycotoxin ochratoxin A generates DNA interstrand crosslinks and can produce a KIN-like phenotype in humans and animal models, acting as an additional genotoxic burden (\\\"second hit\\\") on the FAN1-deficient repair capacity. KIN is regarded as the genetic equivalent of these environmental genotoxic causes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"FAN1-mutant hiPSC-derived kidney organoid\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"model_type\": \"ORGANOID\", \"publication\": \"PMID:37759541\"}}, {\"id\": \"Fan1 knockout mouse (cisplatin-induced KIN)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Fan1-deficient mouse (constitutive knockout)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Genomic Instability and Replication Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent unrepaired DNA lesions produce chromosomal instability, aberrant cell-cycle progression, and chronic replication stress in dividing renal tubular epithelial cells. In FAN1-deficient kidneys, endogenous reactive oxygen species are an important source of the ongoing DNA damage.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"kidney tubule epithelial cell\"], \"biological_processes\": [\"DNA damage response\"], \"experimental_models\": [{\"name\": \"FAN1-mutant hiPSC-derived kidney organoid\", \"model_type\": \"ORGANOID\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"FAN1-mutant kidney organoids show increased DNA-damage markers and reduced viability after mitomycin C challenge, modeling the DNA-damage susceptibility of FAN1-deficient tubular cells.\"}]}}, {\"id\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cell-cycle dysregulation drives DNA endoreduplication and polyploidy in tubular epithelial cells, which manifests histologically as karyomegaly: markedly enlarged, hyperchromatic, and pleomorphic tubular cell nuclei, the diagnostic hallmark of the disease. Karyomegalic changes can also occur in extrarenal organs.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney tubule epithelial cell\"], \"biological_processes\": [\"DNA endoreduplication\"], \"animal_models\": [{\"name\": \"Fan1-deficient mouse (constitutive knockout)\", \"species\": \"Mouse\", \"genotype\": \"Fan1 knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Fan1-deficient mice develop age-dependent karyomegaly in kidney and liver, recapitulating the diagnostic human hallmark.\"}]}}, {\"id\": \"Progressive Chronic Kidney Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ongoing nephron loss produces a slowly progressive decline in renal function, typically presenting in the third to fifth decade and progressing to end-stage renal disease.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Fan1 knockout mouse (cisplatin-induced KIN)\", \"species\": \"Mouse\", \"genotype\": \"Fan1-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Fan1-null mice develop KIN and renal failure when chronically challenged with low-dose cisplatin, modeling the gene-environment (\\\"second hit\\\") mechanism.\"}]}}, {\"id\": \"Renal fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005576\"}}, {\"id\": \"Renal tubular karyomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged, hyperchromatic, pleomorphic nuclei in renal tubular epithelial cells; the diagnostic histological hallmark.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:6000429\"}}, {\"id\": \"Stage 5 chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progression to end-stage renal disease requiring renal replacement therapy, typically in adulthood.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003774\"}}], \"edges\": [{\"source\": \"Biallelic FAN1 Loss of Function\", \"target\": \"Defective Interstrand Crosslink Repair\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic FAN1 Loss of Function\", \"target\": \"Defective Replication Fork Protection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Interstrand Crosslink Repair\", \"target\": \"Genomic Instability and Replication Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Replication Fork Protection\", \"target\": \"Genomic Instability and Replication Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genomic Instability and Replication Stress\", \"target\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"target\": \"Chronic Tubulointerstitial Nephritis and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"target\": \"Renal tubular karyomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Tubulointerstitial Nephritis and Fibrosis\", \"target\": \"Progressive Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Tubulointerstitial Nephritis and Fibrosis\", \"target\": \"Renal fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Chronic Kidney Disease\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Chronic Kidney Disease\", \"target\": \"Elevated serum creatinine\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure to ochratoxin A (mycotoxin)\", \"target\": \"Defective Interstrand Crosslink Repair\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Ochratoxin A increases the interstrand-crosslink burden that FAN1-deficient cells cannot repair, amplifying the DNA damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure to genotoxic and alkylating drugs\", \"target\": \"Defective Interstrand Crosslink Repair\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Alkylating and platinum drugs increase the interstrand-crosslink burden that FAN1-deficient cells cannot repair; chronic cisplatin precipitates overt KIN in FAN1-null kidneys.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FAN1-mutant hiPSC-derived kidney organoid\", \"target\": \"Genomic Instability and Replication Stress\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"FAN1-mutant kidney organoids show increased DNA-damage markers and reduced viability after mitomycin C challenge, modeling the DNA-damage susceptibility of FAN1-deficient tubular cells.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Increased DNA-damage marker expression was also observed in wild-type organoids, limiting FAN1-specificity, and the phenotype requires an acute exogenous genotoxic (MMC) challenge rather than arising spontaneously.\"}, {\"source\": \"Fan1-deficient mouse (constitutive knockout)\", \"target\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Fan1-deficient mice develop age-dependent karyomegaly in kidney and liver, recapitulating the diagnostic human hallmark.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Karyomegaly is age-dependent and the model prominently manifests hepatic dysfunction; the tempo of renal fibrosis and the human respiratory phenotype are not fully reproduced.\"}, {\"source\": \"Fan1 knockout mouse (cisplatin-induced KIN)\", \"target\": \"Progressive Chronic Kidney Disease\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Fan1-null mice develop KIN and renal failure when chronically challenged with low-dose cisplatin, modeling the gene-environment (\\\"second hit\\\") mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"KIN manifests only under an exogenous genotoxic (chronic cisplatin) challenge rather than spontaneously, and the accelerated 5-week course differs from the slowly progressive human disease.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic FAN1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Karyomegalic interstitial nephritis is caused by biallelic loss-of-function variants in FAN1 (FANCD2/FANCI-associated nuclease 1), a structure-specific DNA repair nuclease. Loss of FAN1 activity abolishes its role in the repair of DNA interstrand crosslinks and in the protection and restart of stalled replication forks. KIN is genetically and clinically distinct from Fanconi anemia.\", \"meta\": {\"evidence_count\": 5, \"molecular_functions\": [\"structure-specific 5\u0027-flap DNA endonuclease activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic germline loss-of-function FAN1 variants cause KIN. Reported pathogenic alleles span truncating and missense changes and include the homozygous nonsense variant c.2260C\u003eT (p.Arg754Ter), the recurrent European founder frameshift c.2616delA (p.Asp873ThrfsTer17), and the novel frameshift c.2603delT (p.Leu868ArgfsTer22).\", \"gene_terms\": [{\"label\": \"FAN1\", \"id\": \"hgnc:29170\"}]}}}, {\"id\": \"Chronic Tubulointerstitial Nephritis and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive injury and death of karyomegalic tubular epithelial cells provokes a chronic tubulointerstitial inflammatory response with interstitial fibrosis and tubular atrophy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Defective Interstrand Crosslink Repair\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without FAN1, cells cannot properly excise and repair DNA interstrand crosslinks, so crosslink lesions persist and block replication.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interstrand cross-link repair\"]}}, {\"id\": \"Defective Replication Fork Protection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independently of interstrand-crosslink repair, FAN1 nuclease activity restrains and processes stalled replication forks. Loss of this fork-protective function produces chromosome abnormalities and genome instability even without exogenous crosslinks, and may be the more KIN-relevant FAN1 function, since FAN1-deficient cells accumulate damage from endogenous replication stress rather than from crosslink exposure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"stalled replication fork protection and processing\"]}}, {\"id\": \"Elevated serum creatinine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003259\"}}, {\"id\": \"Exposure to genotoxic and alkylating drugs\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Genotoxic and alkylating drugs that generate DNA interstrand crosslinks \\u2014 including busulfan, pyrrolizidine alkaloids, and platinum agents such as cisplatin \\u2014 can produce a KIN-like phenotype and act as an additional genotoxic burden (\\\"second hit\\\") on the FAN1-deficient repair capacity. Chronic low-dose cisplatin is the trigger used to elicit KIN in the Fan1-knockout mouse model.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exposure to ochratoxin A (mycotoxin)\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The mycotoxin ochratoxin A generates DNA interstrand crosslinks and can produce a KIN-like phenotype in humans and animal models, acting as an additional genotoxic burden (\\\"second hit\\\") on the FAN1-deficient repair capacity. KIN is regarded as the genetic equivalent of these environmental genotoxic causes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"FAN1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FAN1\"], \"gene_terms\": [{\"label\": \"FAN1\", \"id\": \"hgnc:29170\"}], \"association\": \"Causative\"}}, {\"id\": \"FAN1-mutant hiPSC-derived kidney organoid\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"model_type\": \"ORGANOID\", \"publication\": \"PMID:37759541\"}}, {\"id\": \"Fan1 knockout mouse (cisplatin-induced KIN)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Fan1-deficient mouse (constitutive knockout)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Genomic Instability and Replication Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent unrepaired DNA lesions produce chromosomal instability, aberrant cell-cycle progression, and chronic replication stress in dividing renal tubular epithelial cells. In FAN1-deficient kidneys, endogenous reactive oxygen species are an important source of the ongoing DNA damage.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"kidney tubule epithelial cell\"], \"biological_processes\": [\"DNA damage response\"], \"experimental_models\": [{\"name\": \"FAN1-mutant hiPSC-derived kidney organoid\", \"model_type\": \"ORGANOID\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"FAN1-mutant kidney organoids show increased DNA-damage markers and reduced viability after mitomycin C challenge, modeling the DNA-damage susceptibility of FAN1-deficient tubular cells.\"}]}}, {\"id\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cell-cycle dysregulation drives DNA endoreduplication and polyploidy in tubular epithelial cells, which manifests histologically as karyomegaly: markedly enlarged, hyperchromatic, and pleomorphic tubular cell nuclei, the diagnostic hallmark of the disease. Karyomegalic changes can also occur in extrarenal organs.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney tubule epithelial cell\"], \"biological_processes\": [\"DNA endoreduplication\"], \"animal_models\": [{\"name\": \"Fan1-deficient mouse (constitutive knockout)\", \"species\": \"Mouse\", \"genotype\": \"Fan1 knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Fan1-deficient mice develop age-dependent karyomegaly in kidney and liver, recapitulating the diagnostic human hallmark.\"}]}}, {\"id\": \"Progressive Chronic Kidney Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ongoing nephron loss produces a slowly progressive decline in renal function, typically presenting in the third to fifth decade and progressing to end-stage renal disease.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Fan1 knockout mouse (cisplatin-induced KIN)\", \"species\": \"Mouse\", \"genotype\": \"Fan1-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Fan1-null mice develop KIN and renal failure when chronically challenged with low-dose cisplatin, modeling the gene-environment (\\\"second hit\\\") mechanism.\"}]}}, {\"id\": \"Renal fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005576\"}}, {\"id\": \"Renal tubular karyomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged, hyperchromatic, pleomorphic nuclei in renal tubular epithelial cells; the diagnostic histological hallmark.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:6000429\"}}, {\"id\": \"Stage 5 chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progression to end-stage renal disease requiring renal replacement therapy, typically in adulthood.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003774\"}}], \"edges\": [{\"source\": \"Biallelic FAN1 Loss of Function\", \"target\": \"Defective Interstrand Crosslink Repair\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic FAN1 Loss of Function\", \"target\": \"Defective Replication Fork Protection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Interstrand Crosslink Repair\", \"target\": \"Genomic Instability and Replication Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Replication Fork Protection\", \"target\": \"Genomic Instability and Replication Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genomic Instability and Replication Stress\", \"target\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"target\": \"Chronic Tubulointerstitial Nephritis and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"target\": \"Renal tubular karyomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Tubulointerstitial Nephritis and Fibrosis\", \"target\": \"Progressive Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Tubulointerstitial Nephritis and Fibrosis\", \"target\": \"Renal fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Chronic Kidney Disease\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Chronic Kidney Disease\", \"target\": \"Elevated serum creatinine\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure to ochratoxin A (mycotoxin)\", \"target\": \"Defective Interstrand Crosslink Repair\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Ochratoxin A increases the interstrand-crosslink burden that FAN1-deficient cells cannot repair, amplifying the DNA damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure to genotoxic and alkylating drugs\", \"target\": \"Defective Interstrand Crosslink Repair\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Alkylating and platinum drugs increase the interstrand-crosslink burden that FAN1-deficient cells cannot repair; chronic cisplatin precipitates overt KIN in FAN1-null kidneys.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FAN1-mutant hiPSC-derived kidney organoid\", \"target\": \"Genomic Instability and Replication Stress\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"FAN1-mutant kidney organoids show increased DNA-damage markers and reduced viability after mitomycin C challenge, modeling the DNA-damage susceptibility of FAN1-deficient tubular cells.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Increased DNA-damage marker expression was also observed in wild-type organoids, limiting FAN1-specificity, and the phenotype requires an acute exogenous genotoxic (MMC) challenge rather than arising spontaneously.\"}, {\"source\": \"Fan1-deficient mouse (constitutive knockout)\", \"target\": \"Polyploidy and Karyomegaly of Tubular Epithelial Cells\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Fan1-deficient mice develop age-dependent karyomegaly in kidney and liver, recapitulating the diagnostic human hallmark.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Karyomegaly is age-dependent and the model prominently manifests hepatic dysfunction; the tempo of renal fibrosis and the human respiratory phenotype are not fully reproduced.\"}, {\"source\": \"Fan1 knockout mouse (cisplatin-induced KIN)\", \"target\": \"Progressive Chronic Kidney Disease\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Fan1-null mice develop KIN and renal failure when chronically challenged with low-dose cisplatin, modeling the gene-environment (\\\"second hit\\\") mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"KIN manifests only under an exogenous genotoxic (chronic cisplatin) challenge rather than spontaneously, and the accelerated 5-week course differs from the slowly progressive human disease.\"}, {\"source\": \"FAN1 pathogenic variants\", \"target\": \"Biallelic FAN1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5262,6 +5316,9 @@ This clinical feature is Renal tubular karyomegaly (HP:6000429). HP:6000429 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5361,6 +5418,9 @@ This clinical feature is Chronic tubulointerstitial nephritis (HP:0004743). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5427,6 +5487,9 @@ This clinical feature is Tubulointerstitial fibrosis (HP:0005576). HP:0005576 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5519,6 +5582,9 @@ This clinical feature is Chronic kidney disease (HP:0012622), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5583,6 +5649,9 @@ This clinical feature is End-stage renal disease, annotated with Stage 5 chronic
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5654,6 +5723,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5755,6 +5827,9 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5828,6 +5903,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5913,6 +5991,9 @@ This clinical feature is Elevated circulating creatinine concentration (HP:00032
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5979,6 +6060,9 @@ This clinical feature is Elevated hepatic transaminases, annotated with Elevated
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6093,6 +6177,9 @@ This disease-associated gene is FAN1 (hgnc:29170). hgnc:29170 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
