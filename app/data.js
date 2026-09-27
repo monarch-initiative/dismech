@@ -7964,17 +7964,20 @@ window.searchData = [
     "creation_date": "2026-09-23T15:40:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal recessive nephrotic syndrome caused by biallelic loss-of-function variants in ARHGDIA, which encodes Rho GDP-dissociation inhibitor alpha (RhoGDIalpha), the protein that holds the Rho-family GTPases RAC1, CDC42 and RHOA in their inactive, GDP-bound cytosolic pool. The disease is podocyte-intrinsic: without functional RhoGDIalpha, RAC1 in particular is released and hyperactivated in podocytes, the actin cytoskeleton and motility of the cell are deranged, foot processes efface and the filtration barrier fails. Presentation in the reported families is congenital or infantile (the first three months of life for the truncating and in-frame-deletion alleles, around one year or later for the G173V missense allele), with diffuse mesangial sclerosis on biopsy, no response to corticosteroids, and rapid progression to kidney failure or death in infancy. Neurological involvement including intellectual disability was reported in one of the two founding series. Fewer than ten affected individuals are described in the sources used here, so frequencies are not assigned. A Rac1-mineralocorticoid-receptor axis is pharmacologically targetable in the knockout mouse and in zebrafish morphants, but no therapy has been tested in patients.",
+    "description": "Autosomal recessive nephrotic syndrome caused by biallelic ARHGDIA variants that impair Rho GDP-dissociation inhibitor alpha (RhoGDIalpha). Characterized alleles disturb regulation of Rho-family GTPases, with consistent RAC1 hyperactivation in podocyte models and model-dependent effects on CDC42, RHOA and cell motility. Podocyte injury disrupts the glomerular filtration barrier. Reported onset ranges from the neonatal period to early childhood, with diffuse mesangial sclerosis in biopsied patients and progression to kidney failure that can occur in infancy or childhood. Intellectual disability, seizures, cortical blindness and hearing impairment have been reported in selected patients. Pharmacological RAC1 and mineralocorticoid-receptor inhibition has shown preclinical effects; clinical efficacy specific to ARHGDIA disease is unestablished.",
     "pathophysiology": [
       "Biallelic ARHGDIA Loss of Function",
-      "Release of Rho GTPases from RhoGDIalpha Sequestration",
+      "Impaired RhoGDIalpha-GTPase Interaction",
       "RAC1 Hyperactivation in Podocytes",
-      "Variable CDC42 and RHOA Activation",
-      "Podocyte Actin Cytoskeleton and Motility Derangement",
+      "Variable CDC42 Activation",
+      "Podocyte Actin Cytoskeleton Derangement",
       "Renal Mineralocorticoid Receptor Overactivation",
       "Sensitization of Podocytes to Inflammatory Injury",
-      "Foot Process Effacement and Slit Diaphragm Disruption",
-      "Glomerular Filtration Barrier Failure"
+      "Podocyte Foot Process Effacement",
+      "Glomerular Filtration Barrier Failure",
+      "Reduced Total Rho GTPase Protein Abundance",
+      "Variable RHOA Activation",
+      "Dysregulated Podocyte Motility"
     ],
     "cell_types": [
       "podocyte"
@@ -7986,12 +7989,12 @@ window.searchData = [
       "Rac protein signal transduction",
       "Cdc42 protein signal transduction",
       "actin cytoskeleton organization",
-      "podocyte cell migration",
       "nuclear receptor-mediated mineralocorticoid signaling pathway",
-      "glomerular filtration"
+      "glomerular filtration",
+      "podocyte cell migration"
     ],
     "phenotypes": [
-      "Congenital or Infantile Nephrotic Syndrome",
+      "Nephrotic Syndrome",
       "Steroid Resistance",
       "Nephrotic-Range Proteinuria",
       "Hypoalbuminemia",
@@ -8002,21 +8005,30 @@ window.searchData = [
       "Thin Glomerular Basement Membrane",
       "Renal Tubular Atrophy",
       "Kidney Failure",
-      "Intellectual Disability"
+      "Intellectual Disability",
+      "Seizures",
+      "Sensorineural hearing impairment",
+      "Hypercholesterolemia",
+      "Cortical blindness"
     ],
     "phenotype_categories": [
       "Renal",
       "Cardiovascular",
-      "Neurological"
+      "Neurological",
+      "Auditory",
+      "Metabolic",
+      "Ophthalmological"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Ear",
+      "Eye",
       "Genitourinary",
       "Metabolism",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0008677",
+      "HP:0000100",
       "HP:0012588",
       "HP:0012593",
       "HP:0003073",
@@ -8027,7 +8039,11 @@ window.searchData = [
       "HP:0012577",
       "HP:0000092",
       "HP:0003774",
-      "HP:0001249"
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0000407",
+      "HP:0003124",
+      "HP:0100704"
     ],
     "frequencies": [],
     "genes": [
@@ -8036,17 +8052,22 @@ window.searchData = [
     "treatments": [
       "Corticosteroid Therapy",
       "Dialysis",
-      "Kidney Transplantation"
+      "Kidney Transplantation",
+      "Renin-angiotensin-aldosterone system inhibition",
+      "Supportive renal care",
+      "Family screening and genetic counseling",
+      "Experimental RAC1 inhibition",
+      "Experimental eplerenone treatment"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "ARHGDIA-Related_Steroid-Resistant_Nephrotic_Syndrome.yaml",
     "page_url": "../pages/disorders/ARHGDIA-Related_Steroid-Resistant_Nephrotic_Syndrome.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 12,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "33",
+    "num_treatments": 8,
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "9"
   },
   {
@@ -10721,12 +10742,15 @@ window.searchData = [
     "creation_date": "2026-09-24T20:42:38Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Acrocapitofemoral dysplasia (ACFD) is an ultra-rare autosomal recessive skeletal dysplasia caused by homozygous missense variants in the amino-terminal signaling domain of IHH (Indian hedgehog). It presents with postnatal-onset disproportionate short stature with short limbs, brachydactyly, a narrow thorax and a relatively large head, with normal intelligence. The defining radiographic signs are cone-shaped epiphyses, mainly in the hands and hips, and an egg-shaped capital femoral epiphysis on a short femoral neck. These are followed by early, prepubertal closure of the growth plates, which permanently shortens the tubular bones of the hands and the long bones of the limbs. The mechanism is inferred from mouse genetics: IHH secreted by prehypertrophic chondrocytes drives chondrocyte proliferation and paces hypertrophic differentiation through a PTHrP feedback loop, and postnatal loss of chondrocyte IHH disorganizes the growth plate and fuses it prematurely. No functional assay of an ACFD allele has been published.",
+    "description": "Acrocapitofemoral dysplasia (ACFD) is an ultra-rare autosomal recessive skeletal dysplasia caused by homozygous missense variants in the amino-terminal signaling domain of IHH (Indian hedgehog). It presents with postnatal-onset disproportionate short stature with short limbs, brachydactyly, a narrow thorax and a relatively large head, with normal intelligence. The defining radiographic signs are cone-shaped epiphyses, mainly in the hands and hips, and an egg-shaped capital femoral epiphysis on a short femoral neck. These are followed by early, prepubertal closure of the growth plates, which permanently shortens the tubular bones of the hands and the long bones of the limbs. A published cell study found reduced IHH-N abundance, interpreted as reduced protein stability with a slight processing defect for p.Val190Ala. The growth-plate mechanism is supported mainly by mouse genetics: IHH secreted by prehypertrophic chondrocytes drives chondrocyte proliferation and paces hypertrophic differentiation through a PTHrP feedback loop, and postnatal loss of chondrocyte IHH disorganizes the growth plate and fuses it prematurely. Allele-specific effects on signaling in human cartilage remain unresolved.",
     "pathophysiology": [
       "Biallelic IHH Signaling-Domain Missense Variants",
+      "Reduced V190A IHH-N Abundance",
       "Reduced IHH Signaling Output",
       "Reduced Growth Plate Chondrocyte Proliferation",
-      "Accelerated Hypertrophic Differentiation and Loss of Columnar Organization",
+      "Ectopic Chondrocyte Hypertrophy",
+      "Loss of Growth Plate Columnar Organization",
+      "Premature Growth Plate Vascular Invasion",
       "Premature Growth Plate Closure"
     ],
     "cell_types": [
@@ -10743,7 +10767,6 @@ window.searchData = [
       "Smoothened signaling pathway",
       "chondrocyte proliferation",
       "chondrocyte hypertrophy",
-      "growth plate cartilage chondrocyte differentiation",
       "endochondral bone growth"
     ],
     "phenotypes": [
@@ -10773,16 +10796,31 @@ window.searchData = [
       "Acetabular dysplasia",
       "Radial bowing",
       "Finger symphalangism",
-      "Hyperplastic distal femur"
+      "Hyperplastic distal femur",
+      "Dislocated radial head",
+      "Short ribs",
+      "Short clavicles",
+      "Carpal synostosis",
+      "Fibular hypoplasia",
+      "Hypoplasia of the radius",
+      "Ulnar bowing",
+      "Narrow femoral medullary cavity",
+      "Unilateral ptosis",
+      "Pes planus",
+      "Hypertrichosis",
+      "Pectus excavatum",
+      "Pectus carinatum"
     ],
     "phenotype_categories": [
       "Growth",
       "Skeletal",
       "Craniofacial",
       "Neurological",
-      "Dermatologic"
+      "Dermatologic",
+      "Ophthalmologic"
     ],
     "phenotype_hpo_categories": [
+      "Eye",
       "Growth",
       "Head and Neck",
       "Integument",
@@ -10816,26 +10854,40 @@ window.searchData = [
       "HP:0002869",
       "HP:0008807",
       "HP:0002986",
-      "HP:0009700"
+      "HP:0009700",
+      "HP:0003083",
+      "HP:0000773",
+      "HP:0000894",
+      "HP:0005048",
+      "HP:0003038",
+      "HP:0002984",
+      "HP:0003031",
+      "HP:0100254",
+      "HP:0007687",
+      "HP:0001763",
+      "HP:0000998",
+      "HP:0000767",
+      "HP:0000768"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
       "FREQUENT"
     ],
     "genes": [
       "IHH"
     ],
-    "treatments": [],
+    "treatments": [
+      "Smoothened agonist SAG (preclinical)"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Acrocapitofemoral_Dysplasia.yaml",
     "page_url": "../pages/disorders/Acrocapitofemoral_Dysplasia.html",
-    "num_phenotypes": 27,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 40,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "31",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 1,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Acrodysostosis",
@@ -32205,63 +32257,143 @@ window.searchData = [
     ],
     "creation_date": "2025-12-19T01:12:52Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "An acquired hemolytic anemia caused by autoantibodies against red blood cell surface antigens. Classified as warm (IgG, 70-80%) or cold (IgM, cold agglutinin disease) based on antibody thermal amplitude. May be primary or secondary to underlying disease.",
+    "subtypes": [
+      "Warm AIHA",
+      "Cold agglutinin disease",
+      "Secondary cold agglutinin syndrome",
+      "Mixed AIHA",
+      "Paroxysmal cold hemoglobinuria"
+    ],
+    "description": "An acquired immune hemolytic disorder in which autoantibodies shorten red-cell survival through Fc-receptor-mediated phagocytosis and/or complement activation. Warm AIHA, cold agglutinin disease or secondary cold agglutinin syndrome, mixed AIHA and paroxysmal cold hemoglobinuria differ in antibody properties, sites of destruction and treatment response. Disease severity also depends on marrow compensation. A positive direct antiglobulin test requires accompanying evidence of hemolysis; a negative standard test does not exclude AIHA. The disorder may be primary or associated with another disease.",
     "pathophysiology": [
-      "Warm Autoantibody-Mediated Hemolysis",
-      "Cold Agglutinin-Mediated Hemolysis",
-      "B Cell Dysregulation"
+      "Anti-Erythrocyte Autoantibody Production",
+      "Clonal B-Cell Expansion in CAD",
+      "Warm IgG Coating of Erythrocytes",
+      "Fc-Gamma-Receptor-Mediated Erythrophagocytosis",
+      "Partial Erythrocyte Membrane Removal",
+      "Cold Agglutinin Binding",
+      "Erythrocyte Agglutination",
+      "Biphasic Hemolysin Binding",
+      "Classical Complement Activation",
+      "C3b Opsonization of Erythrocytes",
+      "Hepatic Clearance of Complement-Opsonized Erythrocytes",
+      "Terminal Complement-Mediated Erythrocyte Lysis",
+      "Monocyte TNF Production in Hemolytic Conditions",
+      "Regulatory T-Cell Suppressive Dysfunction",
+      "Th17-Associated Immune Polarization",
+      "Inflammatory Bone Marrow Microenvironment",
+      "Inadequate Erythropoietic Compensation",
+      "Follicular Helper T-Cell Expansion",
+      "Persistent Autoreactive Plasma Cells",
+      "BAFF-Rich Splenic Survival Environment",
+      "Antibody-Dependent Cellular Cytotoxicity"
     ],
     "cell_types": [
-      "Macrophage",
-      "Red Blood Cell",
-      "B Cell"
+      "B cell",
+      "splenic red pulp macrophage",
+      "erythrocyte",
+      "Kupffer cell",
+      "regulatory T cell",
+      "T-helper 17 cell",
+      "T follicular helper cell",
+      "plasma cell",
+      "natural killer cell"
     ],
     "cell_type_ids": [
-      "CL:0000235",
+      "CL:0000236",
+      "CL:0000874",
       "CL:0000232",
-      "CL:0000236"
+      "CL:0000091",
+      "CL:0000815",
+      "CL:0000899",
+      "CL:0002038",
+      "CL:0000786",
+      "CL:0000623"
     ],
     "biological_processes": [
-      "Phagocytosis",
-      "Complement Activation",
-      "Immunoglobulin Production"
+      "Fc-gamma receptor signaling pathway involved in phagocytosis",
+      "complement activation, classical pathway"
     ],
     "phenotypes": [
       "Anemia",
       "Jaundice",
       "Splenomegaly",
-      "Fatigue"
+      "Fatigue",
+      "Dyspnea",
+      "Pallor",
+      "Acrocyanosis",
+      "Raynaud phenomenon",
+      "Spherocytosis",
+      "Hemoglobinuria",
+      "Reticulocytopenia",
+      "Thromboembolism"
     ],
     "phenotype_categories": [
       "Hematological",
       "Hepatic",
-      "Systemic"
+      "Systemic",
+      "Clinical",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Constitutional",
       "Digestive",
+      "Genitourinary",
       "Immune",
-      "Integument"
+      "Integument",
+      "Metabolism",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001903",
       "HP:0000952",
       "HP:0001744",
-      "HP:0012378"
+      "HP:0012378",
+      "HP:0002094",
+      "HP:0000980",
+      "HP:0001063",
+      "HP:0030880",
+      "HP:0004444",
+      "HP:0003641",
+      "HP:0001896",
+      "HP:0001907"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [],
     "treatments": [
       "Corticosteroids",
       "Rituximab",
       "Splenectomy",
-      "Complement Inhibitors"
+      "Sutimlimab",
+      "Red-cell transfusion support",
+      "Epoetin alfa",
+      "Fostamatinib",
+      "Sovleplenib",
+      "Parsaclisib",
+      "Pegcetacoplan",
+      "Daratumumab",
+      "Eculizumab",
+      "Conventional immunosuppressants",
+      "Thromboprophylaxis during active hemolysis",
+      "Rilzabrutinib",
+      "Nipocalimab",
+      "Ianalumab",
+      "Obexelimab",
+      "Povetacicept",
+      "Riliprubart",
+      "Iptacopan",
+      "Ibrutinib",
+      "CD19 CAR T-cell therapy",
+      "Folate and deficiency replacement",
+      "Intravenous immunoglobulin",
+      "Cold avoidance and thermal protection",
+      "Rituximab plus bendamustine",
+      "Bortezomib",
+      "Isatuximab",
+      "Zanubrutinib",
+      "ANX005"
     ],
     "environmental": [],
     "biochemical": [
@@ -32273,12 +32405,12 @@ window.searchData = [
     ],
     "source_file": "Autoimmune_Hemolytic_Anemia.yaml",
     "page_url": "../pages/disorders/Autoimmune_Hemolytic_Anemia.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 21,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 31,
+    "causal_graph_edges": "71",
+    "causal_graph_longest_path": "12"
   },
   {
     "name": "Autoimmune Hepatitis",
@@ -39304,15 +39436,22 @@ window.searchData = [
     "creation_date": "2026-09-23T17:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Bilateral sensorineural hearing loss of early, usually prelingual, onset caused by biallelic pathogenic variants in GIPC3, which encodes a small PDZ-domain adaptor protein of cochlear hair cells and spiral ganglion neurons. Three locus symbols name this one gene: DFNB15 (an Indian family mapped to 19p13), DFNB72 (Pakistani families mapped to 19p13.3) and DFNB95 (a Dutch family). Severity varies between families, from mild-to-severe to profound, and it is usually stable, although slow progression has been documented in at least one patient. The hearing loss is not accompanied by vestibular or retinal involvement in the families assessed.\nNearly everything known about the mechanism comes from mouse. A PDZ-domain missense allele of Gipc3 underlies the ahl5 hearing-loss and jams1 audiogenic-seizure loci in Black Swiss mice, and disorganises the stereocilia bundle, reduces mechanotransduction currents and is followed by late degeneration of hair cells and spiral ganglion neurons. A Gipc3 knockout is profoundly deaf, with malformed cuticular plates and disrupted apical junctions, and GIPC3 binds myosin VI and myosin 18A. How these observations add up to deafness in patients is not settled.",
+    "description": "Bilateral sensorineural hearing loss of early, usually prelingual, onset caused by biallelic pathogenic variants in GIPC3, which encodes a small PDZ-domain adaptor protein of cochlear hair cells and spiral ganglion neurons. Three locus symbols name this one gene: DFNB15 (an Indian family mapped to 19p13), DFNB72 (Pakistani families mapped to 19p13.3) and DFNB95 (a Dutch family). Severity varies between families, from mild-to-severe to profound, and it is usually stable, although slow progression has been documented in at least one patient. The hearing loss is not accompanied by vestibular or retinal involvement in the families assessed.\nNearly everything known about the mechanism comes from mouse. A PDZ-domain missense allele of Gipc3 underlies the ahl5 hearing-loss and jams1 audiogenic-seizure loci in Black Swiss mice, and disorganises the stereocilia bundle, reduces mechanotransduction currents and is followed by late degeneration of hair cells and spiral ganglion neurons. A Gipc3 knockout is profoundly deaf, with malformed cuticular plates and disrupted apical junctions, and GIPC3 binds myosin VI and myosin 18A. Additional missense-mouse work identifies enhanced presynaptic calcium entry and auditory nerve firing; an siRNA study proposes oxidative and autophagy abnormalities in vitro. How these observations add up to deafness in patients is not settled.",
     "pathophysiology": [
       "Biallelic GIPC3 Pathogenic Variants",
       "Loss of GIPC3 Adaptor Function in Cochlear Hair Cells",
       "Stereocilia Bundle Disorganisation",
       "Reduced Hair Cell Mechanotransduction",
       "Failure of Inner Hair Cell Potassium Current Maturation",
-      "Cuticular Plate and Apical Junction Malformation",
-      "Hair Cell and Spiral Ganglion Neuron Degeneration"
+      "Cuticular Plate Malformation",
+      "Apical Hair Cell Junction Disruption",
+      "Hair Cell and Spiral Ganglion Neuron Degeneration",
+      "Enhanced Presynaptic Calcium Entry",
+      "Enhanced Inner Hair Cell Exocytosis",
+      "Increased Spontaneous Auditory Nerve Firing",
+      "Reduced Autophagy Marker Response",
+      "Increased Reactive Oxygen Species",
+      "Mitochondrial Depolarization"
     ],
     "cell_types": [
       "cochlear inner hair cell",
@@ -39327,7 +39466,9 @@ window.searchData = [
     "biological_processes": [
       "auditory receptor cell stereocilium organization",
       "detection of mechanical stimulus involved in sensory perception of sound",
-      "potassium ion transmembrane transport"
+      "potassium ion transmembrane transport",
+      "calcium ion transmembrane transport",
+      "synaptic vesicle exocytosis"
     ],
     "phenotypes": [
       "Sensorineural Hearing Loss",
@@ -39365,10 +39506,10 @@ window.searchData = [
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_15.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_15.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 14,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -39659,37 +39800,47 @@ window.searchData = [
     "creation_date": "2026-09-03T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "DFNB35 is bilateral sensorineural hearing loss caused by biallelic variants in ESRRB, which encodes the orphan nuclear receptor oestrogen-related receptor beta (ERR-beta, NR3B2). Most reported patients have prelingual, symmetrical, severe-to-profound loss; the small number of families described means that statement rests on roughly twenty pedigrees rather than on a cohort.\nThe interesting thing about DFNB35 is where the lesion is not. Most recessive nonsyndromic deafness genes act inside the hair cell - on the stereocilium, the mechanotransduction channel, the tip link, or the synapse. ESRRB does not. It is a transcription factor expressed in the endolymph-producing cells of the inner ear: the strial marginal cells of the cochlea and the vestibular dark cells of the ampulla and utricle. In the mouse, Nr3b2-null strial marginal cells fail to switch on a whole programme of ion channel and transporter genes and drift partway toward the fate of the neighbouring Pendrin-expressing epithelium; secondary changes appear in the underlying intermediate cells and the strial capillary bed is locally lost. The mechanism this entry curates is therefore a fate and secretory-programme failure in the cochlear lateral wall, upstream of anything the hair cell does, in the same compartment that KCNQ1, KCNE1 and SLC12A2 lesions damage from the transport side.\nThe human alleles are mostly missense and mostly hypomorphic rather than null. Of the coding variants reported to date, all but one sit in either the DNA-binding domain or the ligand-binding domain, and no clear genotype-phenotype correlation separates the two. Two alleles have been taken apart functionally: a canonical splice variant that skips exon 4 and is degraded by nonsense-mediated decay, and p.Arg382Cys, which is common enough in East Asian populations to have been filed as a variant of uncertain significance and which turns out to destabilise the protein, abolish its transcriptional output in a reporter assay, and lower the expression of ESRRB target genes in patient-derived cells. That work is the closest thing DFNB35 has to a molecular mechanism measured in human material.\nTwo caveats are worth carrying. First, \"nonsyndromic\" may be doing more work than it should: ESRRB is expressed in secretory-stage ameloblasts, and the two DFNB35 families examined for it had markedly more dental destruction by caries than their unaffected relatives. Second, no *quantitative* auditory readout - an ABR threshold, a DPOAE, an endocochlear potential - has been reported for any Esrrb mouse, so the step from a failed strial secretory programme to a human audiogram is calibrated by inference from the compartment rather than measured in this gene. A behavioural hearing and balance phenotype in rescued and conditional-null Esrrb animals is described in the discussion of the 2008 gene-discovery paper, which reaches this knowledge base only as an abstract, so the observation is acknowledged here rather than curated as an evidence item.",
+    "description": "DFNB35 is autosomal recessive bilateral sensorineural hearing loss caused by biallelic pathogenic variants in ESRRB, encoding the orphan nuclear receptor ERR-beta (NR3B2). Reported families usually have prelingual severe-to-profound loss, although moderate severity, asymmetry and progression occur. The reported missense predominance does not establish residual function for every allele. The recurrent p.Arg382Cys variant impaired protein stability and reporter activity in cultured cells but remained a variant of uncertain significance in the 2024 study.\nMouse loss-of-function experiments implicate defective strial marginal-cell differentiation and ion-transporter expression, with secondary intermediate-cell and capillary abnormalities. Developmental mouse RNA localization and postnatal rat immunohistochemistry also place ESRRB in nonsensory and neural cochlear compartments. Absent otoacoustic emissions in two affected Turkish relatives support outer-hair-cell dysfunction; the proposed secondary origin is inferred from rodent expression rather than demonstrated in human cochlear tissue.\nVestibular findings vary across small reports: two Turkish adults had normal caloric testing, whereas a pediatric implant-candidate series reported abnormal cervical vestibular evoked myogenic potentials in its one ESRRB-associated case. Severe caries was reported in affected and heterozygous members of a Turkish family, whereas the affected Czech child was caries-free at age four. Its frequency and an ESRRB-specific enamel mechanism remain uncertain.",
     "pathophysiology": [
       "ESRRB Loss of Function",
+      "Reduced Stability of ESRRB Arg382Cys Protein",
       "Reduced ERR-beta Transcriptional Output at Target Promoters",
       "Failure of the Strial Marginal Cell Secretory Programme",
-      "Impaired Endolymph Production and Cochlear Lateral Wall Failure",
-      "Reduced ESRRB Activity in Secretory-Stage Ameloblasts"
+      "Partial Marginal Cell Fate Transformation",
+      "Secondary Strial Intermediate Cell Expression Changes",
+      "Local Strial Capillary Loss",
+      "Impaired Endolymph Homeostasis",
+      "Secondary Outer Hair Cell Dysfunction",
+      "Proposed ESRRB-Related Enamel Susceptibility"
     ],
     "cell_types": [
       "strial marginal cell",
       "vestibular dark cell",
+      "strial intermediate cell",
+      "cochlear outer hair cell",
       "ameloblast"
     ],
     "cell_type_ids": [
       "CL:0002492",
       "CL:0000846",
+      "CL:0002486",
+      "CL:0000601",
       "CL:0000059"
     ],
     "biological_processes": [
       "regulation of transcription by ERR-beta at target promoters",
       "potassium ion transport into endolymph",
-      "inner ear development",
       "potassium ion homeostasis of endolymph",
-      "enamel matrix deposition during the secretory stage"
+      "amelogenesis"
     ],
     "phenotypes": [
       "Bilateral Sensorineural Hearing Impairment",
       "Severe to Profound Hearing Impairment",
       "Prelingual Onset Hearing Impairment",
       "Progressive Hearing Impairment",
-      "Increased Dental Caries Experience"
+      "Increased Dental Caries Experience",
+      "Absent Otoacoustic Emissions",
+      "Vestibular Dysfunction"
     ],
     "phenotype_categories": [
       "Auditory",
@@ -39702,14 +39853,14 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0008619",
       "HP:0008625",
-      "HP:0008527",
+      "HP:0000399",
       "HP:0001730",
-      "HP:0000670"
+      "HP:0000670",
+      "HP:6000182",
+      "HP:0001751"
     ],
     "frequencies": [
-      "OBLIGATE",
-      "VERY_FREQUENT",
-      "OCCASIONAL"
+      "OBLIGATE"
     ],
     "genes": [
       "ESRRB"
@@ -39717,18 +39868,19 @@ window.searchData = [
     "treatments": [
       "Cochlear Implantation",
       "Hearing Aids and Auditory Rehabilitation",
-      "Dental caries surveillance and prevention"
+      "Dental caries surveillance and prevention",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_35.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_35.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 10,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 4,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 48",
@@ -323408,7 +323560,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "glycogen biosynthetic process",
-      "glycoprotein metabolic process",
+      "protein glycosylation",
       "response to endoplasmic reticulum stress",
       "neuron differentiation"
     ],
@@ -338169,18 +338321,18 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3198,
-  "total_subtypes": 4296,
-  "total_disorders_and_subtypes": 7494,
-  "total_unique_evidence_sources": 46616,
-  "total_unique_publications": 43784,
+  "total_subtypes": 4301,
+  "total_disorders_and_subtypes": 7499,
+  "total_unique_evidence_sources": 46667,
+  "total_unique_publications": 43805,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
   "total_pathographs": 3193,
-  "total_unique_pathological_events": 20250,
+  "total_unique_pathological_events": 20280,
   "total_modules": 179,
   "total_research_reports": 3313,
   "total_classifications": 20,
   "total_comorbidities": 47,
-  "total_groupings": 106
+  "total_groupings": 108
 };
 window.dispatchEvent(new Event('searchDataReady'));
