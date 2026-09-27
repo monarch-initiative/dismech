@@ -3825,12 +3825,12 @@ jev-audit *args:
 # Preview new issues from the latest published Jev queue; no API inference.
 [positional-arguments]
 plan-eval-issues n="5":
-    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1"
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1"
 
 # Create up to N issues, skipping diseases with an open or closed intake issue.
 [positional-arguments]
 enqueue-eval-issues n="5":
-    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1" --apply
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1" --apply
 
 # Inventory every assertion without paid API calls.
 [positional-arguments]
