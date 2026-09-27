@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import yaml
@@ -207,13 +209,11 @@ def test_dataset_template_gets_canonical_artifact_dir_and_explicit_inputs(
             "target_variables": "FDX1",
             "analysis_objective": "Compare case with control.",
         },
+        repo_root=tmp_path,
     )
 
-    artifact_dir = (
-        output_root
-        / "Long_COVID"
-        / "canonical_persistence_immune_model"
-        / "biomni_artifacts"
+    artifact_dir = Path(
+        "kb/hypotheses/Long_COVID/canonical_persistence_immune_model/biomni_artifacts"
     )
     assert result.status == "DRY_RUN"
     assert f"artifact_dir={artifact_dir}" in result.command
@@ -813,3 +813,234 @@ def test_existing_output_completeness_honors_analysis_contract(tmp_path: Path) -
     assert not hypothesis_deep_research.existing_output_is_complete(
         output, analysis_contract_required=True
     )
+
+
+def _dataset_record(tmp_path: Path):
+    kb_dir = tmp_path / "kb" / "disorders"
+    kb_dir.mkdir(parents=True)
+    write_disorder(kb_dir)
+    return hypothesis_deep_research.find_hypothesis(
+        kb_dir, "Long_COVID", "canonical_persistence_immune_model"
+    )
+
+
+DATASET_VARS = {
+    "dataset_inputs": "geo:GSE1",
+    "target_variables": "FDX1",
+    "analysis_objective": "Compare case with control.",
+}
+
+
+def test_output_root_outside_repo_still_gives_provider_a_relative_artifact_dir(
+    tmp_path: Path,
+) -> None:
+    """An absolute --output-root must not send the bundle outside the job workspace."""
+    record = _dataset_record(tmp_path)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    output_root = tmp_path / "elsewhere"
+
+    result = hypothesis_deep_research.run_record(
+        record,
+        provider="openscientist",
+        output_root=output_root,
+        template=ROOT / "templates" / "hypothesis_dataset_analysis.md",
+        extra_args=[],
+        timeout_seconds=1,
+        dry_run=True,
+        overwrite=False,
+        template_overrides=DATASET_VARS,
+        repo_root=repo_root,
+    )
+
+    assert result.status == "DRY_RUN"
+    assert result.output_file == (
+        output_root
+        / "Long_COVID"
+        / "canonical_persistence_immune_model"
+        / "openscientist.md"
+    )
+    [artifact_var] = [arg for arg in result.command if arg.startswith("artifact_dir=")]
+    assert artifact_var == (
+        "artifact_dir=Long_COVID/canonical_persistence_immune_model/"
+        "openscientist_artifacts"
+    )
+
+
+def test_run_label_names_a_second_report_beside_the_first(tmp_path: Path) -> None:
+    record = _dataset_record(tmp_path)
+    output_root = tmp_path / "kb" / "hypotheses"
+    literature = hypothesis_deep_research.output_file_for(
+        record, output_root, "openscientist"
+    )
+    literature.parent.mkdir(parents=True)
+    literature.write_text("# Literature report\n", encoding="utf-8")
+
+    result = hypothesis_deep_research.run_record(
+        record,
+        provider="openscientist",
+        output_root=output_root,
+        template=ROOT / "templates" / "hypothesis_dataset_analysis.md",
+        extra_args=[],
+        timeout_seconds=1,
+        dry_run=True,
+        overwrite=False,
+        template_overrides=DATASET_VARS,
+        run_label="dataset",
+        repo_root=tmp_path,
+    )
+
+    assert result.status == "DRY_RUN"
+    assert result.output_file == literature.parent / "openscientist-dataset.md"
+    assert (
+        "artifact_dir=kb/hypotheses/Long_COVID/canonical_persistence_immune_model/"
+        "openscientist-dataset_artifacts"
+    ) in result.command
+    assert "-v" in result.command[: result.command.index("research")]
+    assert literature.read_text(encoding="utf-8") == "# Literature report\n"
+
+
+def test_cli_rejects_malformed_run_label(tmp_path: Path, capsys) -> None:
+    exit_code = hypothesis_deep_research.main(
+        [
+            "run",
+            "openscientist",
+            "Long_COVID",
+            "canonical_persistence_immune_model",
+            "--run-label",
+            "Dataset Run",
+            "--kb-dir",
+            str(tmp_path),
+            "--dry-run",
+        ]
+    )
+    assert exit_code == 2
+    assert "run label" in capsys.readouterr().err
+
+
+def _zip(members: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+    return buffer.getvalue()
+
+
+def test_restore_artifact_subtree_copies_provider_bytes_at_their_paths(
+    tmp_path: Path,
+) -> None:
+    provider_dir = Path("kb/hypotheses/D/h/openscientist_artifacts")
+    manifest = b"schema_version: '1.0'\ninputs:\n- local_path: raw/GSE1.txt\n"
+    bundle = _zip(
+        {
+            "workspace/kb/hypotheses/D/h/openscientist_artifacts/MANIFEST.yaml": manifest,
+            "workspace/kb/hypotheses/D/h/openscientist_artifacts/raw/GSE1.txt": b"x",
+            "workspace/kb/hypotheses/D/h/openscientist_artifacts/replay/samples.csv": (
+                b"a,b\n"
+            ),
+            "workspace/final_report.md": b"# report",
+        }
+    )
+    artifact_dir = tmp_path / "openscientist_artifacts"
+    artifact_dir.mkdir()
+    (artifact_dir / "figure.png").write_bytes(b"png")
+    (artifact_dir / "MANIFEST.yaml").write_bytes(b"flattened copy")
+
+    problem = hypothesis_deep_research.restore_artifact_subtree(
+        bundle, provider_dir, artifact_dir
+    )
+
+    assert problem == ""
+    assert (artifact_dir / "MANIFEST.yaml").read_bytes() == manifest
+    assert (artifact_dir / "raw" / "GSE1.txt").read_bytes() == b"x"
+    assert (artifact_dir / "replay" / "samples.csv").read_bytes() == b"a,b\n"
+    assert (artifact_dir / "figure.png").read_bytes() == b"png"
+    assert not (artifact_dir / "final_report.md").exists()
+    assert not list(tmp_path.glob(".openscientist_artifacts-*"))
+
+
+def test_restore_artifact_subtree_refuses_missing_or_ambiguous_trees(
+    tmp_path: Path,
+) -> None:
+    provider_dir = Path("p_artifacts")
+    artifact_dir = tmp_path / "p_artifacts"
+
+    missing = hypothesis_deep_research.restore_artifact_subtree(
+        _zip({"final_report.md": b"#"}), provider_dir, artifact_dir
+    )
+    ambiguous = hypothesis_deep_research.restore_artifact_subtree(
+        _zip(
+            {"a/p_artifacts/MANIFEST.yaml": b"1", "b/p_artifacts/MANIFEST.yaml": b"2"}
+        ),
+        provider_dir,
+        artifact_dir,
+    )
+
+    assert "contain no" in missing
+    assert "several prefixes" in ambiguous
+    assert not artifact_dir.exists()
+
+
+def test_openscientist_dataset_run_records_job_and_restores_bundle(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The job ID reaches the report and the job's own manifest reaches the gate."""
+    record = _dataset_record(tmp_path)
+    output_root = tmp_path / "kb" / "hypotheses"
+    output_file = hypothesis_deep_research.output_file_for(
+        record, output_root, "openscientist", "dataset"
+    )
+    manifest = b"schema_version: '1.0'\nstatus: SUCCEEDED\n"
+    fetched: list[str] = []
+
+    def fake_run(command, **kwargs):
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.write_text(
+            "---\nprovider: openscientist\n---\n\n## Output\n\n"
+            "ANALYSIS_STATUS: SUCCEEDED\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="",
+            stderr="INFO - OpenScientist job submitted: 19cc0c3f-fbd2\n",
+        )
+
+    def fake_fetch(job_id: str) -> bytes:
+        fetched.append(job_id)
+        return _zip(
+            {
+                "kb/hypotheses/Long_COVID/canonical_persistence_immune_model/"
+                "openscientist-dataset_artifacts/MANIFEST.yaml": manifest
+            }
+        )
+
+    monkeypatch.setattr(hypothesis_deep_research.subprocess, "run", fake_run)
+    monkeypatch.chdir(tmp_path)
+
+    result = hypothesis_deep_research.run_record(
+        record,
+        provider="openscientist",
+        output_root=Path("kb/hypotheses"),
+        template=ROOT / "templates" / "hypothesis_dataset_analysis.md",
+        extra_args=[],
+        timeout_seconds=1,
+        dry_run=False,
+        overwrite=False,
+        template_overrides=DATASET_VARS,
+        run_label="dataset",
+        fetch_openscientist_artifacts=fake_fetch,
+    )
+
+    assert fetched == ["19cc0c3f-fbd2"]
+    assert "openscientist_job_id=19cc0c3f-fbd2" in result.detail
+    metadata = hypothesis_deep_research.read_report_frontmatter(output_file)
+    assert metadata["openscientist_job_id"] == "19cc0c3f-fbd2"
+    assert metadata["artifact_manifest_sha256"] == (
+        f"sha256:{hashlib.sha256(manifest).hexdigest()}"
+    )
+    # The restored manifest is deliberately incomplete, so the gate still
+    # rejects it -- on its content, not because the manifest is missing.
+    assert result.status == "INVALID_ANALYSIS_RUN"
+    assert result.detail.startswith("manifest provider is required")

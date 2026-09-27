@@ -8,11 +8,12 @@ from collections.abc import Iterable, Mapping
 from functools import cache
 from pathlib import Path
 
+from dismech.hypothesis_analysis_run import RUN_LABEL_PATTERN, report_stem
 from dismech.yaml_io import safe_load
 
 _WS = re.compile(r"\s+")
 _FILENAME = re.compile(
-    r"^(?P<provider>[a-z0-9][a-z0-9-]*)-assessment-by-"
+    r"^(?P<run>[a-z0-9][a-z0-9-]*)-assessment-by-"
     r"(?P<assessor>[a-z0-9][a-z0-9-]*)\.yaml$"
 )
 _LOCAL_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -143,6 +144,30 @@ def _lineage_cycles(edges: Mapping[str, str]) -> Iterable[list[str]]:
         processed.update(path)
 
 
+def assessment_run_key(data: Mapping) -> str | None:
+    """Return ``<provider>`` or ``<provider>-<run_label>`` for one assessment.
+
+    This is the stem shared by the assessed report, its artifact directory, and
+    the assessment filename, and the value a reconciliation names the input by.
+
+    >>> assessment_run_key({"provider": "openscientist"})
+    'openscientist'
+    >>> assessment_run_key({"provider": "openscientist", "run_label": "dataset"})
+    'openscientist-dataset'
+    >>> assessment_run_key({"provider": "openscientist", "run_label": "Bad Label"}) is None
+    True
+    """
+    provider = data.get("provider")
+    run_label = data.get("run_label")
+    if not isinstance(provider, str):
+        return None
+    if run_label is None:
+        return provider
+    if not isinstance(run_label, str) or not RUN_LABEL_PATTERN.fullmatch(run_label):
+        return None
+    return report_stem(provider, run_label)
+
+
 def iter_assessment_problems(assessment_path: str | Path) -> Iterable[str]:
     """Yield layout, quote, dataset, analysis, and artifact problems."""
     assessment_path = Path(assessment_path)
@@ -151,16 +176,28 @@ def iter_assessment_problems(assessment_path: str | Path) -> Iterable[str]:
         yield "assessment document root must be a mapping"
         return
 
+    run_label = data.get("run_label")
+    if run_label is not None and (
+        not isinstance(run_label, str) or not RUN_LABEL_PATTERN.fullmatch(run_label)
+    ):
+        yield f"run_label must match {RUN_LABEL_PATTERN.pattern}"
+    run_key = assessment_run_key(data)
     filename = _FILENAME.fullmatch(assessment_path.name)
     if not filename:
-        yield "filename must be <provider>-assessment-by-<assessor>.yaml"
+        yield (
+            "filename must be <provider>[-<run_label>]-assessment-by-<assessor>.yaml"
+        )
     else:
-        for field in ("provider", "assessor"):
-            if data.get(field) != filename.group(field):
-                yield (
-                    f"{field}={data.get(field)!r} does not match filename "
-                    f"{filename.group(field)!r}"
-                )
+        if run_key is not None and run_key != filename.group("run"):
+            field = "provider" if run_label is None else "provider/run_label"
+            yield (
+                f"{field}={run_key!r} does not match filename {filename.group('run')!r}"
+            )
+        if data.get("assessor") != filename.group("assessor"):
+            yield (
+                f"assessor={data.get('assessor')!r} does not match filename "
+                f"{filename.group('assessor')!r}"
+            )
     hypothesis_root = assessment_path.parent.parent
     resolved_root = hypothesis_root.resolve()
     if assessment_path.parent.name != "assessments":
@@ -198,6 +235,10 @@ def iter_assessment_problems(assessment_path: str | Path) -> Iterable[str]:
         or report_path.name.lower().endswith(".citations.md")
     ):
         yield "source_report must be a raw .md report in the hypothesis directory"
+    elif run_label is not None and run_key is not None and report_path.stem != run_key:
+        yield (
+            f"source_report {source!r} must be {run_key}.md for run_label {run_label!r}"
+        )
 
     artifact_root_ref = data.get("artifact_root")
     artifact_root_path: Path | None = None
@@ -211,15 +252,14 @@ def iter_assessment_problems(assessment_path: str | Path) -> Iterable[str]:
             if artifact_root_path is None:
                 yield "artifact_root must remain inside the hypothesis directory"
             else:
-                provider = data.get("provider")
-                if isinstance(provider, str):
+                if run_key is not None:
                     expected_artifact_root = (
-                        hypothesis_root / f"{provider}_artifacts"
+                        hypothesis_root / f"{run_key}_artifacts"
                     ).resolve()
                     if artifact_root_path != expected_artifact_root:
                         yield (
                             "artifact_root must resolve to the provider-specific "
-                            f"directory ../{provider}_artifacts/"
+                            f"directory ../{run_key}_artifacts/"
                         )
                 if not artifact_root_path.is_dir():
                     yield f"artifact_root {artifact_root_ref!r} is not a directory"

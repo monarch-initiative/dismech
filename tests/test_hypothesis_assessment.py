@@ -512,3 +512,51 @@ def test_duplicate_dataset_analysis_and_claim_links_are_rejected(tmp_path):
     assert any(
         "claims[0] duplicates analysis_id 'cohort_analysis'" in p for p in problems
     )
+
+
+def _labelled_fixture(tmp_path: Path) -> tuple[Path, dict]:
+    """Re-lay the fixture out as a second, ``dataset``-labelled provider run."""
+    path, data = _fixture(tmp_path)
+    root = path.parent.parent
+    (root / "provider.md").rename(root / "provider-dataset.md")
+    (root / "provider_artifacts").rename(root / "provider-dataset_artifacts")
+    text = yaml.safe_dump(data, sort_keys=False).replace(
+        "../provider_artifacts", "../provider-dataset_artifacts"
+    )
+    labelled = yaml.safe_load(text)
+    labelled["run_label"] = "dataset"
+    labelled["source_report"] = "../provider-dataset.md"
+    path.unlink()
+    path = path.parent / "provider-dataset-assessment-by-reviewer.yaml"
+    _write_yaml(path, labelled)
+    return path, labelled
+
+
+def test_run_labelled_report_is_assessed_beside_the_default_one(tmp_path):
+    path, data = _labelled_fixture(tmp_path)
+    report = Validator(
+        _SCHEMA,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    ).validate(data, target_class="HypothesisAssessment")
+
+    assert [
+        result for result in report.results if result.severity.name == "ERROR"
+    ] == []
+    assert list(iter_assessment_problems(path)) == []
+
+
+def test_run_label_must_agree_with_filename_report_and_artifact_root(tmp_path):
+    path, data = _labelled_fixture(tmp_path)
+
+    unlabelled = {key: value for key, value in data.items() if key != "run_label"}
+    _write_yaml(path, unlabelled)
+    problems = list(iter_assessment_problems(path))
+    assert any("does not match filename 'provider-dataset'" in p for p in problems)
+    assert any("../provider_artifacts/" in p for p in problems)
+
+    (path.parent.parent / "provider.md").write_text("Other report.\n", encoding="utf-8")
+    _write_yaml(path, {**data, "source_report": "../provider.md"})
+    assert any(
+        "must be provider-dataset.md for run_label 'dataset'" in problem
+        for problem in iter_assessment_problems(path)
+    )

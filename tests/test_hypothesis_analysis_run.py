@@ -364,3 +364,86 @@ def test_sensitive_source_urls_fail(tmp_path):
     problems = _problems(report, artifacts)
     assert any("userinfo or credentials" in problem for problem in problems)
     assert any("sensitive query key 'api_key'" in problem for problem in problems)
+
+
+def test_unretrieved_source_is_recorded_outside_the_checked_inputs(tmp_path):
+    report, artifacts, manifest = _fixture(tmp_path)
+    manifest["unretrieved_sources"] = [
+        {
+            "identifier": "synapse:syn60084804",
+            "canonical_url": "https://www.synapse.org/Synapse:syn60084804",
+            "reason": "Controlled-access cohort; not accessed, as instructed.",
+        }
+    ]
+    _write_manifest(artifacts / "MANIFEST.yaml", manifest)
+
+    assert _problems(report, artifacts) == []
+
+
+def test_unretrieved_source_listed_as_an_input_is_pointed_at_the_right_list(
+    tmp_path,
+):
+    report, artifacts, manifest = _fixture(tmp_path)
+    manifest["inputs"].append(
+        {
+            "identifier": "synapse:syn60084804",
+            "canonical_url": "https://www.synapse.org/Synapse:syn60084804",
+            "retrieved_at": "2026-08-29T00:00:00Z",
+            "sha256": None,
+            "byte_count": None,
+        }
+    )
+    manifest["unretrieved_sources"] = [
+        {"identifier": "synapse:syn1", "sha256": "0" * 64},
+    ]
+    _write_manifest(artifacts / "MANIFEST.yaml", manifest)
+
+    problems = _problems(report, artifacts)
+    assert any(
+        problem.startswith("inputs[1] has no sha256 or byte_count")
+        and "unretrieved_sources" in problem
+        for problem in problems
+    )
+    assert "unretrieved_sources[0].reason is required" in problems
+    assert any(
+        problem.startswith("unretrieved_sources[0].sha256 is not allowed")
+        for problem in problems
+    )
+
+
+def test_dataset_template_manifest_example_uses_the_checked_field_names():
+    """The template's worked example is the schema providers copy (#11254)."""
+    template = (
+        Path(__file__).parents[1] / "templates" / "hypothesis_dataset_analysis.md"
+    ).read_text(encoding="utf-8")
+    example = yaml.safe_load(template.split("```yaml\n", 1)[1].split("```", 1)[0])
+
+    assert str(example["schema_version"]) == "1.0"
+    assert example["status"] == "SUCCEEDED"
+    assert example["fallback_used"] is False
+    assert example["direct_analysis_completed"] is True
+    assert example["provider"]
+    for record in example["inputs"]:
+        assert {
+            "identifier",
+            "canonical_url",
+            "retrieved_at",
+            "local_path",
+            "sha256",
+            "byte_count",
+        } <= set(record)
+    for record in example["unretrieved_sources"]:
+        assert {"identifier", "reason"} <= set(record)
+        assert not {"sha256", "byte_count", "local_path"} & set(record)
+    assert {"CODE", "ENVIRONMENT", "TABULAR_RESULT"} <= {
+        record["role"] for record in example["outputs"]
+    }
+    tabular = {
+        record["path"]
+        for record in example["outputs"]
+        if record["role"] == "TABULAR_RESULT"
+    }
+    assert set(example["replay"]["byte_identity"]) == tabular
+    assert {asset["path"] for asset in example["replay"]["assets"]} == {
+        f"replay/{path}" for path in tabular
+    }

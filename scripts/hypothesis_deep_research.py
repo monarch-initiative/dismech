@@ -22,16 +22,21 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Mapping, Sequence
+import urllib.error
+import urllib.request
+import zipfile
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -42,7 +47,7 @@ from dismech.deep_research_policy import (
     deep_research_subprocess_environment,
     explicitly_requests_biomni,
 )
-from dismech.hypothesis_analysis_run import iter_analysis_run_problems
+from dismech.hypothesis_analysis_run import iter_analysis_run_problems, report_stem
 from dismech.research_reports import AlignmentError, align_report_provider
 from dismech.yaml_io import safe_load
 
@@ -66,6 +71,17 @@ OPENSCIENTIST_JOB_TIMEOUT_SECONDS = 7200
 # or subprocess.run() kills the client before the job can complete. Keep this
 # comfortably above OPENSCIENTIST_JOB_TIMEOUT_SECONDS.
 DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 7800
+
+# The OpenScientist job ID is the only handle on a job's full artifacts ZIP.
+# deep-research-client records it in the report's ``run_metadata`` from 0.2.13;
+# older clients only log it, at INFO, which is why the runner passes ``-v`` for
+# this provider and also reads the ID back out of stderr. A timed-out or failed
+# job writes no report, and stderr is then the only place the ID survives.
+OPENSCIENTIST_JOB_ID_PATTERN = re.compile(
+    r"OpenScientist job submitted: ([A-Za-z0-9][A-Za-z0-9_-]*)"
+)
+OPENSCIENTIST_DEFAULT_URL = "https://www.openscientist.io"
+OPENSCIENTIST_ARTIFACT_DOWNLOAD_TIMEOUT_SECONDS = 600
 
 # Ontology term validation for the report this script generates, mirroring the
 # `dr_term_validation` variable the justfile research recipes use. Reports made
@@ -261,8 +277,46 @@ def output_dir_for(record: HypothesisRecord, output_root: Path) -> Path:
     return output_root / record.disease_slug / record.hypothesis_group_id
 
 
-def output_file_for(record: HypothesisRecord, output_root: Path, provider: str) -> Path:
-    return output_dir_for(record, output_root) / f"{normalize_provider(provider)}.md"
+def output_file_for(
+    record: HypothesisRecord,
+    output_root: Path,
+    provider: str,
+    run_label: str | None = None,
+) -> Path:
+    """Return the report path for one provider run on one hypothesis.
+
+    ``run_label`` names a second run from the same provider, so a dataset
+    replication can sit beside that provider's literature report instead of
+    replacing it: ``openscientist-dataset.md`` with
+    ``openscientist-dataset_artifacts/``.
+    """
+    stem = report_stem(normalize_provider(provider), run_label)
+    return output_dir_for(record, output_root) / f"{stem}.md"
+
+
+def provider_artifact_dir(
+    artifact_dir: Path, output_root: Path, repo_root: Path | None = None
+) -> Path:
+    """Return the relative artifact directory named to the provider.
+
+    A remote provider writes the bundle inside its own job workspace, and only
+    files inside that workspace reach the job's artifact download. An absolute
+    path (``--output-root /tmp/runs``) sends the bundle outside the workspace,
+    where it is lost (#12909). The provider is therefore always given a relative
+    path: repository-relative when the output root is inside the checkout, and
+    output-root-relative otherwise. The local copy is written to
+    ``artifact_dir`` either way; the two paths differ only in their prefix.
+
+    >>> provider_artifact_dir(Path("kb/hypotheses/D/h/p_artifacts"), Path("kb/hypotheses"))
+    PosixPath('kb/hypotheses/D/h/p_artifacts')
+    >>> provider_artifact_dir(Path("/elsewhere/D/h/p_artifacts"), Path("/elsewhere"), Path("/repo"))
+    PosixPath('D/h/p_artifacts')
+    """
+    root = (repo_root or Path.cwd()).resolve()
+    resolved = (root / artifact_dir).resolve()
+    if resolved.is_relative_to(root):
+        return resolved.relative_to(root)
+    return resolved.relative_to((root / output_root).resolve())
 
 
 def has_reviewable_artifacts(artifact_dir: Path) -> bool:
@@ -370,20 +424,21 @@ def build_command(
     extra_args: Sequence[str],
     validate_terms: bool = True,
     template_overrides: Mapping[str, str] | None = None,
+    run_label: str | None = None,
+    repo_root: Path | None = None,
 ) -> list[str]:
     normalized = normalize_provider(provider)
-    output_file = output_file_for(record, output_root, normalized)
+    output_file = output_file_for(record, output_root, normalized, run_label)
     artifact_dir = output_file.parent / f"{output_file.stem}_artifacts"
-    command = [
-        "uv",
-        "run",
-        "deep-research-client",
-        "research",
-        "--template",
-        str(template),
-    ]
+    command = ["uv", "run", "deep-research-client"]
+    if normalized == "openscientist":
+        # INFO logging is where clients before 0.2.13 print the job ID.
+        command.append("-v")
+    command.extend(["research", "--template", str(template)])
     for key, value in template_vars(
-        record, artifact_dir=artifact_dir, overrides=template_overrides
+        record,
+        artifact_dir=provider_artifact_dir(artifact_dir, output_root, repo_root),
+        overrides=template_overrides,
     ).items():
         command.extend(["--var", f"{key}={value}"])
     command.extend(build_provider_args(normalized))
@@ -468,6 +523,66 @@ def tail_detail(result: subprocess.CompletedProcess[str]) -> str:
     return text.splitlines()[-1][:500]
 
 
+def read_report_frontmatter(report_path: Path) -> Mapping[str, Any]:
+    """Return a report's YAML frontmatter, or an empty mapping if it has none."""
+    try:
+        lines = report_path.read_text(encoding="utf-8").splitlines()
+        if not lines or lines[0] != FRONTMATTER_DELIMITER:
+            return {}
+        frontmatter_end = lines.index(FRONTMATTER_DELIMITER, 1)
+        metadata = safe_load("\n".join(lines[1:frontmatter_end]))
+    except (OSError, UnicodeError, ValueError, yaml.YAMLError):
+        return {}
+    return metadata if isinstance(metadata, Mapping) else {}
+
+
+def update_report_frontmatter(report_path: Path, updates: Mapping[str, Any]) -> str:
+    """Merge ``updates`` into a report's YAML frontmatter, leaving the body alone.
+
+    Returns an empty string on success, otherwise the reason nothing was written.
+    """
+    if report_path.is_symlink() or not report_path.is_file():
+        return f"{report_path} is not a regular file"
+    try:
+        report_text = report_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        return str(error)
+
+    report_lines = report_text.splitlines()
+    if not report_lines or report_lines[0] != FRONTMATTER_DELIMITER:
+        return "report must begin with YAML frontmatter"
+    try:
+        frontmatter_end = report_lines.index(FRONTMATTER_DELIMITER, 1)
+        metadata = safe_load("\n".join(report_lines[1:frontmatter_end]))
+    except (ValueError, yaml.YAMLError) as error:
+        return f"invalid YAML frontmatter: {error}"
+    if not isinstance(metadata, Mapping):
+        return "YAML frontmatter must be a mapping"
+
+    updated_metadata = {**metadata, **updates}
+    try:
+        rendered_metadata = yaml.safe_dump(
+            updated_metadata,
+            sort_keys=False,
+            allow_unicode=True,
+        ).rstrip()
+    except yaml.YAMLError as error:
+        return f"YAML frontmatter cannot be serialized: {error}"
+    body = "\n".join(report_lines[frontmatter_end + 1 :])
+    updated_report = (
+        f"{FRONTMATTER_DELIMITER}\n{rendered_metadata}\n{FRONTMATTER_DELIMITER}"
+    )
+    if body:
+        updated_report += f"\n{body}"
+    if report_text.endswith(("\n", "\r")):
+        updated_report += "\n"
+    try:
+        report_path.write_text(updated_report, encoding="utf-8")
+    except OSError as error:
+        return str(error)
+    return ""
+
+
 def bind_report_to_artifact_manifest(report_path: Path, artifact_dir: Path) -> str:
     """Bind a newly written DRC report to the exact canonical manifest bytes.
 
@@ -481,51 +596,171 @@ def bind_report_to_artifact_manifest(report_path: Path, artifact_dir: Path) -> s
         return f"cannot bind report: {manifest_path} is not a regular file"
     if report_path.is_symlink() or not report_path.is_file():
         return f"cannot bind report: {report_path} is not a regular file"
-
     try:
         if manifest_path.stat().st_size <= 0:
             return f"cannot bind report: {manifest_path} is empty"
         manifest_bytes = manifest_path.read_bytes()
-        report_text = report_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as error:
-        return f"cannot bind report to manifest: {error}"
-
-    report_lines = report_text.splitlines()
-    if not report_lines or report_lines[0] != FRONTMATTER_DELIMITER:
-        return "cannot bind report: report must begin with YAML frontmatter"
-    try:
-        frontmatter_end = report_lines.index(FRONTMATTER_DELIMITER, 1)
-        metadata = safe_load("\n".join(report_lines[1:frontmatter_end]))
-    except (ValueError, yaml.YAMLError) as error:
-        return f"cannot bind report: invalid YAML frontmatter: {error}"
-    if not isinstance(metadata, Mapping):
-        return "cannot bind report: YAML frontmatter must be a mapping"
-
-    updated_metadata = dict(metadata)
-    updated_metadata["artifact_manifest_sha256"] = (
-        f"sha256:{hashlib.sha256(manifest_bytes).hexdigest()}"
-    )
-    try:
-        rendered_metadata = yaml.safe_dump(
-            updated_metadata,
-            sort_keys=False,
-            allow_unicode=True,
-        ).rstrip()
-    except yaml.YAMLError as error:
-        return f"cannot bind report: YAML frontmatter cannot be serialized: {error}"
-    body = "\n".join(report_lines[frontmatter_end + 1 :])
-    updated_report = (
-        f"{FRONTMATTER_DELIMITER}\n{rendered_metadata}\n{FRONTMATTER_DELIMITER}"
-    )
-    if body:
-        updated_report += f"\n{body}"
-    if report_text.endswith(("\n", "\r")):
-        updated_report += "\n"
-    try:
-        report_path.write_text(updated_report, encoding="utf-8")
     except OSError as error:
         return f"cannot bind report to manifest: {error}"
+
+    problem = update_report_frontmatter(
+        report_path,
+        {
+            "artifact_manifest_sha256": (
+                f"sha256:{hashlib.sha256(manifest_bytes).hexdigest()}"
+            )
+        },
+    )
+    return f"cannot bind report: {problem}" if problem else ""
+
+
+def _as_text(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value or ""
+
+
+def openscientist_job_id(report_path: Path | None, stderr: str | bytes | None) -> str:
+    """Return the OpenScientist job ID from the report, else from client stderr.
+
+    >>> openscientist_job_id(None, "INFO - OpenScientist job submitted: 19cc0c3f-fbd2")
+    '19cc0c3f-fbd2'
+    >>> openscientist_job_id(None, "no job here")
+    ''
+    """
+    if report_path is not None:
+        run_metadata = read_report_frontmatter(report_path).get("run_metadata")
+        if isinstance(run_metadata, Mapping) and run_metadata.get("job_id"):
+            return str(run_metadata["job_id"])
+    matches = OPENSCIENTIST_JOB_ID_PATTERN.findall(_as_text(stderr))
+    return matches[-1] if matches else ""
+
+
+def fetch_openscientist_artifacts_zip(job_id: str) -> bytes:
+    """Download one OpenScientist job's complete artifacts ZIP.
+
+    The URL comes from ``OPENSCIENTIST_URL`` as it does for deep-research-client,
+    never from a report, so the API key only goes where the job was submitted.
+
+    Raises:
+        RuntimeError: If no API key is configured or the download fails.
+    """
+    api_key = os.getenv("OPENSCIENTIST_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENSCIENTIST_API_KEY is not set")
+    base = (os.getenv("OPENSCIENTIST_URL") or OPENSCIENTIST_DEFAULT_URL).rstrip("/")
+    request = urllib.request.Request(
+        f"{base}/api/v1/jobs/{job_id}/artifacts",
+        # The server refuses urllib's default ``Python-urllib`` User-Agent (403).
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "dismech-hypothesis-runner",
+        },
+    )
+    try:
+        with urllib.request.urlopen(
+            request, timeout=OPENSCIENTIST_ARTIFACT_DOWNLOAD_TIMEOUT_SECONDS
+        ) as response:
+            return response.read()
+    except (urllib.error.URLError, OSError) as error:
+        raise RuntimeError(
+            f"cannot download artifacts for job {job_id}: {error}"
+        ) from error
+
+
+def restore_artifact_subtree(
+    bundle: bytes, provider_dir: Path, artifact_dir: Path
+) -> str:
+    """Restore the job's own ``provider_dir`` subtree into ``artifact_dir``.
+
+    deep-research-client saves only an allowlisted, flattened subset of a job's
+    files, which drops ``MANIFEST.yaml``, ``analysis.py`` and
+    ``environment.txt`` and breaks every relative path the manifest declares
+    (#12908). This copies the provider's own bytes for its whole artifact
+    directory out of the job ZIP, unmodified and at their original relative
+    paths, so the manifest can be bound and gated as the provider wrote it.
+
+    The ZIP member path may carry a workspace prefix before ``provider_dir``;
+    exactly one such prefix must occur. Members that are symlinks or that would
+    resolve outside ``artifact_dir`` are refused rather than skipped.
+
+    Files deep-research-client saved into ``artifact_dir`` are kept when the
+    job tree has nothing at the same path, because the report may link to them.
+
+    Returns an empty string on success, otherwise why nothing was changed.
+    """
+    target = PurePosixPath(provider_dir.as_posix()).parts
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(bundle))
+    except zipfile.BadZipFile as error:
+        return f"job artifacts are not a ZIP archive: {error}"
+
+    members: list[tuple[zipfile.ZipInfo, PurePosixPath]] = []
+    prefixes: set[tuple[str, ...]] = set()
+    with archive:
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+            parts = PurePosixPath(info.filename).parts
+            for start in range(len(parts) - len(target)):
+                if parts[start : start + len(target)] != target:
+                    continue
+                relative = PurePosixPath(*parts[start + len(target) :])
+                if ".." in relative.parts or relative.is_absolute():
+                    return f"job artifact {info.filename!r} escapes {provider_dir}"
+                if stat.S_ISLNK(info.external_attr >> 16):
+                    return f"job artifact {info.filename!r} is a symlink"
+                prefixes.add(parts[:start])
+                members.append((info, relative))
+                break
+        if not members:
+            return f"job artifacts contain no {provider_dir} directory"
+        if len(prefixes) > 1:
+            return f"job artifacts contain {provider_dir} under several prefixes"
+
+        artifact_dir.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(
+            tempfile.mkdtemp(prefix=f".{artifact_dir.name}-", dir=artifact_dir.parent)
+        )
+        try:
+            for info, relative in members:
+                destination = staging / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(archive.read(info))
+        except (OSError, zipfile.BadZipFile) as error:
+            shutil.rmtree(staging, ignore_errors=True)
+            return f"cannot extract job artifacts: {error}"
+
+    # Files deep-research-client already saved stay where the report body may
+    # link to them, unless the provider's own tree holds that path.
+    if artifact_dir.is_dir():
+        for saved in artifact_dir.rglob("*"):
+            kept = staging / saved.relative_to(artifact_dir)
+            if saved.is_file() and not saved.is_symlink() and not kept.exists():
+                kept.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(saved, kept)
+        shutil.rmtree(artifact_dir)
+    staging.rename(artifact_dir)
     return ""
+
+
+def restore_openscientist_artifacts(
+    job_id: str,
+    provider_dir: Path,
+    artifact_dir: Path,
+    *,
+    fetch: Callable[[str], bytes] = fetch_openscientist_artifacts_zip,
+) -> str:
+    """Re-fetch an OpenScientist job's artifacts and restore its bundle subtree.
+
+    Returns an empty string on success, otherwise why the bundle was left as
+    deep-research-client saved it.
+    """
+    try:
+        bundle = fetch(job_id)
+    except RuntimeError as error:
+        return str(error)
+    return restore_artifact_subtree(bundle, provider_dir, artifact_dir)
 
 
 def analysis_contract_status(
@@ -629,11 +864,17 @@ def run_record(
     overwrite: bool,
     validate_terms: bool = True,
     template_overrides: Mapping[str, str] | None = None,
+    run_label: str | None = None,
+    repo_root: Path | None = None,
+    fetch_openscientist_artifacts: Callable[
+        [str], bytes
+    ] = fetch_openscientist_artifacts_zip,
 ) -> RunResult:
     normalized = normalize_provider(provider)
-    output_file = output_file_for(record, output_root, normalized)
+    output_file = output_file_for(record, output_root, normalized, run_label)
     citations_file = Path(f"{output_file}.citations.md")
     artifact_dir = output_file.parent / f"{output_file.stem}_artifacts"
+    provider_dir = provider_artifact_dir(artifact_dir, output_root, repo_root)
     analysis_contract_required = template_requires_analysis_contract(template)
     command = build_command(
         record,
@@ -643,11 +884,13 @@ def run_record(
         extra_args=extra_args,
         validate_terms=validate_terms,
         template_overrides=template_overrides,
+        run_label=run_label,
+        repo_root=repo_root,
     )
 
     supplied_template_vars = template_vars(
         record,
-        artifact_dir=artifact_dir,
+        artifact_dir=provider_dir,
         overrides=template_overrides,
     )
     passthrough_vars = passthrough_template_vars(extra_args)
@@ -658,7 +901,7 @@ def run_record(
     missing_template_vars = sorted(
         template_placeholders(template) - nonblank_template_vars
     )
-    canonical_artifact_dir = str(artifact_dir)
+    canonical_artifact_dir = str(provider_dir)
     if (
         "artifact_dir" in passthrough_vars
         and passthrough_vars["artifact_dir"] != canonical_artifact_dir
@@ -758,6 +1001,33 @@ def run_record(
         duration = time.monotonic() - started
         output_ok = output_file.exists() and output_file.stat().st_size > 0
         detail = tail_detail(result)
+        notes: list[str] = []
+        job_id = ""
+        if normalized == "openscientist":
+            job_id = openscientist_job_id(
+                output_file if output_ok else None, result.stderr
+            )
+            if job_id:
+                notes.append(f"openscientist_job_id={job_id}")
+                if output_ok:
+                    problem = update_report_frontmatter(
+                        output_file, {"openscientist_job_id": job_id}
+                    )
+                    if problem:
+                        notes.append(f"job ID not recorded in report: {problem}")
+            if job_id and analysis_contract_required:
+                problem = restore_openscientist_artifacts(
+                    job_id,
+                    provider_dir,
+                    artifact_dir,
+                    fetch=fetch_openscientist_artifacts,
+                )
+                if problem:
+                    notes.append(f"artifact restore failed: {problem}")
+            elif analysis_contract_required:
+                notes.append(
+                    "no OpenScientist job ID found; artifacts left as downloaded"
+                )
         if result.returncode == 0 and output_ok:
             try:
                 report_claims_analysis_success = (
@@ -827,6 +1097,7 @@ def run_record(
                         else fallback_note
                     )
 
+        detail = "; ".join(part for part in (detail, *notes) if part)
         detail = finish_artifact_quarantine(
             artifact_backup, status=status, detail=detail
         )
@@ -841,12 +1112,17 @@ def run_record(
             command=command,
             detail=detail,
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as error:
         duration = time.monotonic() - started
+        timeout_detail = f"timeout after {timeout_seconds}s"
+        if normalized == "openscientist":
+            job_id = openscientist_job_id(None, error.stderr)
+            if job_id:
+                timeout_detail += f"; openscientist_job_id={job_id}"
         detail = finish_artifact_quarantine(
             artifact_backup,
             status="TIMEOUT",
-            detail=f"timeout after {timeout_seconds}s",
+            detail=timeout_detail,
         )
         return RunResult(
             record=record,
@@ -1002,6 +1278,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     run_parser.add_argument("disorder")
     run_parser.add_argument("hypothesis_group_id")
     run_parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
+    run_parser.add_argument(
+        "--run-label",
+        help=(
+            "Name a second run from the same provider, written as "
+            "<provider>-<label>.md with <provider>-<label>_artifacts/, so it does "
+            "not replace that provider's existing report (e.g. 'dataset')."
+        ),
+    )
     run_parser.add_argument("--dry-run", action="store_true")
     run_parser.add_argument("--overwrite", action="store_true")
     run_parser.add_argument(
@@ -1067,6 +1351,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "run":
+        try:
+            report_stem("provider", args.run_label)
+        except ValueError as error:
+            print(error, file=sys.stderr)
+            return 2
         record = find_hypothesis(args.kb_dir, args.disorder, args.hypothesis_group_id)
         result = run_record(
             record,
@@ -1079,6 +1368,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             overwrite=args.overwrite,
             validate_terms=not args.no_term_validation,
             template_overrides=cli_template_overrides(args),
+            run_label=args.run_label,
         )
         print_run_result(result)
         if result.status == "PROVIDER_DISABLED":

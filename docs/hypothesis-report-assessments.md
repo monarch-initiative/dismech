@@ -162,7 +162,8 @@ declares its provider-specific root:
 artifact_root: ../biomni_artifacts
 ```
 
-The root must be exactly `../<provider>_artifacts/`; all `source_artifacts`,
+The root must be exactly `../<provider>_artifacts/` (or
+`../<provider>-<run_label>_artifacts/`, see below); all `source_artifacts`,
 `code_artifacts`, `environment_artifact`, and `output_artifacts` must be
 non-empty regular files beneath it. This prevents one provider from borrowing
 another provider's code or outputs and appearing independently reproducible.
@@ -289,6 +290,49 @@ uv run python scripts/hypothesis_deep_research.py run \
   --target-variables 'FDX1, DLAT' \
   --analysis-objective 'Prespecified case-versus-control expression contrast'
 ```
+
+The template spells out the exact manifest field names the gate checks, with a
+worked example. A source that belongs to the lineage but was never downloaded
+(a controlled-access cohort the provider was told not to access, an unreachable
+dataset) goes in a top-level `unretrieved_sources` list with an `identifier` and
+a `reason`, never in `inputs` with a null checksum.
+
+**A second run from the same provider.** A hypothesis holds one report per
+provider run, named for the provider. To add a dataset replication beside a
+provider's existing literature report, give the run a label:
+
+```bash
+uv run python scripts/hypothesis_deep_research.py run \
+  openscientist <Disease> <hypothesis_id> --run-label dataset \
+  --template templates/hypothesis_dataset_analysis.md ...
+```
+
+This writes `openscientist-dataset.md` with `openscientist-dataset_artifacts/`
+and leaves `openscientist.md` alone. Its assessment carries `run_label: dataset`
+beside `provider: openscientist`, is named
+`openscientist-dataset-assessment-by-<assessor>.yaml`, and points
+`artifact_root` at `../openscientist-dataset_artifacts`. A reconciliation names
+that input `provider: openscientist-dataset`.
+
+**Where the provider writes.** The provider is always given a relative
+`artifact_dir`: repository-relative when `--output-root` is inside the checkout,
+otherwise relative to the output root. A remote provider writes the bundle in
+its own job workspace, and an absolute path would put it outside that workspace
+and out of the job's artifact download (#12909). The local copy still lands
+under `--output-root`.
+
+**OpenScientist job IDs and artifact restore.** For OpenScientist the runner
+records the job ID in the report frontmatter (`openscientist_job_id`) and in the
+run detail, including when the job times out, so a job can be recovered without
+searching the job listing. deep-research-client saves only an allowlisted,
+flattened subset of the job's files, which drops `MANIFEST.yaml`, the code and
+the environment file (#12908). For an analysis-contract template the runner
+therefore re-downloads the job's artifacts ZIP (`OPENSCIENTIST_API_KEY`) and
+restores the provider's own artifact directory byte-for-byte, at its original
+relative paths, before binding the report to the manifest. These are the
+provider's bytes, unmodified, so binding them does not conflict with the rule
+against assessor-corrected manifests above. If the restore fails, the reason is
+appended to the run detail and the bundle is left as the client saved it.
 
 Commit when reviewable and reasonably small:
 

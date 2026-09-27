@@ -21,6 +21,7 @@ import yaml
 
 from dismech.yaml_io import find_duplicate_keys, safe_load
 
+RUN_LABEL_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _SUCCESS_MARKER = "ANALYSIS_STATUS: SUCCEEDED"
 _FAILURE_MARKER = "ANALYSIS_STATUS: FAILED"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -46,6 +47,33 @@ _SENSITIVE_QUERY_KEYS = {
     "x_amz_security_token",
     "x_amz_signature",
 }
+
+
+def report_stem(provider: str, run_label: str | None = None) -> str:
+    """Return the report filename stem for one provider run on one hypothesis.
+
+    A hypothesis directory holds one report per provider run. The default run
+    is named for the provider alone; a second run from the same provider (for
+    example a dataset replication beside an existing literature report) carries
+    a run label, and its artifacts follow the report as
+    ``<provider>-<label>_artifacts/``.
+
+    >>> report_stem("openscientist")
+    'openscientist'
+    >>> report_stem("openscientist", "dataset")
+    'openscientist-dataset'
+    >>> report_stem("openscientist", "Dataset")
+    Traceback (most recent call last):
+    ...
+    ValueError: run label 'Dataset' must match ^[a-z0-9][a-z0-9-]*$
+    """
+    if run_label is None:
+        return provider
+    if not RUN_LABEL_PATTERN.fullmatch(run_label):
+        raise ValueError(
+            f"run label {run_label!r} must match {RUN_LABEL_PATTERN.pattern}"
+        )
+    return f"{provider}-{run_label}"
 
 
 def _nonempty(value: object) -> bool:
@@ -348,6 +376,12 @@ def iter_analysis_run_problems(
             yield f"{label} requires retrieved_at or retrieval_time_utc"
         byte_count = input_record.get("byte_count")
         checksum = input_record.get("sha256")
+        if byte_count is None and checksum is None:
+            yield (
+                f"{label} has no sha256 or byte_count; a source that was not "
+                "retrieved belongs in unretrieved_sources, not inputs"
+            )
+            continue
         if not _positive_byte_count(byte_count):
             yield f"{label}.byte_count must be a positive integer"
         if not isinstance(checksum, str) or not _SHA256.fullmatch(checksum):
@@ -375,6 +409,31 @@ def iter_analysis_run_problems(
             expected_bytes=byte_count,
             expected_sha256=checksum,
         )
+
+    unretrieved_value = manifest.get("unretrieved_sources")
+    if unretrieved_value is not None and not isinstance(unretrieved_value, list):
+        yield "unretrieved_sources must be a list"
+        unretrieved_value = []
+    for index, source_record in enumerate(unretrieved_value or []):
+        label = f"unretrieved_sources[{index}]"
+        if not isinstance(source_record, Mapping):
+            yield f"{label} must be a mapping"
+            continue
+        if not _nonempty(source_record.get("identifier")):
+            yield f"{label}.identifier is required"
+        if not _nonempty(source_record.get("reason")):
+            yield f"{label}.reason is required"
+        for field in ("canonical_url", "uri"):
+            if _nonempty(source_record.get(field)):
+                yield from _iter_uri_problems(
+                    source_record.get(field), label=f"{label}.{field}"
+                )
+        for field in ("sha256", "byte_count", "local_path"):
+            if source_record.get(field) is not None:
+                yield (
+                    f"{label}.{field} is not allowed: a retrieved file belongs "
+                    "in inputs"
+                )
 
     outputs_value = manifest.get("outputs")
     if not isinstance(outputs_value, list) or not outputs_value:

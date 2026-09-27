@@ -11,7 +11,10 @@ from pathlib import Path
 from linkml.validator import Validator
 from linkml.validator.plugins import JsonschemaValidationPlugin
 
-from dismech.hypothesis_assessment import iter_assessment_problems
+from dismech.hypothesis_assessment import (
+    assessment_run_key,
+    iter_assessment_problems,
+)
 from dismech.yaml_io import safe_load
 
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -211,10 +214,11 @@ def iter_reconciliation_problems(
         for result in assessment_report.results:
             if result.severity.name == "ERROR":
                 yield f"{label} source assessment schema invalid: {result.message}"
-        if assessment.get("provider") != provider:
+        assessed_run = assessment_run_key(assessment)
+        if assessed_run != provider:
             yield (
                 f"{label} provider={provider!r} does not match "
-                f"assessment provider={assessment.get('provider')!r}"
+                f"assessment provider run={assessed_run!r}"
             )
         if assessment.get("hypothesis_id") != data.get("hypothesis_id"):
             yield (

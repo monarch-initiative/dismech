@@ -58,7 +58,7 @@ disorder YAML.
    specifications, and small derived outputs; keep large/raw, controlled, or
    credential-bearing data outside Git and record whether each artifact is
    committed, external, local-only, missing, or not produced. Structured paths
-   must be non-empty files beneath `artifact_root: ../<provider>_artifacts`.
+   must be non-empty files beneath `artifact_root: ../<provider>_artifacts` (`../<provider>-<run_label>_artifacts` for a labelled second run).
    For a computational bundle, require canonical `MANIFEST.yaml`, run
    `just validate-hypothesis-analysis-run <report> <artifact_dir>`, and replay
    the saved code separately; the validator does not execute generated code.
