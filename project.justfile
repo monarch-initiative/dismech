@@ -680,6 +680,21 @@ check-groupings *args="":
 grouping-anchor-audit *args="":
     uv run python scripts/grouping_module_anchor_audit.py {{args}}
 
+# Check each grouping's MONDO mapping predicate against its own members, by
+# resolving every member's MONDO term to its ANCESTORS and looking the mapped
+# class up in that set (dismech#11299 territory, but no local build needed).
+# This is the inverted form of the descendant-closure check: bounded by the
+# member list rather than by the ontology, and the OLS REST endpoint serves
+# ancestors even though the ols:mondo OAK adapter serves neither direction.
+# Needs network. Report-only; --strict exits 1 when a grouping declares
+# exactMatch/narrowMatch while holding members outside the mapped class.
+# Distinct from scripts/grouping_mondo_gaps.py, which finds MONDO descendants
+# with NO dismech entry -- irreducibly a descendant query, still needs the
+# ~588 MB local MONDO build.
+[group('QC')]
+grouping-mondo-consistency *args="":
+    uv run python scripts/grouping_mondo_consistency.py {{args}}
+
 # Report the declared grouping-of-grouping tree plus undeclared member-set
 # containments between groupings (advisory; a containment is a lead, not a ruling)
 [group('QC')]
@@ -3836,12 +3851,12 @@ jev-audit *args:
 # Preview new issues from the latest published Jev queue; no API inference.
 [positional-arguments]
 plan-eval-issues n="5":
-    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1"
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1"
 
 # Create up to N issues, skipping diseases with an open or closed intake issue.
 [positional-arguments]
 enqueue-eval-issues n="5":
-    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1" --apply
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1" --apply
 
 # Inventory every assertion without paid API calls.
 [positional-arguments]

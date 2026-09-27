@@ -1,5 +1,7 @@
 ---
 reference_id: DOI:10.1016/j.eclinm.2024.102733
+extractor_version: 1
+absent_content_version: 1
 title: "Long-term efficacy and safety of continued complement C1s inhibition with sutimlimab in cold agglutinin disease: CADENZA study Part B"
 authors:
 - Alexander Röth
@@ -26,6 +28,7 @@ journal: eClinicalMedicine
 year: '2024'
 doi: 10.1016/j.eclinm.2024.102733
 content_type: unavailable
+is_preprint: false
 full_text_attempted: true
 ---
 

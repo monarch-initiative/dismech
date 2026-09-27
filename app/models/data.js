@@ -1,5 +1,70 @@
 window.searchData = [
   {
+    "model_key": "Hyperinsulinemic_Hypoglycemia--computational-model-abcc8-loss-of-function-glucose-insulin-progression-ode--0",
+    "name": "ABCC8 Loss-of-Function Glucose-Insulin Progression ODE",
+    "description": "Longitudinal ODE with four core states for fasting glucose, fasting insulin, beta-cell mass, and beta-cell secretory capacity. Control and heterozygous arms add an excess-free-fatty-acid state; the homozygous arm retains four states. It extends a Topp-style obesity-diabetes progression model with calcium-dependent secretory stress for ABCC8 loss of function. The heterozygous R1420H simulation reproduced the reported group-level earlier diabetes onset; a separate hypothetical homozygous simulation starts in a fasting hyperinsulinemic-hypoglycemic state and predicts subsequent loss of beta-cell function.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "MATLAB .m/.mlx and Monolix .txt/.mmd files",
+    "model_software": "MATLAB R2023b Update 7 (ode23s); Monolix 2023R1 for population fitting",
+    "base_model": "Topp-style obesity-diabetes progression model",
+    "model_id": "57981556",
+    "repository_url": "https://doi.org/10.6084/m9.figshare.30117763.v3",
+    "repository_host": "Other",
+    "publication": "PMID:41800787",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Hyperinsulinemic Hypoglycemia",
+    "disease_id": "MONDO:0005803",
+    "category": "Genetic",
+    "parents": [
+      "Endocrine Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [
+      "Fasting plasma glucose concentration",
+      "Fasting serum insulin concentration",
+      "Beta-cell mass",
+      "Beta-cell secretory capacity",
+      "Cytosolic calcium concentration",
+      "Hepatic glucose production rate",
+      "Excess free-fatty-acid burden"
+    ],
+    "variable_ids": [
+      "G",
+      "I",
+      "beta",
+      "sigma",
+      "Ca",
+      "HGP",
+      "X"
+    ],
+    "variable_terms": [],
+    "num_variables": 7,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "K-ATP Channel Loss of Function",
+      "Dysregulated Beta-Cell Insulin Secretion",
+      "Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output"
+    ],
+    "num_mechanisms": 3,
+    "findings": [
+      "The heterozygous R1420H extension reproduced the reported group-level seven-year earlier onset of diabetes.",
+      "The hypothetical homozygous simulation begins with persistent infant hyperinsulinemic hypoglycemia and predicts later loss of beta-cell function.",
+      "Simulated benefit from calcium-reducing treatment depended on dose and treatment timing and was not intended to predict individual patient outcomes."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [
+      "PMID:41800787"
+    ],
+    "num_evidence": 1,
+    "notes": "The reusable artifact is Figshare record 30117763 version 3 under CC BY 4.0; Supplemental Code File S4 is file 57981556 (33,204,094 bytes; MD5 a978e3b86bc3ed537d2754dfc002d1e6). It contains MATLAB scripts and Live Scripts for the heterozygous, homozygous, and treatment simulations. Static curator inspection confirmed four core states plus an excess-FFA state in the control and heterozygous arms, with a four-state homozygous ode23s implementation. The code was not executed because neither MATLAB nor Octave was available. The base progression model was fitted to four-dimensional individualized longitudinal data from Southwest Native Americans and checked with modified data-partition validation; those results must not be transferred to the hypothetical homozygous infant arm. That arm was constrained by case literature but has no pediatric longitudinal calibration cohort, begins from selected hypoglycemic and hyperinsulinemic initial conditions, and is not a patient-specific digital twin. It covers only the ABCC8/K-ATP subtype and omits GLUD1, GCK, HADH, perinatal-stress and focal-disease mechanisms, ketones, lipolysis, brain injury, meal dynamics, and prospective outcome validation. The publication states that its treatment simulations are not intended to predict individual outcomes.",
+    "creation_date": "2026-08-01T05:30:00Z",
+    "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-abcc8-loss-of-function-glucose-insulin-progression-ode",
+    "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
+  },
+  {
     "model_key": "Gut_Dysbiosis_Module--computational-model-agora-gut-microbiome-genome-scale-metabolic-reconstructions--0",
     "name": "AGORA Gut Microbiome Genome-Scale Metabolic Reconstructions",
     "description": "Resource of genome-scale metabolic reconstructions semi-automatically generated for 773 human gut bacteria (assembly of gut organisms through reconstruction and analysis). Interactions among modelled species depend on both each species' metabolic potential and the nutrients available, so a community's metabolic output can be predicted from its composition. Reconstructions integrate metagenomic or 16S rRNA sequencing data and are compatible with the human reconstruction Recon 2, allowing host-microbiome metabolic coupling to be simulated.",
@@ -1344,6 +1409,62 @@ window.searchData = [
     "source_file": "kb/disorders/Apparent_Mineralocorticoid_Excess.yaml"
   },
   {
+    "model_key": "Hyperinsulinemic_Hypoglycemia--computational-model-human-beta-cell-electrophysiology-and-calcium-ode--2",
+    "name": "Human Beta-Cell Electrophysiology and Calcium ODE",
+    "description": "Conductance-based model of normal human beta-cell electrical activity with membrane voltage, explicit K-ATP current, voltage-gated ion channels, submembrane and cytosolic calcium, and an optional glycolytic oscillator. It was used alongside human donor-cell recordings to explain heterogeneous blocker responses and to interpret previously reported insulin-secretion measurements.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "XPPAUT .ode files",
+    "model_software": "XPPAUT with CVODE",
+    "base_model": "Pedersen 2010 human beta-cell electrophysiology model",
+    "model_id": "10.1371/journal.pcbi.1003536.s001; 10.1371/journal.pcbi.1003536.s002",
+    "repository_url": "https://doi.org/10.1371/journal.pcbi.1003536",
+    "repository_host": "Other",
+    "publication": "PMID:24391482",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Hyperinsulinemic Hypoglycemia",
+    "disease_id": "MONDO:0005803",
+    "category": "Genetic",
+    "parents": [
+      "Endocrine Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [
+      "Beta-cell membrane voltage",
+      "K-ATP conductance",
+      "Submembrane calcium concentration",
+      "Cytosolic calcium concentration"
+    ],
+    "variable_ids": [
+      "V",
+      "gKATP",
+      "Cam",
+      "Cac"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "K-ATP Channel Loss of Function",
+      "Dysregulated Beta-Cell Insulin Secretion"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Parameter variation within a single model accounted for the wide range of TTX responses, and adding a glycolytic oscillator generated slow oscillations."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:24391482"
+    ],
+    "num_evidence": 1,
+    "notes": "The repository_url points to the PLOS correction notice that supplies the software, rather than to the primary article DOI. The correction provides plain-text XPPAUT code under CC BY: Software S1 (DOI 10.1371/journal.pcbi.1003536.s001) for Figures 1-5 has SHA-256 876720bcfe5818be50b7cf7f0ba7f54118255417396794d5a51be3232420070b, and Software S2 (DOI 10.1371/journal.pcbi.1003536.s002) for Figure 6 has SHA-256 b12b4f78df67b693129e1d4e743b28eb16eb2f49432fe597f212330633f82caa. Static curator inspection confirmed equations, parameters, initial conditions, and solver directives, but XPPAUT was unavailable locally and the files were not executed. This is a reusable cellular complement, not a disease-specific or patient-specific congenital-hyperinsulinism model.",
+    "creation_date": "2026-08-01T05:30:00Z",
+    "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-human-beta-cell-electrophysiology-and-calcium-ode",
+    "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
+  },
+  {
     "model_key": "Conserved_Cellular_Senescence_Module--computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation--1",
     "name": "Karin-Alon Saturating-Removal Model of Senescent Cell Accumulation",
     "description": "Mathematical model of senescent-cell turnover fitted to longitudinal senescent-cell measurements and induction experiments in mice. Senescent cells turn over rapidly in young mice (half-life of days) but slow their own removal rate in old mice (half-life of weeks), producing a critical slowing-down with persistent fluctuations. Modelling death as the first crossing of a senescent-cell threshold quantitatively recapitulates the Gompertz law of mortality in mice and humans, and extends to lifespan-modulating interventions in Drosophila and C. elegans.",
@@ -1381,6 +1502,62 @@ window.searchData = [
     "creation_date": "2026-06-23T00:00:00Z",
     "page_url": "../../pages/modules/cellular_senescence.html#computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation",
     "source_file": "kb/modules/cellular_senescence.yaml"
+  },
+  {
+    "model_key": "Hyperinsulinemic_Hypoglycemia--computational-model-katp-hi-whole-body-insulin-and-c-peptide-kinetics-model--1",
+    "name": "KATP-HI Whole-Body Insulin and C-Peptide Kinetics Model",
+    "description": "Fitted kinetic model used in a crossover study of exendin-(9-39) in children with congenital hyperinsulinism. A one-compartment whole-body insulin model is coupled to a two-compartment C-peptide model to reconstruct minute-scale endogenous beta-cell secretion and estimate fractional insulin clearance and first-pass hepatic insulin survival.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Differential equations in article; no executable model archive",
+    "model_software": "Not reported for kinetic fitting; Stata 16MP for statistical analyses",
+    "base_model": "Watanabe-Bergman insulin kinetics and two-compartment C-peptide kinetics",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:35416981",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Hyperinsulinemic Hypoglycemia",
+    "disease_id": "MONDO:0005803",
+    "category": "Genetic",
+    "parents": [
+      "Endocrine Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [
+      "Plasma insulin concentration",
+      "Endogenous insulin secretion rate",
+      "Fractional whole-body insulin clearance",
+      "First-pass hepatic insulin survival"
+    ],
+    "variable_ids": [
+      "I(t)",
+      "Ra(t)",
+      "pI",
+      "pfp"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Dysregulated Beta-Cell Insulin Secretion"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Insulin kinetic parameters were uniquely estimated with standardized residuals centered near zero and within two standard deviations.",
+      "With exendin-(9-39), fractional insulin clearance decreased by about 30% during the protein challenge and first-pass hepatic extraction decreased by 28% during the mixed-meal challenge."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:35416981"
+    ],
+    "num_evidence": 1,
+    "notes": "The study enrolled 16 children; all but one had genetically confirmed KATP-HI, and eight entered the meal/protein crossover. No source repository, executable supplement, or open software license was identified, so reuse requires reimplementing equations printed in the article. Stata 16MP is reported for statistical analyses, but the software used to fit the kinetic equations is not stated. The model measures secretion and clearance; it does not represent the K-ATP lesion itself, and endogenous glucose production was explicitly not measured. The kinetic model was not validated as a prospective dose-selection tool.",
+    "creation_date": "2026-08-01T05:30:00Z",
+    "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-katp-hi-whole-body-insulin-and-c-peptide-kinetics-model",
+    "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
   },
   {
     "model_key": "Mitochondrial_Dysfunction_Module--computational-model-kowald-kirkwood-network-theory-of-ageing-model--3",
@@ -5050,10 +5227,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 107,
-  "total_source_entries": 43,
+  "total_models": 110,
+  "total_source_entries": 44,
   "total_model_types": 9,
   "total_runnable": 4,
-  "total_with_repository": 44
+  "total_with_repository": 46
 };
 window.dispatchEvent(new Event('searchDataReady'));
