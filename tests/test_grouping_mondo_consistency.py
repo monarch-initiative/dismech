@@ -178,6 +178,13 @@ def test_nested_grouping_members_are_expanded_and_attributed(tmp_path, monkeypat
 
 
 def test_strict_exits_nonzero_only_on_a_contradicted_predicate(tmp_path, monkeypatch):
+    # main() calls kb_cache.default_off(), which os.environ.setdefault()s
+    # DISMECH_KB_CACHE=0 for the whole process. Setting it here through
+    # monkeypatch first makes that setdefault a no-op and hands pytest the
+    # restore, so calling main() in-process does not silently disable the
+    # parsed-KB cache for every later test in the same run -- which is what it
+    # did to tests/test_kb_cache.py before this line existed.
+    monkeypatch.setenv("DISMECH_KB_CACHE", "0")
     _setup(
         tmp_path, monkeypatch,
         [_grouping("Umbrella", "MONDO:0000100", "skos:exactMatch", ["Beta"])],
