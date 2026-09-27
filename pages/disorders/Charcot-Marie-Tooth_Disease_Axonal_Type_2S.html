@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4242,6 +4310,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4263,6 +4332,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4363,6 +4433,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4397,6 +4468,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-ighmbp2-variants" data-dismech-node="Biallelic Hypomorphic IGHMBP2 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic IGHMBP2 Variants</div>
+
 
                 <div class="item-desc">CMT2S alleles reduce, but do not abolish, IGHMBP2 abundance and its ATP-dependent DNA/RNA helicase activity. Association with the activator ABT1 stimulates IGHMBP2 ATPase and helicase activity, and CMT2S variants such as p.His924Tyr retain ABT1 association and substantial activity, whereas SMARD1 variants such as p.Asp565Asn lose it; in compound heterozygotes the summed activity of the two mutant proteins predicts severity. This residual-activity threshold is the disorder-specific insult to peripheral neurons.
 </div>
@@ -4521,6 +4593,7 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4542,6 +4615,7 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4569,6 +4643,7 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4591,6 +4666,7 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-ribosome-biogenesis-and-translation" data-dismech-node="Disturbed Ribosome Biogenesis and Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Ribosome Biogenesis and Translation</div>
+
 
                 <div class="item-desc">IGHMBP2, with ABT1, binds the 47S pre-rRNA 5&#39; external transcribed spacer and U3 snoRNA, implicating it in pre-rRNA processing; it is also associated with tRNA and translation machinery. Loss of activity is proposed to impair ribosome biogenesis and translation, with a low-grade integrated stress response in knockout cells, but which of IGHMBP2&#39;s RNA-metabolic roles drives neuronal pathology is unresolved.
 </div>
@@ -4715,6 +4791,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4736,6 +4813,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4763,6 +4841,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4787,6 +4866,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-and-sensory-axonal-degeneration" data-dismech-node="Motor and Sensory Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor and Sensory Axonal Degeneration</div>
+
 
                 <div class="item-desc">Long peripheral motor and sensory axons degenerate progressively, producing an axonal neuropathy with reduced amplitudes and largely preserved conduction velocities; CMT2S knock-in mice show progressive motor and sensory axonal degeneration in femoral nerves with motor deficits and mechanical allodynia. In contrast to SMARD1, spinal alpha-motor neurons supplying the diaphragm are relatively spared.
 </div>
@@ -4941,6 +5021,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4962,6 +5043,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4987,6 +5069,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuromuscular-junction-denervation-and-distal-muscle-atrophy" data-dismech-node="Neuromuscular Junction Denervation and Distal Muscle Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuromuscular Junction Denervation and Distal Muscle Atrophy</div>
+
 
                 <div class="item-desc">Loss of motor axons denervates neuromuscular junctions, causing neurogenic distal muscle atrophy, weakness, foot deformity and gait impairment. In compound heterozygous Ighmbp2 D564N/H922Y mice NMJ denervation and reduced fibre area are marked, whereas the CMT2S-like H922Y homozygote shows minimal NMJ changes even at six months; patient-derived neuromuscular co-cultures show high fatigue and chaotic tetanus that are rescued by restoring IGHMBP2.
 </div>
@@ -5150,6 +5233,7 @@ This pathophysiological event involves abnormal neuromuscular junction developme
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5174,6 +5258,7 @@ This pathophysiological event involves abnormal neuromuscular junction developme
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5195,6 +5280,7 @@ This pathophysiological event involves abnormal neuromuscular junction developme
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5262,13 +5348,11 @@ This pathophysiological event involves abnormal neuromuscular junction developme
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(4)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5278,8 +5362,82 @@ This pathophysiological event involves abnormal neuromuscular junction developme
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-foot-dorsiflexor-weakness" data-dismech-node="Foot dorsiflexor weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Foot dorsiflexor weakness
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0009027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Foot drop, annotated with Foot dorsiflexor weakness (HP:0009027). HP:0009027 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35660062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35660062" target="_blank">PMID:35660062</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The initial symptoms included muscle weakness (15, 33.3%), delayed milestones (9, 20%), feet deformity (8, 17.8%), gait disturbance (8, 17.8%), feet drop (7, 15.6%), frequent falls (3, 6.7%), hypotonia (2, 4.4%) and thenar atrophy (1, 2.2%)."</div>
+
+
+                <div class="evidence-explanation">Foot drop as an initial symptom. The frequency band is inferred from the share presenting with this feature, which is a lower bound on its lifetime frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pes-cavus" data-dismech-node="Pes cavus" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5297,15 +5455,18 @@ This pathophysiological event involves abnormal neuromuscular junction developme
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001761</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001761</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Foot deformity (pes cavus), annotated with Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5325,6 +5486,7 @@ This clinical feature is Foot deformity (pes cavus), annotated with Pes cavus (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5349,6 +5511,7 @@ This clinical feature is Foot deformity (pes cavus), annotated with Pes cavus (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5381,7 +5544,7 @@ This clinical feature is Foot deformity (pes cavus), annotated with Pes cavus (H
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-distal-muscle-weakness" data-dismech-node="Distal muscle weakness" data-dismech-type="phenotype">
@@ -5400,15 +5563,18 @@ This clinical feature is Foot deformity (pes cavus), annotated with Pes cavus (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002460</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5428,6 +5594,7 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5454,14 +5621,261 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-amyotrophy" data-dismech-node="Distal amyotrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Distal amyotrophy
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003693</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25568292" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25568292" target="_blank">PMID:25568292</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All patients had a predominantly axonal sensorimotor neuropathy with subsequent muscle atrophy, but without obvious sensory symptoms."</div>
+
+
+                <div class="evidence-explanation">Muscle atrophy secondary to the neuropathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diaphragmatic-weakness" data-dismech-node="Diaphragmatic weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Diaphragmatic weakness
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0009113</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Late-onset diaphragmatic weakness, annotated with Diaphragmatic weakness (HP:0009113). HP:0009113 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30409445" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30409445" target="_blank">PMID:30409445</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At 9 years, he developed diaphragmatic weakness, following which he was established on non-invasive ventilation."</div>
+
+
+                <div class="evidence-explanation">Documented late diaphragmatic involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-axonal-neuropathy" data-dismech-node="Peripheral axonal neuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Peripheral axonal neuropathy
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003477</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Axonal sensorimotor polyneuropathy, annotated with Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25568292" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25568292" target="_blank">PMID:25568292</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All patients had a predominantly axonal sensorimotor neuropathy with subsequent muscle atrophy, but without obvious sensory symptoms."</div>
+
+
+                <div class="evidence-explanation">Defining neuropathy phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28202949" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28202949" target="_blank">PMID:28202949</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three patients presented with childhood-onset axonal predominant sensorimotor polyneuropathies, whereas the other case was diagnosed with SMARD1"</div>
+
+
+                <div class="evidence-explanation">Independent cohort confirming the axonal sensorimotor phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor delay" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5479,15 +5893,18 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed motor milestones, annotated with Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5507,6 +5924,7 @@ This clinical feature is Delayed motor milestones, annotated with Motor delay (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5549,15 +5967,18 @@ This clinical feature is Delayed motor milestones, annotated with Motor delay (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001288</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5577,6 +5998,7 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5619,15 +6041,18 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000763</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensory axonal involvement, annotated with Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5647,6 +6072,7 @@ This clinical feature is Sensory axonal involvement, annotated with Sensory neur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5689,15 +6115,18 @@ This clinical feature is Sensory axonal involvement, annotated with Sensory neur
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autonomic neuropathy, annotated with Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5717,6 +6146,7 @@ This clinical feature is Autonomic neuropathy, annotated with Abnormal autonomic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5728,319 +6158,6 @@ This clinical feature is Autonomic neuropathy, annotated with Abnormal autonomic
 
 
                 <div class="evidence-explanation">Autonomic involvement in the original series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-axonal-neuropathy" data-dismech-node="Peripheral axonal neuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral axonal neuropathy
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003477</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Axonal sensorimotor polyneuropathy, annotated with Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25568292" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25568292" target="_blank">PMID:25568292</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All patients had a predominantly axonal sensorimotor neuropathy with subsequent muscle atrophy, but without obvious sensory symptoms."</div>
-
-
-                <div class="evidence-explanation">Defining neuropathy phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28202949" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28202949" target="_blank">PMID:28202949</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Three patients presented with childhood-onset axonal predominant sensorimotor polyneuropathies, whereas the other case was diagnosed with SMARD1"</div>
-
-
-                <div class="evidence-explanation">Independent cohort confirming the axonal sensorimotor phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-amyotrophy" data-dismech-node="Distal amyotrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Distal amyotrophy
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003693</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25568292" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25568292" target="_blank">PMID:25568292</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All patients had a predominantly axonal sensorimotor neuropathy with subsequent muscle atrophy, but without obvious sensory symptoms."</div>
-
-
-                <div class="evidence-explanation">Muscle atrophy secondary to the neuropathy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-foot-dorsiflexor-weakness" data-dismech-node="Foot dorsiflexor weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Foot dorsiflexor weakness
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0009027</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Foot drop, annotated with Foot dorsiflexor weakness (HP:0009027). HP:0009027 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35660062" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35660062" target="_blank">PMID:35660062</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The initial symptoms included muscle weakness (15, 33.3%), delayed milestones (9, 20%), feet deformity (8, 17.8%), gait disturbance (8, 17.8%), feet drop (7, 15.6%), frequent falls (3, 6.7%), hypotonia (2, 4.4%) and thenar atrophy (1, 2.2%)."</div>
-
-
-                <div class="evidence-explanation">Foot drop as an initial symptom. The frequency band is inferred from the share presenting with this feature, which is a lower bound on its lifetime frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-diaphragmatic-weakness" data-dismech-node="Diaphragmatic weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Diaphragmatic weakness
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0009113</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Late-onset diaphragmatic weakness, annotated with Diaphragmatic weakness (HP:0009113). HP:0009113 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30409445" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30409445" target="_blank">PMID:30409445</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"At 9 years, he developed diaphragmatic weakness, following which he was established on non-invasive ventilation."</div>
-
-
-                <div class="evidence-explanation">Documented late diaphragmatic involvement.</div>
 
 
 
@@ -6128,6 +6245,9 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6142,6 +6262,7 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6169,6 +6290,7 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6190,6 +6312,7 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6227,7 +6350,9 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6235,6 +6360,11 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">CMT2S-associated missense variant in the C-terminal region; alters IGHMBP2 activity to a lesser extent than the SMARD1 variant p.Asp565Asn while maintaining association with ABT1, and the equivalent H922Y knock-in mouse has a normal lifespan without respiratory pathology, modelling the CMT2S end of the spectrum.
@@ -6265,6 +6395,7 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6286,6 +6417,7 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6321,7 +6453,9 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6329,6 +6463,11 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Compound heterozygous missense variants in a boy with CMT2S who developed diaphragmatic weakness at 9 years.</div>
@@ -6355,6 +6494,7 @@ This disease-associated gene is IGHMBP2 (hgnc:5542). hgnc:5542 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6446,6 +6586,9 @@ This treatment is Physical therapy and rehabilitation, annotated with Physical T
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6456,6 +6599,9 @@ This treatment is Physical therapy and rehabilitation, annotated with Physical T
 
 
     </div>
+
+
+
 
 
 
@@ -6539,6 +6685,9 @@ This treatment is Non-invasive ventilation, annotated with Non-Invasive Mechanic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6549,6 +6698,9 @@ This treatment is Non-invasive ventilation, annotated with Non-Invasive Mechanic
 
 
     </div>
+
+
+
 
 
 
@@ -6599,6 +6751,7 @@ This treatment targets Diaphragmatic weakness (HP:0009113). HP:0009113 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6666,6 +6819,9 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6676,6 +6832,9 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -6725,6 +6884,7 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6746,6 +6906,7 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6812,6 +6973,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6824,6 +6988,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -6921,6 +7088,7 @@ This treatment base-pairs with the transcript of IGHMBP2 (hgnc:5542). hgnc:5542 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6985,6 +7153,9 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6995,6 +7166,9 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7041,6 +7215,7 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7113,6 +7288,12 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive counselling with a 25% recurrence risk; the SMARD1-CMT2S continuum within a sibship should be explained.</div>
 
 
@@ -7134,6 +7315,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,6 +7392,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7231,6 +7414,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7288,6 +7472,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7340,6 +7525,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7408,6 +7594,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7429,6 +7616,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7479,6 +7667,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7550,6 +7739,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7574,6 +7764,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7595,6 +7786,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7696,6 +7888,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7761,6 +7954,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7830,6 +8024,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7957,6 +8152,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8111,6 +8307,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8150,6 +8347,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8288,6 +8486,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8327,6 +8526,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9355,6 +9555,25 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated as a separate Disease entry from the allelic Spinal_Muscular_Atrophy_with_Respiratory_Distress_Type_1 (stub entry_type decision: DISEASE), distinguished by residual-activity genotype-phenotype correlation, preserved respiration and a chronic axonal-neuropathy course. Conforms to the peripheral_axonal_degeneration module. Sources: the 2014-2017 cohort papers (PMID:25568292, PMID:27450922, PMID:28202949, PMID:28065684), the 2022 systematic cohort (PMID:35660062), the CMT2S mouse models (PMID:36413117, PMID:39461706), biochemical genotype-phenotype work (PMID:38403020, PMID:36480289), the 2024 mechanism review (PMID:39119929), therapeutic development (PMID:40060931, PMID:41486111, NCT05152823) and atypical presentations (PMID:30409445, PMID:41468720). Deep research: Edison/falcon report research/Charcot-Marie-Tooth_Disease_Axonal_Type_2S-deep-research-falcon.md (10/10 references verified, 36/38 terms verified, preflight-dr PASS); its phenotype table and mechanism chain were cross-checked. The report&#39;s suggested GO term for axon maintenance (GO:0023055) is obsolete and was not used. There is no CMT2S-specific GeneReviews chapter; the Charcot-Marie-Tooth Hereditary Neuropathy Overview is tagged. Scoliosis and areflexia are described in reviews but had no quotable abstract-level evidence and are omitted.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Charcot-Marie-Tooth_Disease_Axonal_Type_2S (IGHMBP2, MONDO:0014511)</strong> · 2026-09-06T02:36:57Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Charcot-Marie-Tooth_Disease_Axonal_Type_2S/2026-09-06T023657Z-claude-code-7b7867.yaml">View source</a></p>
+                        <p class="research-review-text">Created CMT2S as a Disease entry separate from the allelic SMARD1 entry (stub entry_type decision: DISEASE), conforming to the peripheral_axonal_degeneration module at the insult, distal-degeneration and length-dependent-dysfunction nodes. Sources: PMID:25568292, PMID:27450922, PMID:28202949, PMID:28065684, PMID:35660062 (cohorts and variant spectrum), PMID:36413117 and PMID:39461706 (CMT2S mouse models), PMID:38403020 and PMID:36480289 (residual-activity genotype-phenotype correlation and ABT1), PMID:39119929 (mechanism review), PMID:40060931 (personalised ASO), PMID:41486111 (AAV9 gene therapy), clinicaltrials:NCT05152823 (intrathecal AAV9-IGHMBP2 trial, fetched and cached), PMID:30409445 and PMID:41468720 (atypical presentations). GeneReviews: no CMT2S-specific chapter; the CMT Hereditary Neuropathy Overview (PMID:20301532) is tagged. Deep research: Edison/falcon report research/Charcot-Marie-Tooth_Disease_Axonal_Type_2S-deep-research-falcon.md (10/10 references verified, 36/38 terms verified, preflight-dr PASS); the report&#39;s suggested GO:0023055 (axon maintenance) is obsolete and was not used. Scoliosis and areflexia were not curated for lack of quotable abstract evidence. Validation: just validate pass, just validate-terms pass, count-verified-snippets 56/56, check-causal-targets and check-entity-refs clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

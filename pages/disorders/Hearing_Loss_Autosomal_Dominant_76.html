@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4186,6 +4254,7 @@ Clinically the picture is heterogeneous across a handful of families and should 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4207,6 +4276,7 @@ Clinically the picture is heterogeneous across a handful of families and should 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4350,6 +4420,7 @@ This is EMERGING rather than CANONICAL for a reason the authors state themselves
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4371,6 +4442,7 @@ This is EMERGING rather than CANONICAL for a reason the authors state themselves
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -4469,6 +4541,7 @@ Recorded as ALTERNATIVE rather than dismissed because the two are not exclusive 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4493,6 +4566,7 @@ Recorded as ALTERNATIVE rather than dismissed because the two are not exclusive 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4514,6 +4588,7 @@ Recorded as ALTERNATIVE rather than dismissed because the two are not exclusive 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4715,6 +4790,7 @@ A second, quieter mismatch sits underneath. The zebrafish knockout phenotype is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4739,6 +4815,7 @@ A second, quieter mismatch sits underneath. The zebrafish knockout phenotype is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4760,6 +4837,7 @@ A second, quieter mismatch sits underneath. The zebrafish knockout phenotype is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4854,6 +4932,7 @@ The counselling stake is concrete. A couple whose child carries a PLS1 variant c
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4875,6 +4954,7 @@ The counselling stake is concrete. A couple whose child carries a PLS1 variant c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4902,6 +4982,7 @@ The counselling stake is concrete. A couple whose child carries a PLS1 variant c
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4938,6 +5019,7 @@ The counselling stake is concrete. A couple whose child carries a PLS1 variant c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pls1-heterozygous-variant" data-dismech-node="PLS1 Heterozygous Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">PLS1 Heterozygous Variant</div>
+
 
                 <div class="item-desc">A single altered PLS1 allele. The reported spectrum falls into two classes and contains no truncation. Four missense changes sit in or adjacent to the actin-binding regions - p.Phe128Ser, p.Leu238Arg and the recurrent p.Glu269Lys in European and Turkish families, and p.Leu363Phe in the calponin-homology 2 domain in a Hungarian Roma family. Two splice variants at the same donor site, c.981+1G&gt;A and c.981+5G&gt;A, produce an in-frame internal deletion of the region encoded by that exon; the two reports number the skipped exon differently, so this entry names the donor site rather than an exon number.
 The absence of truncating alleles is a real feature of the spectrum, not a gap in ascertainment yet: every published family carries a variant that leaves a protein behind.
@@ -5070,6 +5152,7 @@ This pathophysiological event involves PLS1 (hgnc:9090). hgnc:9090 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5091,6 +5174,7 @@ This pathophysiological event involves PLS1 (hgnc:9090). hgnc:9090 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5118,6 +5202,7 @@ This pathophysiological event involves PLS1 (hgnc:9090). hgnc:9090 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5142,6 +5227,7 @@ This pathophysiological event involves PLS1 (hgnc:9090). hgnc:9090 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-actin-cross-linking-by-plastin-1" data-dismech-node="Impaired Actin Cross-Linking by Plastin 1" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Actin Cross-Linking by Plastin 1</div>
+
 
                 <div class="item-desc">Plastin 1 has two tandem actin-binding domains built from paired calponin-homology folds. The second has the higher affinity for actin and the first holds it under autoinhibitory restraint, releasing it only once the first domain has engaged a bundle. Removing the segment encoded at the c.981 donor exon breaks the intramolecular contact between the two domains, and the mutant protein then binds actin bundles in an abnormal pattern and disturbs cytoskeletal organisation rather than simply binding less. The four missense alleles are predicted, by modelling, to destabilise the first domain and weaken F-actin binding; none has been assayed biochemically.</div>
 
@@ -5361,6 +5447,7 @@ This pathophysiological event involves abnormal actin filament binding (GO:00510
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5382,6 +5469,7 @@ This pathophysiological event involves abnormal actin filament binding (GO:00510
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5411,6 +5499,7 @@ This pathophysiological event involves abnormal actin filament binding (GO:00510
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5433,6 +5522,7 @@ This pathophysiological event involves abnormal actin filament binding (GO:00510
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-stereocilia-actin-core-packing-and-width" data-dismech-node="Altered Stereocilia Actin Core Packing and Width" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Stereocilia Actin Core Packing and Width</div>
+
 
                 <div class="item-desc">The structural consequence. Plastin 1 is the most abundant cross-linker in vestibular stereocilia by targeted mass spectrometry, and what it does to the actin core is counterintuitive: it makes the packing less ordered, not more. Wild-type stereocilia have randomly arranged, liquid-packed actin filaments; stereocilia lacking plastin 1 have orderly hexagonal packing and are shorter and thinner. Liquid packing is what permits a stereocilium to reach full diameter, so the cross-linker widens the rod by disordering it.
 In the mouse this is a maintenance failure. Bundles develop normally and the defect appears in young adults, with inner hair cells affected first and outer hair cells degenerating later.</div>
@@ -5649,6 +5739,7 @@ This pathophysiological event involves decreased stereocilium maintenance (GO:01
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5670,6 +5761,7 @@ This pathophysiological event involves decreased stereocilium maintenance (GO:01
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5697,6 +5789,7 @@ This pathophysiological event involves decreased stereocilium maintenance (GO:01
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5721,6 +5814,7 @@ This pathophysiological event involves decreased stereocilium maintenance (GO:01
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mechanoelectrical-transduction" data-dismech-node="Impaired Mechanoelectrical Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mechanoelectrical Transduction</div>
+
 
                 <div class="item-desc">Transduction is affected, but the mouse null and the human-type mutant are not affected in the same direction and the difference is the most informative measurement in the disease. In Pls1 knockout mice the size of the mechanoelectrical transducer current is unchanged and bundle stiffness is unaffected; only the adaptation properties differ. In zebrafish, FM1-43 uptake through the transduction channel is modestly increased in plastin-1 knockouts - consistent with channels sitting abnormally open - and significantly reduced in larvae expressing the human exon-skipping mutant, consistent with channels that do not open properly.
 Whether that reflects bundle mechanics, tip-link tension or channel gating has not been determined, which the authors say explicitly. This node therefore records a transduction abnormality whose sign depends on the allele class, and does not assert a mechanism for it.</div>
@@ -5900,6 +5994,7 @@ This pathophysiological event involves abnormal detection of mechanical stimulus
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5924,6 +6019,7 @@ This pathophysiological event involves abnormal detection of mechanical stimulus
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5945,6 +6041,7 @@ This pathophysiological event involves abnormal detection of mechanical stimulus
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6010,36 +6107,18 @@ This pathophysiological event involves abnormal detection of mechanical stimulus
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-sensorineural-hearing-impairment" data-dismech-node="Progressive Sensorineural Hearing Impairment" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Progressive Sensorineural Hearing Impairment
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Ear
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-sensorineural-hearing-impairment" data-dismech-node="Progressive Sensorineural Hearing Impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Sensorineural Hearing Impairment
-
-
+                    <span class="phenotype-category">Auditory</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Progressive hearing impairment</span>
-
 
 
 
@@ -6051,9 +6130,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Progressive sensorineural hearing impairment, annotated with Progressive hearing impairment (HP:0001730), qualified as course progressive. HP:0001730 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -6069,7 +6148,10 @@ This clinical feature is Progressive sensorineural hearing impairment, annotated
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6089,6 +6171,7 @@ This clinical feature is Progressive sensorineural hearing impairment, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6118,6 +6201,7 @@ This clinical feature is Progressive sensorineural hearing impairment, annotated
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6139,30 +6223,19 @@ This clinical feature is Progressive sensorineural hearing impairment, annotated
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-high-frequency-weighted-hearing-loss" data-dismech-node="High-Frequency Weighted Hearing Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        High-Frequency Weighted Hearing Loss
+            <div class="item-box phenotype-box anchor-target" id="phenotype-high-frequency-weighted-hearing-loss" data-dismech-node="High-Frequency Weighted Hearing Loss" data-dismech-type="phenotype">
+                <div class="item-name">
+                    High-Frequency Weighted Hearing Loss
 
 
+                    <span class="phenotype-category">Auditory</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">High-frequency hearing impairment</span>
-
 
 
 
@@ -6174,7 +6247,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is High-frequency hearing impairment (HP:0005101). HP:0005101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6194,6 +6270,7 @@ This clinical feature is High-frequency hearing impairment (HP:0005101). HP:0005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6221,6 +6298,7 @@ This clinical feature is High-frequency hearing impairment (HP:0005101). HP:0005
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6242,21 +6320,19 @@ This clinical feature is High-frequency hearing impairment (HP:0005101). HP:0005
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-onset-in-some-families" data-dismech-node="Congenital Onset in Some Families" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital Onset in Some Families
+            <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-onset-in-some-families" data-dismech-node="Congenital Onset in Some Families" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Congenital Onset in Some Families
 
 
+                    <span class="phenotype-category">Auditory</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Congenital sensorineural hearing impairment</span>
-
 
 
 
@@ -6268,9 +6344,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Congenital sensorineural hearing impairment (HP:0008527), qualified as congenital onset. HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -6297,7 +6373,10 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6317,6 +6396,7 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6344,6 +6424,7 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6365,34 +6446,8 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -6439,6 +6494,9 @@ This disease-associated gene is PLS1 (hgnc:9090). hgnc:9090 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6453,6 +6511,7 @@ This disease-associated gene is PLS1 (hgnc:9090). hgnc:9090 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6480,6 +6539,7 @@ This disease-associated gene is PLS1 (hgnc:9090). hgnc:9090 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6501,6 +6561,7 @@ This disease-associated gene is PLS1 (hgnc:9090). hgnc:9090 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6587,6 +6648,9 @@ This treatment is hearing aid amplification, annotated with Rehabilitation (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6597,6 +6661,9 @@ This treatment is hearing aid amplification, annotated with Rehabilitation (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -6645,6 +6712,7 @@ This treatment is hearing aid amplification, annotated with Rehabilitation (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6669,6 +6737,7 @@ This treatment is hearing aid amplification, annotated with Rehabilitation (NCIT
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6735,6 +6804,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6745,6 +6817,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -6793,6 +6868,7 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6859,6 +6935,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6869,6 +6948,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6896,6 +6978,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6971,6 +7054,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6992,6 +7076,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7062,6 +7147,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7111,6 +7197,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7179,6 +7266,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7393,6 +7481,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7452,6 +7541,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7491,6 +7581,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7570,6 +7661,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7612,6 +7704,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7658,6 +7751,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7679,6 +7773,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7856,6 +7951,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7915,6 +8011,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7954,6 +8051,7 @@ This experimental model concerns PLS1 (hgnc:9090). hgnc:9090 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9472,6 +9570,35 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Hearing Loss Autosomal Dominant 76 (DFNA76, PLS1)</strong> · 2026-09-01T18:07:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hearing_Loss_Autosomal_Dominant_76/2026-09-01T180700Z-claude-code-5125b4.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of DFNA76 (MONDO:0032917), heterozygous PLS1/plastin 1. Nothing in kb/ previously mentioned PLS1, so this is a clean start.
+
+entry_type decision: DISEASE. One gene, one conserved pathograph (altered plastin 1 -&gt; impaired actin cross-linking -&gt; altered stereocilia actin core packing and width, and a separate branch to impaired mechanoelectrical transduction -&gt; progressive SNHL). Not a SUBTYPE of any curated entry; not a GROUPING.
+
+Sources: own PubMed sweep (PLS1/DFNA76/plastin 1 stereocilia) plus an Edison/falcon deep-research report. NEC preflight PASS: PLS1 mentioned 35 times, MONDO OMIM 618787.
+
+The central curation decision is that the Pls1-null mouse and the human disease are not the same lesion, and the entry is structured to keep them apart rather than to blend them. Two named mechanistic_hypotheses carry the disagreement: dominant_negative_actin_crosslinking_model (EMERGING) and haploinsufficiency_model (ALTERNATIVE). The 2026 zebrafish study is the only experiment putting the human allele and simple gene loss side by side, and they diverge in direction on FM1-43 uptake through the MET channel; its authors state plainly that they did not co-express wild-type and mutant PLS1, which is curated as supports: NO_EVIDENCE (a limitation reporting an experiment not done, not a refutation). The Pls1-null mouse link to the transduction node is fidelity: LOW for the same reason, with the reasoning written into limitations so a reader cannot infer that mouse transduction data apply to patients.
+
+Onset is curated as genuinely heterogeneous rather than uncertain: a separate &#39;Congenital Onset in Some Families&#39; phenotype records the Chinese family that failed newborn screening in two generations, because merging it with the childhood-onset progressive record would misdescribe one family or the other. A KNOWLEDGE_GAP records that heterogeneity and its counselling cost.
+
+Exon numbering: PMID:36537221 calls the skipped exon 8 and PMID:41822198 calls it 9 for variants at the same donor site. The entry names the donor site (c.981) rather than adopting either number.
+
+Snippet mechanics: three snippets from PMID:31397523 and PMID:30872814 initially failed because the validator strips bracketed spans that do not match conf/reference_validator_config.yaml literal_bracket_patterns; the fix was to quote bracket-free sentences rather than to widen the config.
+
+Deliberately not curated: hearing aids and cochlear implantation as treatments (no PLS1-specific outcome data); the PI3K-AKT transcriptional signal from PLS1 knockdown (cell-line RNA-seq, no patient tissue, and the report itself flags it as hypothesis-generating).
+
+Validation: just validate exit 0 with 52/52 snippets verified; check-duplicate-keys, check-entity-refs, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence, check-folded-hyphens all exit 0.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

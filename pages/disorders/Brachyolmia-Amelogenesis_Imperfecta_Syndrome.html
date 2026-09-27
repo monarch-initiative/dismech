@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4118,6 +4186,7 @@ The Ltbp3-null mouse is the strongest mechanistic evidence and also the clearest
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4140,6 +4209,7 @@ The Ltbp3-null mouse is the strongest mechanistic evidence and also the clearest
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4454,6 +4524,7 @@ Three readings are live and the entry does not choose between them. The mouse nu
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4476,6 +4547,7 @@ Three readings are live and the entry does not choose between them. The mouse nu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4514,6 +4586,7 @@ Three readings are live and the entry does not choose between them. The mouse nu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-ltbp3-variants" data-dismech-node="Biallelic Hypomorphic LTBP3 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic LTBP3 Variants</div>
+
 
                 <div class="item-desc">Frameshift, nonsense and splice alleles predominate - a 14 bp deletion, a nonsense plus splice-donor compound heterozygote, and several single-base deletions, with missense alleles reported later. All are hypomorphic in effect rather than proven nulls, and all lie in or before the domains that do the TGF-beta binding.
 </div>
@@ -4591,6 +4664,8 @@ This pathophysiological event involves decreased LTBP3 (hgnc:6716). hgnc:6716 is
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4603,6 +4678,9 @@ This pathophysiological event involves decreased LTBP3 (hgnc:6716). hgnc:6716 is
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic hypomorphic LTBP3 alleles, homozygous in consanguineous families and compound heterozygous otherwise.</div>
 
@@ -4663,6 +4741,7 @@ This pathophysiological event involves decreased LTBP3 (hgnc:6716). hgnc:6716 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4685,6 +4764,7 @@ This pathophysiological event involves decreased LTBP3 (hgnc:6716). hgnc:6716 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4711,6 +4791,7 @@ This pathophysiological event involves decreased LTBP3 (hgnc:6716). hgnc:6716 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-latent-tgf-beta-matrix-targeting-and-activation" data-dismech-node="Failure of Latent TGF-beta Matrix Targeting and Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Latent TGF-beta Matrix Targeting and Activation</div>
+
 
                 <div class="item-desc">LTBP3 is one of four LTBP/fibrillin-family proteins. Through its eight-cysteine TB domains it forms a large complex with latent TGF-beta 1, 2 and 3, and it is this complex that anchors the growth factor in the extracellular matrix where it can later be activated. The functional consequence of removing LTBP3 is therefore not loss of a structural fibre but loss of a reservoir: less TGF-beta is positioned for release, so less signalling reaches the cells that need it.
 </div>
@@ -4878,6 +4959,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4900,6 +4982,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4930,6 +5013,7 @@ This pathophysiological event involves decreased transforming growth factor beta
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4955,6 +5039,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-secretory-ameloblast-function" data-dismech-node="Impaired Secretory Ameloblast Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Secretory Ameloblast Function</div>
+
 
                 <div class="item-desc">Ltbp3 is transcribed by differentiating ameloblasts and odontoblasts, with transcripts at the apical secretory pole of the ameloblast - the end of the cell that builds enamel. The ultrastructural phenotype in patients points at a specific step: the initial aprismatic layer at the dentine-enamel junction is absent, a thin irregular prismatic shell is laid down instead, and non-prismatic enamel then appears in patches on top. That pattern implicates the formation and modulation of Tomes&#39; process, the secretory specialisation that determines prism architecture, rather than a general failure to secrete matrix. Dentine was normal on ultrastructural examination in the founding family, which is what makes the defect ameloblast-specific rather than a mineralisation defect of the whole tooth - but abnormal dentine has since been reported in a later family, so that specificity is not absolute.
 </div>
@@ -5157,6 +5242,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5179,6 +5265,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5209,6 +5296,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5232,6 +5320,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoplastic-enamel-formation" data-dismech-node="Hypoplastic Enamel Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoplastic Enamel Formation</div>
+
 
                 <div class="item-desc">The tissue-level result: enamel that is thin, irregular and in places absent. Clinically the teeth are small, yellow and widely spaced with large pulp chambers and taurodontic molars, and because the protective layer is missing they are prone to infection and early loss. The founding family&#39;s dentine was normal, and that observation is load-bearing for the ameloblast-specific reading of the mechanism - but it does not generalise: a later family had abnormal dentine and calcified dental pulp blood vessels, curated below as a REFUTE item rather than set aside.
 </div>
@@ -5271,6 +5360,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5293,6 +5383,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5321,6 +5412,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5344,6 +5436,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-axial-growth-plate-and-vertebral-body-formation" data-dismech-node="Disturbed Axial Growth Plate and Vertebral Body Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Axial Growth Plate and Vertebral Body Formation</div>
+
 
                 <div class="item-desc">The skeletal arm, and the weaker half of the model. Ltbp3 is expressed in cartilage primordia including the developing vertebrae, and TGF-beta is the most abundant growth factor in bone with an established role in endochondral ossification; deregulating it is expected to disturb axial patterning. What is missing is a demonstration in this disease: the knockout mouse, which is otherwise a good model, does not develop platyspondyly.
 </div>
@@ -5492,6 +5585,7 @@ This pathophysiological event involves decreased endochondral bone growth (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5519,6 +5613,7 @@ This pathophysiological event involves decreased endochondral bone growth (GO:00
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5541,6 +5636,7 @@ This pathophysiological event involves decreased endochondral bone growth (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5568,6 +5664,7 @@ skeleton and tooth morphogenesis and expands the mutational spectrum of LTBP3."<
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platyspondyly-with-short-trunk-short-stature" data-dismech-node="Platyspondyly with Short-Trunk Short Stature" data-dismech-type="pathophysiology">
                 <div class="item-name">Platyspondyly with Short-Trunk Short Stature</div>
+
 
                 <div class="item-desc">The clinical skeletal endpoint. Generalized platyspondyly with indentation of the vertebral endplates, short trunk, scoliosis and normal or near-normal long bones - the definition of brachyolmia. Growth is normal early and slows in childhood in at least one well-documented case, so this is a postnatal growth phenotype rather than a birth-length phenotype.
 </div>
@@ -5627,6 +5724,7 @@ skeleton and tooth morphogenesis and expands the mutational spectrum of LTBP3."<
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5649,6 +5747,7 @@ skeleton and tooth morphogenesis and expands the mutational spectrum of LTBP3."<
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5717,15 +5816,17 @@ skeleton and tooth morphogenesis and expands the mutational spectrum of LTBP3."<
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5735,7 +5836,7 @@ skeleton and tooth morphogenesis and expands the mutational spectrum of LTBP3."<
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-septal-and-valvular-anomalies" data-dismech-node="Septal and Valvular Anomalies" data-dismech-type="phenotype">
@@ -5768,6 +5869,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5782,6 +5886,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5837,6 +5942,9 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5851,6 +5959,7 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5878,13 +5987,224 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thoracic-aortic-aneurysm" data-dismech-node="Thoracic Aortic Aneurysm" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thoracic Aortic Aneurysm
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012727</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34906192" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34906192" target="_blank">PMID:34906192</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two compound heterozygous mutations, c.625dup (p.Leu209fs) and c.1965del (p.Arg656fs), in LTBP3 were identified in a TAAD patient along with short stature and dental problems, which was the first TAAD case with biallelic LTBP3 null mutations in an Asian population."</div>
+
+
+                <div class="evidence-explanation">A directly described patient with biallelic null LTBP3, aortic disease, and the short stature and dental phenotype - so the aneurysm is reported in the DASS genotype rather than in a separate LTBP3 phenotype.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34906192" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34906192" target="_blank">PMID:34906192</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"LTBP3 should be considered to be incorporated into the routine genetic analysis of heritable aortopathy"</div>
+
+
+                <div class="evidence-explanation">The authors&#39; practical conclusion, which is the reason this phenotype is curated despite resting on few families.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34573388" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34573388" target="_blank">PMID:34573388</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"two other unrelated families with DASS and thoracic aortic aneurysm associated with pathogenic variants in LTBP3 have been described"</div>
+
+
+                <div class="evidence-explanation">Two further families, cited secondhand in this review. INDIRECT for that reason, and kept because it establishes the association is not a single report.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nephrocalcinosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35998423" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35998423" target="_blank">PMID:35998423</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The 2 patients from the first family had dental anomalies and short stature syndrome, brachyolmia and nephrocalcinosis with difference in severity"</div>
+
+
+                <div class="evidence-explanation">Documents nephrocalcinosis in two siblings with a confirmed LTBP3 genotype, and records that severity differed between them.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-amelogenesis-imperfecta" data-dismech-node="Hypoplastic Amelogenesis Imperfecta" data-dismech-type="phenotype">
@@ -5901,15 +6221,18 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000705" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000705</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000705" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000705</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5929,6 +6252,7 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5954,6 +6278,7 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5995,15 +6320,18 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000668</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000668</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6023,6 +6351,7 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6048,6 +6377,7 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6089,15 +6419,18 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000679" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000679</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000679" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000679</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Taurodontia (HP:0000679). HP:0000679 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6117,6 +6450,7 @@ This clinical feature is Taurodontia (HP:0000679). HP:0000679 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6128,499 +6462,6 @@ This clinical feature is Taurodontia (HP:0000679). HP:0000679 is a phenotype fro
 
 
                 <div class="evidence-explanation">Documents taurodontism radiographically alongside the enamel absence.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-or-failed-tooth-eruption" data-dismech-node="Delayed or Failed Tooth Eruption" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed or Failed Tooth Eruption
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Delayed eruption of teeth</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000684</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed eruption of teeth (HP:0000684). HP:0000684 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35352826" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35352826" target="_blank">PMID:35352826</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pulp blood vessels, prognathic mandible, failure of mandibular tooth eruption,"</div>
-
-
-                <div class="evidence-explanation">Reports failure of mandibular tooth eruption among the new DASS findings in this family.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25669657" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25669657" target="_blank">PMID:25669657</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Missing teeth (family 4) and retarded teeth eruption (family 3) were also reported."</div>
-
-
-                <div class="evidence-explanation">Records retarded eruption in the founding series, in a different family from the one with missing teeth - so eruption delay and hypodontia are separable.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-platyspondyly" data-dismech-node="Platyspondyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Platyspondyly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000926</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25669657" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25669657" target="_blank">PMID:25669657</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The spine radiographs show platyspondyly with indentations of both upper and lower vertebral endplates."</div>
-
-
-                <div class="evidence-explanation">Direct radiographic documentation in an affected individual.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34573388" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34573388" target="_blank">PMID:34573388</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the proband showed short stature, short trunk, scoliosis with accentuated lordosis, facial dysmorphisms, pterygium colli, varus knees, lower limbs diplegia and platyspondyly"</div>
-
-
-                <div class="evidence-explanation">Independent documentation of platyspondyly with the associated short-trunk habitus.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Scoliosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002650</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34573388" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34573388" target="_blank">PMID:34573388</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This disorder is characterized by skeletal dysplasia (e.g., platyspondyly, short trunk, scoliosis, broad ilia, elongated femoral necks with coxa valga) and severe enamel and dental anomalies."</div>
-
-
-                <div class="evidence-explanation">Lists scoliosis among the defining skeletal features of the entity.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-osteopenia" data-dismech-node="Osteopenia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Osteopenia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000938</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25669657" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25669657" target="_blank">PMID:25669657</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Additional bone anomalies such as osteopenia and scoliosis were present in family 4."</div>
-
-
-                <div class="evidence-explanation">Documents osteopenia in an affected family, the observation that contradicts the mouse bone phenotype.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-trunk-short-stature" data-dismech-node="Short-Trunk Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short-Trunk Short Stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32432408" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32432408" target="_blank">PMID:32432408</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Only 20 individuals from nine families have been previously reported, with a consistent phenotype of short stature, brachyolmia, and amelogenesis imperfecta."</div>
-
-
-                <div class="evidence-explanation">Records short stature as one of the three consistent features across the published cohort.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coxa-valga-with-elongated-femoral-necks" data-dismech-node="Coxa Valga with Elongated Femoral Necks" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Coxa Valga with Elongated Femoral Necks
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002673" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002673</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Coxa valga (HP:0002673). HP:0002673 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34573388" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34573388" target="_blank">PMID:34573388</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This disorder is characterized by skeletal dysplasia (e.g., platyspondyly, short trunk, scoliosis, broad ilia, elongated femoral necks with coxa valga) and severe enamel and dental anomalies."</div>
-
-
-                <div class="evidence-explanation">Lists the femoral neck and hip findings as part of the characteristic skeletal picture.
 </div>
 
 
@@ -6653,15 +6494,18 @@ This clinical feature is Coxa valga (HP:0002673). HP:0002673 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000303" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000303</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000303" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000303</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mandibular prognathia (HP:0000303). HP:0000303 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6681,6 +6525,7 @@ This clinical feature is Mandibular prognathia (HP:0000303). HP:0000303 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6724,15 +6569,18 @@ This clinical feature is Mandibular prognathia (HP:0000303). HP:0000303 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000327</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000327</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6752,6 +6600,7 @@ This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6780,6 +6629,7 @@ This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6804,9 +6654,9 @@ This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-or-failed-tooth-eruption" data-dismech-node="Delayed or Failed Tooth Eruption" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Nephrocalcinosis
+                        Delayed or Failed Tooth Eruption
 
 
 
@@ -6815,15 +6665,17 @@ This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Delayed eruption of teeth</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000121</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000684</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Delayed eruption of teeth (HP:0000684). HP:0000684 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6832,16 +6684,19 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35998423" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:35352826" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35998423" target="_blank">PMID:35998423</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35352826" target="_blank">PMID:35352826</a>
                     </span>
 
 
@@ -6849,14 +6704,41 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The 2 patients from the first family had dental anomalies and short stature syndrome, brachyolmia and nephrocalcinosis with difference in severity"</div>
+                <div class="evidence-snippet">"pulp blood vessels, prognathic mandible, failure of mandibular tooth eruption,"</div>
 
 
-                <div class="evidence-explanation">Documents nephrocalcinosis in two siblings with a confirmed LTBP3 genotype, and records that severity differed between them.
+                <div class="evidence-explanation">Reports failure of mandibular tooth eruption among the new DASS findings in this family.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25669657" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25669657" target="_blank">PMID:25669657</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Missing teeth (family 4) and retarded teeth eruption (family 3) were also reported."</div>
+
+
+                <div class="evidence-explanation">Records retarded eruption in the founding series, in a different family from the one with missing teeth - so eruption delay and hypodontia are separable.
 </div>
 
 
@@ -6887,15 +6769,18 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000689</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000689</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6918,6 +6803,7 @@ This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a pheno
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6944,9 +6830,18 @@ This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thoracic-aortic-aneurysm" data-dismech-node="Thoracic Aortic Aneurysm" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coxa-valga-with-elongated-femoral-necks" data-dismech-node="Coxa Valga with Elongated Femoral Necks" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Thoracic Aortic Aneurysm
+                        Coxa Valga with Elongated Femoral Necks
 
 
 
@@ -6958,12 +6853,12 @@ This clinical feature is Dental malocclusion (HP:0000689). HP:0000689 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012727</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002673" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002673</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Coxa valga (HP:0002673). HP:0002673 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6972,43 +6867,101 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34906192" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:34573388" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34906192" target="_blank">PMID:34906192</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34573388" target="_blank">PMID:34573388</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Two compound heterozygous mutations, c.625dup (p.Leu209fs) and c.1965del (p.Arg656fs), in LTBP3 were identified in a TAAD patient along with short stature and dental problems, which was the first TAAD case with biallelic LTBP3 null mutations in an Asian population."</div>
+                <div class="evidence-snippet">"This disorder is characterized by skeletal dysplasia (e.g., platyspondyly, short trunk, scoliosis, broad ilia, elongated femoral necks with coxa valga) and severe enamel and dental anomalies."</div>
 
 
-                <div class="evidence-explanation">A directly described patient with biallelic null LTBP3, aortic disease, and the short stature and dental phenotype - so the aneurysm is reported in the DASS genotype rather than in a separate LTBP3 phenotype.
+                <div class="evidence-explanation">Lists the femoral neck and hip findings as part of the characteristic skeletal picture.
 </div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34906192" data-dismech-supports="SUPPORT">
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-platyspondyly" data-dismech-node="Platyspondyly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Platyspondyly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000926</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25669657" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34906192" target="_blank">PMID:34906192</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25669657" target="_blank">PMID:25669657</a>
                     </span>
 
 
@@ -7016,14 +6969,15 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"LTBP3 should be considered to be incorporated into the routine genetic analysis of heritable aortopathy"</div>
+                <div class="evidence-snippet">"The spine radiographs show platyspondyly with indentations of both upper and lower vertebral endplates."</div>
 
 
-                <div class="evidence-explanation">The authors&#39; practical conclusion, which is the reason this phenotype is curated despite resting on few families.
+                <div class="evidence-explanation">Direct radiographic documentation in an affected individual.
 </div>
 
 
@@ -7040,17 +6994,244 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"two other unrelated families with DASS and thoracic aortic aneurysm associated with pathogenic variants in LTBP3 have been described"</div>
+                <div class="evidence-snippet">"the proband showed short stature, short trunk, scoliosis with accentuated lordosis, facial dysmorphisms, pterygium colli, varus knees, lower limbs diplegia and platyspondyly"</div>
 
 
-                <div class="evidence-explanation">Two further families, cited secondhand in this review. INDIRECT for that reason, and kept because it establishes the association is not a single report.
+                <div class="evidence-explanation">Independent documentation of platyspondyly with the associated short-trunk habitus.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34573388" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34573388" target="_blank">PMID:34573388</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This disorder is characterized by skeletal dysplasia (e.g., platyspondyly, short trunk, scoliosis, broad ilia, elongated femoral necks with coxa valga) and severe enamel and dental anomalies."</div>
+
+
+                <div class="evidence-explanation">Lists scoliosis among the defining skeletal features of the entity.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteopenia" data-dismech-node="Osteopenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Osteopenia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000938</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25669657" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25669657" target="_blank">PMID:25669657</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional bone anomalies such as osteopenia and scoliosis were present in family 4."</div>
+
+
+                <div class="evidence-explanation">Documents osteopenia in an affected family, the observation that contradicts the mouse bone phenotype.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-trunk-short-stature" data-dismech-node="Short-Trunk Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short-Trunk Short Stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32432408" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32432408" target="_blank">PMID:32432408</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only 20 individuals from nine families have been previously reported, with a consistent phenotype of short stature, brachyolmia, and amelogenesis imperfecta."</div>
+
+
+                <div class="evidence-explanation">Records short stature as one of the three consistent features across the published cohort.
 </div>
 
 
@@ -7141,6 +7322,9 @@ This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -7155,6 +7339,7 @@ This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7183,6 +7368,7 @@ This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7205,6 +7391,7 @@ This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7293,6 +7480,9 @@ This treatment is Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7303,6 +7493,9 @@ This treatment is Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7354,6 +7547,7 @@ This treatment is Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical inte
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7379,6 +7573,7 @@ This treatment is Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical inte
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7445,6 +7640,9 @@ This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7455,6 +7653,9 @@ This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7506,6 +7707,7 @@ This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7531,6 +7733,7 @@ This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7597,6 +7800,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7607,6 +7813,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7640,6 +7849,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7665,6 +7875,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7741,6 +7952,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7813,6 +8025,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7978,6 +8191,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8018,6 +8232,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8075,6 +8290,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9384,6 +9600,29 @@ diagnosis:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Naming, and why the entry does not pick a side. The same disease is called &#34;brachyolmia with amelogenesis imperfecta&#34; by the group that found the gene and &#34;dental anomalies and short stature (DASS)&#34; by most subsequent reports. MONDO:0011018 uses the former, so the entry does, and DASS is carried as a synonym. A reviewer looking for either name should find both.
+Allelic series, and one complication. LTBP3 also carries monoallelic variants in acromicric dysplasia and geleophysic dysplasia 3, neither of which involves teeth; those are a different dosage regime with a different mechanism (dominant, and grouped with the acromelic dysplasias) and are deliberately not curated here. The complication is that the recessive/ dominant line is not perfectly clean either: a 2022 report describes heterozygous LTBP3 carriers showing DASS characteristics, which is the first such report and means carrier status is not reliably silent. This entry still curates the biallelic disease, but a reviewer should not read &#34;recessive&#34; here as a claim that heterozygotes are unaffected. Separately, biallelic LTBP3 has been reported with thoracic aortic aneurysm, which is curated here as a phenotype because it occurs in the recessive DASS genotype, but the entry does not claim it is common.
+Relationship to entries already in the KB. `Brachyolmia` covers the non-syndromic PAPSS2 and TRPV4 forms and is the parent concept, not this entry&#39;s duplicate. `Short_Stature_Amelogenesis_Imperfecta_And_Skeletal_Dysplasia_With_Scoliosis` (MONDO:0032703) is a different entity whose own notes record that LTBP3 surfaced during its deep-research preflight as a rival gene and was deliberately excluded from that entry because it belongs to a separate disease. This is that separate disease, so those two entries should now be read together.
+A founder allele exists. A novel homozygous LTBP3 variant is described as common in Druze Arab patients, mapped to a shared homozygous region at 11p11.2-11q13.3. That is the one setting in this disease where community carrier screening is a more sensible strategy than case-by-case exome sequencing, and it is worth knowing before ordering a panel.
+Counting. Roughly 20 individuals from nine families were on record by 2020, with several more single families since. No `frequency` values are set on phenotypes for the same reason as in any small case-series disease: the denominator moves with every new report, and ascertainment is dental in some series and skeletal in others.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Brachyolmia-Amelogenesis Imperfecta Syndrome</strong> · 2026-08-31T08:18:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Brachyolmia-Amelogenesis_Imperfecta_Syndrome/2026-08-31T081805Z-claude-code-56be85.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of brachyolmia with amelogenesis imperfecta, also published as DASS - MONDO:0011018, LTBP3. The repository had already flagged this gap: kb/disorders/Short_Stature_Amelogenesis_Imperfecta_And_Skeletal_Dysplasia_With_Scoliosis.yaml records that LTBP3 surfaced as a rival gene in its own deep-research preflight and was deliberately excluded because it is a separate entity. This is that entity. One OpenScientist deep-research run: 17/17 references verified, 28/28 quotes valid, confabulation_rate 0.0; term_validation needs_review true, with HP:0012865 reported as &#39;Broad femoral neck&#39; when it is Abnormal sperm head morphology. Two verified leads from the report were adopted after independent reading: PMID:35352826 for the failure of TGF-beta-LAP-LTBP3 latent complex formation, and PMID:34906192 for a directly described biallelic-null patient with thoracic aortic aneurysm, which replaced a secondhand citation. PMID:35352826 also reports heterozygous carriers showing DASS characteristics, which qualifies the recessive model and is recorded in notes rather than smoothed over. The Ltbp3-null mouse is curated as three separately graded model links - RECAPITULATES for the enamel phenotype, RECAPITULATES for maxillary underdevelopment, and FAILS_TO_RECAPITULATE for platyspondyly, since the source states platyspondyly was not observed and the mouse bone density runs opposite to patients&#39; - with a HUMAN_MODEL_MISMATCH discussion attached. Validated with just validate - schema, terms, 47/47 snippets verified - plus check-entity-refs and check-duplicate-keys.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

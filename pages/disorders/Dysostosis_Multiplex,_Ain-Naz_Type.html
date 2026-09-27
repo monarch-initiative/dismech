@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4316,6 +4384,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4451,6 +4520,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4472,6 +4542,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4630,6 +4701,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-lyset-loss-of-function" data-dismech-node="Biallelic LYSET Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic LYSET Loss of Function</div>
 
+
                 <div class="item-desc">Homozygous loss-of-function variants in LYSET (TMEM251) abolish or functionally cripple the small Golgi transmembrane protein LYSET. Reported alleles include the missense p.(Arg45Trp), which is expressed but fails to bind GlcNAc-1-phosphotransferase, and several premature-termination alleles.</div>
 
 
@@ -4688,6 +4760,8 @@ This pathophysiological event involves LYSET, annotated with TMEM251 (hgnc:20218
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4700,6 +4774,9 @@ This pathophysiological event involves LYSET, annotated with TMEM251 (hgnc:20218
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">All four reported families carry homozygous LYSET alleles: c.133C&gt;T p.(Arg45Trp), c.215dupA p.(Tyr72Ter), c.112C&gt;T p.(Gln38Ter), and c.197dupA. Consanguinity is reported in the families for which it is stated.</div>
 
@@ -4778,6 +4855,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4799,6 +4877,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4824,6 +4903,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glcnac-1-phosphotransferase-destabilization-and-golgi-mislocalization" data-dismech-node="GlcNAc-1-Phosphotransferase Destabilization and Golgi Mislocalization" data-dismech-type="pathophysiology">
                 <div class="item-name">GlcNAc-1-Phosphotransferase Destabilization and Golgi Mislocalization</div>
+
 
                 <div class="item-desc">LYSET is a two-transmembrane Golgi protein that binds GlcNAc-1-phosphotransferase, supports its Site-1-protease cleavage and activity, and anchors it in the Golgi. In LYSET-deficient cells the phosphotransferase is destabilized and redistributes from the Golgi to lysosomes, where it is degraded.</div>
 
@@ -4936,6 +5016,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4957,6 +5038,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4984,6 +5066,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5008,6 +5091,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-mannose-6-phosphate-tagging-of-lysosomal-hydrolases" data-dismech-node="Loss of Mannose-6-Phosphate Tagging of Lysosomal Hydrolases" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Mannose-6-Phosphate Tagging of Lysosomal Hydrolases</div>
+
 
                 <div class="item-desc">Soluble acid hydrolases are no longer tagged with mannose-6-phosphate, the recognition marker read by the M6P receptors that route them from the trans-Golgi network to the lysosome. Because the marker is shared by roughly seventy soluble hydrolases, the defect is a simultaneous functional deficiency of many enzymes rather than of one.</div>
 
@@ -5133,6 +5217,7 @@ This pathophysiological event involves decreased macromolecule catabolic process
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5154,6 +5239,7 @@ This pathophysiological event involves decreased macromolecule catabolic process
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5179,6 +5265,7 @@ This pathophysiological event involves decreased macromolecule catabolic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hydrolase-missorting-and-hypersecretion" data-dismech-node="Hydrolase Missorting and Hypersecretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Hydrolase Missorting and Hypersecretion</div>
+
 
                 <div class="item-desc">Untagged hydrolases escape M6P-receptor capture at the trans-Golgi network and are secreted, so the cell is depleted of intracellular lysosomal enzyme while extracellular fluid is enriched for it. This inverted distribution — high enzyme activity in plasma, low activity in cultured fibroblasts — is the diagnostic biochemical signature shared with mucolipidosis II.</div>
 
@@ -5296,6 +5383,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5317,6 +5405,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5342,6 +5431,7 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-lysosomal-substrate-accumulation" data-dismech-node="Multisystem Lysosomal Substrate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Lysosomal Substrate Accumulation</div>
+
 
                 <div class="item-desc">Undegraded substrate accumulates within distended lysosomes across many tissues. Because the missing catabolic step is the shared targeting marker rather than one enzyme, the stored material is mixed, and urine carries both glycosaminoglycans and an abnormal sialic acid profile.</div>
 
@@ -5478,6 +5568,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5499,6 +5590,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5524,6 +5616,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chondrocyte-differentiation" data-dismech-node="Impaired Chondrocyte Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Chondrocyte Differentiation</div>
+
 
                 <div class="item-desc">Loss of the LYSET orthologue dedifferentiates primary chondrocytes in culture, implying a contribution to the skeletal phenotype from the growth plate itself rather than only from passive storage. Whether this is separable from the M6P-targeting defect in human disease is unresolved.</div>
 
@@ -5611,6 +5704,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5633,6 +5727,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-and-connective-tissue-storage-disease" data-dismech-node="Skeletal and Connective-Tissue Storage Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal and Connective-Tissue Storage Disease</div>
+
 
                 <div class="item-desc">Storage in cartilage, bone, and soft connective tissue produces the progressive dysostosis multiplex pattern, extreme short stature, increasingly coarse facies, kyphoscoliosis, hip-joint subluxation, craniosynostosis in one reported case, joint contractures, a protuberant abdomen, and progressive loss of mobility.</div>
 
@@ -5854,6 +5949,7 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5876,6 +5972,7 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-valve-storage-disease" data-dismech-node="Cardiac Valve Storage Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Valve Storage Disease</div>
+
 
                 <div class="item-desc">Storage in valve connective tissue thickens the mitral and aortic leaflets and produces regurgitation, as in mucolipidosis II. Reported in the single case with detailed cardiac assessment.</div>
 
@@ -5971,6 +6068,7 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6035,15 +6133,19 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6052,741 +6154,9 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
+                    Cardiovascular
                     <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse facial features" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Coarse facial features
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000280</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Coarse facial features (HP:0000280), qualified as course progressive. HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41858182" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41858182" target="_blank">PMID:41858182</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This is an autosomal recessive, ultrarare, and severe progressive skeletal dysplasia with coarse facies, distended abdomen, short stature, and severe physical disability."</div>
-
-
-                <div class="evidence-explanation">Coarse facies is listed among the defining features of LYSET deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-craniosynostosis" data-dismech-node="Craniosynostosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Craniosynostosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001363</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She had short stature, craniosynostosis, kyphoscoliosis, and hip-joint subluxation."</div>
-
-
-                <div class="evidence-explanation">Craniosynostosis is documented in the affected child of family ID01.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Limbs
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-subluxation" data-dismech-node="Hip subluxation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hip subluxation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030043</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hip subluxation (HP:0030043). HP:0030043 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"short stature, craniosynostosis, kyphoscoliosis, and hip-joint subluxation"</div>
-
-
-                <div class="evidence-explanation">Hip-joint subluxation is documented in the second reported family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysostosis-multiplex" data-dismech-node="Dysostosis multiplex" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysostosis multiplex
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000943</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dysostosis multiplex (HP:0000943), qualified as course progressive. HP:0000943 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In family NMD02, affected individuals had a dysostosis multiplex-like skeletal dysplasia and severe short stature"</div>
-
-
-                <div class="evidence-explanation">Names the dysostosis multiplex pattern in the affected individuals of the index family. The VERY_FREQUENT band is a curator estimate under pattern D of docs/frequency-evidence-guidelines.md: the feature is present in every one of the four published families and is the feature the disorder is named for, but no cohort large enough to yield a percentage exists.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40171858" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171858" target="_blank">PMID:40171858</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report two Iranian brothers with homozygous pathogenic variants in LYSET (c.197dupA) who exhibit clinical, enzymatic, and radiographic features strikingly similar to MLII."</div>
-
-
-                <div class="evidence-explanation">Independent family with radiographic features matching mucolipidosis II, the dysostosis multiplex pattern.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Kyphoscoliosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002751</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She had short stature, craniosynostosis, kyphoscoliosis, and hip-joint subluxation."</div>
-
-
-                <div class="evidence-explanation">Kyphoscoliosis is documented in the second reported family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-contractures" data-dismech-node="Joint contractures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Joint contractures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0034392</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41858182" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41858182" target="_blank">PMID:41858182</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"with hand contractures and a typical facial appearance since 5 months old"</div>
-
-
-                <div class="evidence-explanation">Contractures are the earliest reported clinical sign in this patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-short-stature" data-dismech-node="Severe short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe short stature
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003510</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"affected individuals had a dysostosis multiplex-like skeletal dysplasia and severe short stature"</div>
-
-
-                <div class="evidence-explanation">Severe short stature is reported as a defining feature of the index family. The VERY_FREQUENT band is a curator estimate under pattern D of docs/frequency-evidence-guidelines.md: short stature is reported in every published family, but no cohort percentage exists.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-protuberant-abdomen" data-dismech-node="Protuberant abdomen" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Protuberant abdomen
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001538" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001538</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Protuberant abdomen (HP:0001538). HP:0001538 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"increasingly coarse facial features, protruding abdomens, and progressive skeletal changes"</div>
-
-
-                <div class="evidence-explanation">Protruding abdomen is reported in the affected individuals of family NMD02.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-ambulation" data-dismech-node="Loss of ambulation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Loss of ambulation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002505</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Loss of ambulation (HP:0002505), qualified as course progressive. HP:0002505 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patients gradually lost mobility and the two oldest affected individuals died in their twenties."</div>
-
-
-                <div class="evidence-explanation">Progressive loss of mobility is documented in the index family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-mitral-valve" data-dismech-node="Thickened mitral valve" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6804,15 +6174,18 @@ This clinical feature is Loss of ambulation (HP:0002505), qualified as course pr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:6000342</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:6000342</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thickened mitral valve cusp (HP:6000342). HP:6000342 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6832,6 +6205,7 @@ This clinical feature is Thickened mitral valve cusp (HP:6000342). HP:6000342 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6872,15 +6246,18 @@ This clinical feature is Thickened mitral valve cusp (HP:6000342). HP:6000342 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005180</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005180</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tricuspid regurgitation (HP:0005180). HP:0005180 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6903,6 +6280,7 @@ This clinical feature is Tricuspid regurgitation (HP:0005180). HP:0005180 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6911,6 +6289,793 @@ This clinical feature is Tricuspid regurgitation (HP:0005180). HP:0005180 is a p
 
 
                 <div class="evidence-explanation">Tricuspid regurgitation is documented in a genetically confirmed patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-protuberant-abdomen" data-dismech-node="Protuberant abdomen" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Protuberant abdomen
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001538" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001538</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Protuberant abdomen (HP:0001538). HP:0001538 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"increasingly coarse facial features, protruding abdomens, and progressive skeletal changes"</div>
+
+
+                <div class="evidence-explanation">Protruding abdomen is reported in the affected individuals of family NMD02.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse facial features" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Coarse facial features
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000280</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coarse facial features (HP:0000280), qualified as course progressive. HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41858182" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41858182" target="_blank">PMID:41858182</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This is an autosomal recessive, ultrarare, and severe progressive skeletal dysplasia with coarse facies, distended abdomen, short stature, and severe physical disability."</div>
+
+
+                <div class="evidence-explanation">Coarse facies is listed among the defining features of LYSET deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-craniosynostosis" data-dismech-node="Craniosynostosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Craniosynostosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001363</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She had short stature, craniosynostosis, kyphoscoliosis, and hip-joint subluxation."</div>
+
+
+                <div class="evidence-explanation">Craniosynostosis is documented in the affected child of family ID01.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-subluxation" data-dismech-node="Hip subluxation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hip subluxation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030043</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip subluxation (HP:0030043). HP:0030043 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"short stature, craniosynostosis, kyphoscoliosis, and hip-joint subluxation"</div>
+
+
+                <div class="evidence-explanation">Hip-joint subluxation is documented in the second reported family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysostosis-multiplex" data-dismech-node="Dysostosis multiplex" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysostosis multiplex
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000943</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysostosis multiplex (HP:0000943), qualified as course progressive. HP:0000943 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In family NMD02, affected individuals had a dysostosis multiplex-like skeletal dysplasia and severe short stature"</div>
+
+
+                <div class="evidence-explanation">Names the dysostosis multiplex pattern in the affected individuals of the index family. The VERY_FREQUENT band is a curator estimate under pattern D of docs/frequency-evidence-guidelines.md: the feature is present in every one of the four published families and is the feature the disorder is named for, but no cohort large enough to yield a percentage exists.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40171858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171858" target="_blank">PMID:40171858</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report two Iranian brothers with homozygous pathogenic variants in LYSET (c.197dupA) who exhibit clinical, enzymatic, and radiographic features strikingly similar to MLII."</div>
+
+
+                <div class="evidence-explanation">Independent family with radiographic features matching mucolipidosis II, the dysostosis multiplex pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Kyphoscoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002751</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She had short stature, craniosynostosis, kyphoscoliosis, and hip-joint subluxation."</div>
+
+
+                <div class="evidence-explanation">Kyphoscoliosis is documented in the second reported family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-contractures" data-dismech-node="Joint contractures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Joint contractures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0034392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41858182" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41858182" target="_blank">PMID:41858182</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with hand contractures and a typical facial appearance since 5 months old"</div>
+
+
+                <div class="evidence-explanation">Contractures are the earliest reported clinical sign in this patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-ambulation" data-dismech-node="Loss of ambulation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Loss of ambulation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Loss of ambulation (HP:0002505), qualified as course progressive. HP:0002505 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patients gradually lost mobility and the two oldest affected individuals died in their twenties."</div>
+
+
+                <div class="evidence-explanation">Progressive loss of mobility is documented in the index family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-short-stature" data-dismech-node="Severe short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe short stature
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33252156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252156" target="_blank">PMID:33252156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"affected individuals had a dysostosis multiplex-like skeletal dysplasia and severe short stature"</div>
+
+
+                <div class="evidence-explanation">Severe short stature is reported as a defining feature of the index family. The VERY_FREQUENT band is a curator estimate under pattern D of docs/frequency-evidence-guidelines.md: short stature is reported in every published family, but no cohort percentage exists.</div>
 
 
 
@@ -7002,6 +7167,9 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7016,6 +7184,7 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7040,6 +7209,7 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7074,6 +7244,12 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous missense allele in family NMD02. The protein is expressed but is targeted to the Golgi less efficiently, binds GlcNAc-1-phosphotransferase poorly, and fails to rescue cathepsin missorting.</div>
 
 
@@ -7098,6 +7274,7 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7132,6 +7309,12 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous premature-termination allele in family ID01.</div>
 
 
@@ -7154,6 +7337,12 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
         LYSET c.112C&gt;T p.(Gln38Ter)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous nonsense allele found by whole-genome sequencing in the first reported Western patient, after more than a decade of undiagnosed investigation.</div>
@@ -7180,6 +7369,7 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7214,6 +7404,12 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous frameshift allele in two Iranian brothers with an MLII-like presentation.</div>
 
 
@@ -7238,6 +7434,7 @@ This disease-associated gene is LYSET, annotated with TMEM251 (hgnc:20218). hgnc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7334,6 +7531,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No disease-specific or disease-modifying therapy has been reported for any of the published patients. Management in the case reports is supportive, and by analogy with mucolipidosis II would involve orthopaedic, cardiac, and respiratory surveillance. Conventional single-enzyme replacement is not a candidate here for a mechanistic reason: the lesion is in the targeting marker itself, so an infused hydrolase would face the same M6P-receptor uptake route that is defective. The candidate disease-modifying strategies that do exist have all been tested in mucolipidosis II rather than in this disorder; they are recorded, with their sources, in the `dmant_no_therapy` discussion rather than here, so that nothing in this treatment block reads as evidence about a LYSET patient.</div>
 
 
@@ -7390,6 +7593,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7411,6 +7615,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7462,6 +7667,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7521,7 +7727,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         plasma and fibroblast lysosomal enzyme activity panel
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C25294</a>
 
 
 
@@ -7565,6 +7771,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7659,6 +7866,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7680,6 +7888,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7750,6 +7959,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7797,6 +8007,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7852,6 +8063,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7876,6 +8088,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7897,6 +8110,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7965,6 +8179,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8067,6 +8282,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8136,6 +8352,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8211,6 +8428,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8236,12 +8454,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-rhizomelic-dysplasia-ain-naz-type">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Rhizomelic dysplasia, Ain-Naz type</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Rhizomelic_Dysplasia,_Ain-Naz_Type.html">Rhizomelic dysplasia, Ain-Naz type</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0859203" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0859203" target="_blank">
                             MONDO:0859203
                         </a>
                     </span>
@@ -8284,6 +8501,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8305,6 +8523,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8432,6 +8651,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8473,6 +8693,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8578,6 +8799,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8619,6 +8841,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9573,8 +9796,8 @@ diagnosis:
   diagnosis_term:
     preferred_term: plasma and fibroblast lysosomal enzyme activity panel
     term:
-      id: NCIT:C19770
-      label: Molecular Analysis
+      id: NCIT:C25294
+      label: Laboratory Procedure
   presence: Positive
   results: &gt;-
     Elevated plasma activity of multiple lysosomal hydrolases with reduced
@@ -10016,6 +10239,129 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Dysostosis_Multiplex_Ain-Naz_Type</strong> · 2026-09-07T18:01:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dysostosis_Multiplex_Ain-Naz_Type/2026-09-07T180124Z-claude-code-4613b4.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of dysostosis multiplex, Ain-Naz type (MONDO:0859156,
+OMIM:619345), an ultra-rare autosomal recessive disorder of the
+mannose-6-phosphate lysosomal enzyme-targeting pathway caused by biallelic
+LYSET (TMEM251/GCAF) loss of function.
+
+LUMP/SPLIT. Curated as entry_type DISEASE. The stub records one causal
+gene and no MONDO descendants, the leaf signature. The scope question put
+to this curation was whether MONDO:0859203 &#34;rhizomelic dysplasia, Ain-Naz
+type&#34; is the same entity. It is not. MONDO:0859203 xrefs OMIM:619598,
+whose MedGen record describes rhizomelic limb shortening, platyspondyly,
+and large hands and feet, and which corresponds to the GNPNAT1 disorder of
+PMID:32591345 (Ain et al., J Med Genet 2021). MONDO:0859156 xrefs
+OMIM:619345 and is the LYSET disorder of PMID:33252156. Different gene,
+different skeletal pattern, different OMIM entry; the shared eponym
+reflects only that Ain NU and Naz S are the first and last authors of both
+reports. The two are mechanistically adjacent — GNPNAT1 makes the
+UDP-GlcNAc that GlcNAc-1-phosphotransferase consumes — which is a reason to
+cross-reference them, not to merge them. The rhizomelic disorder is
+recorded here as a named differential diagnosis; its own stub was left
+untouched, since editing it is separate work.
+
+DEEP RESEARCH. `just research-disorder falcon` was requested but Edison
+returned HTTP 402 (account out of credits) on two attempts. The run was
+re-issued with `--fallback` and OpenScientist produced the report, which is
+committed as
+research/Dysostosis_Multiplex_Ain-Naz_Type-deep-research-openscientist.md
+with its citations sidecar and artifacts directory; the report&#39;s own
+frontmatter records fell_back: true and the provider_attempts list. Its
+reference validation was clean: 17/17 references resolved, 0 unresolved,
+9/9 quoted claims found in source, 0 off topic. term_validation reports
+needs_review: true with 6 mislabelled terms, but all six are table-parsing
+artifacts in which the report&#39;s frequency column (&#34;Core (all)&#34;, &#34;Frequent&#34;,
+&#34;1 patient&#34;, &#34;Where tested&#34;) was read as the term label rather than a wrong
+binding. One of those rows is a real error and was NOT followed: the report
+suggests HP:0003128 (Lactic acidosis) for &#34;elevated plasma lysosomal
+enzymes&#34;. It also suggests HP:0001522 (Death in infancy) for premature
+death, which is the wrong age band. Neither was bound.
+
+`just preflight-dr &lt;report&gt; MONDO:0859156` returned WARN. The warning is
+the rival-gene heuristic firing on GNPTAB (8 mentions against 20 for
+LYSET/TMEM251), which is expected because mucolipidosis II is the
+comparator disease throughout. Identity was then checked by hand as the
+dismech-references skill requires: the report&#39;s OMIM number (619345)
+matches MONDO&#39;s xref, and the canonical gene matches. The named Named
+Entity Confusion risk for this gene — its large cancer and SARS-CoV-2
+host-factor literature — was handled by citing those papers only for the
+M6P-pathway mechanism they establish, grading them IN_VITRO, and carrying
+none of their oncology or virology conclusions into the entry; a note in
+the entry records this.
+
+WHAT WAS CURATED. A seven-node causal chain from biallelic LYSET loss
+through GlcNAc-1-phosphotransferase destabilization and Golgi
+mislocalization, loss of M6P tagging, hydrolase missorting and
+hypersecretion, multisystem lysosomal substrate accumulation, to skeletal
+and cardiac-valve storage disease, with a parallel chondrocyte-differentiation
+branch. Two nodes conform to lysosomal_substrate_accumulation. Eleven HP-bound
+phenotypes, the mucolipidosis-pattern biochemistry (raised plasma enzyme
+activities with reduced fibroblast activities; abnormal urinary GAGs and
+sialic acid), the four reported LYSET alleles, autosomal recessive
+inheritance, a CASES_IN_LITERATURE prevalence record, four differential
+diagnoses, the Lyset knockout mouse and tmem251 knockout zebrafish with
+typed modeled_mechanisms links, one supportive-care treatment, and four
+discussions.
+
+VALIDATION. `just validate-disorders
+kb/disorders/Dysostosis_Multiplex_Ain-Naz_Type.yaml` passed: schema clean,
+term validation passed, 56/56 snippets verified against the reference
+cache. Also run to completion and clean: check-duplicate-keys,
+check-entity-refs, check-causal-targets, check-qualifier-terms,
+check-enum-values, check-snippet-grading, check-snippet-length,
+check-title-snippets, check-folded-hyphens, check-reference-titles,
+check-environmental-evidence, check-term-cache-integrity,
+check-cache-order, normalize-cache, and the conforms_to / entity-reference
+pytest selections. Compliance was 81% before the last additions.
+
+WHAT WAS DELIBERATELY NOT DONE, AND WHY.
+- No GeneReviews baseline exists. PubMed was searched on 2026-09-07 for
+  &#34;LYSET GeneReviews&#34; and &#34;TMEM251 GeneReviews&#34;; both returned zero hits.
+- isds_skeletal_category and icimd_category were left empty. The ISDS slot
+  may only be assigned to disorders the Nosology itself lists and it could
+  not be confirmed that this 2021-described disorder appears in the 2023
+  revision; ICIMD 2021 predates the gene-disease association. Recorded in
+  the entry&#39;s notes rather than guessed.
+- No HPO mortality term was bound. HP:0003819 (Death in childhood) sits in
+  the HPO Mortality/Aging branch, which is outside the PhenotypeTerm
+  dynamic enum&#39;s subtree and was rejected by term validation. The
+  natural-history fact is recorded in a `progression` phase instead.
+- Hemivertebrae, dental abnormalities, and a ventricular septal defect
+  appear in the deep-research phenotype table with no citation attached and
+  could not be traced to a quotable passage in any cached primary report.
+  They were not curated; a CURATION_TODO discussion records them.
+- The treatment block carries no evidence, deliberately. No treatment
+  study, trial, or guideline exists for this disorder. The candidate
+  disease-modifying strategies the report surfaced (HSCT, zoledronic acid,
+  enzyme cross-correction, GNPTAB exon-skipping ASOs) are all mucolipidosis
+  II work; two of them are cited on the dmant_no_therapy discussion instead,
+  with explanations stating explicitly that they are mucolipidosis II
+  studies and say nothing about a LYSET patient.
+- No `datasets:` block. No omics dataset for this disorder was identified,
+  and a gene-symbol dataset search for LYSET would return the cancer
+  cell-biology corpus, which is the Named Entity Confusion failure mode the
+  dataset guidance warns about.
+- Eight references the deep-research report cites were fetched into
+  references_cache by its own validation pass but are not cited by the
+  entry; they were not staged.
+
+Two frequency bands (Dysostosis multiplex, Severe short stature) are
+VERY_FREQUENT as explicitly labelled curator estimates under pattern D of
+docs/frequency-evidence-guidelines.md, on the basis that every published
+family shows them. No other phenotype carries a frequency band, because
+four families cannot yield one.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10808,7 +11154,7 @@ dysostosis multiplex · short stature · coarse facies · valvular disease
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dysostosis Multiplex, Ain-Naz Type", "mondoId": "MONDO:0859156", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dysostosis_Multiplex,_Ain-Naz_Type", "yamlRevision": "c663dcdbb236"};
+        const OS_CONFIG = {"diseaseName": "Dysostosis Multiplex, Ain-Naz Type", "mondoId": "MONDO:0859156", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dysostosis_Multiplex,_Ain-Naz_Type", "yamlRevision": "dc2bec760f07"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4209,6 +4277,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4279,6 +4348,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4300,6 +4370,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4370,6 +4441,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4606,6 +4678,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4878,6 +4951,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4899,6 +4973,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5110,6 +5185,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5264,6 +5340,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5288,6 +5365,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5309,6 +5387,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5501,6 +5580,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5535,6 +5615,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rare-eif4a2-variant" data-dismech-node="Rare EIF4A2 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Rare EIF4A2 Variant</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">NEDHSS is caused by extremely rare de novo mono-allelic or inherited bi-allelic variants in EIF4A2, which encodes the DEAD-box ATP-dependent RNA helicase eIF4A2 (DDX2B). Molecular modelling of the reported variants predicts that they perturb structural interactions within key domains of the protein. DEAD-box helicases are built from two conserved RecA-like domains that jointly form the RNA- and ATP-binding surface, so substitutions within or between these domains are expected to alter RNA binding, ATP hydrolysis, or the coupling between them.</div>
 
@@ -5697,6 +5784,7 @@ This pathophysiological event involves abnormal RNA helicase activity (GO:000372
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5718,6 +5806,7 @@ This pathophysiological event involves abnormal RNA helicase activity (GO:000372
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5745,6 +5834,7 @@ This pathophysiological event involves abnormal RNA helicase activity (GO:000372
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5769,6 +5859,13 @@ This pathophysiological event involves abnormal RNA helicase activity (GO:000372
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-eif4a2-helicase-and-atpase-function" data-dismech-node="Impaired eIF4A2 Helicase and ATPase Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired eIF4A2 Helicase and ATPase Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">eIF4A2 uses ATP binding and hydrolysis to remodel RNA. The disease variants are predicted to perturb the interfaces that couple ATP hydrolysis to RNA duplex remodelling. Both loss and gain of function are proposed for different alleles: in the Drosophila rescue assay some variant cDNAs behaved as hypomorphs while others produced variant-specific defects not explained by simple loss of activity, and the discovery authors concluded that both mechanisms operate. The helicase activity itself is functionally required - helicase-dead eIF4A2 mutants fail to rescue eIF4A2 depletion in embryonic stem cells - so an activity lesion is mechanistically sufficient to matter.</div>
 
@@ -5982,6 +6079,7 @@ This pathophysiological event involves abnormal RNA helicase activity (GO:000372
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6003,6 +6101,7 @@ This pathophysiological event involves abnormal RNA helicase activity (GO:000372
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6028,6 +6127,13 @@ This pathophysiological event involves abnormal RNA helicase activity (GO:000372
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-eif4a2-protein-dosage" data-dismech-node="Reduced eIF4A2 Protein Dosage" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced eIF4A2 Protein Dosage</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Truncating EIF4A2 alleles reduce eIF4A2 protein abundance. In fibroblasts from carriers of the heterozygous frameshift deletion c.896_897del, eIF4A2 protein was reduced to approximately half of the normal level, establishing haploinsufficiency as a real, measurable consequence of truncating EIF4A2 alleles. The same study showed a dose-dependent relationship between eIF4A2 functional dosage and the downstream Ccr4-Not target IMP1 by comparing heterozygous and bi-allelic patient fibroblasts. These fibroblasts derive from the allelic dystonia-tremor syndrome rather than from NEDHSS probands, so this node states what reduced EIF4A2 dosage does to the translational machinery, not that dystonia is a NEDHSS feature.</div>
 
@@ -6141,6 +6247,7 @@ This pathophysiological event involves EIF4A2 (hgnc:3284). hgnc:3284 is a gene f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6162,6 +6269,7 @@ This pathophysiological event involves EIF4A2 (hgnc:3284). hgnc:3284 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6189,6 +6297,7 @@ This pathophysiological event involves EIF4A2 (hgnc:3284). hgnc:3284 is a gene f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6211,6 +6320,13 @@ This pathophysiological event involves EIF4A2 (hgnc:3284). hgnc:3284 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-cap-dependent-translation-initiation-and-43s-scanning" data-dismech-node="Deregulated Cap-Dependent Translation Initiation and 43S Scanning" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Cap-Dependent Translation Initiation and 43S Scanning</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Within the eIF4F cap-binding complex, eIF4A resolves secondary structure in the 5&#39; leader so that the 43S preinitiation complex can be loaded and can scan to the start codon; pharmacological clamping of eIF4A1/eIF4A2 onto RNA blocks exactly these steps. eIF4A2 recognises the 5&#39; cap structure, permits mRNA loading onto the ribosome, and binds preferentially in the translation initiation region spanning the 5&#39; UTR and the adjacent start of the coding sequence. Importantly, eIF4A2 loss does not collapse bulk protein synthesis - global translation rates are unchanged in eIF4A2-depleted cells - so the disease-relevant consequence is a shift in which mRNAs are efficiently initiated, not a general translational shutdown.</div>
 
@@ -6353,6 +6469,7 @@ This pathophysiological event involves mRNA cap binding (GO:0098808). GO:0098808
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6374,6 +6491,7 @@ This pathophysiological event involves mRNA cap binding (GO:0098808). GO:0098808
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6401,6 +6519,7 @@ This pathophysiological event involves mRNA cap binding (GO:0098808). GO:0098808
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6425,6 +6544,13 @@ This pathophysiological event involves mRNA cap binding (GO:0098808). GO:0098808
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-eif4a2-ccr4-not-mediated-translational-repression" data-dismech-node="Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Separately from its activating role in eIF4F, eIF4A2 is a major effector of the repressive microRNA pathway. It binds the MA3 and MIF4G domains of CNOT1 - competing with DDX6 for the same site - and, once incorporated into Ccr4-Not, represses target mRNAs at the initiation step by binding purine-rich motifs in the 5&#39; UTR immediately upstream of the AUG. Which helicase is recruited also determines the fate of the transcript: eIF4A2 inhibits CNOT7 deadenylase activity whereas DDX6 enhances it, so eIF4A2-bound mRNAs keep longer poly(A) tails. In EIF4A2-variant patient fibroblasts this arm is measurably broken: eIF4A2 and Ccr4-Not show significantly reduced colocalization and the Ccr4-Not target IMP1 is abnormally elevated.</div>
 
@@ -6639,6 +6765,7 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6660,6 +6787,7 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6687,6 +6815,7 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6711,6 +6840,13 @@ This pathophysiological event involves decreased RNA helicase activity (GO:00037
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-neurodevelopmental-mrna-translation-program" data-dismech-node="Deregulated Neurodevelopmental mRNA Translation Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Neurodevelopmental mRNA Translation Program</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Because eIF4A2 both activates initiation on some transcripts and represses others via Ccr4-Not, its disruption reshapes a specific translational program rather than reducing protein output globally. In embryonic stem cells, eIF4A2 activates translation of pluripotency-factor and histone H3.3 mRNAs while restricting the totipotent two-cell program, and its knockdown disrupts the proteome and causes loss of cell identity - the clearest experimental demonstration that eIF4A2 dosage sets a developmental cell-fate program through translation. The disease-relevant claim, that the equivalent program in developing human neurons is what fails in NEDHSS, is an extension from stem-cell and invertebrate systems and is therefore provisional.</div>
 
@@ -6945,6 +7081,7 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6966,6 +7103,7 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6993,6 +7131,7 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7015,6 +7154,13 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-brain-development-with-structural-brain-anomalies" data-dismech-node="Disrupted Brain Development with Structural Brain Anomalies" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Brain Development with Structural Brain Anomalies</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Structural brain anomalies are one of the five defining features of the reported cohort and are documented on neuroimaging. A subsequent case series added absent cochlear nerve as a further structural finding, extending the malformation spectrum beyond the cerebrum to a cranial nerve.</div>
 
@@ -7135,6 +7281,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7156,6 +7303,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7183,6 +7331,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -7205,6 +7354,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability-and-epileptogenesis" data-dismech-node="Cortical Network Hyperexcitability and Epileptogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability and Epileptogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Epilepsy is one of the defining features of NEDHSS, and the reported seizure semiology includes epileptic spasms evolving into infantile spasms that required hormonal therapy. No EIF4A2-specific epileptogenic mechanism has been established: the node records that a hyperexcitable network state exists and produces the seizure phenotype, without asserting a validated molecular route from translational deregulation to hyperexcitability.</div>
 
@@ -7313,6 +7469,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7334,6 +7491,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7359,6 +7517,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neurodegeneration-in-bi-allelic-disease" data-dismech-node="Progressive Neurodegeneration in Bi-allelic Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neurodegeneration in Bi-allelic Disease</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Neurodegeneration was reported predominantly in the individuals carrying inherited bi-allelic EIF4A2 variants, distinguishing that arm from the largely static encephalopathy of the mono-allelic group. Because this is a clinical-radiological observation across a 15-person cohort rather than a neuropathological series, the node is provisional: no post-mortem or longitudinal imaging characterisation of the degenerative process exists.</div>
 
@@ -7467,6 +7632,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7489,6 +7655,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-neurodevelopmental-impairment" data-dismech-node="Global Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Neurodevelopmental Impairment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The organism-level convergence point of the disorder: global developmental delay, impaired intellectual development with poor or absent speech, gross and fine motor delay, and hypotonia, in most reported individuals at a severe level. This is the node from which the clinical phenotype layer of this entry is reached.</div>
 
@@ -7524,6 +7697,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7572,7 +7746,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Pharmacotherapy and Hormonal Therapy for Infantile Spasms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizure management is empiric and syndrome-directed. Both patients in the 2026 pediatric series progressed to infantile spasms that required hormonal treatment (the standard first-line approach to infantile spasms), and the series title records the spasms as refractory. No EIF4A2-specific antiseizure strategy has been established and no efficacy data exist for this disorder. The practical implication of the reported course is that spasms should be looked for actively and treated promptly, not that any particular agent is preferred.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cochlear nerve aplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent cochlear nerve was reported as a novel phenotypic finding in the 2026 pediatric case series. It is a single-series observation and has not been replicated, so it is recorded without a frequency band and should be regarded as an emerging rather than established feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000988\"}}, {\"id\": \"Cortical Network Hyperexcitability and Epileptogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epilepsy is one of the defining features of NEDHSS, and the reported seizure semiology includes epileptic spasms evolving into infantile spasms that required hormonal therapy. No EIF4A2-specific epileptogenic mechanism has been established: the node records that a hyperexcitable network state exists and produces the seizure phenotype, without asserting a validated molecular route from translational deregulation to hyperexcitability.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Deregulated Cap-Dependent Translation Initiation and 43S Scanning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Within the eIF4F cap-binding complex, eIF4A resolves secondary structure in the 5\u0027 leader so that the 43S preinitiation complex can be loaded and can scan to the start codon; pharmacological clamping of eIF4A1/eIF4A2 onto RNA blocks exactly these steps. eIF4A2 recognises the 5\u0027 cap structure, permits mRNA loading onto the ribosome, and binds preferentially in the translation initiation region spanning the 5\u0027 UTR and the adjacent start of the coding sequence. Importantly, eIF4A2 loss does not collapse bulk protein synthesis - global translation rates are unchanged in eIF4A2-depleted cells - so the disease-relevant consequence is a shift in which mRNAs are efficiently initiated, not a general translational shutdown.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"translational initiation\"], \"molecular_functions\": [\"mRNA cap binding\"], \"experimental_models\": [{\"name\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"eCLIP-seq localises eIF4A2 to the translation initiation region, and OP-puro incorporation shows that global translation is unchanged on eIF4A2 loss, which is what scopes this node to selective rather than global initiation failure.\"}]}}, {\"id\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because eIF4A2 both activates initiation on some transcripts and represses others via Ccr4-Not, its disruption reshapes a specific translational program rather than reducing protein output globally. In embryonic stem cells, eIF4A2 activates translation of pluripotency-factor and histone H3.3 mRNAs while restricting the totipotent two-cell program, and its knockdown disrupts the proteome and causes loss of cell identity - the clearest experimental demonstration that eIF4A2 dosage sets a developmental cell-fate program through translation. The disease-relevant claim, that the equivalent program in developing human neurons is what fails in NEDHSS, is an extension from stem-cell and invertebrate systems and is therefore provisional.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural stem cell\", \"neuron\"], \"biological_processes\": [\"regulation of translation\", \"neuron differentiation\"], \"experimental_models\": [{\"name\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Depleting eIF4A2 reshapes the proteome and changes cell identity, demonstrating that eIF4A2 dosage sets a developmental translation program.\"}], \"animal_models\": [{\"name\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"eIF4A loss-of-function with transgenic human EIF4A2 wild-type or variant cDNA\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The fly orthologue regulates a developmental signalling and stem-cell identity program, so the model shows that eIF4A dysfunction perturbs a developmental program - but the specific program is dpp signalling in fly tissues, not a human neuronal translation program.\"}]}}, {\"id\": \"Developmental, Physical and Communication Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because global developmental delay, hypotonia and poor or absent speech are the core disability, multidisciplinary developmental support - physical and occupational therapy for hypotonia and motor delay, and speech and alternative-communication support for the speech deficit - is the mainstay of care. No disorder-specific rehabilitation protocol has been published; this is standard practice for a severe global neurodevelopmental disorder and is curated here as supportive care rather than as an evidence-based disease-modifying intervention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disrupted Brain Development with Structural Brain Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural brain anomalies are one of the five defining features of the reported cohort and are documented on neuroimaging. A subsequent case series added absent cochlear nerve as a further structural finding, extending the malformation spectrum beyond the cerebrum to a cranial nerve.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"brain development\"], \"locations\": [\"brain\"]}}, {\"id\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The humanised fly assay used to establish pathogenicity of the mono-allelic EIF4A2 variants. Loss of the fly orthologue eIF4A causes pupal lethality; this lethality is fully rescued by expression of human wild-type EIF4A2 cDNA, whereas the patient variant cDNAs failed or only incompletely rescued it. Expression of the variants also produced variant-specific behavioural and developmental defects, which is the observation that led the authors to invoke gain of function in addition to loss of function.\"}, {\"id\": \"EIF4A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"EIF4A2\"], \"gene_terms\": [{\"label\": \"EIF4A2\", \"id\": \"hgnc:3284\"}], \"presence\": \"PRESENT\", \"association\": \"EIF4A2 (eukaryotic translation initiation factor 4A2, also known as DDX2B) is the single causal gene for NEDHSS. Both extremely rare de novo mono-allelic variants and inherited bi-allelic variants have been reported, across 15 individuals from 14 families, with a further mosaic proband described subsequently. Causality rests on the recurrence of ultra-rare variants across unrelated families, molecular modelling showing perturbation of key protein domains, and in vivo Drosophila rescue assays in which human EIF4A2 wild-type cDNA rescued eIF4A loss-of-function pupal lethality while the variant cDNAs failed or only incompletely rescued it. The evidence supports both loss- and gain-of-function as operating mechanisms across the allelic series, which is why the entry does not model a single directional dosage lesion.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"EIF4A2-variant patient-derived fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary skin fibroblasts from carriers of a heterozygous EIF4A2 frameshift deletion and, as a comparator, from individuals with bi-allelic EIF4A2 variants. Used to measure eIF4A2 protein abundance, the level of the Ccr4-Not target IMP1, and eIF4A2-Ccr4-Not colocalization, providing the only human-cell readout of what EIF4A2 lesions do to the translational repression machinery.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:37485550\"}}, {\"id\": \"Global Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level convergence point of the disorder: global developmental delay, impaired intellectual development with poor or absent speech, gross and fine motor delay, and hypotonia, in most reported individuals at a severe level. This is the node from which the clinical phenotype layer of this entry is reached.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is the presenting feature in every individual of the defining cohort and is reaffirmed as a core association in the later case series. It encompasses gross motor, fine motor, and speech and language domains.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Habilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Absent cochlear nerve has been reported in this disorder. Because a non-existent cochlear nerve is the one hearing-loss aetiology in which a cochlear implant cannot work, habilitation for an affected child may require an auditory brainstem implant or a visual/manual communication route rather than a cochlear implant. This is inference from the anatomical finding, not a reported intervention in an EIF4A2 patient. The diagnostic step that must precede any implantation decision - dedicated imaging of the internal auditory canal - is curated in `diagnosis` rather than here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is one of the two features the disorder is named for and was present in the defining cohort as a core feature alongside developmental delay and epilepsy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"eIF4A2 uses ATP binding and hydrolysis to remodel RNA. The disease variants are predicted to perturb the interfaces that couple ATP hydrolysis to RNA duplex remodelling. Both loss and gain of function are proposed for different alleles: in the Drosophila rescue assay some variant cDNAs behaved as hypomorphs while others produced variant-specific defects not explained by simple loss of activity, and the discovery authors concluded that both mechanisms operate. The helicase activity itself is functionally required - helicase-dead eIF4A2 mutants fail to rescue eIF4A2 depletion in embryonic stem cells - so an activity lesion is mechanistically sufficient to matter.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"ATP hydrolysis activity\", \"RNA helicase activity\"], \"genes\": [\"EIF4A2\"], \"gene_terms\": [{\"label\": \"EIF4A2\", \"id\": \"hgnc:3284\"}], \"experimental_models\": [{\"name\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"The rescue arm discriminates protein presence from catalytic activity: wild-type eIF4A2 restores the knockdown phenotype while helicase-dead DQAD and NEAD mutants do not.\"}], \"animal_models\": [{\"name\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"eIF4A loss-of-function with transgenic human EIF4A2 wild-type or variant cDNA\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Incomplete rescue by the variant cDNAs, relative to complete rescue by wild-type EIF4A2, is the in vivo evidence that the variants impair eIF4A2 function; variant-specific extra phenotypes are the evidence that some alleles do more than lose function.\"}]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both patients in the 2026 pediatric case series developed subtle, initially electrographically negative epileptic spasms that evolved into characteristic infantile spasms requiring hormonal treatment. The electrographically negative onset is clinically important because it can delay recognition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Separately from its activating role in eIF4F, eIF4A2 is a major effector of the repressive microRNA pathway. It binds the MA3 and MIF4G domains of CNOT1 - competing with DDX6 for the same site - and, once incorporated into Ccr4-Not, represses target mRNAs at the initiation step by binding purine-rich motifs in the 5\u0027 UTR immediately upstream of the AUG. Which helicase is recruited also determines the fate of the transcript: eIF4A2 inhibits CNOT7 deadenylase activity whereas DDX6 enhances it, so eIF4A2-bound mRNAs keep longer poly(A) tails. In EIF4A2-variant patient fibroblasts this arm is measurably broken: eIF4A2 and Ccr4-Not show significantly reduced colocalization and the Ccr4-Not target IMP1 is abnormally elevated.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"miRNA-mediated post-transcriptional gene silencing\", \"negative regulation of translation\", \"nuclear-transcribed mRNA poly(A) tail shortening\"], \"molecular_functions\": [\"RNA helicase activity\"], \"experimental_models\": [{\"name\": \"EIF4A2-variant patient-derived fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the repression defect in human cells: reduced eIF4A2-Ccr4-Not colocalization with de-repression of the Ccr4-Not target IMP1, scaling with eIF4A2 dosage across heterozygous and bi-allelic lines.\"}]}}, {\"id\": \"Progressive Neurodegeneration in Bi-allelic Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurodegeneration was reported predominantly in the individuals carrying inherited bi-allelic EIF4A2 variants, distinguishing that arm from the largely static encephalopathy of the mono-allelic group. Because this is a clinical-radiological observation across a 15-person cohort rather than a neuropathological series, the node is provisional: no post-mortem or longitudinal imaging characterisation of the degenerative process exists.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Rare EIF4A2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NEDHSS is caused by extremely rare de novo mono-allelic or inherited bi-allelic variants in EIF4A2, which encodes the DEAD-box ATP-dependent RNA helicase eIF4A2 (DDX2B). Molecular modelling of the reported variants predicts that they perturb structural interactions within key domains of the protein. DEAD-box helicases are built from two conserved RecA-like domains that jointly form the RNA- and ATP-binding surface, so substitutions within or between these domains are expected to alter RNA binding, ATP hydrolysis, or the coupling between them.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"RNA helicase activity\"], \"genes\": [\"EIF4A2\"], \"gene_terms\": [{\"label\": \"EIF4A2\", \"id\": \"hgnc:3284\"}], \"animal_models\": [{\"name\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"eIF4A loss-of-function with transgenic human EIF4A2 wild-type or variant cDNA\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Tests each human EIF4A2 patient allele for its ability to substitute for the endogenous fly orthologue, providing the in vivo pathogenicity assignment for the variants curated in this entry.\"}]}}, {\"id\": \"Reduced eIF4A2 Protein Dosage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncating EIF4A2 alleles reduce eIF4A2 protein abundance. In fibroblasts from carriers of the heterozygous frameshift deletion c.896_897del, eIF4A2 protein was reduced to approximately half of the normal level, establishing haploinsufficiency as a real, measurable consequence of truncating EIF4A2 alleles. The same study showed a dose-dependent relationship between eIF4A2 functional dosage and the downstream Ccr4-Not target IMP1 by comparing heterozygous and bi-allelic patient fibroblasts. These fibroblasts derive from the allelic dystonia-tremor syndrome rather than from NEDHSS probands, so this node states what reduced EIF4A2 dosage does to the translational machinery, not that dystonia is a NEDHSS feature.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"EIF4A2\"], \"gene_terms\": [{\"label\": \"EIF4A2\", \"id\": \"hgnc:3284\"}], \"experimental_models\": [{\"name\": \"EIF4A2-variant patient-derived fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Quantifies eIF4A2 protein in human cells carrying the patient allele, directly establishing the haploinsufficient state.\"}]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a defining feature of the cohort, reflected in the OMIM entity name qualifier \\\"with or without seizures\\\". Seizure onset is typically early and the semiology reported in detail so far is epileptic spasms.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Mouse embryonic stem cells subjected to shRNA knockdown of eIF4A2, with wild-type and helicase-dead rescue arms, profiled by eCLIP-seq, ribosome profiling, SILAC proteomics and RNA-seq. This is the system that defines what eIF4A2 actually does to a developmental translation program, and it supplies the negative control that eIF4A2 loss does not reduce global translation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:35353581\"}}], \"edges\": [{\"source\": \"Rare EIF4A2 Variant\", \"target\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substitutions predicted to perturb the RNA- and ATP-binding domains directly compromise the helicase cycle of the protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rare EIF4A2 Variant\", \"target\": \"Reduced eIF4A2 Protein Dosage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frameshift and other truncating EIF4A2 alleles reduce the amount of eIF4A2 protein produced, a dosage rather than an activity lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"target\": \"Deregulated Cap-Dependent Translation Initiation and 43S Scanning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the ATP-driven duplex-remodelling step directly impairs the preparation of structured 5\u0027 leaders for 43S preinitiation complex recruitment and scanning.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"target\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The repressive arm of eIF4A2 also requires an intact protein able to engage RNA and CNOT1, so an activity lesion degrades repression as well as activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced eIF4A2 Protein Dosage\", \"target\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halving the eIF4A2 pool reduces the amount available to be incorporated into Ccr4-Not, and this was measured directly as reduced eIF4A2-Ccr4-Not colocalization with de-repression of the target IMP1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Cap-Dependent Translation Initiation and 43S Scanning\", \"target\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered initiation efficiency on eIF4A2-dependent transcripts changes the abundance of the proteins they encode.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"target\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to repress the correct set of transcripts changes the neuronal proteome in the opposite direction to the initiation defect, and the two arms together define the composite translational lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"target\": \"Disrupted Brain Development with Structural Brain Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specific translational targets that link the deregulated program to human cortical malformation have not been identified, so at least one required intermediate is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"target\": \"Progressive Neurodegeneration in Bi-allelic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bi-allelic variants, which are expected to reduce eIF4A2 function most severely, are the group in which neurodegeneration is predominantly reported; the intervening cell-biological steps are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Brain Development with Structural Brain Anomalies\", \"target\": \"Cortical Network Hyperexcitability and Epileptogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural brain anomalies co-occur with epilepsy in this cohort and are a recognised generic substrate for seizures, but no EIF4A2-specific epileptogenic lesion has been characterised, so the intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Brain Development with Structural Brain Anomalies\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal brain structure is the tissue-level substrate of the global developmental delay, intellectual disability and motor impairment observed clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptogenesis\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refractory infantile spasms are themselves a developmental epileptic encephalopathy and compound the neurodevelopmental impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration in Bi-allelic Disease\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Superimposed neurodegeneration worsens the developmental phenotype and accounts for regression in the bi-allelic group.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure Pharmacotherapy and Hormonal Therapy for Infantile Spasms\", \"target\": \"Infantile spasms\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy and Hormonal Therapy for Infantile Spasms\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental, Physical and Communication Therapy\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental, Physical and Communication Therapy\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing Habilitation\", \"target\": \"Cochlear nerve aplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"EIF4A2-variant patient-derived fibroblasts\", \"target\": \"Reduced eIF4A2 Protein Dosage\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies eIF4A2 protein in human cells carrying the patient allele, directly establishing the haploinsufficient state.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\"}, {\"source\": \"EIF4A2-variant patient-derived fibroblasts\", \"target\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the repression defect in human cells: reduced eIF4A2-Ccr4-Not colocalization with de-repression of the Ccr4-Not target IMP1, scaling with eIF4A2 dosage across heterozygous and bi-allelic lines.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fibroblasts are not neurons, the donors carry the allelic dystonia-tremor phenotype rather than NEDHSS, and IMP1 is a single surrogate target rather than a neuronal translatome.\"}, {\"source\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"target\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Depleting eIF4A2 reshapes the proteome and changes cell identity, demonstrating that eIF4A2 dosage sets a developmental translation program.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"Pluripotent mouse stem cells are not developing human neurons, and the identity program measured (pluripotency versus two-cell totipotency) is not the neurodevelopmental program that fails in NEDHSS; the transfer to neurons is an inference.\"}, {\"source\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"target\": \"Deregulated Cap-Dependent Translation Initiation and 43S Scanning\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"eCLIP-seq localises eIF4A2 to the translation initiation region, and OP-puro incorporation shows that global translation is unchanged on eIF4A2 loss, which is what scopes this node to selective rather than global initiation failure.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in mouse pluripotent cells rather than human neurons; whether the same transcript selectivity applies in the developing human brain is untested.\"}, {\"source\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"target\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"The rescue arm discriminates protein presence from catalytic activity: wild-type eIF4A2 restores the knockdown phenotype while helicase-dead DQAD and NEAD mutants do not.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The helicase-dead mutants are engineered catalytic-site substitutions, not the patient alleles, so the experiment shows that helicase activity is required without showing that the disease variants abolish it.\"}, {\"source\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"target\": \"Rare EIF4A2 Variant\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Tests each human EIF4A2 patient allele for its ability to substitute for the endogenous fly orthologue, providing the in vivo pathogenicity assignment for the variants curated in this entry.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"The fly orthologue eIF4A is a single gene standing in for the human eIF4A1/eIF4A2 pair, and the readouts (pupal lethality, wing and eye morphogenesis) are invertebrate developmental endpoints with no direct counterpart in human brain development.\"}, {\"source\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"target\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Incomplete rescue by the variant cDNAs, relative to complete rescue by wild-type EIF4A2, is the in vivo evidence that the variants impair eIF4A2 function; variant-specific extra phenotypes are the evidence that some alleles do more than lose function.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The assay scores organismal viability and morphology rather than helicase or ATPase biochemistry, so it reports that function is impaired without resolving which step of the helicase cycle fails.\"}, {\"source\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"target\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The fly orthologue regulates a developmental signalling and stem-cell identity program, so the model shows that eIF4A dysfunction perturbs a developmental program - but the specific program is dpp signalling in fly tissues, not a human neuronal translation program.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW for this node: decapentaplegic signalling, eye and wing morphogenesis have no human neurodevelopmental counterpart, and no neuronal translatome measurement was made in the model.\"}, {\"source\": \"EIF4A2\", \"target\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EIF4A2\", \"target\": \"Rare EIF4A2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EIF4A2\", \"target\": \"Reduced eIF4A2 Protein Dosage\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Pharmacotherapy and Hormonal Therapy for Infantile Spasms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizure management is empiric and syndrome-directed. Both patients in the 2026 pediatric series progressed to infantile spasms that required hormonal treatment (the standard first-line approach to infantile spasms), and the series title records the spasms as refractory. No EIF4A2-specific antiseizure strategy has been established and no efficacy data exist for this disorder. The practical implication of the reported course is that spasms should be looked for actively and treated promptly, not that any particular agent is preferred.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cochlear nerve aplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent cochlear nerve was reported as a novel phenotypic finding in the 2026 pediatric case series. It is a single-series observation and has not been replicated, so it is recorded without a frequency band and should be regarded as an emerging rather than established feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000988\"}}, {\"id\": \"Cortical Network Hyperexcitability and Epileptogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epilepsy is one of the defining features of NEDHSS, and the reported seizure semiology includes epileptic spasms evolving into infantile spasms that required hormonal therapy. No EIF4A2-specific epileptogenic mechanism has been established: the node records that a hyperexcitable network state exists and produces the seizure phenotype, without asserting a validated molecular route from translational deregulation to hyperexcitability.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Deregulated Cap-Dependent Translation Initiation and 43S Scanning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Within the eIF4F cap-binding complex, eIF4A resolves secondary structure in the 5\u0027 leader so that the 43S preinitiation complex can be loaded and can scan to the start codon; pharmacological clamping of eIF4A1/eIF4A2 onto RNA blocks exactly these steps. eIF4A2 recognises the 5\u0027 cap structure, permits mRNA loading onto the ribosome, and binds preferentially in the translation initiation region spanning the 5\u0027 UTR and the adjacent start of the coding sequence. Importantly, eIF4A2 loss does not collapse bulk protein synthesis - global translation rates are unchanged in eIF4A2-depleted cells - so the disease-relevant consequence is a shift in which mRNAs are efficiently initiated, not a general translational shutdown.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"translational initiation\"], \"molecular_functions\": [\"mRNA cap binding\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"eCLIP-seq localises eIF4A2 to the translation initiation region, and OP-puro incorporation shows that global translation is unchanged on eIF4A2 loss, which is what scopes this node to selective rather than global initiation failure.\"}]}}, {\"id\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because eIF4A2 both activates initiation on some transcripts and represses others via Ccr4-Not, its disruption reshapes a specific translational program rather than reducing protein output globally. In embryonic stem cells, eIF4A2 activates translation of pluripotency-factor and histone H3.3 mRNAs while restricting the totipotent two-cell program, and its knockdown disrupts the proteome and causes loss of cell identity - the clearest experimental demonstration that eIF4A2 dosage sets a developmental cell-fate program through translation. The disease-relevant claim, that the equivalent program in developing human neurons is what fails in NEDHSS, is an extension from stem-cell and invertebrate systems and is therefore provisional.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural stem cell\", \"neuron\"], \"biological_processes\": [\"regulation of translation\", \"neuron differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Depleting eIF4A2 reshapes the proteome and changes cell identity, demonstrating that eIF4A2 dosage sets a developmental translation program.\"}], \"animal_models\": [{\"name\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"eIF4A loss-of-function with transgenic human EIF4A2 wild-type or variant cDNA\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The fly orthologue regulates a developmental signalling and stem-cell identity program, so the model shows that eIF4A dysfunction perturbs a developmental program - but the specific program is dpp signalling in fly tissues, not a human neuronal translation program.\"}]}}, {\"id\": \"Developmental, Physical and Communication Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because global developmental delay, hypotonia and poor or absent speech are the core disability, multidisciplinary developmental support - physical and occupational therapy for hypotonia and motor delay, and speech and alternative-communication support for the speech deficit - is the mainstay of care. No disorder-specific rehabilitation protocol has been published; this is standard practice for a severe global neurodevelopmental disorder and is curated here as supportive care rather than as an evidence-based disease-modifying intervention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disrupted Brain Development with Structural Brain Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural brain anomalies are one of the five defining features of the reported cohort and are documented on neuroimaging. A subsequent case series added absent cochlear nerve as a further structural finding, extending the malformation spectrum beyond the cerebrum to a cranial nerve.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"brain development\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The humanised fly assay used to establish pathogenicity of the mono-allelic EIF4A2 variants. Loss of the fly orthologue eIF4A causes pupal lethality; this lethality is fully rescued by expression of human wild-type EIF4A2 cDNA, whereas the patient variant cDNAs failed or only incompletely rescued it. Expression of the variants also produced variant-specific behavioural and developmental defects, which is the observation that led the authors to invoke gain of function in addition to loss of function.\"}, {\"id\": \"EIF4A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"EIF4A2\"], \"gene_terms\": [{\"label\": \"EIF4A2\", \"id\": \"hgnc:3284\"}], \"presence\": \"PRESENT\", \"association\": \"EIF4A2 (eukaryotic translation initiation factor 4A2, also known as DDX2B) is the single causal gene for NEDHSS. Both extremely rare de novo mono-allelic variants and inherited bi-allelic variants have been reported, across 15 individuals from 14 families, with a further mosaic proband described subsequently. Causality rests on the recurrence of ultra-rare variants across unrelated families, molecular modelling showing perturbation of key protein domains, and in vivo Drosophila rescue assays in which human EIF4A2 wild-type cDNA rescued eIF4A loss-of-function pupal lethality while the variant cDNAs failed or only incompletely rescued it. The evidence supports both loss- and gain-of-function as operating mechanisms across the allelic series, which is why the entry does not model a single directional dosage lesion.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"EIF4A2-variant patient-derived fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary skin fibroblasts from carriers of a heterozygous EIF4A2 frameshift deletion and, as a comparator, from individuals with bi-allelic EIF4A2 variants. Used to measure eIF4A2 protein abundance, the level of the Ccr4-Not target IMP1, and eIF4A2-Ccr4-Not colocalization, providing the only human-cell readout of what EIF4A2 lesions do to the translational repression machinery.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:37485550\"}}, {\"id\": \"Global Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level convergence point of the disorder: global developmental delay, impaired intellectual development with poor or absent speech, gross and fine motor delay, and hypotonia, in most reported individuals at a severe level. This is the node from which the clinical phenotype layer of this entry is reached.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is the presenting feature in every individual of the defining cohort and is reaffirmed as a core association in the later case series. It encompasses gross motor, fine motor, and speech and language domains.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Habilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Absent cochlear nerve has been reported in this disorder. Because a non-existent cochlear nerve is the one hearing-loss aetiology in which a cochlear implant cannot work, habilitation for an affected child may require an auditory brainstem implant or a visual/manual communication route rather than a cochlear implant. This is inference from the anatomical finding, not a reported intervention in an EIF4A2 patient. The diagnostic step that must precede any implantation decision - dedicated imaging of the internal auditory canal - is curated in `diagnosis` rather than here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is one of the two features the disorder is named for and was present in the defining cohort as a core feature alongside developmental delay and epilepsy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"eIF4A2 uses ATP binding and hydrolysis to remodel RNA. The disease variants are predicted to perturb the interfaces that couple ATP hydrolysis to RNA duplex remodelling. Both loss and gain of function are proposed for different alleles: in the Drosophila rescue assay some variant cDNAs behaved as hypomorphs while others produced variant-specific defects not explained by simple loss of activity, and the discovery authors concluded that both mechanisms operate. The helicase activity itself is functionally required - helicase-dead eIF4A2 mutants fail to rescue eIF4A2 depletion in embryonic stem cells - so an activity lesion is mechanistically sufficient to matter.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"ATP hydrolysis activity\", \"RNA helicase activity\"], \"genes\": [\"EIF4A2\"], \"gene_terms\": [{\"label\": \"EIF4A2\", \"id\": \"hgnc:3284\"}], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"The rescue arm discriminates protein presence from catalytic activity: wild-type eIF4A2 restores the knockdown phenotype while helicase-dead DQAD and NEAD mutants do not.\"}], \"animal_models\": [{\"name\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"eIF4A loss-of-function with transgenic human EIF4A2 wild-type or variant cDNA\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Incomplete rescue by the variant cDNAs, relative to complete rescue by wild-type EIF4A2, is the in vivo evidence that the variants impair eIF4A2 function; variant-specific extra phenotypes are the evidence that some alleles do more than lose function.\"}]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both patients in the 2026 pediatric case series developed subtle, initially electrographically negative epileptic spasms that evolved into characteristic infantile spasms requiring hormonal treatment. The electrographically negative onset is clinically important because it can delay recognition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Separately from its activating role in eIF4F, eIF4A2 is a major effector of the repressive microRNA pathway. It binds the MA3 and MIF4G domains of CNOT1 - competing with DDX6 for the same site - and, once incorporated into Ccr4-Not, represses target mRNAs at the initiation step by binding purine-rich motifs in the 5\u0027 UTR immediately upstream of the AUG. Which helicase is recruited also determines the fate of the transcript: eIF4A2 inhibits CNOT7 deadenylase activity whereas DDX6 enhances it, so eIF4A2-bound mRNAs keep longer poly(A) tails. In EIF4A2-variant patient fibroblasts this arm is measurably broken: eIF4A2 and Ccr4-Not show significantly reduced colocalization and the Ccr4-Not target IMP1 is abnormally elevated.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"miRNA-mediated post-transcriptional gene silencing\", \"negative regulation of translation\", \"nuclear-transcribed mRNA poly(A) tail shortening\"], \"molecular_functions\": [\"RNA helicase activity\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"EIF4A2-variant patient-derived fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the repression defect in human cells: reduced eIF4A2-Ccr4-Not colocalization with de-repression of the Ccr4-Not target IMP1, scaling with eIF4A2 dosage across heterozygous and bi-allelic lines.\"}]}}, {\"id\": \"Progressive Neurodegeneration in Bi-allelic Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurodegeneration was reported predominantly in the individuals carrying inherited bi-allelic EIF4A2 variants, distinguishing that arm from the largely static encephalopathy of the mono-allelic group. Because this is a clinical-radiological observation across a 15-person cohort rather than a neuropathological series, the node is provisional: no post-mortem or longitudinal imaging characterisation of the degenerative process exists.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Rare EIF4A2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NEDHSS is caused by extremely rare de novo mono-allelic or inherited bi-allelic variants in EIF4A2, which encodes the DEAD-box ATP-dependent RNA helicase eIF4A2 (DDX2B). Molecular modelling of the reported variants predicts that they perturb structural interactions within key domains of the protein. DEAD-box helicases are built from two conserved RecA-like domains that jointly form the RNA- and ATP-binding surface, so substitutions within or between these domains are expected to alter RNA binding, ATP hydrolysis, or the coupling between them.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"RNA helicase activity\"], \"genes\": [\"EIF4A2\"], \"gene_terms\": [{\"label\": \"EIF4A2\", \"id\": \"hgnc:3284\"}], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"eIF4A loss-of-function with transgenic human EIF4A2 wild-type or variant cDNA\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Tests each human EIF4A2 patient allele for its ability to substitute for the endogenous fly orthologue, providing the in vivo pathogenicity assignment for the variants curated in this entry.\"}]}}, {\"id\": \"Reduced eIF4A2 Protein Dosage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncating EIF4A2 alleles reduce eIF4A2 protein abundance. In fibroblasts from carriers of the heterozygous frameshift deletion c.896_897del, eIF4A2 protein was reduced to approximately half of the normal level, establishing haploinsufficiency as a real, measurable consequence of truncating EIF4A2 alleles. The same study showed a dose-dependent relationship between eIF4A2 functional dosage and the downstream Ccr4-Not target IMP1 by comparing heterozygous and bi-allelic patient fibroblasts. These fibroblasts derive from the allelic dystonia-tremor syndrome rather than from NEDHSS probands, so this node states what reduced EIF4A2 dosage does to the translational machinery, not that dystonia is a NEDHSS feature.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"EIF4A2\"], \"gene_terms\": [{\"label\": \"EIF4A2\", \"id\": \"hgnc:3284\"}], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"EIF4A2-variant patient-derived fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Quantifies eIF4A2 protein in human cells carrying the patient allele, directly establishing the haploinsufficient state.\"}]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a defining feature of the cohort, reflected in the OMIM entity name qualifier \\\"with or without seizures\\\". Seizure onset is typically early and the semiology reported in detail so far is epileptic spasms.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Mouse embryonic stem cells subjected to shRNA knockdown of eIF4A2, with wild-type and helicase-dead rescue arms, profiled by eCLIP-seq, ribosome profiling, SILAC proteomics and RNA-seq. This is the system that defines what eIF4A2 actually does to a developmental translation program, and it supplies the negative control that eIF4A2 loss does not reduce global translation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:35353581\"}}], \"edges\": [{\"source\": \"Rare EIF4A2 Variant\", \"target\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substitutions predicted to perturb the RNA- and ATP-binding domains directly compromise the helicase cycle of the protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rare EIF4A2 Variant\", \"target\": \"Reduced eIF4A2 Protein Dosage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frameshift and other truncating EIF4A2 alleles reduce the amount of eIF4A2 protein produced, a dosage rather than an activity lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"target\": \"Deregulated Cap-Dependent Translation Initiation and 43S Scanning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the ATP-driven duplex-remodelling step directly impairs the preparation of structured 5\u0027 leaders for 43S preinitiation complex recruitment and scanning.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"target\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The repressive arm of eIF4A2 also requires an intact protein able to engage RNA and CNOT1, so an activity lesion degrades repression as well as activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced eIF4A2 Protein Dosage\", \"target\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halving the eIF4A2 pool reduces the amount available to be incorporated into Ccr4-Not, and this was measured directly as reduced eIF4A2-Ccr4-Not colocalization with de-repression of the target IMP1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Cap-Dependent Translation Initiation and 43S Scanning\", \"target\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered initiation efficiency on eIF4A2-dependent transcripts changes the abundance of the proteins they encode.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"target\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to repress the correct set of transcripts changes the neuronal proteome in the opposite direction to the initiation defect, and the two arms together define the composite translational lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"target\": \"Disrupted Brain Development with Structural Brain Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The specific translational targets that link the deregulated program to human cortical malformation have not been identified, so at least one required intermediate is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"target\": \"Progressive Neurodegeneration in Bi-allelic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bi-allelic variants, which are expected to reduce eIF4A2 function most severely, are the group in which neurodegeneration is predominantly reported; the intervening cell-biological steps are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Brain Development with Structural Brain Anomalies\", \"target\": \"Cortical Network Hyperexcitability and Epileptogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural brain anomalies co-occur with epilepsy in this cohort and are a recognised generic substrate for seizures, but no EIF4A2-specific epileptogenic lesion has been characterised, so the intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Brain Development with Structural Brain Anomalies\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal brain structure is the tissue-level substrate of the global developmental delay, intellectual disability and motor impairment observed clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Network Hyperexcitability and Epileptogenesis\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refractory infantile spasms are themselves a developmental epileptic encephalopathy and compound the neurodevelopmental impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration in Bi-allelic Disease\", \"target\": \"Global Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Superimposed neurodegeneration worsens the developmental phenotype and accounts for regression in the bi-allelic group.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure Pharmacotherapy and Hormonal Therapy for Infantile Spasms\", \"target\": \"Infantile spasms\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy and Hormonal Therapy for Infantile Spasms\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental, Physical and Communication Therapy\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental, Physical and Communication Therapy\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing Habilitation\", \"target\": \"Cochlear nerve aplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"EIF4A2-variant patient-derived fibroblasts\", \"target\": \"Reduced eIF4A2 Protein Dosage\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies eIF4A2 protein in human cells carrying the patient allele, directly establishing the haploinsufficient state.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\"}, {\"source\": \"EIF4A2-variant patient-derived fibroblasts\", \"target\": \"Loss of eIF4A2-Ccr4-Not-Mediated Translational Repression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the repression defect in human cells: reduced eIF4A2-Ccr4-Not colocalization with de-repression of the Ccr4-Not target IMP1, scaling with eIF4A2 dosage across heterozygous and bi-allelic lines.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fibroblasts are not neurons, the donors carry the allelic dystonia-tremor phenotype rather than NEDHSS, and IMP1 is a single surrogate target rather than a neuronal translatome.\"}, {\"source\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"target\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Depleting eIF4A2 reshapes the proteome and changes cell identity, demonstrating that eIF4A2 dosage sets a developmental translation program.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"Pluripotent mouse stem cells are not developing human neurons, and the identity program measured (pluripotency versus two-cell totipotency) is not the neurodevelopmental program that fails in NEDHSS; the transfer to neurons is an inference.\"}, {\"source\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"target\": \"Deregulated Cap-Dependent Translation Initiation and 43S Scanning\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"eCLIP-seq localises eIF4A2 to the translation initiation region, and OP-puro incorporation shows that global translation is unchanged on eIF4A2 loss, which is what scopes this node to selective rather than global initiation failure.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in mouse pluripotent cells rather than human neurons; whether the same transcript selectivity applies in the developing human brain is untested.\"}, {\"source\": \"eIF4A2-knockdown mouse embryonic stem cells\", \"target\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"The rescue arm discriminates protein presence from catalytic activity: wild-type eIF4A2 restores the knockdown phenotype while helicase-dead DQAD and NEAD mutants do not.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The helicase-dead mutants are engineered catalytic-site substitutions, not the patient alleles, so the experiment shows that helicase activity is required without showing that the disease variants abolish it.\"}, {\"source\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"target\": \"Rare EIF4A2 Variant\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Tests each human EIF4A2 patient allele for its ability to substitute for the endogenous fly orthologue, providing the in vivo pathogenicity assignment for the variants curated in this entry.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"The fly orthologue eIF4A is a single gene standing in for the human eIF4A1/eIF4A2 pair, and the readouts (pupal lethality, wing and eye morphogenesis) are invertebrate developmental endpoints with no direct counterpart in human brain development.\"}, {\"source\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"target\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Incomplete rescue by the variant cDNAs, relative to complete rescue by wild-type EIF4A2, is the in vivo evidence that the variants impair eIF4A2 function; variant-specific extra phenotypes are the evidence that some alleles do more than lose function.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The assay scores organismal viability and morphology rather than helicase or ATPase biochemistry, so it reports that function is impaired without resolving which step of the helicase cycle fails.\"}, {\"source\": \"Drosophila eIF4A LOF rescue with human EIF4A2 variant cDNA\", \"target\": \"Deregulated Neurodevelopmental mRNA Translation Program\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The fly orthologue regulates a developmental signalling and stem-cell identity program, so the model shows that eIF4A dysfunction perturbs a developmental program - but the specific program is dpp signalling in fly tissues, not a human neuronal translation program.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW for this node: decapentaplegic signalling, eye and wing morphogenesis have no human neurodevelopmental counterpart, and no neuronal translatome measurement was made in the model.\"}, {\"source\": \"EIF4A2\", \"target\": \"Impaired eIF4A2 Helicase and ATPase Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EIF4A2\", \"target\": \"Rare EIF4A2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EIF4A2\", \"target\": \"Reduced eIF4A2 Protein Dosage\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7591,17 +7765,98 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cochlear-nerve-aplasia" data-dismech-node="Cochlear nerve aplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cochlear nerve aplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:6000988</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent cochlear nerve, annotated with Cochlear nerve aplasia (HP:6000988). HP:6000988 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41186122" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41186122" target="_blank">PMID:41186122</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this case series, we describe two patients with pathogenic EIF4A2 variants, including one of the first detailed reports of a patient with EIF4A2 mosaicism, to add to the growing catalog of genotypic variability in this disorder, as well as a novel phenotypic finding of absent cochlear nerve."</div>
+
+
+                <div class="evidence-explanation">Explicitly reports absent cochlear nerve as a new phenotypic finding in EIF4A2-related disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -7622,15 +7877,18 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7650,6 +7908,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7678,11 +7937,11 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
@@ -7699,15 +7958,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7727,6 +7989,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7751,6 +8014,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7791,15 +8055,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7819,6 +8086,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7843,6 +8111,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7883,15 +8152,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7911,6 +8183,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7951,15 +8224,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7979,6 +8255,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8005,15 +8282,6 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-infantile-spasms" data-dismech-node="Infantile spasms" data-dismech-type="phenotype">
                     <div class="item-name">
                         Infantile spasms
@@ -8028,15 +8296,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012469</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012469</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8056,6 +8327,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8096,15 +8368,18 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012443</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012443</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Structural brain anomaly, annotated with Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8124,6 +8399,7 @@ This clinical feature is Structural brain anomaly, annotated with Abnormal brain
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8164,15 +8440,18 @@ This clinical feature is Structural brain anomaly, annotated with Abnormal brain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002180</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002180</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8195,6 +8474,7 @@ This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8203,74 +8483,6 @@ This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenoty
 
 
                 <div class="evidence-explanation">Establishes neurodegeneration as a feature concentrated in the bi-allelic group; no numerator or denominator is given, so frequency is omitted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cochlear-nerve-aplasia" data-dismech-node="Cochlear nerve aplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cochlear nerve aplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:6000988</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absent cochlear nerve, annotated with Cochlear nerve aplasia (HP:6000988). HP:6000988 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41186122" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41186122" target="_blank">PMID:41186122</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In this case series, we describe two patients with pathogenic EIF4A2 variants, including one of the first detailed reports of a patient with EIF4A2 mosaicism, to add to the growing catalog of genotypic variability in this disorder, as well as a novel phenotypic finding of absent cochlear nerve."</div>
-
-
-                <div class="evidence-explanation">Explicitly reports absent cochlear nerve as a new phenotypic finding in EIF4A2-related disorder.</div>
 
 
 
@@ -8362,6 +8574,9 @@ This disease-associated gene is EIF4A2 (hgnc:3284). hgnc:3284 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8376,6 +8591,7 @@ This disease-associated gene is EIF4A2 (hgnc:3284). hgnc:3284 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8403,6 +8619,7 @@ This disease-associated gene is EIF4A2 (hgnc:3284). hgnc:3284 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8424,6 +8641,7 @@ This disease-associated gene is EIF4A2 (hgnc:3284). hgnc:3284 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8516,6 +8734,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Seizure management is empiric and syndrome-directed. Both patients in the 2026 pediatric series progressed to infantile spasms that required hormonal treatment (the standard first-line approach to infantile spasms), and the series title records the spasms as refractory. No EIF4A2-specific antiseizure strategy has been established and no efficacy data exist for this disorder. The practical implication of the reported course is that spasms should be looked for actively and treated promptly, not that any particular agent is preferred.</div>
 
 
@@ -8576,6 +8800,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8643,6 +8868,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8653,6 +8881,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -8722,6 +8953,7 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8786,6 +9018,9 @@ This treatment is hearing habilitation and assistive listening, annotated with S
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8796,6 +9031,9 @@ This treatment is hearing habilitation and assistive listening, annotated with S
 
 
     </div>
+
+
+
 
 
 
@@ -8845,6 +9083,7 @@ This treatment targets Absent cochlear nerve, annotated with Cochlear nerve apla
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8912,6 +9151,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8922,6 +9164,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8952,6 +9197,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8973,6 +9219,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9048,6 +9295,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9069,6 +9317,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9126,6 +9375,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9180,6 +9430,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9204,6 +9455,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9225,6 +9477,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9299,6 +9552,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9384,6 +9638,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9405,6 +9660,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9463,6 +9719,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9484,6 +9741,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9542,6 +9800,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9563,6 +9822,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9618,6 +9878,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9756,6 +10017,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9810,6 +10072,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9856,6 +10119,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9977,6 +10241,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10028,6 +10293,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10085,6 +10351,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10129,6 +10396,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10307,6 +10575,7 @@ This experimental model concerns EIF4A2 (hgnc:3284). hgnc:3284 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10358,6 +10627,7 @@ This experimental model concerns EIF4A2 (hgnc:3284). hgnc:3284 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10417,6 +10687,7 @@ This experimental model concerns EIF4A2 (hgnc:3284). hgnc:3284 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10460,6 +10731,7 @@ This experimental model concerns EIF4A2 (hgnc:3284). hgnc:3284 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12765,6 +13037,48 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Named-entity-confusion (NEC) preflight. MONDO:0957541 was verified with OAK (`runoak -i sqlite:obo:mondo info MONDO:0957541 -O obo`) on 2026-08-15 and carries xref OMIM:620455, xref MEDGEN:1841290, and relationship RO:0004003 to HGNC:3284 (EIF4A2), matching the gene and OMIM identity asserted throughout this entry. This disorder sits in a large series of near-identically named &#34;neurodevelopmental disorder with ...&#34; OMIM entities and its causal gene sits in a paralogue family, so two specific confusions were checked and excluded: (i) EIF4A3, which is an exon junction complex component sharing only 66% identity with eIF4A1 and causes Richieri-Costa-Pereira syndrome, and (ii) EIF4A1, the 90%-identical paralogue with no established Mendelian disease. No evidence sourced from EIF4A1 or EIF4A3 literature is used for a human disease claim in this entry; PMID:36882295 is cited only for the paralogue distinction itself and for eIF4A biochemistry.
+Deep research. `just research-disorder falcon` was run for this disorder (report at `research/Neurodevelopmental_Disorder_with_Hypotonia_and_Speech_Delay-deep-research-falcon.md`, Edison/Falcon, 27.6 min, 4 citations). `just preflight-dr &lt;report&gt; MONDO:0957541` PASSED: EIF4A2 mentioned 54 times as the top gene, and the report&#39;s OMIM 620455 matches the MONDO xref. The report&#39;s substantive contribution was one new lead, the Lederbauer et al. 2024 Front Mol Neurosci review (PMID:39149612), which is now cited here for gene-disease validity, developmental brain expression, and the DEAD/DExH-box helicase differential. It did not surface the 2026 pediatric case series (PMID:41186122), the EIF4A2 dystonia paper (PMID:37485550), or any of the eIF4A2-Ccr4-Not mechanism literature; those were found by direct PubMed search. Its output was treated as leads only - every PMID cited here was independently fetched with `just fetch-reference`, and every snippet was verified to be an exact substring of the cached record before use.
+Ontology-term caution. Two ontology identifiers suggested by the falcon report were rejected after OAK verification: HP:0002463, offered for &#34;Delayed speech and language development&#34;, is actually &#34;Language impairment&#34; (the correct term is HP:0000750, used here), and UBERON:0002596, offered for &#34;cerebral cortex&#34;, is actually &#34;ventral posterior nucleus of thalamus&#34; (UBERON:0000956 is cerebral cortex; this entry uses UBERON:0000955 brain, which is the granularity the sources support). The report also proposed an OpenTargets association score and a set of NCIT intervention names without codes; neither was used.
+GeneReviews baseline. No GeneReviews chapter exists for NEDHSS or for EIF4A2-related disorder. The PubMed query `EIF4A2 GeneReviews[All Fields]` (run 2026-08-15) returns a single hit, PMID:20301334 &#34;Monogenic Isolated Dystonia Overview&#34;, which is a dystonia gene overview rather than a chapter on this entity; its cached abstract does not mention EIF4A2 and it is therefore not used as a phenotype baseline. The query `neurodevelopmental disorder with hypotonia and speech delay[TI] GeneReviews[TI]` returns no results.
+Evidence ceiling. The defining publication (PMID:36528028, Am J Hum Genet 2023 - PubMed also carries a duplicate record for the same article, PMID:36868207, whose cache is empty and which is deliberately not cited) is not open access; PMC9892767 and the OpenAlex green-OA record both expose only the abstract, so the cached reference contains abstract-level text only. Every human-clinical claim in this entry is therefore anchored on the cohort-level presenting-features sentence rather than on the paper&#39;s Table 1. Several features listed in OMIM and MedGen - poor or absent speech, inability to walk in the more severely affected, feeding difficulties requiring tube feeding - could not be supported with a verifiable quoted snippet from any accessible source. Speech delay is curated as a phenotype with PARTIAL support and no frequency band; inability to walk and tube feeding are deliberately NOT curated as phenotypes rather than sourced to an unquotable claim. This is recorded as an open curation gap in the `nedhss_cohort_too_small` discussion and should be revisited if the full text becomes accessible.
+Frequency derivation. NO phenotype in this entry carries a `frequency:` band. The only cohort-level source sentence names global developmental delay, intellectual disability, hypotonia, epilepsy and structural brain anomalies as presenting features of 15 individuals, but its &#34;all of whom&#34; clause attaches to the EIF4A2 variants, not to the phenotype list, so it is a composite descriptor and does not license a per-feature 15/15 numerator. An earlier revision of this entry assigned VERY_FREQUENT to those five features on exactly that reading; the bands were removed on review. For seizures the omission is positively justified rather than merely cautious: the MONDO/OMIM label qualifier &#34;with or without seizures&#34; states that seizures are not obligate, so any band derived from the ascertained cohort would contradict the entity definition. Per CLAUDE.md, omit the band rather than fabricate its justification.
+Variants. No `variants:` block is curated. The one EIF4A2 allele with published protein-level characterisation, the frameshift deletion c.896_897del, belongs to the allelic dystonia-tremor families and not to NEDHSS, so recording it under MONDO:0957541 with a PATHOGENIC significance would assert - to KGX and graph consumers, which never see the prose caveat - that it is pathogenic for this disease. Its haploinsufficiency evidence is instead carried, correctly scoped as a molecular claim about the gene, on the `Reduced eIF4A2 Protein Dosage` pathophysiology node. An empty variants section is the honest outcome while PMID:36528028&#39;s Table 1 remains inaccessible.
+Scope boundary. The allelic adolescent- to adult-onset EIF4A2 dystonia-tremor syndrome (PMID:37485550) is deliberately NOT merged into this entry: no dystonia is reported in the NEDHSS cohort and no developmental delay defines the dystonia families. It is curated as a differential diagnosis. Its patient-fibroblast data are used here only as mechanism evidence for what reduced EIF4A2 dosage does to the eIF4A2-Ccr4-Not repression machinery - a molecular claim about the gene, not a clinical claim about NEDHSS - and each such evidence item is scoped accordingly.
+Model-system linkage. Both the Drosophila humanised rescue model and the two non-animal experimental models carry `modeled_mechanisms` links into the pathograph, with explicit `limitations` on every link, because none of them is a human neuronal system. The mouse Eif4a2 knockout is viable and has not been reported as a model of this disorder, so it is mentioned in the animal-model `notes` rather than curated as a model.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neurodevelopmental Disorder with Hypotonia and Speech Delay (EIF4A2/NEDHSS)</strong> · 2026-08-17T10:37:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_with_Hypotonia_and_Speech_Delay/2026-08-17T103700Z-claude-code-2085bd.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of NEDHSS (MONDO:0957541, OMIM:620455, EIF4A2/hgnc:3284) resolving issue #8539.
+
+NEC preflight: runoak on MONDO:0957541 confirmed xref OMIM:620455 and RO:0004003 to HGNC:3284 (EIF4A2). The paralogues EIF4A1 (90% identity, no Mendelian disease) and EIF4A3 (exon junction complex, Richieri-Costa-Pereira syndrome) were explicitly excluded as identity confusions and are curated as a differential diagnosis.
+
+Deep research: falcon (Edison), 27.6 min. `just preflight-dr` PASSED (EIF4A2 = 54 mentions, top gene; report OMIM 620455 matched the MONDO xref). The report contributed one usable lead, PMID:39149612 (Lederbauer 2024 DEAD/DExH-box helicase NDD review); it missed the 2026 case series, the EIF4A2 dystonia paper and the whole eIF4A2-Ccr4-Not mechanism literature, all of which were found by direct PubMed search. Two of its ontology suggestions (HP:0002463 for speech delay, UBERON:0002596 for cerebral cortex) were wrong on OAK verification and were rejected; this is recorded in the entry notes.
+
+GeneReviews: no chapter exists. PubMed `EIF4A2 GeneReviews[All Fields]` (2026-08-15) returns only PMID:20301334 (Monogenic Isolated Dystonia Overview), whose abstract does not mention EIF4A2; not used as a phenotype baseline.
+
+Content: nine pathophysiology nodes forming a connected chain from the EIF4A2 variant through the two opposing arms of eIF4A2 biology (eIF4F cap-dependent initiation and 43S scanning; Ccr4-Not-mediated miRNA repression) to a deregulated neurodevelopmental translation program, structural brain anomalies, epileptogenesis, bi-allelic neurodegeneration, and an organism-level convergence node from which every phenotype is reachable. Every node carries a single biological_scale. Nine phenotypes, three inheritance blocks (AD de novo, AR bi-allelic, somatic mosaicism), one causative gene, one variant, one animal model and two experimental models - all three models wired into the pathograph with modeled_mechanisms plus explicit limitations. Three diagnosis entries, four differentials, four treatments, five discussions (two KNOWLEDGE_GAP, one HUMAN_MODEL_MISMATCH, one EMERGING_HYPOTHESIS, one cohort-size gap) with proposed experiments.
+
+Evidence discipline: 89/89 snippets verified as exact substrings of cached references. evidence_source reflects the cited study type - Drosophila work is MODEL_ORGANISM, fibroblast/ESC/biochemistry is IN_VITRO, molecular modelling and the brain-transcriptome reanalysis are COMPUTATIONAL, and review-level background sentences about other authors&#39; patients are OTHER.
+
+Known gap: PMID:36528028 (Am J Hum Genet 2023) is not open access; PMC9892767 and the OpenAlex green-OA record expose only the abstract, so no Table 1 per-feature counts were quotable. Frequency bands are derived only from the cohort-level 15/15 presenting-features sentence. Speech delay is curated with PARTIAL support and no frequency band; inability to walk and tube feeding (listed in OMIM/MedGen) are deliberately NOT curated rather than sourced to an unquotable claim. This is recorded as an open discussion in the entry.
+
+Validation: `just validate`, `just validate-references` (89/89) and `just validate-terms` all pass. Compliance 84.5%.
+
+MAXO note: TreatmentActionTerm is reachable only from NCIT:C25218 on current main, so all treatment_term values use NCIT equivalents rather than the MAXO terms documented in CLAUDE.md.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

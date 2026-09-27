@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4241,6 +4309,7 @@ Clinically this is ordinary PCD: neonatal respiratory distress, lifelong wet cou
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4544,6 +4613,13 @@ Recorded here rather than promoted into the pathophysiology chain, and the pheno
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-dnai2-loss-of-function" data-dismech-node="Biallelic DNAI2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic DNAI2 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion. DNAI2 sits at 17q25 in fourteen exons and is highly expressed in trachea and testis - the two tissues whose motile axonemes carry the clinical phenotype. It is the human relative of Chlamydomonas IC69, and it was cloned and mapped as a PCD candidate on that basis eight years before any patient mutation was found; the first screen of twelve outer-dynein-arm PCD patients found none, which is a fair indication of how rare the genotype is.
 The three reported alleles are all loss of function and two of the three are splice variants: a canonical splice-donor change, a nonsense change, and a splice-acceptor change producing out-of-frame transcripts. A 6.9 kb intragenic microdeletion has since been reported. No missense allele has been described, so there is no worked example of a DNAI2 change that alters the protein without abolishing it, and nothing against which to calibrate a novel missense variant.</div>
 
@@ -4605,6 +4681,8 @@ This pathophysiological event involves DNAI2 (hgnc:18744). hgnc:18744 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4617,6 +4695,9 @@ This pathophysiological event involves DNAI2 (hgnc:18744). hgnc:18744 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Loss of function established both by allele class and by the measured consequence - DNAI2 protein is absent from patients&#39; respiratory cells. Zygosity is recorded as homozygous because every reported family is, which reflects the consanguineous ascertainment of the defining study rather than any biological requirement; a compound heterozygote would be expected to have the same disease.</div>
 
@@ -4664,6 +4745,7 @@ This pathophysiological event involves DNAI2 (hgnc:18744). hgnc:18744 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4685,6 +4767,7 @@ This pathophysiological event involves DNAI2 (hgnc:18744). hgnc:18744 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4712,6 +4795,7 @@ This pathophysiological event involves DNAI2 (hgnc:18744). hgnc:18744 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4734,6 +4818,13 @@ This pathophysiological event involves DNAI2 (hgnc:18744). hgnc:18744 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-dynein-arm-assembly-failure" data-dismech-node="Outer Dynein Arm Assembly Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Outer Dynein Arm Assembly Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The step that defines the disease. DNAI2 protein is absent from mutant respiratory cells, and with it the outer-arm heavy chains DNAH5 and DNAH9 - both of them, from all mutant axonemes. That double loss is the specific claim, because outer dynein arms are not uniform along the cilium: proximal and distal complexes differ in heavy-chain composition, and the three intermediate- and heavy-chain genes are not interchangeable in what they take down with them. DNAI2 and DNAH5 loss disrupts assembly of both proximal and distal complexes; DNAI1 loss mainly disrupts the proximal ones.
 The assembly hierarchy runs the other way too. In patients with DNAH5 mutations DNAI2 is completely absent from the axoneme, and in patients with DNAI1 mutations it is absent distally - so DNAI2 is a dependent of those genes as well as a requirement for them, which is what makes the outer arm a co-assembling complex rather than a chain of separable steps.</div>
@@ -4858,6 +4949,7 @@ This pathophysiological event involves decreased axonemal dynein complex assembl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4879,6 +4971,7 @@ This pathophysiological event involves decreased axonemal dynein complex assembl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4906,6 +4999,7 @@ This pathophysiological event involves decreased axonemal dynein complex assembl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4930,6 +5024,13 @@ This pathophysiological event involves decreased axonemal dynein complex assembl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-outer-dynein-arms-from-the-axoneme" data-dismech-node="Absence of Outer Dynein Arms from the Axoneme" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of Outer Dynein Arms from the Axoneme</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The structural endpoint a diagnostic laboratory sees. Electron microscopy of patient respiratory cells shows outer dynein arm defects. This is the finding that assigns a patient to the ODA class - which matters clinically, because the ODA class has consistently milder airway disease than the inner-arm and microtubular-disorganisation classes.</div>
 
@@ -5056,6 +5157,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5077,6 +5179,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5102,6 +5205,13 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motile-ciliary-beat-failure" data-dismech-node="Motile Ciliary Beat Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Motile Ciliary Beat Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Cilia that are built but cannot beat. The outer arms generate the bulk of the interdoublet sliding force, so their absence is sufficient to explain the motility failure without a second lesion. The same axonemal machinery drives three anatomically separate systems - airway cilia, the motile monocilia of the embryonic left-right organiser, and the sperm flagellum - which is why one molecular defect produces a phenotype spread across the lung, body situs and fertility.</div>
 
@@ -5237,6 +5347,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5259,6 +5370,13 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucociliary-clearance-failure" data-dismech-node="Mucociliary Clearance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucociliary Clearance Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Without a co-ordinated beat the airway surface cannot move its mucus layer, so inhaled particles and bacteria are retained. This is the step that converts a molecular motor defect into a chronic infective disease, and it is shared with every other PCD genotype.</div>
 
@@ -5369,6 +5487,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5391,6 +5510,13 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-airway-infection-and-progressive-airway-damage" data-dismech-node="Chronic Airway Infection and Progressive Airway Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Airway Infection and Progressive Airway Damage</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Retained secretions, recurrent infection, neutrophilic inflammation and progressive structural destruction - bronchial wall thickening, mucus plugging, then bronchiectasis. In the multicentre paediatric cohorts the severity of this endpoint tracks the ultrastructural class rather than being uniform across PCD: children with outer dynein arm defects have better spirometry, fewer bronchiectatic lobes and less disease on CT than children with inner-arm and microtubular-disorganisation defects.
 Those cohorts classify by ultrastructure and genotype together and are not broken down to DNAI2. So the favourable comparison applies to this entity by class membership, which is a weaker claim than a DNAI2-specific one and is curated as such.</div>
@@ -5489,6 +5615,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5510,6 +5637,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5535,6 +5663,13 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-randomised-left-right-body-asymmetry" data-dismech-node="Randomised Left-Right Body Asymmetry" data-dismech-type="pathophysiology">
                 <div class="item-name">Randomised Left-Right Body Asymmetry</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Immotile monocilia at the embryonic left-right organiser cannot generate the directional flow that breaks symmetry, so laterality is left to chance: roughly half of PCD patients have situs inversus, and the rest situs solitus, with a minority having heterotaxy and its associated cardiac malformations. This branch of the pathograph is developmental and complete before birth - it is the one part of PCD that no postnatal treatment can address.</div>
 
@@ -5631,6 +5766,7 @@ This pathophysiological event involves dysregulated determination of left/right 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5653,6 +5789,13 @@ This pathophysiological event involves dysregulated determination of left/right 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-sperm-flagellar-propulsion" data-dismech-node="Impaired Sperm Flagellar Propulsion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Sperm Flagellar Propulsion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The sperm flagellum is an axoneme of the same construction, and DNAI2 is highly expressed in testis. Reduced male fertility follows from the same outer-arm loss. Note the asymmetry with the female side, where subfertility in PCD arises from oviductal ciliary transport rather than from a gamete defect - that mechanism is not curated here because no DNAI2 data address it.</div>
 
@@ -5729,6 +5872,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5774,7 +5918,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absence of Outer Dynein Arms from the Axoneme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural endpoint a diagnostic laboratory sees. Electron microscopy of patient respiratory cells shows outer dynein arm defects. This is the finding that assigns a patient to the ODA class - which matters clinically, because the ODA class has consistently milder airway disease than the inner-arm and microtubular-disorganisation classes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"role\": \"central_effector\", \"locations\": [\"bronchus\"], \"animal_models\": [{\"name\": \"medaka jaodori (joi) dnai2 mutant\", \"species\": \"Japanese medaka\", \"genotype\": \"dnai2 disrupted by Tol1 transposon insertion (jaodori allele)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Severe outer dynein arm reduction in Kupffer\u0027s vesicle cilia, from disruption of the orthologous gene.\"}]}}, {\"id\": \"Airway Clearance and Chronic Infection Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment for the ciliary defect. Management is the supportive airway care used across primary ciliary dyskinesia - physiotherapy and airway clearance, antibiotics for exacerbations and chronic infection, surveillance of lung function and structure - and nothing in it is DNAI2-specific.\\nCurated as a single scoping entry rather than an itemised regimen, and the reason is recorded rather than left implicit: no trial has enrolled by genotype, and the umbrella entry Primary_Ciliary_Dyskinesia holds the detailed management block. Duplicating it here would create two places to maintain the same evidence and imply a genotype-specific practice that does not exist. What is DNAI2-specific is prognostic rather than therapeutic - outer dynein arm defects carry milder airway disease than the inner-arm and microtubular-disorganisation classes - and that is curated on the airway damage node.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic DNAI2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. DNAI2 sits at 17q25 in fourteen exons and is highly expressed in trachea and testis - the two tissues whose motile axonemes carry the clinical phenotype. It is the human relative of Chlamydomonas IC69, and it was cloned and mapped as a PCD candidate on that basis eight years before any patient mutation was found; the first screen of twelve outer-dynein-arm PCD patients found none, which is a fair indication of how rare the genotype is.\\nThe three reported alleles are all loss of function and two of the three are splice variants: a canonical splice-donor change, a nonsense change, and a splice-acceptor change producing out-of-frame transcripts. A 6.9 kb intragenic microdeletion has since been reported. No missense allele has been described, so there is no worked example of a DNAI2 change that alters the protein without abolishing it, and nothing against which to calibrate a novel missense variant.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"DNAI2\"], \"gene_terms\": [{\"label\": \"DNAI2\", \"id\": \"hgnc:18744\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss of function established both by allele class and by the measured consequence - DNAI2 protein is absent from patients\u0027 respiratory cells. Zygosity is recorded as homozygous because every reported family is, which reflects the consanguineous ascertainment of the defining study rather than any biological requirement; a compound heterozygote would be expected to have the same disease.\"}, \"role\": \"trigger\"}}, {\"id\": \"Chronic Airway Infection and Progressive Airway Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained secretions, recurrent infection, neutrophilic inflammation and progressive structural destruction - bronchial wall thickening, mucus plugging, then bronchiectasis. In the multicentre paediatric cohorts the severity of this endpoint tracks the ultrastructural class rather than being uniform across PCD: children with outer dynein arm defects have better spirometry, fewer bronchiectatic lobes and less disease on CT than children with inner-arm and microtubular-disorganisation defects.\\nThose cohorts classify by ultrastructure and genotype together and are not broken down to DNAI2. So the favourable comparison applies to this entity by class membership, which is a weaker claim than a DNAI2-specific one and is curated as such.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"role\": \"consequence\", \"locations\": [\"bronchus\"]}}, {\"id\": \"DNAI2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNAI2\"], \"gene_terms\": [{\"label\": \"DNAI2\", \"id\": \"hgnc:18744\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Impaired Sperm Flagellar Propulsion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The sperm flagellum is an axoneme of the same construction, and DNAI2 is highly expressed in testis. Reduced male fertility follows from the same outer-arm loss. Note the asymmetry with the female side, where subfertility in PCD arises from oviductal ciliary transport rather than from a gamete defect - that mechanism is not curated here because no DNAI2 data address it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cilium movement\"], \"role\": \"consequence\"}}, {\"id\": \"Motile Ciliary Beat Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cilia that are built but cannot beat. The outer arms generate the bulk of the interdoublet sliding force, so their absence is sufficient to explain the motility failure without a second lesion. The same axonemal machinery drives three anatomically separate systems - airway cilia, the motile monocilia of the embryonic left-right organiser, and the sperm flagellum - which is why one molecular defect produces a phenotype spread across the lung, body situs and fertility.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"cilium movement\"], \"role\": \"effector\"}}, {\"id\": \"Mucociliary Clearance Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without a co-ordinated beat the airway surface cannot move its mucus layer, so inhaled particles and bacteria are retained. This is the step that converts a molecular motor defect into a chronic infective disease, and it is shared with every other PCD genotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mucociliary clearance\"], \"role\": \"effector\", \"locations\": [\"bronchus\"]}}, {\"id\": \"Outer Dynein Arm Assembly Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that defines the disease. DNAI2 protein is absent from mutant respiratory cells, and with it the outer-arm heavy chains DNAH5 and DNAH9 - both of them, from all mutant axonemes. That double loss is the specific claim, because outer dynein arms are not uniform along the cilium: proximal and distal complexes differ in heavy-chain composition, and the three intermediate- and heavy-chain genes are not interchangeable in what they take down with them. DNAI2 and DNAH5 loss disrupts assembly of both proximal and distal complexes; DNAI1 loss mainly disrupts the proximal ones.\\nThe assembly hierarchy runs the other way too. In patients with DNAH5 mutations DNAI2 is completely absent from the axoneme, and in patients with DNAI1 mutations it is absent distally - so DNAI2 is a dependent of those genes as well as a requirement for them, which is what makes the outer arm a co-assembling complex rather than a chain of separable steps.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"axonemal dynein complex assembly\"], \"role\": \"central_effector\"}}, {\"id\": \"Randomised Left-Right Body Asymmetry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immotile monocilia at the embryonic left-right organiser cannot generate the directional flow that breaks symmetry, so laterality is left to chance: roughly half of PCD patients have situs inversus, and the rest situs solitus, with a minority having heterotaxy and its associated cardiac malformations. This branch of the pathograph is developmental and complete before birth - it is the one part of PCD that no postnatal treatment can address.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"determination of left/right symmetry\"], \"role\": \"consequence\", \"animal_models\": [{\"name\": \"medaka jaodori (joi) dnai2 mutant\", \"species\": \"Japanese medaka\", \"genotype\": \"dnai2 disrupted by Tol1 transposon insertion (jaodori allele)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cilia in Kupffer\u0027s vesicle are generated but immotile, and laterality is disrupted - the same causal order as the human node.\"}]}}, {\"id\": \"medaka jaodori (joi) dnai2 mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A forward-genetic medaka mutant in which a Tol1 transposon insertion disrupts dnai2. Kupffer\u0027s vesicle - the fish equivalent of the mouse node for left-right specification - generates cilia normally but they do not beat, and ultrastructure shows severe reduction of the outer dynein arms. That is the same lesion as the human disease, in the same order: arms lost, motility lost, laterality randomised.\\nOne finding limits how far the model transfers, and it is the model\u0027s own: medaka has a second dnai2 gene, and the two act redundantly in some ciliated tissues and distinctly in others. Humans have one. A tissue-by-tissue comparison of which cilia are affected therefore cannot be carried across, even though the core mechanism can.\"}], \"edges\": [{\"source\": \"Biallelic DNAI2 Loss of Function\", \"target\": \"Outer Dynein Arm Assembly Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outer Dynein Arm Assembly Failure\", \"target\": \"Absence of Outer Dynein Arms from the Axoneme\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absence of Outer Dynein Arms from the Axoneme\", \"target\": \"Motile Ciliary Beat Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Mucociliary Clearance Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Randomised Left-Right Body Asymmetry\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Impaired Sperm Flagellar Propulsion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucociliary Clearance Failure\", \"target\": \"Chronic Airway Infection and Progressive Airway Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Airway Clearance and Chronic Infection Management\", \"target\": \"Mucociliary Clearance Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Airway Clearance and Chronic Infection Management\", \"target\": \"Chronic Airway Infection and Progressive Airway Damage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"medaka jaodori (joi) dnai2 mutant\", \"target\": \"Absence of Outer Dynein Arms from the Axoneme\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Severe outer dynein arm reduction in Kupffer\u0027s vesicle cilia, from disruption of the orthologous gene.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in Kupffer\u0027s vesicle rather than respiratory epithelium, and the medaka genome carries a second dnai2 whose redundancy has no human counterpart.\"}, {\"source\": \"medaka jaodori (joi) dnai2 mutant\", \"target\": \"Randomised Left-Right Body Asymmetry\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cilia in Kupffer\u0027s vesicle are generated but immotile, and laterality is disrupted - the same causal order as the human node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Kupffer\u0027s vesicle is functionally equivalent to the mouse node for left-right specification but is not the same structure, and the second medaka dnai2 gene has no human counterpart.\"}, {\"source\": \"DNAI2\", \"target\": \"Biallelic DNAI2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absence of Outer Dynein Arms from the Axoneme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural endpoint a diagnostic laboratory sees. Electron microscopy of patient respiratory cells shows outer dynein arm defects. This is the finding that assigns a patient to the ODA class - which matters clinically, because the ODA class has consistently milder airway disease than the inner-arm and microtubular-disorganisation classes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"role\": \"central_effector\", \"locations\": [\"bronchus\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"medaka jaodori (joi) dnai2 mutant\", \"species\": \"Japanese medaka\", \"genotype\": \"dnai2 disrupted by Tol1 transposon insertion (jaodori allele)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Severe outer dynein arm reduction in Kupffer\u0027s vesicle cilia, from disruption of the orthologous gene.\"}]}}, {\"id\": \"Airway Clearance and Chronic Infection Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment for the ciliary defect. Management is the supportive airway care used across primary ciliary dyskinesia - physiotherapy and airway clearance, antibiotics for exacerbations and chronic infection, surveillance of lung function and structure - and nothing in it is DNAI2-specific.\\nCurated as a single scoping entry rather than an itemised regimen, and the reason is recorded rather than left implicit: no trial has enrolled by genotype, and the umbrella entry Primary_Ciliary_Dyskinesia holds the detailed management block. Duplicating it here would create two places to maintain the same evidence and imply a genotype-specific practice that does not exist. What is DNAI2-specific is prognostic rather than therapeutic - outer dynein arm defects carry milder airway disease than the inner-arm and microtubular-disorganisation classes - and that is curated on the airway damage node.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic DNAI2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. DNAI2 sits at 17q25 in fourteen exons and is highly expressed in trachea and testis - the two tissues whose motile axonemes carry the clinical phenotype. It is the human relative of Chlamydomonas IC69, and it was cloned and mapped as a PCD candidate on that basis eight years before any patient mutation was found; the first screen of twelve outer-dynein-arm PCD patients found none, which is a fair indication of how rare the genotype is.\\nThe three reported alleles are all loss of function and two of the three are splice variants: a canonical splice-donor change, a nonsense change, and a splice-acceptor change producing out-of-frame transcripts. A 6.9 kb intragenic microdeletion has since been reported. No missense allele has been described, so there is no worked example of a DNAI2 change that alters the protein without abolishing it, and nothing against which to calibrate a novel missense variant.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"DNAI2\"], \"gene_terms\": [{\"label\": \"DNAI2\", \"id\": \"hgnc:18744\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss of function established both by allele class and by the measured consequence - DNAI2 protein is absent from patients\u0027 respiratory cells. Zygosity is recorded as homozygous because every reported family is, which reflects the consanguineous ascertainment of the defining study rather than any biological requirement; a compound heterozygote would be expected to have the same disease.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Chronic Airway Infection and Progressive Airway Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained secretions, recurrent infection, neutrophilic inflammation and progressive structural destruction - bronchial wall thickening, mucus plugging, then bronchiectasis. In the multicentre paediatric cohorts the severity of this endpoint tracks the ultrastructural class rather than being uniform across PCD: children with outer dynein arm defects have better spirometry, fewer bronchiectatic lobes and less disease on CT than children with inner-arm and microtubular-disorganisation defects.\\nThose cohorts classify by ultrastructure and genotype together and are not broken down to DNAI2. So the favourable comparison applies to this entity by class membership, which is a weaker claim than a DNAI2-specific one and is curated as such.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"role\": \"consequence\", \"locations\": [\"bronchus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"DNAI2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNAI2\"], \"gene_terms\": [{\"label\": \"DNAI2\", \"id\": \"hgnc:18744\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Impaired Sperm Flagellar Propulsion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The sperm flagellum is an axoneme of the same construction, and DNAI2 is highly expressed in testis. Reduced male fertility follows from the same outer-arm loss. Note the asymmetry with the female side, where subfertility in PCD arises from oviductal ciliary transport rather than from a gamete defect - that mechanism is not curated here because no DNAI2 data address it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cilium movement\"], \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Motile Ciliary Beat Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cilia that are built but cannot beat. The outer arms generate the bulk of the interdoublet sliding force, so their absence is sufficient to explain the motility failure without a second lesion. The same axonemal machinery drives three anatomically separate systems - airway cilia, the motile monocilia of the embryonic left-right organiser, and the sperm flagellum - which is why one molecular defect produces a phenotype spread across the lung, body situs and fertility.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"cilium movement\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Mucociliary Clearance Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without a co-ordinated beat the airway surface cannot move its mucus layer, so inhaled particles and bacteria are retained. This is the step that converts a molecular motor defect into a chronic infective disease, and it is shared with every other PCD genotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mucociliary clearance\"], \"role\": \"effector\", \"locations\": [\"bronchus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Outer Dynein Arm Assembly Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that defines the disease. DNAI2 protein is absent from mutant respiratory cells, and with it the outer-arm heavy chains DNAH5 and DNAH9 - both of them, from all mutant axonemes. That double loss is the specific claim, because outer dynein arms are not uniform along the cilium: proximal and distal complexes differ in heavy-chain composition, and the three intermediate- and heavy-chain genes are not interchangeable in what they take down with them. DNAI2 and DNAH5 loss disrupts assembly of both proximal and distal complexes; DNAI1 loss mainly disrupts the proximal ones.\\nThe assembly hierarchy runs the other way too. In patients with DNAH5 mutations DNAI2 is completely absent from the axoneme, and in patients with DNAI1 mutations it is absent distally - so DNAI2 is a dependent of those genes as well as a requirement for them, which is what makes the outer arm a co-assembling complex rather than a chain of separable steps.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"multiciliated respiratory epithelial cell\"], \"biological_processes\": [\"axonemal dynein complex assembly\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Randomised Left-Right Body Asymmetry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immotile monocilia at the embryonic left-right organiser cannot generate the directional flow that breaks symmetry, so laterality is left to chance: roughly half of PCD patients have situs inversus, and the rest situs solitus, with a minority having heterotaxy and its associated cardiac malformations. This branch of the pathograph is developmental and complete before birth - it is the one part of PCD that no postnatal treatment can address.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"determination of left/right symmetry\"], \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"medaka jaodori (joi) dnai2 mutant\", \"species\": \"Japanese medaka\", \"genotype\": \"dnai2 disrupted by Tol1 transposon insertion (jaodori allele)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cilia in Kupffer\u0027s vesicle are generated but immotile, and laterality is disrupted - the same causal order as the human node.\"}]}}, {\"id\": \"medaka jaodori (joi) dnai2 mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A forward-genetic medaka mutant in which a Tol1 transposon insertion disrupts dnai2. Kupffer\u0027s vesicle - the fish equivalent of the mouse node for left-right specification - generates cilia normally but they do not beat, and ultrastructure shows severe reduction of the outer dynein arms. That is the same lesion as the human disease, in the same order: arms lost, motility lost, laterality randomised.\\nOne finding limits how far the model transfers, and it is the model\u0027s own: medaka has a second dnai2 gene, and the two act redundantly in some ciliated tissues and distinctly in others. Humans have one. A tissue-by-tissue comparison of which cilia are affected therefore cannot be carried across, even though the core mechanism can.\"}], \"edges\": [{\"source\": \"Biallelic DNAI2 Loss of Function\", \"target\": \"Outer Dynein Arm Assembly Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outer Dynein Arm Assembly Failure\", \"target\": \"Absence of Outer Dynein Arms from the Axoneme\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absence of Outer Dynein Arms from the Axoneme\", \"target\": \"Motile Ciliary Beat Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Mucociliary Clearance Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Randomised Left-Right Body Asymmetry\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motile Ciliary Beat Failure\", \"target\": \"Impaired Sperm Flagellar Propulsion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucociliary Clearance Failure\", \"target\": \"Chronic Airway Infection and Progressive Airway Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Airway Clearance and Chronic Infection Management\", \"target\": \"Mucociliary Clearance Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Airway Clearance and Chronic Infection Management\", \"target\": \"Chronic Airway Infection and Progressive Airway Damage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"medaka jaodori (joi) dnai2 mutant\", \"target\": \"Absence of Outer Dynein Arms from the Axoneme\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Severe outer dynein arm reduction in Kupffer\u0027s vesicle cilia, from disruption of the orthologous gene.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in Kupffer\u0027s vesicle rather than respiratory epithelium, and the medaka genome carries a second dnai2 whose redundancy has no human counterpart.\"}, {\"source\": \"medaka jaodori (joi) dnai2 mutant\", \"target\": \"Randomised Left-Right Body Asymmetry\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cilia in Kupffer\u0027s vesicle are generated but immotile, and laterality is disrupted - the same causal order as the human node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Kupffer\u0027s vesicle is functionally equivalent to the mouse node for left-right specification but is not the same structure, and the second medaka dnai2 gene has no human counterpart.\"}, {\"source\": \"DNAI2\", \"target\": \"Biallelic DNAI2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5805,9 +5949,9 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5850,6 +5994,9 @@ This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5864,6 +6011,7 @@ This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5929,6 +6077,9 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5943,6 +6094,7 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5999,6 +6151,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6013,6 +6168,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6078,6 +6234,9 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6092,6 +6251,7 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6175,6 +6335,9 @@ This clinical feature is Chronic sinusitis (HP:0011109), qualified as temporalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6189,6 +6352,7 @@ This clinical feature is Chronic sinusitis (HP:0011109), qualified as temporalit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6254,6 +6418,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6268,6 +6435,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6333,6 +6501,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6347,6 +6518,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6371,6 +6543,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6403,8 +6576,80 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-outer-dynein-arms" data-dismech-node="Absent Outer Dynein Arms" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Absent Outer Dynein Arms
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent outer dynein arms (HP:0012256). HP:0012256 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18950741" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18950741" target="_blank">PMID:18950741</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mutant respiratory cells from these patients lacked DNAI2 protein expression and exhibited ODA defects"</div>
+
+
+                <div class="evidence-explanation">Outer dynein arm defects on electron microscopy in the defining patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-distress" data-dismech-node="Neonatal Respiratory Distress" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6422,15 +6667,18 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002643</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002643</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6450,6 +6698,7 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6474,6 +6723,7 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6516,10 +6766,10 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031245" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031245</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031245" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031245</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Productive cough (HP:0031245), qualified as temporality chronic. HP:0031245 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6548,6 +6798,9 @@ This clinical feature is Productive cough (HP:0031245), qualified as temporality
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6562,6 +6815,7 @@ This clinical feature is Productive cough (HP:0031245), qualified as temporality
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6604,10 +6858,10 @@ This clinical feature is Productive cough (HP:0031245), qualified as temporality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110), qualified as course progressive. HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6636,6 +6890,9 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6650,6 +6907,7 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6677,6 +6935,7 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6698,6 +6957,7 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6729,77 +6989,9 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    Growth
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-outer-dynein-arms" data-dismech-node="Absent Outer Dynein Arms" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absent Outer Dynein Arms
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012256</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absent outer dynein arms (HP:0012256). HP:0012256 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18950741" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18950741" target="_blank">PMID:18950741</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"mutant respiratory cells from these patients lacked DNAI2 protein expression and exhibited ODA defects"</div>
-
-
-                <div class="evidence-explanation">Outer dynein arm defects on electron microscopy in the defining patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-heterotaxy" data-dismech-node="Heterotaxy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6829,6 +7021,9 @@ This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6843,6 +7038,7 @@ This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6943,6 +7139,9 @@ This disease-associated gene is DNAI2 (hgnc:18744). hgnc:18744 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6957,6 +7156,7 @@ This disease-associated gene is DNAI2 (hgnc:18744). hgnc:18744 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6981,6 +7181,7 @@ This disease-associated gene is DNAI2 (hgnc:18744). hgnc:18744 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7070,6 +7271,7 @@ This disease-associated gene is DNAI2 (hgnc:18744). hgnc:18744 is a gene from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7147,6 +7349,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7157,6 +7362,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7216,6 +7424,7 @@ Curated as a single scoping entry rather than an itemised regimen, and the reaso
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7292,6 +7501,7 @@ What it cannot do is name DNAI2: every gene in the outer-arm group produces the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7343,6 +7553,7 @@ What it cannot do is name DNAI2: every gene in the outer-arm group produces the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7401,6 +7612,7 @@ So immunofluorescence resolves distinctions the ultrastructure alone does not. I
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7422,6 +7634,7 @@ So immunofluorescence resolves distinctions the ultrastructure alone does not. I
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7476,6 +7689,7 @@ So immunofluorescence resolves distinctions the ultrastructure alone does not. I
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7550,6 +7764,7 @@ So immunofluorescence resolves distinctions the ultrastructure alone does not. I
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7635,6 +7850,7 @@ So immunofluorescence resolves distinctions the ultrastructure alone does not. I
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7687,6 +7903,7 @@ So immunofluorescence resolves distinctions the ultrastructure alone does not. I
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7837,6 +8054,7 @@ One finding limits how far the model transfers, and it is the model&#39;s own: m
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7876,6 +8094,7 @@ One finding limits how far the model transfers, and it is the model&#39;s own: m
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7955,6 +8174,7 @@ One finding limits how far the model transfers, and it is the model&#39;s own: m
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8004,6 +8224,7 @@ One finding limits how far the model transfers, and it is the model&#39;s own: m
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9560,6 +9781,62 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Perplexity deep-research report plus independent PubMed searching. The report supplied narrative framing only: it carried three citations in total, and its term-validation section reported 20 of 49 checked labels mismatched - including HP:0005938 offered as &#34;primary ciliary dyskinesia&#34; when HPO calls it &#34;Abnormal respiratory motile cilium morphology&#34;, and HP:0011107 offered as &#34;chronic cough&#34; when HPO calls it &#34;Recurrent aphthous stomatitis&#34;. No CURIE was taken from it. Every binding here was resolved against the committed term caches, several by reuse from the sibling entry Primary_Ciliary_Dyskinesia_30.
+Orphanet&#39;s record for primary ciliary dyskinesia (ORPHA:244) is used as the frequency backbone for the otologic phenotypes, as the sibling entry Primary_Ciliary_Dyskinesia_30 does. One disagreement is reconciled explicitly rather than silently: Orphanet grades Bronchiectasis Occasional (29-5%) while this entry curates it FREQUENT on the strength of the prospective paediatric CT cohort, and both records are carried on that phenotype.
+The GeneReviews PCD chapter (PMID:20301301) is cited in `references` as the expert baseline for the disease class. Its PubMed record is a scope statement rather than a clinical abstract, so it carries no quotable phenotype text and is not used as an evidence source for individual phenotypes here; the phenotype frequencies come from the prospective multicentre cohorts instead.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: address ai4c-reviewer items on PR 10024</strong> · 2026-08-29T07:20:45Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Primary_Ciliary_Dyskinesia_9/2026-08-29T072045Z-claude-code-3ca364.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed all five blocking items and three of four non-blocking suggestions from the automated review of PR 10024.
+
+Item 1, missing otologic phenotypes. Added Recurrent otitis media (HP:0000403, FREQUENT) and Conductive hearing impairment (HP:0000405, OCCASIONAL), both from ORPHA:244 rows. The reviewer was right that this was a blocking omission: the entry&#39;s own description named recurrent otitis, the source was already cached, and the sibling entry Primary_Ciliary_Dyskinesia_30 curates both from the same rows.
+
+Item 2, ORPHA:244 unused. It is now the frequency backbone for the otologic phenotypes and is listed in references. The disagreement the reviewer flagged is reconciled explicitly rather than silently: Orphanet grades Bronchiectasis Occasional (29-5%) against the FREQUENT curated here. Both records are carried on that phenotype, with the Orphanet row graded PARTIAL because it supports the phenotype&#39;s occurrence while contradicting its frequency, and the description says why the cohort figure was preferred - the prospective paediatric series imaged every participant by CT and found a median of three affected lobes across all 118, which is not compatible with a sub-30 per cent rate.
+
+Item 3, diagnosis coverage. Added two entries. Nasal nitric oxide and high-speed videomicroscopy, cited from PMID:38891105, including that review&#39;s explicit statement that there is no single gold standard test. And immunofluorescence staining as its own entry, because it is the most DNAI2-specific of the three: DNAI2 disease loses DNAI2 plus both outer-arm heavy chains along the whole axoneme, DNAI1 disease loses DNAI2 only distally, and DNAH11 disease has a proximal-only partial reduction that conventional TEM reports as normal.
+
+Item 4, uncited cached references. PMID:26909801 now anchors the proximal/distal outer-arm heterogeneity the entry&#39;s whole argument rests on - previously carried by one sentence from the Loges paper. PMID:11713099 anchors the DNAI1 contrast. PMID:38891105 supports the new diagnosis and treatment entries.
+
+Item 5, no treatments and no scoping rationale. Added a single supportive-care entry linked to the clearance and chronic-infection nodes, with the scoping decision stated in the entry rather than left implicit: no trial has enrolled by genotype, the umbrella entry holds the detailed management block, and duplicating it here would create two places to maintain the same evidence and imply a genotype-specific practice that does not exist.
+
+Non-blocking suggestions taken. Fixed the evidence_source inconsistency within PMID:11153919 - both quotes are from the paper&#39;s introduction and both are now OTHER. Added the medaka jaodori dnai2 mutant as an animal_models entry with two modeled_mechanisms links and three readouts, after verifying the PMID the deep-research report implied: PMID:20709053 resolves to a real Dev Biol paper and its abstract states the Kupffer&#39;s vesicle findings directly. The model entry carries the limitation the model itself reports - medaka has a second dnai2 gene with redundant and distinct roles, and humans have one - graded PARTIAL because it qualifies the model&#39;s informativeness. Added Heterotaxy as a phenotype separate from situs inversus totalis, with no frequency asserted because the cited source does not separate the two. Added two differential_diagnoses covering the other outer-arm and docking genes and the normal-ultrastructure group.
+
+Validation after changes. Schema validation passes; 48 of 48 evidence snippets verified, up from 32; term validation, entity-ref and duplicate-key checks pass; the pytest lanes covering entity references and model-readout targets pass (7910 tests).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Primary Ciliary Dyskinesia 9 (MONDO:0012906, DNAI2)</strong> · 2026-08-29T06:44:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Primary_Ciliary_Dyskinesia_9/2026-08-29T064459Z-claude-code-c84133.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for primary ciliary dyskinesia 9 (CILD9), the DNAI2-related form.
+
+Curation inputs. One Perplexity deep-research run, committed alongside as research/Primary_Ciliary_Dyskinesia_9-deep-research-perplexity.md, plus independent PubMed E-utilities searching. The report contributed narrative framing only and very little of that: its reference_validation block reported just three citations in total, all resolving and all on topic. Its term_validation block reported 20 of 49 checked labels mismatched, so no CURIE was taken from it. Two examples: HP:0005938 offered as primary ciliary dyskinesia, when HPO calls it Abnormal respiratory motile cilium morphology; and HP:0011107 offered as chronic cough, when HPO calls it Recurrent aphthous stomatitis. All bindings here were resolved against the committed term caches, several by reuse from the sibling entry Primary_Ciliary_Dyskinesia_30.
+
+GeneReviews baseline. The PCD chapter, PMID:20301301, is cited in references and tagged GeneReviews. Its PubMed record is a scope statement listing what the overview covers, not a clinical abstract, so it carries no quotable phenotype text; the phenotype frequencies in this entry come from the prospective multicentre cohorts instead. That is stated in the entry notes so a reviewer does not read the absence of GeneReviews evidence items as an omission.
+
+Structure. Eight pathophysiology nodes from biallelic DNAI2 loss of function through outer dynein arm assembly failure, absence of outer dynein arms from the axoneme, and motile ciliary beat failure, which then branches three ways into mucociliary clearance failure and chronic airway damage, randomised left-right asymmetry, and impaired sperm flagellar propulsion.
+
+The gene-specific content is in the assembly node. DNAI2 loss removes both outer-arm heavy chains, DNAH5 and DNAH9, from all mutant axonemes, so it disrupts proximal and distal outer dynein arm complexes alike, where DNAI1 loss mainly disrupts the proximal ones. The hierarchy runs both ways: DNAI2 is itself absent from the axoneme in DNAH5 patients and absent distally in DNAI1 patients.
+
+Ten phenotypes. Every prognostic and frequency statement is borrowed from the outer dynein arm defect class rather than measured in DNAI2 patients, and each is labelled as such in place rather than only in a footnote. Two frequencies for neonatal respiratory distress are recorded rather than averaged, because the cohorts differ.
+
+Two discussions, both KNOWLEDGE_GAP. The first is the absence of any DNAI2-specific natural history: the multicentre cohorts report by ultrastructural class, and the question is answerable in principle because the neonatal respiratory distress analysis does resolve genotypes within the outer-arm class. The second is the single reported co-occurrence of hydrocephalus with a DNAI2 microdeletion, which the case report proposes as a new genetic risk factor; the phenotype is curated VERY_RARE with the reasoning attached so one case report is not mistaken for an established correlation.
+
+A diagnostic point worth recording: one of the four reported DNAI2 alleles is a 6.9 kb intragenic deletion found by array CGH, so copy-number analysis is curated as a separate diagnosis entry from panel sequencing, and a negative panel in a patient with outer dynein arm defects is not a negative DNAI2 result.
+
+Validation. Schema validation passed on the first run; 32 of 32 evidence snippets verified against cached primary references; term validation, duplicate-key and entity-ref checks all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

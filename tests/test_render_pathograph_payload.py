@@ -384,7 +384,8 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
                     "P-type monovalent copper transporter activity"
                 ],
                 "Impaired Ceruloplasmin Loading": [
-                    "P-type monovalent copper transporter activity"
+                    "P-type monovalent copper transporter activity",
+                    "ceruloplasmin ferroxidase activity",
                 ],
             },
         ),

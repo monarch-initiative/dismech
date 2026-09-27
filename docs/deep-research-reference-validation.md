@@ -1,5 +1,24 @@
 # Deep-Research Reference Validation
 
+## How we use deep research
+
+Deep-research reports seed curation with candidate mechanisms, publications, and
+ontology terms. They do not undergo the same validation as the main records and
+may contain errors. Before promoting a claim into a main record, curators must
+independently check its sources, exact evidence quotes, and ontology bindings.
+A report passing identifier checks does not establish that its claims are true
+or that its citations support them.
+
+The Deep Research section on disorder pages includes expandable evaluations and
+curation notes when available: record-level `notes` and `review_notes` that
+explicitly mention deep research, similarly identified curation-history entries,
+and links to separate [cross-provider assessments](research-synthesis.md).
+These notes preserve the curator's wording and may include broader curation
+context; their presence is not a validation badge for the report. Absence of
+displayed notes does not mean a report has passed review.
+
+## Report citation checks
+
 Deep-research (DR) providers routinely emit identifiers that look plausible and
 do not resolve, and quotes attributed to papers that do not contain them. Until
 `deep-research-client` 0.2.9 the only way to find out was to curate first and
@@ -25,12 +44,14 @@ deep-research-client subcommand doing the latter is itself called
 name — issue #8841.)
 
 Because this path both reads and writes `references_cache/`, the recipes invoke
-it through `scripts/run_deep_research_client.sh`, which applies dismech's
-`patch_reference_validator` repairs first — exactly as
-`scripts/run_reference_validator.sh` does for the validator CLI. That matters
-most for the issue #7697 delimiter-aware frontmatter read: without it, a cached
-record whose frontmatter contains a literal `---` is truncated on read and
-reported as a **false unresolved reference**, and the guidance below tells you
+it through `scripts/run_deep_research_client.sh`, which applies dismech's Biomni
+opt-in policy before provider discovery.
+
+The cache repairs that wrapper used to apply are now upstream in
+`linkml-reference-validator`. The one worth knowing about is the issue #7697
+delimiter-aware frontmatter read: without it, a cached record whose frontmatter
+contains a literal `---` is truncated on read and reported as a **false
+unresolved reference**, and the guidance below tells you
 not to cite unresolved references. Do not call `deep-research-client` directly
 for anything that validates; go through the wrapper or the recipes.
 

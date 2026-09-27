@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4056,6 +4124,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viral-replication" data-dismech-node="Viral Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Replication</div>
 
+
                 <div class="item-desc">The virus primarily targets erythroid progenitor cells in the bone marrow, leading to disrupted red blood cell production.</div>
 
 
@@ -4212,6 +4281,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Human parvovirus B19 shows remarkable tropism for human erythroid progenitor cells."</div>
@@ -4231,6 +4301,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4258,6 +4329,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4282,6 +4354,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-response" data-dismech-node="Immune Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Response</div>
+
 
                 <div class="item-desc">Immune-mediated response to the virus can lead to rash and joint symptoms.</div>
 
@@ -4320,6 +4393,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Notably, adult patients with B19V infection frequently experience joint pain and cutaneous eruptions, which are ostensibly immune responses to the infection and necessitate careful differentiation from autoimmunity."</div>
@@ -4339,6 +4413,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4362,6 +4437,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-receptor-mediated-entry" data-dismech-node="Receptor-Mediated Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Receptor-Mediated Entry</div>
+
 
                 <div class="item-desc">Initial viral entry involves binding to globoside (P antigen) on cell surfaces, followed by VP1u-mediated internalization into erythroid progenitor cells. Acidic pH in endosomes facilitates globoside-dependent infectious trafficking and VP1u conformational changes for endosomal escape.</div>
 
@@ -4502,6 +4578,7 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4523,6 +4600,7 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4550,6 +4628,7 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4572,6 +4651,7 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-cycle-arrest-and-apoptosis" data-dismech-node="Cell Cycle Arrest and Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell Cycle Arrest and Apoptosis</div>
+
 
                 <div class="item-desc">Viral NS1 protein and replication intermediates activate the DNA damage response (DDR) pathway, particularly ATR and DNA-PKcs, leading to late S/G2 phase arrest and apoptotic death of infected erythroid progenitor cells.</div>
 
@@ -4820,6 +4900,7 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4842,6 +4923,7 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epo-stat5-signaling-pathway" data-dismech-node="EPO-STAT5 Signaling Pathway" data-dismech-type="pathophysiology">
                 <div class="item-name">EPO-STAT5 Signaling Pathway</div>
+
 
                 <div class="item-desc">Erythropoietin (EPO) signaling through STAT5A and STAT5B creates a permissive transcriptional environment for B19V replication in erythroid progenitor cells. Hypoxic conditions enhance STAT5A activity and viral replication.</div>
 
@@ -5069,6 +5151,7 @@ This pathophysiological event involves JAK-STAT cascade, annotated with cell sur
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5202,6 +5285,9 @@ This clinical feature is Chronic pure red cell aplasia, annotated with Pure red 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5216,6 +5302,7 @@ This clinical feature is Chronic pure red cell aplasia, annotated with Pure red 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5274,6 +5361,9 @@ This clinical feature is Papular-purpuric gloves and socks syndrome, annotated w
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5288,6 +5378,7 @@ This clinical feature is Papular-purpuric gloves and socks syndrome, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5315,6 +5406,7 @@ This clinical feature is Papular-purpuric gloves and socks syndrome, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5336,6 +5428,7 @@ This clinical feature is Papular-purpuric gloves and socks syndrome, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5396,6 +5489,9 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">More commonly observed in immunocompromised individuals or chronic infection.</div>
 
 
@@ -5415,6 +5511,7 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5482,6 +5579,9 @@ This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:00253
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5496,6 +5596,7 @@ This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:00253
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5558,6 +5659,9 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to severe fetal anemia resulting from maternal infection.</div>
 
 
@@ -5577,6 +5681,7 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5602,6 +5707,7 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Fetal infection by Parvovirus B 19 is a common cause of fetal anemia and nonimmune hydrops fetalis and may result in fetal death."</div>
@@ -5621,6 +5727,7 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5681,6 +5788,9 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Particularly in adults.</div>
 
 
@@ -5700,6 +5810,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5725,6 +5836,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
+
                 </div>
 
 
@@ -5742,6 +5854,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5788,6 +5901,9 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5814,6 +5930,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Erythema infectiosum, the most common clinical manifestation of parvovirus B19 infection, is characterized by a &#39;slapped cheek&#39; appearance on the face and lacy exanthem on the trunk and extremities."</div>
@@ -5836,6 +5953,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The prototypical cutaneous manifestations of human parvovirus B19 (B19) infection include a petechial eruption in a glove and stocking distribution, reticular truncal erythema, and the &#39;slapped cheek&#39; sign."</div>
@@ -5855,6 +5973,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5894,6 +6013,9 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -5908,6 +6030,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5933,6 +6056,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The serum B19V DNA load during the acute phase of aplastic crisis complicating chronic hemolytic anemia was extremely high."</div>
@@ -5952,6 +6076,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6074,6 +6199,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Includes rest, fluids, and analgesics for managing symptoms.</div>
 
 
@@ -6095,6 +6226,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6120,6 +6252,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Treatment ranges from analgesics and antipyretics for mild and self-limited illness to administration of commercial immunoglobulin preparations and blood transfusion for more serious conditions."</div>
@@ -6139,6 +6272,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6209,6 +6343,12 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Used in severe cases, particularly for individuals with immunodeficiency or severe anemia.</div>
 
 
@@ -6230,6 +6370,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6255,6 +6396,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Specific antiviral therapy is not available, however, intravenous immunoglobulin produces rapid improvement in most cases."</div>
@@ -6274,6 +6416,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6339,6 +6482,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"strict handwashing and droplet precautions remain imperative when there is contact with potentially pre-symptomatic family members."</div>
@@ -6401,6 +6545,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Considering the first 12 weeks after onset of disease the window of greatest risk for fetal complications, the &#39;acute&#39; phase was extended to cover this full period. In this case, performing the avidity and ETS-EIA sequentially, the positive predictive value was 100% in patients showing..."</div>
@@ -6423,6 +6568,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A solid phase IgM-capture radioimmunoassay (MACRIA) for the detection of parvovirus B19-IgM is described... The purpose of the protocol is the diagnosis of recent acute infection with parvovirus B19."</div>
@@ -6442,6 +6588,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6496,6 +6643,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The development of a polymerase chain reaction (PCR) method for detection of human parvovirus B19 DNA and serological test of clinical specimens using ELISA is described."</div>
@@ -6518,6 +6666,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Diagnosis of congenital viral infection at birth is generally attempted by direct detection of the virus by PCR in various neonatal materials."</div>
@@ -6537,6 +6686,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6608,6 +6758,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The objective of this study was to determine the epidemiology and clinical-analytical manifestations of acute PVB19 infection."</div>
@@ -6630,6 +6781,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Erythema infectiosum, caused by human parvovirus B19 (B19V), is difficult to diagnose by its clinical symptoms and is often misdiagnosed as measles or rubella."</div>
@@ -6649,6 +6801,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6708,6 +6861,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Specific IgM antibodies were detected in 94% specimens collected 1 week after the onset of illness and could be detected for up to 2 months. On the other hand, specific IgG antibodies were detected in 85% patients from whom acute- and convalescent-phase serum samples were collected."</div>
@@ -6730,6 +6884,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We analysed the diagnostic value of B19 IgM antibody testing and polymerase chain reaction (PCR) in the sera from 57 patients and their fetuses with abnormal ultrasonography."</div>
@@ -6749,6 +6904,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6808,6 +6964,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Diagnosis of congenital viral infection at birth is generally attempted by direct detection of the virus by PCR in various neonatal materials."</div>
@@ -6830,6 +6987,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A PCR-based assay with Parvovirus B19 specific primers was implemented to detect the presence of the viral genome."</div>
@@ -6849,6 +7007,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6926,6 +7085,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The overall IgG prevalence in the 1008 representative sera samples was 61.4% and the age-adjusted prevalence rate was 58.2%."</div>
@@ -6948,6 +7108,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"These viruses are prevalent worldwide and are culturable in vitro, and serological and molecular assays are available but require careful interpretation of results."</div>
@@ -6967,6 +7128,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7067,6 +7229,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Parvovirus B19 (B19V) is a small non-enveloped single-stranded DNA (ssDNA) virus of the family Parvoviridae, the subfamily Parvovirinae, the genus Erythrovirus and Human parvovirus B19 type species."</div>
@@ -7089,6 +7252,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Parvovirus B19 infections cause a wide range of clinical findings, including erythema infectiosum, &#39;glove-and-socks&#39; syndrome, arthropathies, red cell aplasia, and intrauterine infections."</div>
@@ -7108,6 +7272,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7169,6 +7334,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It is a common community-acquired respiratory pathogen without ethnic, socioeconomic, gender, age or geographic boundaries"</div>
@@ -7188,6 +7354,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7235,6 +7402,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The vertical transmission rate was 31.7% (20/63)."</div>
@@ -7257,6 +7425,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Vertical transmission of an infectious agent is generally defined as transmission from a pregnant individual to their fetus... Parvovirus B19... are also known to cause transplacental infections."</div>
@@ -7276,6 +7445,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7325,6 +7495,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Eight patients with TT-B19V caused by component transfusion have been identified."</div>
@@ -7347,6 +7518,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Recent concerns regarding the potential transmission of B19 infection by pooled plasma products."</div>
@@ -7366,6 +7538,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8350,6 +8523,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Address review: PPGSS frequency band and evidence-source split</strong> · 2026-08-25T06:32:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Parvovirus_B19_Infection/2026-08-25T063207Z-claude-code-0c09b9.yaml">View source</a></p>
+                        <p class="research-review-text">Review-response session for PR 8312. Corrected the PPGSS phenotype frequency from OCCASIONAL to VERY_RARE: neither cited paper supports the 5-29 percent band, and PMID:12852167 calls it a relatively rare viral exanthema while PMID:9675471 calls it an unusual syndrome and reports only the second documented US case. Added a dedicated evidence item quoting the rarity wording and documenting the Pattern C qualitative mapping from docs/frequency-evidence-guidelines.md. Rebound the PPGSS phenotype_term from HP:0031363 Palpable purpura to the more neutral parent HP:0000979 Purpura, since palpable purpura classically connotes cutaneous small-vessel vasculitis, which PPGSS is not. Split the PMID:8139629 evidence into two items so each carries a single evidence_source: the cross-sectional seroprevalence result stays HUMAN_CLINICAL, and a new IN_VITRO item quotes the p-phenotype bone-marrow experiment that the previous explanation relied on without quoting. Softened the receptor claim from the required cellular receptor for entry to required for productive infection, per the refined VP1u/globoside model in the entry deep-research artifact. Validated with just validate, just validate-terms and just count-verified-snippets at 95/95.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

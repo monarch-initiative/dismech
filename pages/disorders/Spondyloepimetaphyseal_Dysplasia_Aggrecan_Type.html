@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4106,6 +4174,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4245,6 +4314,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-acan-variants-disrupting-aggrecan-function" data-dismech-node="Biallelic ACAN Variants Disrupting Aggrecan Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ACAN Variants Disrupting Aggrecan Function</div>
 
+
                 <div class="item-desc">The two reported families carry variants in different parts of the protein, and the node is named generically so it does not assert one lesion for both. The founding family is homozygous for c.6799G&gt;A, predicting p.D2267N in the C-type lectin domain of aggrecan&#39;s G3 domain; that identification constrains what kind of mechanism this is, since the locus was mapped by identity-by-descent to a 17.4 Mb interval containing 296 genes and ranking those genes by cartilage-selective expression left only two, of which ACAN was one. The substituted residue is predicted to coordinate a calcium ion that shapes the binding loops of the lectin domain, and it is this allele that carries the functional work downstream. The second patient instead carries two missense variants in the chondroitin sulfate CS1 and CS2 domains, assessed only in silico. The mechanistic arms below are established for the lectin-domain allele; what the CS-domain variants do is not known.</div>
 
 
@@ -4350,6 +4420,7 @@ This pathophysiological event involves ACAN (hgnc:319). hgnc:319 is a gene from 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4374,6 +4445,7 @@ This pathophysiological event involves ACAN (hgnc:319). hgnc:319 is a gene from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4402,6 +4474,7 @@ This pathophysiological event involves ACAN (hgnc:319). hgnc:319 is a gene from 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4424,6 +4497,7 @@ This pathophysiological event involves ACAN (hgnc:319). hgnc:319 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-aggrecan-synthesis-and-secretion" data-dismech-node="Preserved Aggrecan Synthesis and Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Aggrecan Synthesis and Secretion</div>
+
 
                 <div class="item-desc">A negative result, and a load-bearing one. Expressing normal and mutant G3 domains in mammalian cells showed the mutation created a new functional N-glycosylation site but did not impair trafficking or secretion. That rules out the mechanisms this disease would otherwise be assumed to have - haploinsufficiency, retention in the endoplasmic reticulum, degradation of a misfolded product - and forces the mechanism onto what the secreted protein then fails to do.</div>
 
@@ -4464,6 +4538,7 @@ This pathophysiological event involves ACAN (hgnc:319). hgnc:319 is a gene from 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4486,6 +4561,7 @@ This pathophysiological event involves ACAN (hgnc:319). hgnc:319 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-calcium-dependent-binding-of-the-g3-domain-to-tenascin-c" data-dismech-node="Impaired Calcium-Dependent Binding of the G3 Domain to Tenascin-C" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Calcium-Dependent Binding of the G3 Domain to Tenascin-C</div>
+
 
                 <div class="item-desc">The functional lesion. Surface plasmon resonance showed the substitution changes both the affinity and the kinetics of the interaction between the aggrecan G3 domain and tenascin-C. The G3 lectin domain is how aggrecan engages the wider matrix network - tenascin-R and tenascin-C, fibulins, fibrillin-1 - all in a calcium-dependent manner, so a change at the calcium-coordinating residue degrades the anchoring rather than the molecule.</div>
 
@@ -4584,6 +4660,7 @@ This pathophysiological event involves TNC (hgnc:5318). hgnc:5318 is a gene from
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4606,6 +4683,7 @@ This pathophysiological event involves TNC (hgnc:5318). hgnc:5318 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disorganized-cartilage-extracellular-matrix" data-dismech-node="Disorganized Cartilage Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Disorganized Cartilage Extracellular Matrix</div>
+
 
                 <div class="item-desc">Aggrecan is the major proteoglycan of growth-plate and articular cartilage and provides the hydrated gel that gives the tissue its load-bearing properties. Degrading how it is anchored degrades the matrix as a mechanical structure, which is the level at which a molecular binding defect becomes a tissue phenotype.</div>
 
@@ -4754,6 +4832,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4776,6 +4855,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endochondral-ossification-at-the-growth-plate" data-dismech-node="Impaired Endochondral Ossification at the Growth Plate" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endochondral Ossification at the Growth Plate</div>
+
 
                 <div class="item-desc">Linear bone growth is produced by chondrocyte division and matrix production at the growth plate, then replacement of that cartilage by bone. A defective matrix compromises both the template and the mechanical environment the chondrocytes work in. Because the vertebral bodies, epiphyses and metaphyses are all sites of endochondral growth, one lesion at this node produces the combined spondylar, epiphyseal and metaphyseal picture the disease is named for - which is why this is a single dysplasia rather than three coincident ones.</div>
 
@@ -5037,6 +5117,7 @@ This pathophysiological event occurs in metaphysis (UBERON:0001438). UBERON:0001
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5061,6 +5142,7 @@ This pathophysiological event occurs in metaphysis (UBERON:0001438). UBERON:0001
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5129,15 +5211,13 @@ This pathophysiological event occurs in metaphysis (UBERON:0001438). UBERON:0001
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5180,6 +5260,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5197,6 +5280,7 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5228,7 +5312,7 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-relative-macrocephaly" data-dismech-node="Relative macrocephaly" data-dismech-type="phenotype">
@@ -5261,6 +5345,9 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5278,6 +5365,7 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5331,6 +5419,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5359,6 +5450,7 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5385,6 +5477,7 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5393,6 +5486,82 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
                 <div class="evidence-explanation">A negative finding in the second patient, quoted because it is what establishes the craniofacial features as variable rather than defining. Marked REFUTE against the claim that this feature is part of the syndrome in every patient; it is the reason the frequency is FREQUENT and not OBLIGATE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mandibular-prognathia" data-dismech-node="Mandibular prognathia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Mandibular prognathia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000303" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000303</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mandibular prognathia (HP:0000303). HP:0000303 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30124491" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30124491" target="_blank">PMID:30124491</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"craniofacial abnormalities (relative macrocephaly, severe midface hypoplasia with absent nasal cartilage, relative prognathism, and low-set, posteriorly rotated ears) as well as a short neck, barrel chest, and lumbar lordosis."</div>
+
+
+                <div class="evidence-explanation">Records the prognathism in the three siblings of the original family.</div>
 
 
 
@@ -5424,15 +5593,18 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000470</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000470</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5455,6 +5627,7 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5486,7 +5659,7 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-metaphyseal-widening" data-dismech-node="Metaphyseal widening" data-dismech-type="phenotype">
@@ -5505,15 +5678,18 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003016</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003016</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Metaphyseal widening (HP:0003016). HP:0003016 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5536,6 +5712,7 @@ This clinical feature is Metaphyseal widening (HP:0003016). HP:0003016 is a phen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5577,15 +5754,18 @@ This clinical feature is Metaphyseal widening (HP:0003016). HP:0003016 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5610,6 +5790,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5618,6 +5799,89 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                 <div class="evidence-explanation">Describes the hand phenotype in the original family in the detail that makes it distinctive.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-shallow-acetabular-fossae" data-dismech-node="Shallow acetabular fossae" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Shallow acetabular fossae
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003182</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Shallow acetabular fossae (HP:0003182). HP:0003182 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Osteoarthritis</span>
+
+                    </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30124491" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30124491" target="_blank">PMID:30124491</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The vertebral endplates were irregular. The acetabula were shallow."</div>
+
+
+                <div class="evidence-explanation">Records the acetabular dysplasia in the second patient. The preceding sentence is carried with it because the acetabular finding alone is too short to stand as a quotable proposition.</div>
 
 
 
@@ -5649,15 +5913,18 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002857</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002857</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5680,6 +5947,7 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5711,7 +5979,7 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-platyspondyly" data-dismech-node="Platyspondyly" data-dismech-type="phenotype">
@@ -5730,15 +5998,18 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000926</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000926</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5772,6 +6043,7 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5780,6 +6052,82 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
                 <div class="evidence-explanation">Records platyspondyly and the associated spinal curvature in the second patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-epiphysis-morphology" data-dismech-node="Abnormal epiphysis morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal epiphysis morphology
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005930" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005930</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal epiphysis morphology (HP:0005930). HP:0005930 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30124491" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30124491" target="_blank">PMID:30124491</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The radiological hallmarks included moderate platyspondyly with rectangular vertebral bodies, wide metaphyses and small, irregular epiphyses, multiple clefts of the cervical spine, and bradydactyly with accessory carpal ossification centers."</div>
+
+
+                <div class="evidence-explanation">Enumerates the radiological hallmarks including the epiphyseal abnormality. The typographical error in &#34;bradydactyly&#34; is present in the source and is preserved so the quote stays exact.</div>
 
 
 
@@ -5811,15 +6159,18 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001552</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001552</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Barrel-shaped chest (HP:0001552). HP:0001552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5842,6 +6193,7 @@ This clinical feature is Barrel-shaped chest (HP:0001552). HP:0001552 is a pheno
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5883,15 +6235,18 @@ This clinical feature is Barrel-shaped chest (HP:0001552). HP:0001552 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002938</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002938</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5914,6 +6269,7 @@ This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5955,15 +6311,18 @@ This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005619</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0005619</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thoracolumbar kyphosis (HP:0005619). HP:0005619 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5986,6 +6345,7 @@ This clinical feature is Thoracolumbar kyphosis (HP:0005619). HP:0005619 is a ph
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6027,15 +6387,18 @@ This clinical feature is Thoracolumbar kyphosis (HP:0005619). HP:0005619 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003301" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003301</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003301" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003301</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Irregular vertebral endplates (HP:0003301). HP:0003301 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6058,6 +6421,7 @@ This clinical feature is Irregular vertebral endplates (HP:0003301). HP:0003301 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6099,15 +6463,18 @@ This clinical feature is Irregular vertebral endplates (HP:0003301). HP:0003301 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002758</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6130,6 +6497,7 @@ This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6180,15 +6548,18 @@ This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6220,6 +6591,7 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6244,6 +6616,7 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6285,10 +6658,10 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003498</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003498</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6299,6 +6672,9 @@ This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6316,6 +6692,7 @@ This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6326,238 +6703,6 @@ This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498
 
 
                 <div class="evidence-explanation">Records the limb-shortening pattern that makes the stature disproportionate rather than uniformly reduced.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-epiphysis-morphology" data-dismech-node="Abnormal epiphysis morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal epiphysis morphology
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005930" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005930</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal epiphysis morphology (HP:0005930). HP:0005930 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30124491" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30124491" target="_blank">PMID:30124491</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The radiological hallmarks included moderate platyspondyly with rectangular vertebral bodies, wide metaphyses and small, irregular epiphyses, multiple clefts of the cervical spine, and bradydactyly with accessory carpal ossification centers."</div>
-
-
-                <div class="evidence-explanation">Enumerates the radiological hallmarks including the epiphyseal abnormality. The typographical error in &#34;bradydactyly&#34; is present in the source and is preserved so the quote stays exact.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mandibular-prognathia" data-dismech-node="Mandibular prognathia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mandibular prognathia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000303" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000303</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mandibular prognathia (HP:0000303). HP:0000303 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30124491" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30124491" target="_blank">PMID:30124491</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"craniofacial abnormalities (relative macrocephaly, severe midface hypoplasia with absent nasal cartilage, relative prognathism, and low-set, posteriorly rotated ears) as well as a short neck, barrel chest, and lumbar lordosis."</div>
-
-
-                <div class="evidence-explanation">Records the prognathism in the three siblings of the original family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-shallow-acetabular-fossae" data-dismech-node="Shallow acetabular fossae" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Shallow acetabular fossae
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003182</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Shallow acetabular fossae (HP:0003182). HP:0003182 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-                    <div class="item-meta">
-                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
-
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Osteoarthritis</span>
-
-                    </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30124491" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30124491" target="_blank">PMID:30124491</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The vertebral endplates were irregular. The acetabula were shallow."</div>
-
-
-                <div class="evidence-explanation">Records the acetabular dysplasia in the second patient. The preceding sentence is carried with it because the acetabular finding alone is too short to stand as a quotable proposition.</div>
 
 
 
@@ -6647,6 +6792,9 @@ This disease-associated gene is ACAN (hgnc:319). hgnc:319 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6664,6 +6812,7 @@ This disease-associated gene is ACAN (hgnc:319). hgnc:319 is a gene from the HUG
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6692,6 +6841,7 @@ This disease-associated gene is ACAN (hgnc:319). hgnc:319 is a gene from the HUG
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6716,6 +6866,7 @@ This disease-associated gene is ACAN (hgnc:319). hgnc:319 is a gene from the HUG
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6803,6 +6954,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6813,6 +6967,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -6852,6 +7009,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6897,6 +7055,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7010,6 +7169,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7103,6 +7263,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7161,6 +7322,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7230,6 +7392,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7254,6 +7417,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7306,6 +7470,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7376,6 +7541,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8858,6 +9024,24 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Perplexity deep-research report used as a lead only. The report cites 19 sources, of which its reference_validation could check 6 - all resolved, 4 judged on topic. Its term_validation reported 8 of 33 checked labels naming a different term than the report claimed, so its CURIEs were not reused and every binding here was resolved through OAK. All references were resolved to PMIDs (from the report&#39;s PMC URLs via the NCBI ID converter), fetched into references_cache, and quoted from the fetched text. The open PR #9082 curating RSPRY1-related SEMD covers a different gene and a different MONDO term; there is no overlap.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Spondyloepimetaphyseal Dysplasia Aggrecan Type (MONDO:0013014)</strong> · 2026-09-01T14:32:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spondyloepimetaphyseal_Dysplasia_Aggrecan_Type/2026-09-01T143249Z-claude-code-fc1cfd.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of SEMD aggrecan type from a Perplexity deep-research report (research/Spondyloepimetaphyseal_Dysplasia_Aggrecan_Type-deep-research-perplexity.md, sonar-deep-research, 19 citations). The report&#39;s reference_validation could check 6 of those 19, all resolved with 4 judged on topic; its term_validation reported 8 of 33 checked labels naming a different term than the report claimed, so no CURIE was reused and every binding was resolved through OAK. References were resolved to PMIDs from the report&#39;s PMC URLs via the NCBI ID converter, fetched with just fetch-reference, and quoted from the fetched text. The central curation decision is to model the mechanism as a matrix-anchoring defect rather than as aggrecan deficiency. The founding study (PMID:19110214) showed the p.D2267N mutant G3 domain traffics and is secreted normally while surface plasmon resonance showed altered binding and kinetics against tenascin-C, so the negative secretion result is given its own pathophysiology node because it is what excludes the mechanism a reader would otherwise assume. Tenascin-C is named as the binding partner because it is the one measured, not because the other G3 lectin-domain partners were excluded, and a KNOWLEDGE_GAP discussion records that distinction. A second discussion records the unexplained severity difference between the two reported families (66-71 cm in the original siblings versus 118.3 cm in the second patient). The entry is scoped to the recessive aggrecan-type SEMD and relates rather than absorbs the dominant ACAN disorders (SED Kimberley type, familial osteochondritis dissecans). Growth hormone is deliberately not listed as a treatment because nothing in the sources evaluates it in this disease and importing it would extrapolate across a different allele class. One snippet failed reference validation during curation because it stitched two non-contiguous sentences from the source; it was split into two evidence items rather than paraphrased. Validated with just validate (schema, terms, references: 26/26 snippets verified after the fix) plus check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms and check-enum-values, all clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

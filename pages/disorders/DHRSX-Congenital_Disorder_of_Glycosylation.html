@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4221,6 +4289,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4458,6 +4527,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4492,6 +4562,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dhrsx-oxidoreductase-deficiency" data-dismech-node="DHRSX Oxidoreductase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">DHRSX Oxidoreductase Deficiency</div>
+
 
                 <div class="item-desc">The reported variants — p.(Thr49Met), p.(Val181Phe), and p.(Leu215Phe) — cluster around the predicted NAD(P)+ binding site and the substrate access channel. Thr49 is an obligatory residue of the Class IV NAD(P)+ binding motif; Val181 contacts the cofactor directly and sits at the mouth of the substrate channel; Leu215 lies along that channel. All three are therefore expected to impair the enzyme&#39;s oxidoreductase function. They also destabilize the protein: patient cells carry about 4-5% of control DHRSX protein while mRNA remains at 34-68% of control, so the dominant effect is loss of the enzyme rather than a purely catalytic lesion in a normally abundant one.</div>
 
@@ -4583,6 +4654,7 @@ This pathophysiological event involves NAD(P)-dependent oxidoreductase activity 
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4604,6 +4676,7 @@ This pathophysiological event involves NAD(P)-dependent oxidoreductase activity 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4631,6 +4704,7 @@ This pathophysiological event involves NAD(P)-dependent oxidoreductase activity 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4653,6 +4727,7 @@ This pathophysiological event involves NAD(P)-dependent oxidoreductase activity 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dolichol-synthesis-from-polyprenol" data-dismech-node="Impaired Dolichol Synthesis from Polyprenol" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Dolichol Synthesis from Polyprenol</div>
+
 
                 <div class="item-desc">Cells lacking DHRSX accumulate polyprenol and its phosphorylated and hexosylated derivatives while dolichol and its derivatives fall — that is, the polyprenol-to-dolichol ratio rises. Polyprenal levels are unchanged, which is the observation that localizes the block to the DHRSX steps rather than the SRD5A3 step.</div>
 
@@ -4723,6 +4798,7 @@ This pathophysiological event involves NAD(P)-dependent oxidoreductase activity 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4745,6 +4821,7 @@ This pathophysiological event involves NAD(P)-dependent oxidoreductase activity 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-lipid-linked-oligosaccharide-maturation" data-dismech-node="Defective Lipid-Linked Oligosaccharide Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Lipid-Linked Oligosaccharide Maturation</div>
+
 
                 <div class="item-desc">Dolichol-phosphate is rate-limiting for N-glycosylation because dolichol-phosphate sugars are used at seven steps of LLO assembly. DPAGT1 (which transfers GlcNAc-1-P onto Dol-P), DPM synthase, and ALG3 (which adds the sixth mannose) are all markedly inefficient when handed the polyprenol-linked analogue instead. The LLO therefore stalls as an immature linear Man-5 species, with Man-4 arising downstream through EDEM3.</div>
 
@@ -4857,6 +4934,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4878,6 +4956,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4903,6 +4982,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-hypoglycosylation" data-dismech-node="Protein Hypoglycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein Hypoglycosylation</div>
+
 
                 <div class="item-desc">Underglycosylation of N-glycoproteins, detected clinically as a type I serum transferrin isoelectric focusing profile and experimentally as increased electrophoretic mobility of LAMP2. Notably the transferrin abnormality is not a reliable marker in every patient: one patient&#39;s profile normalized at 17 months and a fourth patient&#39;s was normal throughout, so a normal transferrin IEF does not exclude this diagnosis.</div>
 
@@ -5011,6 +5091,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5032,6 +5113,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5057,6 +5139,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-glycoprotein-dysfunction" data-dismech-node="Multisystem Glycoprotein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Glycoprotein Dysfunction</div>
+
 
                 <div class="item-desc">The organism-level convergence. Because many glycoproteins are underglycosylated at once, the disease presents across systems rather than in one organ: distinctive facial features, severe neurological involvement, profound sensorineural hearing loss with absent cochlear and vestibular nerves, ocular surface disease, skeletal deformity, severe failure to thrive, respiratory insufficiency and hepatic involvement. Which organs dominate is not predictable from the enzyme defect, which is why every edge out of this node is indirect with unknown intermediates. The cochlear nerve agenesis in particular is not a general CDG feature and is the subject of its own knowledge gap.</div>
 
@@ -5230,6 +5313,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5296,21 +5380,21 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5353,6 +5437,9 @@ This clinical feature is Gastroesophageal reflux disease, annotated with Gastroe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5370,6 +5457,7 @@ This clinical feature is Gastroesophageal reflux disease, annotated with Gastroe
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5425,6 +5513,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5442,6 +5533,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5473,7 +5565,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment" data-dismech-node="Sensorineural hearing impairment" data-dismech-type="phenotype">
@@ -5524,6 +5616,9 @@ This clinical feature is Profound bilateral sensorineural hearing loss, annotate
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5538,6 +5633,7 @@ This clinical feature is Profound bilateral sensorineural hearing loss, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5564,9 +5660,202 @@ This clinical feature is Profound bilateral sensorineural hearing loss, annotate
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cochlear-nerve-aplasia" data-dismech-node="Cochlear nerve aplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cochlear nerve aplasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:6000988</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral absence of the cochlear nerves, annotated with Cochlear nerve aplasia (HP:6000988). HP:6000988 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Sensorineural hearing impairment</span>
+
+                    </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bilateral absence of the cochlear nerves, superior and inferior vestibular nerves bilaterally absent/hypoplastic"</div>
+
+
+                <div class="evidence-explanation">Reports the cochlear and vestibular nerve findings on brain MRI.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neurotrophic-keratopathy" data-dismech-node="Neurotrophic keratopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neurotrophic keratopathy
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal corneal epithelium morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011495</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral neurotrophic keratopathy, annotated with Abnormal corneal epithelium morphology (HP:0011495). HP:0011495 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"corneal erosion of the right eye"</div>
+
+
+                <div class="evidence-explanation">Names the corneal finding in the fourth patient. The two-patient neurotrophic keratopathy cell in the same table is only three words long and so cannot serve as a snippet on its own; this cell carries the same ocular-surface claim at quotable length.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"involvement of the eyes, the gastrointestinal system, and other organs"</div>
+
+
+                <div class="evidence-explanation">The abstract-level statement of ocular involvement, supporting the phenotype at disease level.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -5589,15 +5878,18 @@ This clinical feature is Profound bilateral sensorineural hearing loss, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Distinct facial features, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5617,6 +5909,7 @@ This clinical feature is Distinct facial features, annotated with Abnormal facia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5645,7 +5938,7 @@ This clinical feature is Distinct facial features, annotated with Abnormal facia
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -5668,15 +5961,18 @@ This clinical feature is Distinct facial features, annotated with Abnormal facia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000951</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000951</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is hypertrichosis, ichthyosis and eczema, annotated with Abnormality of the skin (HP:0000951). HP:0000951 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5696,6 +5992,7 @@ This clinical feature is hypertrichosis, ichthyosis and eczema, annotated with A
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5724,18 +6021,18 @@ This clinical feature is hypertrichosis, ichthyosis and eczema, annotated with A
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Scoliosis
+                        Axial hypotonia
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -5747,15 +6044,18 @@ This clinical feature is hypertrichosis, ichthyosis and eczema, annotated with A
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0008936</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5775,6 +6075,81 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severe neurological involvement including hypotonia, scoliosis, contractures, profound intellectual disability, epilepsy, and sensorineural hearing loss"</div>
+
+
+                <div class="evidence-explanation">Reports hypotonia as a core neurological feature; the clinical table records it as axial in all four patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scoliosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5817,15 +6192,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0034392</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0034392</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elbow and knee contractures, annotated with Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5845,6 +6223,7 @@ This clinical feature is Elbow and knee contractures, annotated with Joint contr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5873,266 +6252,11 @@ This clinical feature is Elbow and knee contractures, annotated with Joint contr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Epilepsy, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"severe neurological involvement including hypotonia, scoliosis, contractures, profound intellectual disability, epilepsy, and sensorineural hearing loss"</div>
-
-
-                <div class="evidence-explanation">Lists epilepsy among the core neurological features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory insufficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory insufficiency
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These individuals also experienced severe failure to thrive (requiring tube feeding); variable respiratory insufficiency; and involvement of the eyes, the gastrointestinal system, and other organs"</div>
-
-
-                <div class="evidence-explanation">Reports variable respiratory insufficiency among the systemic features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe failure to thrive requiring tube feeding, annotated with Failure to thrive (HP:0001508), qualified as severity severe. HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Severity: SEVERE</span>
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These individuals also experienced severe failure to thrive (requiring tube feeding); variable respiratory insufficiency; and involvement of the eyes, the gastrointestinal system, and other organs"</div>
-
-
-                <div class="evidence-explanation">Reports severe failure to thrive requiring tube feeding in the affected individuals.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Nervous System
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-profound-intellectual-disability" data-dismech-node="Profound intellectual disability" data-dismech-type="phenotype">
@@ -6183,6 +6307,9 @@ This clinical feature is Profound intellectual disability (HP:0002187), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6197,6 +6324,7 @@ This clinical feature is Profound intellectual disability (HP:0002187), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6223,11 +6351,11 @@ This clinical feature is Profound intellectual disability (HP:0002187), qualifie
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial hypotonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Axial hypotonia
+                        Seizure
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -6239,15 +6367,18 @@ This clinical feature is Profound intellectual disability (HP:0002187), qualifie
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001250</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Epilepsy, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6267,6 +6398,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6277,182 +6409,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
                 <div class="evidence-snippet">"severe neurological involvement including hypotonia, scoliosis, contractures, profound intellectual disability, epilepsy, and sensorineural hearing loss"</div>
 
 
-                <div class="evidence-explanation">Reports hypotonia as a core neurological feature; the clinical table records it as axial in all four patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cochlear-nerve-aplasia" data-dismech-node="Cochlear nerve aplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cochlear nerve aplasia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:6000988</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral absence of the cochlear nerves, annotated with Cochlear nerve aplasia (HP:6000988). HP:6000988 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-                    <div class="item-meta">
-                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
-
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Sensorineural hearing impairment</span>
-
-                    </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"bilateral absence of the cochlear nerves, superior and inferior vestibular nerves bilaterally absent/hypoplastic"</div>
-
-
-                <div class="evidence-explanation">Reports the cochlear and vestibular nerve findings on brain MRI.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neurotrophic-keratopathy" data-dismech-node="Neurotrophic keratopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neurotrophic keratopathy
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal corneal epithelium morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011495</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral neurotrophic keratopathy, annotated with Abnormal corneal epithelium morphology (HP:0011495). HP:0011495 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"corneal erosion of the right eye"</div>
-
-
-                <div class="evidence-explanation">Names the corneal finding in the fourth patient. The two-patient neurotrophic keratopathy cell in the same table is only three words long and so cannot serve as a snippet on its own; this cell carries the same ocular-surface claim at quotable length.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"involvement of the eyes, the gastrointestinal system, and other organs"</div>
-
-
-                <div class="evidence-explanation">The abstract-level statement of ocular involvement, supporting the phenotype at disease level.</div>
+                <div class="evidence-explanation">Lists epilepsy among the core neurological features.</div>
 
 
 
@@ -6484,15 +6441,18 @@ This clinical feature is Bilateral neurotrophic keratopathy, annotated with Abno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0033725</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0033725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6515,6 +6475,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6523,6 +6484,190 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                 <div class="evidence-explanation">Records the corpus callosum finding on brain MRI.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory insufficiency
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These individuals also experienced severe failure to thrive (requiring tube feeding); variable respiratory insufficiency; and involvement of the eyes, the gastrointestinal system, and other organs"</div>
+
+
+                <div class="evidence-explanation">Reports variable respiratory insufficiency among the systemic features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to thrive
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe failure to thrive requiring tube feeding, annotated with Failure to thrive (HP:0001508), qualified as severity severe. HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Severity: SEVERE</span>
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38821050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38821050" target="_blank">PMID:38821050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These individuals also experienced severe failure to thrive (requiring tube feeding); variable respiratory insufficiency; and involvement of the eyes, the gastrointestinal system, and other organs"</div>
+
+
+                <div class="evidence-explanation">Reports severe failure to thrive requiring tube feeding in the affected individuals.</div>
 
 
 
@@ -6612,6 +6757,9 @@ This disease-associated gene is DHRSX (hgnc:18399). hgnc:18399 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6626,6 +6774,7 @@ This disease-associated gene is DHRSX (hgnc:18399). hgnc:18399 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6661,7 +6810,9 @@ This disease-associated gene is DHRSX (hgnc:18399). hgnc:18399 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6669,6 +6820,11 @@ This disease-associated gene is DHRSX (hgnc:18399). hgnc:18399 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Thr49 is an obligatory residue of the Class IV NAD(P)+ binding motif, so this substitution is predicted to disrupt cofactor binding.</div>
@@ -6696,7 +6852,9 @@ This disease-associated gene is DHRSX (hgnc:18399). hgnc:18399 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6704,6 +6862,11 @@ This disease-associated gene is DHRSX (hgnc:18399). hgnc:18399 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Val181 contacts the cofactor directly and sits at the interface of the NAD(P)+ site and the substrate access channel; inserting a bulky phenylalanine is predicted to disrupt both.</div>
@@ -6731,7 +6894,9 @@ This disease-associated gene is DHRSX (hgnc:18399). hgnc:18399 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6739,6 +6904,11 @@ This disease-associated gene is DHRSX (hgnc:18399). hgnc:18399 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Leu215 lies along the substrate access channel, close to Lys212, which is predicted to hydrogen-bond the cofactor.</div>
@@ -6822,6 +6992,9 @@ This treatment is gastrostomy placement, annotated with Gastrostomy (NCIT:C52006
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6832,6 +7005,9 @@ This treatment is gastrostomy placement, annotated with Gastrostomy (NCIT:C52006
 
 
     </div>
+
+
+
 
 
 
@@ -6877,6 +7053,7 @@ This treatment is gastrostomy placement, annotated with Gastrostomy (NCIT:C52006
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6944,6 +7121,9 @@ This treatment is non-invasive ventilation, annotated with Non-Invasive Mechanic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6954,6 +7134,9 @@ This treatment is non-invasive ventilation, annotated with Non-Invasive Mechanic
 
 
     </div>
+
+
+
 
 
 
@@ -6999,6 +7182,7 @@ This treatment is non-invasive ventilation, annotated with Non-Invasive Mechanic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7065,6 +7249,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7075,6 +7262,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7152,6 +7342,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7162,6 +7355,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7253,6 +7449,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7319,6 +7516,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7370,6 +7568,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7444,6 +7643,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7577,6 +7777,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7694,6 +7895,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7753,6 +7955,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7792,6 +7995,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8931,6 +9135,92 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (4)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Ontology bindings here were resolved independently and none was taken from the deep-research report. That report&#39;s own term validation flagged 16 of 20 checked labels as naming a different term than the ontology does, including NCIT:C99290, which it calls &#34;Hearing Aid&#34; and NCIT calls &#34;TCF3/HLF Fusion Protein&#34;.
+Frequency denominators differ between phenotypes and this is not an inconsistency. Sensorineural hearing loss is VERY_FREQUENT on 3/3 - the fourth patient&#39;s auditory evoked potentials were inconclusive, so he is counted neither way - while epilepsy is FREQUENT on 3/4. Each frequency is taken against the number of patients actually assessed for that finding.
+The literature uses &#34;DHRSX-CDG&#34; for this disorder; &#34;congenital disorder of glycosylation, type 1DD&#34; (CDG1DD) is the OMIM/MONDO name for the same entity (OMIM:301133). Do not confuse the pseudoautosomal location of DHRSX with X-linked inheritance — PAR1 genes are present in two copies in both sexes and escape X-inactivation, and both females and males are affected in the reported families.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Apply the knock-on fix that silently did not land, plus two suggestions</strong> · 2026-09-06T01:53:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DHRSX-Congenital_Disorder_of_Glycosylation/2026-09-06T015346Z-claude-code-af250a.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the review on PR #10497. One blocking item, and it is a process failure of mine rather than a content judgement.
+
+The previous round&#39;s commit message and history record both claimed the dolichol_role_versus_autophagy_role rationale had been corrected. It had not. That paragraph still reasoned that the variants &#39;would be expected to impair the oxidoreductase function specifically&#39; - the same over-read the round had just removed from two other places - leaving the entry self-contradictory: the pathophysiology description said the dominant effect is loss of the enzyme, and the discussion said the lesion is specifically catalytic.
+
+The cause is one I have now hit three times in this PR series. A Python string replacement whose anchor does not match writes nothing and reports nothing, and I validate that the resulting YAML parses rather than that each replacement applied. It produced the PAICS history record claiming a biological_scale change that never landed, the LENCEP self-contradiction about AIP attacks, and now this. I said after the second occurrence that I had fixed it by asserting on every anchor; in the previous round I asserted on two of the four replacements and not on the knock-on edits, which is how this one escaped.
+
+This round asserts on every anchor before writing and re-reads the written file afterwards to confirm each expected string is present. That discipline caught a second silent failure while making this edit: the notes paragraph recording that the deep-research report&#39;s ontology suggestions were screened and none adopted, which the previous round also claimed to have added, was likewise absent. It is now present and verified. Both are content the reviewer had credited me with and neither existed.
+
+Fixed per the reviewer&#39;s instruction to change the file rather than amend the history record, since history is append-only and correcting the file makes both the earlier commit message and the earlier record accurate.
+
+Suggestions taken. Supportive and Multidisciplinary Care now carries target_mechanisms onto Scoliosis and Joint contracture, the two phenotypes its own description names, so it is no longer the one treatment detached from the pathograph. A notes paragraph explains the differing frequency denominators - sensorineural hearing loss VERY_FREQUENT on 3/3, since the fourth patient&#39;s auditory evoked potentials were inconclusive and he is counted neither way, against epilepsy FREQUENT on 3/4.
+
+Suggestion not taken: pruning the nine uncited reference-cache files added by this PR. They are the screening trail, including the preprint deliberately swapped out for its published version, and the reviewer notes they are harmless. Removing them would erase the record of what was considered.
+
+Validation: just validate passes; 41/41 snippets verified. All offline gates green.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR #10497 review: module conformance, specific treatment terms, GERD, pathograph</strong> · 2026-09-05T17:07:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DHRSX-Congenital_Disorder_of_Glycosylation/2026-09-05T170702Z-claude-code-84a83f.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the post-rebase review on PR #10497. All three blocking items accepted; four of seven suggestions taken.
+
+1. No node declared conforms_to, though kb/modules/congenital_disorder_of_glycosylation.yaml exists and twenty sibling CDG entries use it. Added the two the reviewer identified: Defective Lipid-Linked Oligosaccharide Maturation to the ER Lipid-Linked Oligosaccharide Assembly Defect trigger, and Protein Hypoglycosylation to the shared hub. The two upstream DHRSX-specific nodes are correctly left unconformed, as the reviewer noted, because the module has no counterpart for a dolichol-synthesis defect upstream of LLO assembly.
+
+2. Two treatment terms were more generic than terms this repository already uses elsewhere. Gastrostomy Feeding moved from NCIT:C15329 Surgical Procedure to NCIT:C52006 Gastrostomy, and Non-Invasive Ventilation from NCIT:C15747 Supportive Care to NCIT:C171457 Non-Invasive Mechanical Ventilation. Both validate, so this was specificity loss rather than a validation failure - and the second also removed a collision, since NCIT:C15747 was simultaneously bound to the separate Supportive and Multidisciplinary Care treatment in the same file.
+
+3. Gastroesophageal reflux (HP:0002020) added at FREQUENT. The reviewer is right that it was the only 2/4 Table 1 finding left out while hepatomegaly, thin corpus callosum, cochlear nerve aplasia and scoliosis were all curated, which reads as an oversight rather than scoping. Graded directness INDIRECT with the same disease-level sentence and the same stated reason as the hepatic finding: the per-patient detail sits in a table whose adjacent cells are concatenated without separators in the extracted text.
+
+Suggestions taken. A Multisystem Glycoprotein Dysfunction node was added at ORGANISM scale conforming to the module node of the same name, following the ALG3-CDG exemplar. That is suggestion 4, and taking it resolves suggestion 3 as well: Protein Hypoglycosylation now has a single DIRECT edge into it, and all fifteen phenotypes hang off it as INDIRECT_UNKNOWN_INTERMEDIATES, so the entry is one connected component instead of leaving nine phenotypes with no incoming edge. The indirect grading is not a formality - which organs dominate is not predictable from the enzyme defect, and the cochlear nerve agenesis in particular is not a general CDG feature and has its own knowledge gap.
+
+Restructuring that block surfaced a defect I had introduced myself: renaming the ophthalmologic phenotype to Neurotrophic keratopathy for suggestion 1 left the old &#39;Abnormality of the eye&#39; string as a downstream target. Bare-name pathograph targets are matched verbatim with no resolution step and no error, so it would have drawn a phantom node and silently detached the real one. Caught by rebuilding the block rather than by any gate, since check-causal-targets grandfathers the pre-existing backlog.
+
+Also added: DHRSX-CDG to kb/groupings/Congenital_Disorders_of_Glycosylation.yaml with a differentiating_mechanisms entry (suggestion 5) - check-groupings confirms it satisfies the NECESSARY criterion - and a notes line recording that the deep-research report&#39;s ontology suggestions were screened and none adopted, since its own term validation flagged 16 of 20 checked labels as naming a different term (suggestion 6).
+
+Suggestions not taken. The three-way hypertrichosis/ichthyosis/eczema bundle is left under one general skin term; the reviewer allows that bundling is a defensible reading of the source, and splitting would mean asserting three separate frequencies the table does not give. The directness uniformity point is left as-is for the stated reason - absent is the honest default for an unassessed item.
+
+Validation: just validate passes; 40/40 snippets verified, up from 38/38. pytest passes on the conformance, entity-ref, causal-target, foreign-key and grouping selections (14,257 tests). All offline gates green.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: DHRSX-Congenital_Disorder_of_Glycosylation (CDG1DD)</strong> · 2026-09-02T03:33:11Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DHRSX-Congenital_Disorder_of_Glycosylation/2026-09-02T033311Z-claude-code-68562e.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of DHRSX-CDG / congenital disorder of glycosylation type 1DD (MONDO:0975846, OMIM:301133).
+
+Entry-type decision. Curated as a kb/disorders/ Disease. MONDO records it directly under MONDO:0015286 congenital disorder of glycosylation with no descendants, and the repository already curates roughly twenty sibling CDGs one-per-gene, so a leaf gene-defined Disease is the established pattern. Named for the gene following that convention (ALG1-, ALG3-, MPI-, PMM2-).
+
+Inheritance is pseudoautosomal recessive, which HPO has no term for. DHRSX sits in pseudoautosomal region 1, present on both X and Y and escaping X-inactivation, so transmission behaves autosomally and both females and males are affected. HP:0000007 Autosomal recessive inheritance is bound with the pseudoautosomal location recorded in the block description rather than leaving the slot unbound or inventing an X-linked term.
+
+Deep research: openscientist (research/DHRSX-Congenital_Disorder_of_Glycosylation-deep-research-openscientist.md). Falcon, the repo default, was unavailable (no EDISON_API_KEY/FUTUREHOUSE_API_KEY); openscientist was chosen explicitly. Given that the sibling run in this same batch curated the wrong disease entirely (see history/disorders/Cardiomyopathy_Dilated_2H and issue #10495), this report was preflighted for entity confusion before use: DHRSX appears 67 times, the OMIM phenotype number matches, and the disease identity is correct.
+
+Validation was retro-fitted since the report shipped without it. References came back clean: 16/16 resolved, 0 unresolved, 0 off topic, 7/7 quoted claims found in source. Terms did not: 32 checked, 1 unresolved, 2 obsolete, and 16 of 20 checked names resolving to a different term than the report&#39;s label - including NCIT:C99290, which the report calls &#39;Hearing Aid&#39; and NCIT calls &#39;TCF3/HLF Fusion Protein&#39;. No ontology term was taken from this report. Every binding in the entry was resolved independently through EBI OLS and then confirmed by just validate-terms.
+
+One thing taken from the report and verified against a freshly fetched primary source: PMID:25076851, the earlier characterization of DHRSX as a non-classical secretory protein that positively regulates starvation-induced autophagy. This is now a KNOWLEDGE_GAP asking whether that second function contributes to the disease or whether the phenotype is entirely the dolichol defect. It matters because the entry&#39;s whole pathograph runs through glycosylation, and an unrecognised autophagy arm would be something the graph does not represent. Graded SUPPORT with directness INDIRECT - overexpression and siRNA in HeLa and U2OS cells, no patient material.
+
+One report claim contradicted and not used: it states there is no dedicated MONDO, Orphanet or ICD-11 entry for this disorder. MONDO:0975846 exists and carries OMIM:301133 as an xref; the entry binds it.
+
+The validator caught one fabricated CURIE of mine during curation. I had written HP:0031936 for an abnormal serum transferrin isoelectric focusing biomarker; that identifier is real but means &#39;Delayed ability to walk&#39;. Replaced with HP:0003642 Type I transferrin isoform profile after an OLS search. Recording it because it is the anti-hallucination check working as designed on curator-authored content rather than on report content.
+
+Pathograph: four nodes from DHRSX oxidoreductase deficiency through impaired dolichol synthesis from polyprenol and defective lipid-linked oligosaccharide maturation to protein hypoglycosylation. The three edges from hypoglycosylation to the clinical phenotypes are INDIRECT_UNKNOWN_INTERMEDIATES, because how underglycosylation produces bilateral cochlear and vestibular nerve agenesis specifically is not known; that is recorded as its own knowledge gap.
+
+Two cell models carry ModelMechanismLink readouts: DHRSX knockout HAP1 cells with LAMP2 mobility and wild-type rescue, and the CHO Lec5/Lec9 lectin-resistance mutants, which had a known but unexplained polyprenol-to-dolichol block for decades and turned out to be missing the DHRSX genomic region. The Lec5/Lec9 complementation discriminates DHRSX from SRD5A3 directly.
+
+A diagnostic caveat is curated as a biochemical entry rather than buried in prose: the CDG type I transferrin pattern was present in only three of four patients, one normalized at 17 months and his brother&#39;s was normal throughout, so a normal transferrin isoelectric focusing does not exclude this diagnosis. Transferrin IEF is the standard first-line CDG screen, so this is the finding most likely to cause a missed diagnosis.
+
+Validation: just validate passes (schema, terms, references); 29/29 snippets verified. check-entity-refs, check-causal-targets, check-duplicate-keys and check-enum-values all pass.
+
+No datasets: block.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

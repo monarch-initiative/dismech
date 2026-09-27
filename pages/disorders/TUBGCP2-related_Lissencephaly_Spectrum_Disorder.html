@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4105,6 +4173,7 @@ Mechanistic evidence is narrower than the clinical association. For the p.Glu311
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4126,6 +4195,7 @@ Mechanistic evidence is narrower than the clinical association. For the p.Glu311
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4372,6 +4442,7 @@ Mechanistic evidence is narrower than the clinical association. For the p.Glu311
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4500,6 +4571,7 @@ Mechanistic evidence is narrower than the clinical association. For the p.Glu311
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4574,6 +4646,7 @@ Mechanistic evidence is narrower than the clinical association. For the p.Glu311
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4608,6 +4681,7 @@ Mechanistic evidence is narrower than the clinical association. For the p.Glu311
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-tubgcp2-variation" data-dismech-node="Biallelic TUBGCP2 Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TUBGCP2 Variation</div>
+
 
                 <div class="item-desc">The disease is associated with biallelic germline TUBGCP2 variants. Reported configurations include homozygous missense and frameshift variants, compound-heterozygous missense and splice-altering variants, and two paternal missense variants opposite a maternal deletion of exons 2-14. The functional class is left UNKNOWN because no study has compared the full allele series in a common functional assay.</div>
 
@@ -4668,6 +4742,8 @@ This pathophysiological event involves TUBGCP2 (hgnc:18599). hgnc:18599 is a gen
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense, splice-altering, frameshift, multi-exon deletion</span>
 
 
@@ -4681,6 +4757,9 @@ This pathophysiological event involves TUBGCP2 (hgnc:18599). hgnc:18599 is a gen
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Disease-wide context spanning homozygous, compound-heterozygous, and hemizygous-by-deletion configurations; zygosity is intentionally omitted because the schema has no generic biallelic value. Truncating and deletion alleles are not assigned loss of function without a direct assay, and no dominant-negative mechanism has been demonstrated.</div>
 
@@ -4738,6 +4817,7 @@ This pathophysiological event involves TUBGCP2 (hgnc:18599). hgnc:18599 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4760,6 +4840,13 @@ This pathophysiological event involves TUBGCP2 (hgnc:18599). hgnc:18599 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variant-dependent-gamma-turc-localization-and-cytoskeletal-dysregulation" data-dismech-node="Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Evidence for this proximal cellular state is allele-specific. Structural analysis predicts that p.Glu311Lys disrupts electrostatic interaction at the GCP2-GCP3 interface. Primary fibroblasts carrying that allele have normal GCP2 abundance but faint delocalization of gamma-tubulin, HAUS6, and NEDD1, plus broader cytoskeletal proteomic changes. The study did not measure microtubule-nucleation rate, and fibroblasts are not a neural model.</div>
 
@@ -4922,6 +5009,7 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4943,6 +5031,7 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4970,6 +5059,7 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4994,6 +5084,13 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-developing-brain-mitotic-state" data-dismech-node="Altered Developing-Brain Mitotic State" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Developing-Brain Mitotic State</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Zebrafish tubgcp2 morphants have increased phospho-histone H3-positive cells in the developing brain. This is direction-neutral mechanistic evidence: the experiment establishes altered mitotic cell abundance but explicitly cannot distinguish mitotic arrest from over-proliferation. No comparable measurement has been made in patient neural cells.</div>
 
@@ -5067,6 +5164,7 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5089,6 +5187,13 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-brain-growth-and-microcephaly" data-dismech-node="Reduced Brain Growth and Microcephaly" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Brain Growth and Microcephaly</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Microcephaly was present in all eight individuals summarized in the 2025 review. Independent zebrafish and fly depletion/null models show reduced brain size, but those low-fidelity models do not establish the human cellular route or reproduce the cortical-folding phenotype.</div>
 
@@ -5215,6 +5320,7 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5236,6 +5342,7 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5261,6 +5368,13 @@ This pathophysiological event involves dysregulated centrosome (GO:0005813). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-migration-failure" data-dismech-node="Neuronal Migration Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Migration Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The founding study interpreted pachygyria and subcortical band heterotopia as presumably caused by disrupted neuronal migration. Migration has not been directly measured in patient-derived neural cells, zebrafish, or fly, so this node remains a partially supported imaging-based hypothesis.</div>
 
@@ -5352,6 +5466,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5374,6 +5489,13 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lissencephaly-spectrum-cortical-malformation" data-dismech-node="Lissencephaly Spectrum Cortical Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lissencephaly Spectrum Cortical Malformation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The cortical phenotype spans pachygyria, agyria, subcortical band heterotopia, and a reported pachygyria-polymicrogyria complex. Pachygyria was present in all eight people summarized in the 2025 review. Cystic leukomalacia is kept separate as a non-cortical radiological extension.</div>
 
@@ -5443,6 +5565,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5464,6 +5587,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5489,6 +5613,13 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-associated-non-cortical-structural-brain-abnormalities" data-dismech-node="Associated Non-Cortical Structural Brain Abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Associated Non-Cortical Structural Brain Abnormalities</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Callosal, cerebellar, brainstem, white-matter, cystic, and visual-system abnormalities expand the structural spectrum beyond the cortex. Their developmental links to TUBGCP2 and to each other are not established.</div>
 
@@ -5582,6 +5713,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5603,6 +5735,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5651,7 +5784,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered Developing-Brain Mitotic State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Zebrafish tubgcp2 morphants have increased phospho-histone H3-positive cells in the developing brain. This is direction-neutral mechanistic evidence: the experiment establishes altered mitotic cell abundance but explicitly cannot distinguish mitotic arrest from over-proliferation. No comparable measurement has been made in patient neural cells.\", \"meta\": {\"evidence_count\": 1, \"role\": \"PATHWAY\", \"animal_models\": [{\"name\": \"tubgcp2 Morpholino Zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"tubgcp2 translation-blocking or splice-blocking morpholino with p53-blocking morpholino; wild-type tubgcp2 mRNA co-injection rescue arm\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Measures altered abundance of mitotic cells in the developing morphant brain.\"}]}}, {\"id\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Callosal, cerebellar, brainstem, white-matter, cystic, and visual-system abnormalities expand the structural spectrum beyond the cortex. Their developmental links to TUBGCP2 and to each other are not established.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Biallelic TUBGCP2 Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease is associated with biallelic germline TUBGCP2 variants. Reported configurations include homozygous missense and frameshift variants, compound-heterozygous missense and splice-altering variants, and two paternal missense variants opposite a maternal deletion of exons 2-14. The functional class is left UNKNOWN because no study has compared the full allele series in a common functional assay.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TUBGCP2\"], \"gene_terms\": [{\"label\": \"TUBGCP2\", \"id\": \"hgnc:18599\"}], \"genetic_context\": {\"allele_type\": \"missense, splice-altering, frameshift, multi-exon deletion\", \"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Disease-wide context spanning homozygous, compound-heterozygous, and hemizygous-by-deletion configurations; zygosity is intentionally omitted because the schema has no generic biallelic value. Truncating and deletion alleles are not assigned loss of function without a direct assay, and no dominant-negative mechanism has been demonstrated.\"}, \"role\": \"TRIGGER\"}}, {\"id\": \"Brainstem Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin brainstem was reported in 2/8 people in the 2025 cumulative review set and is represented by the broader canonical HPO term for brainstem hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002365\"}}, {\"id\": \"Cerebellar Volume Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss was reported in 3/8 people in the 2025 cumulative review set.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The review reports cortical blindness in a few patients. This is mapped to cerebral visual impairment without assigning a frequency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100704\"}}, {\"id\": \"Cerebral White Matter Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystic white-matter foci were reported in 2/8 people in the 2025 cumulative review set. The broad HPO mapping avoids equating these foci with the later cystic-leukomalacia report.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002500\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One severely affected p.Glu311Lys sibling lost previously acquired motor and cognitive abilities by four years. No cumulative frequency is assigned.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysmorphic Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad facial dysmorphism was present in 7/8 people in the 2025 review set. Individual features were less frequent, so the record is mapped to abnormal facial shape rather than to narrow forehead alone.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"EEG Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Five of seven patients with seizures had slow background activity and epileptiform discharges. No disease-level frequency is assigned because the denominator is restricted to the seizure subgroup.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Seizures\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"EEG abnormality is an investigation readout within the seizure subgroup.\"}], \"term_id\": \"HP:0002353\"}}, {\"id\": \"Generalized Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe hypotonia was documented in one p.Glu311Lys sibling. No frequency is assigned because the cited case sentence does not define a cumulative denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 8/8 people in the 2025 cumulative review set, most often affecting both speech and motor domains.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Grip84-cg7716 Double-Knockout Fly\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A double-homolog knockout produces small larval brains, general microsomia, delayed development, and pupal lethality. It is a low-fidelity null model in a species with two TUBGCP2 homologs and does not model a human allele.\"}, {\"id\": \"Lissencephaly Spectrum Cortical Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cortical phenotype spans pachygyria, agyria, subcortical band heterotopia, and a reported pachygyria-polymicrogyria complex. Pachygyria was present in all eight people summarized in the 2025 review. Cystic leukomalacia is kept separate as a non-cortical radiological extension.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 8/8 people in the 2025 cumulative review set. Later case reports are not included in this denominator.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Neuronal Migration Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The founding study interpreted pachygyria and subcortical band heterotopia as presumably caused by disrupted neuronal migration. Migration has not been directly measured in patient-derived neural cells, zebrafish, or fly, so this node remains a partially supported imaging-based hypothesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuron migration\"], \"role\": \"PATHWAY\"}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy has been reported in a few patients, but the review did not provide a denominator suitable for frequency assignment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Pachygyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pachygyria was present in 8/8 people in the 2025 cumulative review set. A later case report described a pachygyria-polymicrogyria complex; that later report is not included in this frequency denominator.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001302\"}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in a later case as part of a pachygyria-polymicrogyria complex. No frequency is assigned because that case falls outside the 8-person review denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"Reduced Brain Growth and Microcephaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microcephaly was present in all eight individuals summarized in the 2025 review. Independent zebrafish and fly depletion/null models show reduced brain size, but those low-fidelity models do not establish the human cellular route or reproduce the cortical-folding phenotype.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\", \"animal_models\": [{\"name\": \"tubgcp2 Morpholino Zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"tubgcp2 translation-blocking or splice-blocking morpholino with p53-blocking morpholino; wild-type tubgcp2 mRNA co-injection rescue arm\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces reduced larval head width and demonstrates partial wild-type-mRNA rescue.\"}, {\"name\": \"Grip84-cg7716 Double-Knockout Fly\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Double knockout of the TUBGCP2 homologs Grip84 and cg7716\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces reduced brain surface area in a two-homolog null background.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 7/8 people in the 2025 review set, with onset from 5 months to 4 years and a median of 21.5 months.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity with brisk reflexes and limb contractures was documented in a p.Glu311Lys sibling. No cumulative frequency is assigned.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Subcortical Band Heterotopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 2/8 people in the 2025 cumulative review set and part of the lissencephaly-spectrum cortical phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0032409\"}}, {\"id\": \"Subependymal Cysts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subependymal cysts were reported in 2/8 people in the 2025 cumulative review set.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002416\"}}, {\"id\": \"TUBGCP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TUBGCP2 (gamma-tubulin complex component 2)\"], \"gene_terms\": [{\"label\": \"TUBGCP2 (gamma-tubulin complex component 2)\", \"id\": \"hgnc:18599\"}], \"association\": \"Causative\"}}, {\"id\": \"Thick Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A later case with a homozygous frameshift variant had a thick corpus callosum. No frequency is assigned because this report is outside the 8-person denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007074\"}}, {\"id\": \"Thin Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 6/8 people in the 2025 cumulative review set. A later report of a thick corpus callosum is recorded separately and is outside this denominator.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002079\"}}, {\"id\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Evidence for this proximal cellular state is allele-specific. Structural analysis predicts that p.Glu311Lys disrupts electrostatic interaction at the GCP2-GCP3 interface. Primary fibroblasts carrying that allele have normal GCP2 abundance but faint delocalization of gamma-tubulin, HAUS6, and NEDD1, plus broader cytoskeletal proteomic changes. The study did not measure microtubule-nucleation rate, and fibroblasts are not a neural model.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"microtubule cytoskeleton organization\"], \"role\": \"PATHWAY\", \"experimental_models\": [{\"name\": \"p.Glu311Lys Patient Fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Measures gamma-tubulin, HAUS6, and NEDD1 localization and GCP2 abundance for p.Glu311Lys in primary patient cells.\"}]}}, {\"id\": \"p.Glu311Lys Patient Fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary skin fibroblasts from an affected person homozygous for p.Glu311Lys, compared with control fibroblasts by immunofluorescence, immunoblotting, proteomics, proliferation, and cytotoxicity assays. This is an allele-specific peripheral-cell model rather than a neural model.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Untreated patient and control fibroblasts\", \"L-serine treatment arm\"], \"publication\": \"PMID:33458610\"}}, {\"id\": \"tubgcp2 Morpholino Zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Two independent transient depletion reagents produce small heads and altered developing-brain pH3-positive cell abundance. Wild-type mRNA partly rescues brain size. This is a depletion model without a patient allele.\"}], \"edges\": [{\"source\": \"Biallelic TUBGCP2 Variation\", \"target\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The p.Glu311Lys allele has computational and patient-fibroblast evidence; whether the same proximal effect applies to every reported allele is not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Biallelic TUBGCP2 Variation\", \"target\": \"Dysmorphic Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental route from TUBGCP2 variation to facial dysmorphism is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"target\": \"Altered Developing-Brain Mitotic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A mitotic-state abnormality is seen in a depletion model, but its route from the human variant-dependent fibroblast state is not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"target\": \"Neuronal Migration Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Migration is inferred from human cortical imaging; it has not been assayed in patient neural cells or either animal model.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"target\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental route to the non-cortical MRI findings is unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Altered Developing-Brain Mitotic State\", \"target\": \"Reduced Brain Growth and Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The model links altered mitotic-cell abundance with reduced brain size, but the intervening cell-fate and population dynamics remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level reduced-brain-growth state is expressed clinically as microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurodevelopmental intermediates producing global delay are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The epileptogenic circuit intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mechanism of regression in the severely affected patient is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neural and motor-system intermediates producing hypotonia are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The corticospinal intermediates producing spasticity are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Migration Failure\", \"target\": \"Lissencephaly Spectrum Cortical Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A migration defect is a plausible route to the cortical phenotype, but direct cellular validation and relevant intermediates are lacking.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lissencephaly Spectrum Cortical Malformation\", \"target\": \"Pachygyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pachygyria is the constant cortical imaging manifestation in the review set.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lissencephaly Spectrum Cortical Malformation\", \"target\": \"Subcortical Band Heterotopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subcortical band heterotopia is a less frequent cortical manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lissencephaly Spectrum Cortical Malformation\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polymicrogyria was reported as part of a pachygyria-polymicrogyria complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Thin Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Cerebellar Volume Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Subependymal Cysts\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Brainstem Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Cerebral White Matter Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Thick Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Cerebral Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"p.Glu311Lys Patient Fibroblasts\", \"target\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Measures gamma-tubulin, HAUS6, and NEDD1 localization and GCP2 abundance for p.Glu311Lys in primary patient cells.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The model is limited to one missense allele and a peripheral cell type; neuronal migration, developing-brain mitosis, and microtubule nucleation were not measured.\"}, {\"source\": \"tubgcp2 Morpholino Zebrafish\", \"target\": \"Altered Developing-Brain Mitotic State\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Measures altered abundance of mitotic cells in the developing morphant brain.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Transient morpholino depletion is not a patient-allele model, and increased pH3 staining cannot distinguish mitotic arrest from over-proliferation.\"}, {\"source\": \"tubgcp2 Morpholino Zebrafish\", \"target\": \"Reduced Brain Growth and Microcephaly\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces reduced larval head width and demonstrates partial wild-type-mRNA rescue.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The transient knockdown does not model a patient allele, and it does not assay lissencephaly, neuronal migration, or microtubule nucleation.\"}, {\"source\": \"Grip84-cg7716 Double-Knockout Fly\", \"target\": \"Reduced Brain Growth and Microcephaly\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces reduced brain surface area in a two-homolog null background.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The model removes two fly homologs, has severe generalized developmental effects, and does not assay human cortical folding, neuronal migration, or microtubule nucleation.\"}, {\"source\": \"Seizures\", \"target\": \"EEG Abnormality\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"EEG abnormality is an investigation readout within the seizure subgroup.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"TUBGCP2\", \"target\": \"Biallelic TUBGCP2 Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered Developing-Brain Mitotic State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Zebrafish tubgcp2 morphants have increased phospho-histone H3-positive cells in the developing brain. This is direction-neutral mechanistic evidence: the experiment establishes altered mitotic cell abundance but explicitly cannot distinguish mitotic arrest from over-proliferation. No comparable measurement has been made in patient neural cells.\", \"meta\": {\"evidence_count\": 1, \"role\": \"PATHWAY\", \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"tubgcp2 Morpholino Zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"tubgcp2 translation-blocking or splice-blocking morpholino with p53-blocking morpholino; wild-type tubgcp2 mRNA co-injection rescue arm\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Measures altered abundance of mitotic cells in the developing morphant brain.\"}]}}, {\"id\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Callosal, cerebellar, brainstem, white-matter, cystic, and visual-system abnormalities expand the structural spectrum beyond the cortex. Their developmental links to TUBGCP2 and to each other are not established.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Biallelic TUBGCP2 Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease is associated with biallelic germline TUBGCP2 variants. Reported configurations include homozygous missense and frameshift variants, compound-heterozygous missense and splice-altering variants, and two paternal missense variants opposite a maternal deletion of exons 2-14. The functional class is left UNKNOWN because no study has compared the full allele series in a common functional assay.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TUBGCP2\"], \"gene_terms\": [{\"label\": \"TUBGCP2\", \"id\": \"hgnc:18599\"}], \"genetic_context\": {\"allele_type\": \"missense, splice-altering, frameshift, multi-exon deletion\", \"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Disease-wide context spanning homozygous, compound-heterozygous, and hemizygous-by-deletion configurations; zygosity is intentionally omitted because the schema has no generic biallelic value. Truncating and deletion alleles are not assigned loss of function without a direct assay, and no dominant-negative mechanism has been demonstrated.\"}, \"role\": \"TRIGGER\"}}, {\"id\": \"Brainstem Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin brainstem was reported in 2/8 people in the 2025 cumulative review set and is represented by the broader canonical HPO term for brainstem hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002365\"}}, {\"id\": \"Cerebellar Volume Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss was reported in 3/8 people in the 2025 cumulative review set.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebral Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The review reports cortical blindness in a few patients. This is mapped to cerebral visual impairment without assigning a frequency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100704\"}}, {\"id\": \"Cerebral White Matter Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystic white-matter foci were reported in 2/8 people in the 2025 cumulative review set. The broad HPO mapping avoids equating these foci with the later cystic-leukomalacia report.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002500\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One severely affected p.Glu311Lys sibling lost previously acquired motor and cognitive abilities by four years. No cumulative frequency is assigned.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysmorphic Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad facial dysmorphism was present in 7/8 people in the 2025 review set. Individual features were less frequent, so the record is mapped to abnormal facial shape rather than to narrow forehead alone.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"EEG Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Five of seven patients with seizures had slow background activity and epileptiform discharges. No disease-level frequency is assigned because the denominator is restricted to the seizure subgroup.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Seizures\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"EEG abnormality is an investigation readout within the seizure subgroup.\"}], \"term_id\": \"HP:0002353\"}}, {\"id\": \"Generalized Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe hypotonia was documented in one p.Glu311Lys sibling. No frequency is assigned because the cited case sentence does not define a cumulative denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 8/8 people in the 2025 cumulative review set, most often affecting both speech and motor domains.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Grip84-cg7716 Double-Knockout Fly\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A double-homolog knockout produces small larval brains, general microsomia, delayed development, and pupal lethality. It is a low-fidelity null model in a species with two TUBGCP2 homologs and does not model a human allele.\"}, {\"id\": \"Lissencephaly Spectrum Cortical Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cortical phenotype spans pachygyria, agyria, subcortical band heterotopia, and a reported pachygyria-polymicrogyria complex. Pachygyria was present in all eight people summarized in the 2025 review. Cystic leukomalacia is kept separate as a non-cortical radiological extension.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 8/8 people in the 2025 cumulative review set. Later case reports are not included in this denominator.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Neuronal Migration Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The founding study interpreted pachygyria and subcortical band heterotopia as presumably caused by disrupted neuronal migration. Migration has not been directly measured in patient-derived neural cells, zebrafish, or fly, so this node remains a partially supported imaging-based hypothesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuron migration\"], \"role\": \"PATHWAY\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy has been reported in a few patients, but the review did not provide a denominator suitable for frequency assignment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Pachygyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pachygyria was present in 8/8 people in the 2025 cumulative review set. A later case report described a pachygyria-polymicrogyria complex; that later report is not included in this frequency denominator.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001302\"}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in a later case as part of a pachygyria-polymicrogyria complex. No frequency is assigned because that case falls outside the 8-person review denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"Reduced Brain Growth and Microcephaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microcephaly was present in all eight individuals summarized in the 2025 review. Independent zebrafish and fly depletion/null models show reduced brain size, but those low-fidelity models do not establish the human cellular route or reproduce the cortical-folding phenotype.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"tubgcp2 Morpholino Zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"tubgcp2 translation-blocking or splice-blocking morpholino with p53-blocking morpholino; wild-type tubgcp2 mRNA co-injection rescue arm\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces reduced larval head width and demonstrates partial wild-type-mRNA rescue.\"}, {\"name\": \"Grip84-cg7716 Double-Knockout Fly\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Double knockout of the TUBGCP2 homologs Grip84 and cg7716\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces reduced brain surface area in a two-homolog null background.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 7/8 people in the 2025 review set, with onset from 5 months to 4 years and a median of 21.5 months.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity with brisk reflexes and limb contractures was documented in a p.Glu311Lys sibling. No cumulative frequency is assigned.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Subcortical Band Heterotopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 2/8 people in the 2025 cumulative review set and part of the lissencephaly-spectrum cortical phenotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0032409\"}}, {\"id\": \"Subependymal Cysts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subependymal cysts were reported in 2/8 people in the 2025 cumulative review set.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002416\"}}, {\"id\": \"TUBGCP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TUBGCP2 (gamma-tubulin complex component 2)\"], \"gene_terms\": [{\"label\": \"TUBGCP2 (gamma-tubulin complex component 2)\", \"id\": \"hgnc:18599\"}], \"association\": \"Causative\"}}, {\"id\": \"Thick Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A later case with a homozygous frameshift variant had a thick corpus callosum. No frequency is assigned because this report is outside the 8-person denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007074\"}}, {\"id\": \"Thin Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in 6/8 people in the 2025 cumulative review set. A later report of a thick corpus callosum is recorded separately and is outside this denominator.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002079\"}}, {\"id\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Evidence for this proximal cellular state is allele-specific. Structural analysis predicts that p.Glu311Lys disrupts electrostatic interaction at the GCP2-GCP3 interface. Primary fibroblasts carrying that allele have normal GCP2 abundance but faint delocalization of gamma-tubulin, HAUS6, and NEDD1, plus broader cytoskeletal proteomic changes. The study did not measure microtubule-nucleation rate, and fibroblasts are not a neural model.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"microtubule cytoskeleton organization\"], \"role\": \"PATHWAY\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"p.Glu311Lys Patient Fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Measures gamma-tubulin, HAUS6, and NEDD1 localization and GCP2 abundance for p.Glu311Lys in primary patient cells.\"}]}}, {\"id\": \"p.Glu311Lys Patient Fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary skin fibroblasts from an affected person homozygous for p.Glu311Lys, compared with control fibroblasts by immunofluorescence, immunoblotting, proteomics, proliferation, and cytotoxicity assays. This is an allele-specific peripheral-cell model rather than a neural model.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Untreated patient and control fibroblasts\", \"L-serine treatment arm\"], \"publication\": \"PMID:33458610\"}}, {\"id\": \"tubgcp2 Morpholino Zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Two independent transient depletion reagents produce small heads and altered developing-brain pH3-positive cell abundance. Wild-type mRNA partly rescues brain size. This is a depletion model without a patient allele.\"}], \"edges\": [{\"source\": \"Biallelic TUBGCP2 Variation\", \"target\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The p.Glu311Lys allele has computational and patient-fibroblast evidence; whether the same proximal effect applies to every reported allele is not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Biallelic TUBGCP2 Variation\", \"target\": \"Dysmorphic Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental route from TUBGCP2 variation to facial dysmorphism is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"target\": \"Altered Developing-Brain Mitotic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A mitotic-state abnormality is seen in a depletion model, but its route from the human variant-dependent fibroblast state is not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"target\": \"Neuronal Migration Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Migration is inferred from human cortical imaging; it has not been assayed in patient neural cells or either animal model.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"target\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental route to the non-cortical MRI findings is unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Altered Developing-Brain Mitotic State\", \"target\": \"Reduced Brain Growth and Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The model links altered mitotic-cell abundance with reduced brain size, but the intervening cell-fate and population dynamics remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level reduced-brain-growth state is expressed clinically as microcephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurodevelopmental intermediates producing global delay are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The epileptogenic circuit intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mechanism of regression in the severely affected patient is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neural and motor-system intermediates producing hypotonia are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Brain Growth and Microcephaly\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The corticospinal intermediates producing spasticity are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Migration Failure\", \"target\": \"Lissencephaly Spectrum Cortical Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A migration defect is a plausible route to the cortical phenotype, but direct cellular validation and relevant intermediates are lacking.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lissencephaly Spectrum Cortical Malformation\", \"target\": \"Pachygyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pachygyria is the constant cortical imaging manifestation in the review set.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lissencephaly Spectrum Cortical Malformation\", \"target\": \"Subcortical Band Heterotopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subcortical band heterotopia is a less frequent cortical manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lissencephaly Spectrum Cortical Malformation\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polymicrogyria was reported as part of a pachygyria-polymicrogyria complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Thin Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Cerebellar Volume Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Subependymal Cysts\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Brainstem Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Cerebral White Matter Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Thick Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Associated Non-Cortical Structural Brain Abnormalities\", \"target\": \"Cerebral Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"p.Glu311Lys Patient Fibroblasts\", \"target\": \"Variant-Dependent Gamma-TuRC Localization and Cytoskeletal Dysregulation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Measures gamma-tubulin, HAUS6, and NEDD1 localization and GCP2 abundance for p.Glu311Lys in primary patient cells.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The model is limited to one missense allele and a peripheral cell type; neuronal migration, developing-brain mitosis, and microtubule nucleation were not measured.\"}, {\"source\": \"tubgcp2 Morpholino Zebrafish\", \"target\": \"Altered Developing-Brain Mitotic State\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Measures altered abundance of mitotic cells in the developing morphant brain.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Transient morpholino depletion is not a patient-allele model, and increased pH3 staining cannot distinguish mitotic arrest from over-proliferation.\"}, {\"source\": \"tubgcp2 Morpholino Zebrafish\", \"target\": \"Reduced Brain Growth and Microcephaly\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces reduced larval head width and demonstrates partial wild-type-mRNA rescue.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The transient knockdown does not model a patient allele, and it does not assay lissencephaly, neuronal migration, or microtubule nucleation.\"}, {\"source\": \"Grip84-cg7716 Double-Knockout Fly\", \"target\": \"Reduced Brain Growth and Microcephaly\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces reduced brain surface area in a two-homolog null background.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The model removes two fly homologs, has severe generalized developmental effects, and does not assay human cortical folding, neuronal migration, or microtubule nucleation.\"}, {\"source\": \"Seizures\", \"target\": \"EEG Abnormality\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"EEG abnormality is an investigation readout within the seizure subgroup.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"TUBGCP2\", \"target\": \"Biallelic TUBGCP2 Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5670,15 +5803,13 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(8)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(13)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5688,7 +5819,7 @@ This pathophysiological event involves dysregulated neuron migration (GO:0001764
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-optic-atrophy" data-dismech-node="Optic Atrophy" data-dismech-type="phenotype">
@@ -5719,6 +5850,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5736,6 +5870,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5744,6 +5879,78 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                 <div class="evidence-explanation">Supports optic atrophy without a count-based frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-visual-impairment" data-dismech-node="Cerebral Visual Impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral Visual Impairment
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0100704</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40017707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40017707" target="_blank">PMID:40017707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moreover, a few patients present with visual system abnormalities, including optic atrophy and cortical blindness."</div>
+
+
+                <div class="evidence-explanation">Supports a central visual-system phenotype without a count-based frequency.</div>
 
 
 
@@ -5784,15 +5991,18 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5812,6 +6022,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5856,15 +6067,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5884,6 +6098,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5933,15 +6148,18 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001290</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5961,6 +6179,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6001,15 +6220,18 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6029,6 +6251,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6061,8 +6284,206 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">13</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pachygyria" data-dismech-node="Pachygyria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pachygyria
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001302</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40017707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40017707" target="_blank">PMID:40017707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All eight patients had abnormal brain MRI findings, including pachygyria in eight (100%)"</div>
+
+
+                <div class="evidence-explanation">8/8 = 100% in the explicitly scoped 2025 review set, which is OBLIGATE.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40448381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40448381" target="_blank">PMID:40448381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain MRI revealed cortical malformations consistent with the pachygyria-polymicrogyria complex, as well as a thickened corpus callosum."</div>
+
+
+                <div class="evidence-explanation">A later case extends the morphology but is not added to the 8-person frequency denominator.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-subcortical-band-heterotopia" data-dismech-node="Subcortical Band Heterotopia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Subcortical Band Heterotopia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0032409</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Subcortical band heterotopia (HP:0032409). HP:0032409 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31630790" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31630790" target="_blank">PMID:31630790</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain imaging from all five affected individuals revealed varying degrees of cortical malformations including pachygyria and subcortical band heterotopia"</div>
+
+
+                <div class="evidence-explanation">Establishes subcortical band heterotopia as part of the cortical spectrum in the delineating cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40017707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40017707" target="_blank">PMID:40017707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SBH, subependymal cyst, thin brainstem, and cystic foci in white matter in two each (25%)"</div>
+
+
+                <div class="evidence-explanation">2/8 = 25% in the 2025 review set, which is OCCASIONAL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-polymicrogyria" data-dismech-node="Polymicrogyria" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6078,15 +6499,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002126</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002126</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6106,6 +6530,7 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6148,15 +6573,18 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6176,6 +6604,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6218,15 +6647,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6246,6 +6678,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6290,15 +6723,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002079</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002079</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6318,6 +6754,7 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,15 +6799,18 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6390,6 +6830,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6401,411 +6842,6 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                 <div class="evidence-explanation">3/8 = 37.5% in the 2025 review set, which is FREQUENT (30-79%).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-white-matter-abnormality" data-dismech-node="Cerebral White Matter Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebral White Matter Abnormality
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal cerebral white matter morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002500</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40017707" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40017707" target="_blank">PMID:40017707</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"SBH, subependymal cyst, thin brainstem, and cystic foci in white matter in two each (25%)"</div>
-
-
-                <div class="evidence-explanation">2/8 = 25% in the 2025 review set, which is OCCASIONAL.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Developmental Regression
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002376</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33458610" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458610" target="_blank">PMID:33458610</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She presented with severe developmental delay, hypotonia, and intractable epilepsy at age 6 months and lost all motor and cognitive abilities gradually by 4 years of age."</div>
-
-
-                <div class="evidence-explanation">Exact patient-level evidence for loss of acquired abilities.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-abnormality" data-dismech-node="EEG Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        EEG Abnormality
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002353</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40017707" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40017707" target="_blank">PMID:40017707</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Among the seven patients with seizures, five (71.4%) had abnormal EEG results, illustrating continuous slow background activity and epileptiform discharges."</div>
-
-
-                <div class="evidence-explanation">Supports the EEG abnormality and its subgroup denominator.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pachygyria" data-dismech-node="Pachygyria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pachygyria
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001302</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40017707" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40017707" target="_blank">PMID:40017707</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All eight patients had abnormal brain MRI findings, including pachygyria in eight (100%)"</div>
-
-
-                <div class="evidence-explanation">8/8 = 100% in the explicitly scoped 2025 review set, which is OBLIGATE.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40448381" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40448381" target="_blank">PMID:40448381</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brain MRI revealed cortical malformations consistent with the pachygyria-polymicrogyria complex, as well as a thickened corpus callosum."</div>
-
-
-                <div class="evidence-explanation">A later case extends the morphology but is not added to the 8-person frequency denominator.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-subcortical-band-heterotopia" data-dismech-node="Subcortical Band Heterotopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Subcortical Band Heterotopia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0032409</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Subcortical band heterotopia (HP:0032409). HP:0032409 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31630790" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31630790" target="_blank">PMID:31630790</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brain imaging from all five affected individuals revealed varying degrees of cortical malformations including pachygyria and subcortical band heterotopia"</div>
-
-
-                <div class="evidence-explanation">Establishes subcortical band heterotopia as part of the cortical spectrum in the delineating cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40017707" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40017707" target="_blank">PMID:40017707</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"SBH, subependymal cyst, thin brainstem, and cystic foci in white matter in two each (25%)"</div>
-
-
-                <div class="evidence-explanation">2/8 = 25% in the 2025 review set, which is OCCASIONAL.</div>
 
 
 
@@ -6837,15 +6873,18 @@ This clinical feature is Subcortical band heterotopia (HP:0032409). HP:0032409 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002416</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002416</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Subependymal cysts (HP:0002416). HP:0002416 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6865,6 +6904,7 @@ This clinical feature is Subependymal cysts (HP:0002416). HP:0002416 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6909,15 +6949,18 @@ This clinical feature is Subependymal cysts (HP:0002416). HP:0002416 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6937,6 +6980,83 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SBH, subependymal cyst, thin brainstem, and cystic foci in white matter in two each (25%)"</div>
+
+
+                <div class="evidence-explanation">2/8 = 25% in the 2025 review set, which is OCCASIONAL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-white-matter-abnormality" data-dismech-node="Cerebral White Matter Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral White Matter Abnormality
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal cerebral white matter morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002500</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40017707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40017707" target="_blank">PMID:40017707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6977,15 +7097,18 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007074</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007074</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thick corpus callosum (HP:0007074). HP:0007074 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7005,6 +7128,7 @@ This clinical feature is Thick corpus callosum (HP:0007074). HP:0007074 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7031,9 +7155,9 @@ This clinical feature is Thick corpus callosum (HP:0007074). HP:0007074 is a phe
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-visual-impairment" data-dismech-node="Cerebral Visual Impairment" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cerebral Visual Impairment
+                        Developmental Regression
 
 
 
@@ -7045,15 +7169,90 @@ This clinical feature is Thick corpus callosum (HP:0007074). HP:0007074 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100704</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458610" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458610" target="_blank">PMID:33458610</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She presented with severe developmental delay, hypotonia, and intractable epilepsy at age 6 months and lost all motor and cognitive abilities gradually by 4 years of age."</div>
+
+
+                <div class="evidence-explanation">Exact patient-level evidence for loss of acquired abilities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-abnormality" data-dismech-node="EEG Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        EEG Abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002353</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7076,14 +7275,15 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Moreover, a few patients present with visual system abnormalities, including optic atrophy and cortical blindness."</div>
+                <div class="evidence-snippet">"Among the seven patients with seizures, five (71.4%) had abnormal EEG results, illustrating continuous slow background activity and epileptiform discharges."</div>
 
 
-                <div class="evidence-explanation">Supports a central visual-system phenotype without a count-based frequency.</div>
+                <div class="evidence-explanation">Supports the EEG abnormality and its subgroup denominator.</div>
 
 
 
@@ -7171,6 +7371,9 @@ This disease-associated gene is TUBGCP2 (gamma-tubulin complex component 2), ann
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7185,6 +7388,7 @@ This disease-associated gene is TUBGCP2 (gamma-tubulin complex component 2), ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7212,6 +7416,7 @@ This disease-associated gene is TUBGCP2 (gamma-tubulin complex component 2), ann
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7233,6 +7438,7 @@ This disease-associated gene is TUBGCP2 (gamma-tubulin complex component 2), ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7320,6 +7526,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7330,6 +7539,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7357,6 +7569,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7430,6 +7643,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">An individualized plan may include physical, occupational, speech, and vision therapy, with physical therapy addressing complications of spasticity. This is general tubulinopathy guidance rather than a measured TUBGCP2-specific outcome.</div>
 
 
@@ -7451,6 +7670,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7524,6 +7744,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling should communicate autosomal recessive inheritance and interpret recurrence in light of confirmed familial variants and parental phase. The cited disease paper does not directly support a numerical recurrence-risk or carrier-testing outcome claim.</div>
 
 
@@ -7545,6 +7771,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7653,6 +7880,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7737,6 +7965,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7939,6 +8168,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7998,6 +8228,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8037,6 +8268,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8095,6 +8327,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8135,6 +8368,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8283,6 +8517,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8322,6 +8557,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8401,6 +8637,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8460,6 +8697,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8499,6 +8737,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8543,6 +8782,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8678,6 +8918,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8717,6 +8958,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8761,6 +9003,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4116,6 +4184,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4137,6 +4206,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4280,6 +4350,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4301,6 +4372,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4338,6 +4410,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-dicer1-loss-of-function-predisposition" data-dismech-node="Germline DICER1 Loss-of-Function Predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline DICER1 Loss-of-Function Predisposition</div>
+
 
                 <div class="item-desc">A heterozygous germline loss-of-function DICER1 variant establishes the predisposed state. Penetrance is reduced and age-related, and ovarian sex cord-stromal tumors are among the most characteristic manifestations, with SLCT diagnosed at a median age of 14 years in a large international registry cohort. The germline variant is the first hit; the somatic RNase IIIb hotspot change is the second.</div>
 
@@ -4434,6 +4507,7 @@ This pathophysiological event involves DICER1 (hgnc:17098). hgnc:17098 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4455,6 +4529,7 @@ This pathophysiological event involves DICER1 (hgnc:17098). hgnc:17098 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4482,6 +4557,7 @@ This pathophysiological event involves DICER1 (hgnc:17098). hgnc:17098 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4504,6 +4580,7 @@ This pathophysiological event involves DICER1 (hgnc:17098). hgnc:17098 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dicer1-rnase-iiib-hotspot-mutation" data-dismech-node="DICER1 RNase IIIb Hotspot Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">DICER1 RNase IIIb Hotspot Mutation</div>
+
 
                 <div class="item-desc">Somatic missense mutations cluster tightly in the DICER1 region encoding the RNase IIIb domain, and are restricted to the codons encoding the four metal-binding residues of the RNase IIIb catalytic centre that are critical for microRNA interaction and cleavage. These mutations were found in 60% of Sertoli-Leydig cell tumors in the founding series and are somatic in every case with germline DNA available. Crucially they do not abolish DICER1: the mutant proteins retain RNase IIIa activity while losing RNase IIIb activity, so this is a hypomorphic, activity-altering lesion rather than a classic null.</div>
 
@@ -4659,6 +4736,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4680,6 +4758,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4707,6 +4786,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4729,6 +4809,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-5p-strand-mirna-processing-and-3p-strand-bias" data-dismech-node="Loss of 5p-Strand miRNA Processing and 3p Strand Bias" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of 5p-Strand miRNA Processing and 3p Strand Bias</div>
+
 
                 <div class="item-desc">All four metal-binding hotspot alleles are functionally equivalent and behave as hypomorphs: cells expressing them lose mature 5p-strand miRNA production almost completely while still generating 3p-strand miRNAs. The resulting global 3p strand bias in the mature miRNA repertoire, rather than a wholesale loss of miRNA processing, is proposed to underpin the oncogenic effect.</div>
 
@@ -4820,6 +4901,7 @@ This pathophysiological event involves decreased pre-miRNA processing (GO:003105
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4841,6 +4923,7 @@ This pathophysiological event involves decreased pre-miRNA processing (GO:003105
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4866,6 +4949,7 @@ This pathophysiological event involves decreased pre-miRNA processing (GO:003105
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepression-of-5p-mirna-target-transcripts" data-dismech-node="Derepression of 5p-miRNA Target Transcripts" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepression of 5p-miRNA Target Transcripts</div>
+
 
                 <div class="item-desc">Loss of the 5p-derived miRNAs releases their target mRNAs from post-transcriptional repression. Messenger RNA profiling of hotspot-mutant cells shows enriched expression of the predicted targets of exactly those lost 5p miRNAs, so the transcriptomic consequence is a specific derepression signature rather than generalized dysregulation. This altered post-transcriptional program in the developing gonadal stroma is the proximate route to tumor formation.</div>
 
@@ -5021,6 +5105,7 @@ This pathophysiological event involves decreased miRNA-mediated post-transcripti
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5042,6 +5127,7 @@ This pathophysiological event involves decreased miRNA-mediated post-transcripti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5067,6 +5153,7 @@ This pathophysiological event involves decreased miRNA-mediated post-transcripti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sertoli-leydig-tumor-formation-with-heterologous-and-retiform-differentiation" data-dismech-node="Sertoli-Leydig Tumor Formation with Heterologous and Retiform Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sertoli-Leydig Tumor Formation with Heterologous and Retiform Differentiation</div>
+
 
                 <div class="item-desc">The DICER1-mutant tumors are moderately or poorly differentiated, and every tumor with retiform or heterologous elements in a 42-case molecular series carried a DICER1 RNase IIIb mutation. The genotype therefore tracks with exactly the morphologic features that carry malignant potential, and well-differentiated SLCT — which is DICER1 wild-type — falls outside this chain.</div>
 
@@ -5205,6 +5292,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5226,6 +5314,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5253,6 +5342,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5275,6 +5365,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-androgen-overproduction" data-dismech-node="Tumor Androgen Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor Androgen Overproduction</div>
+
 
                 <div class="item-desc">Functional SLCTs secrete androgen from their Leydig-cell-like component, raising circulating testosterone and producing hirsutism, androgenic alopecia, and amenorrhea or oligomenorrhea. Some patients instead show hyperestrogenism, either from direct tumor estrogen secretion or from peripheral aromatization of tumor-derived testosterone. DICER1-mutant tumors trended toward more androgenic symptoms than their FOXL2-mutant counterparts.</div>
 
@@ -5385,6 +5476,7 @@ This pathophysiological event involves increased tumor androgen biosynthesis, an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5409,6 +5501,7 @@ This pathophysiological event involves increased tumor androgen biosynthesis, an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5430,6 +5523,7 @@ This pathophysiological event involves increased tumor androgen biosynthesis, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5492,6 +5586,7 @@ This pathophysiological event involves increased tumor androgen biosynthesis, an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5513,6 +5608,7 @@ This pathophysiological event involves increased tumor androgen biosynthesis, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5579,13 +5675,13 @@ This pathophysiological event involves increased tumor androgen biosynthesis, an
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5628,6 +5724,9 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5642,6 +5741,7 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5673,13 +5773,13 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
+                    Endocrine
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-amenorrhea" data-dismech-node="Amenorrhea" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-testosterone" data-dismech-node="Elevated Serum Testosterone" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Amenorrhea
+                        Elevated Serum Testosterone
 
 
 
@@ -5688,18 +5788,23 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Increased serum testosterone level</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000141</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030088</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Amenorrhea (HP:0000141). HP:0000141 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Increased serum testosterone level (HP:0030088). HP:0030088 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5719,6 +5824,88 @@ This clinical feature is Amenorrhea (HP:0000141). HP:0000141 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These characteristics are due to an increase in androgen production by tumor cells."</div>
+
+
+                <div class="evidence-explanation">PARTIAL: the source attributes the virilizing picture to androgen production by the tumor, but reports no measured serum testosterone values in this cohort, so it supports the mechanism rather than a quantified laboratory abnormality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-amenorrhea" data-dismech-node="Amenorrhea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Amenorrhea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000141</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Amenorrhea (HP:0000141). HP:0000141 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31344718" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31344718" target="_blank">PMID:31344718</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5745,9 +5932,108 @@ This clinical feature is Amenorrhea (HP:0000141). HP:0000141 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ovarian-mass" data-dismech-node="Ovarian Mass" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ovarian Mass
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Ovarian neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100615" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100615</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ovarian neoplasm (HP:0100615). HP:0100615 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31344718" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31344718" target="_blank">PMID:31344718</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All of the tumors were unilateral and surgically treated."</div>
+
+
+                <div class="evidence-explanation">Supports unilaterality of the ovarian mass in a consecutive surgical series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24761742" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24761742" target="_blank">PMID:24761742</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DICER1-related neoplasms include pleuropulmonary blastoma (PPB), Sertoli-Leydig cell tumor (SLCT), including gynandroblastoma, pediatric cystic nephroma (CN), and differentiated thyroid carcinoma."</div>
+
+
+                <div class="evidence-explanation">GeneReviews Clinical Characteristics evidence placing this ovarian tumor within the DICER1 neoplasm spectrum, which is what makes the germline predisposition arm of this entry applicable.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -5768,15 +6054,18 @@ This clinical feature is Amenorrhea (HP:0000141). HP:0000141 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001007</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001007</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5796,6 +6085,7 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5824,7 +6114,7 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -5847,15 +6137,18 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5875,6 +6168,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5886,179 +6180,6 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                 <div class="evidence-explanation">66.7% of 12 patients is a direct quantitative measurement falling in the 30-79% FREQUENT band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ovarian-mass" data-dismech-node="Ovarian Mass" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ovarian Mass
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Ovarian neoplasm</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100615" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100615</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ovarian neoplasm (HP:0100615). HP:0100615 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31344718" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31344718" target="_blank">PMID:31344718</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All of the tumors were unilateral and surgically treated."</div>
-
-
-                <div class="evidence-explanation">Supports unilaterality of the ovarian mass in a consecutive surgical series.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24761742" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24761742" target="_blank">PMID:24761742</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"DICER1-related neoplasms include pleuropulmonary blastoma (PPB), Sertoli-Leydig cell tumor (SLCT), including gynandroblastoma, pediatric cystic nephroma (CN), and differentiated thyroid carcinoma."</div>
-
-
-                <div class="evidence-explanation">GeneReviews Clinical Characteristics evidence placing this ovarian tumor within the DICER1 neoplasm spectrum, which is what makes the germline predisposition arm of this entry applicable.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-testosterone" data-dismech-node="Elevated Serum Testosterone" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated Serum Testosterone
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased serum testosterone level</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030088</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased serum testosterone level (HP:0030088). HP:0030088 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31344718" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31344718" target="_blank">PMID:31344718</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These characteristics are due to an increase in androgen production by tumor cells."</div>
-
-
-                <div class="evidence-explanation">PARTIAL: the source attributes the virilizing picture to androgen production by the tumor, but reports no measured serum testosterone values in this cohort, so it supports the mechanism rather than a quantified laboratory abnormality.</div>
 
 
 
@@ -6148,6 +6269,9 @@ This disease-associated gene is DICER1 (hgnc:17098). hgnc:17098 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6162,6 +6286,7 @@ This disease-associated gene is DICER1 (hgnc:17098). hgnc:17098 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6221,6 +6346,9 @@ This disease-associated gene is FOXL2 (hgnc:1092). hgnc:1092 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6235,6 +6363,7 @@ This disease-associated gene is FOXL2 (hgnc:1092). hgnc:1092 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6294,6 +6423,9 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6308,6 +6440,7 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6394,6 +6527,9 @@ This treatment is unilateral salpingo-oophorectomy (NCIT:C94469). NCIT:C94469 is
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6404,6 +6540,9 @@ This treatment is unilateral salpingo-oophorectomy (NCIT:C94469). NCIT:C94469 is
 
 
     </div>
+
+
+
 
 
 
@@ -6440,6 +6579,7 @@ This treatment is unilateral salpingo-oophorectomy (NCIT:C94469). NCIT:C94469 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6483,6 +6623,7 @@ This treatment is unilateral salpingo-oophorectomy (NCIT:C94469). NCIT:C94469 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6589,6 +6730,9 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6599,6 +6743,9 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -6629,6 +6776,7 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6650,6 +6798,7 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6717,6 +6866,9 @@ This treatment is pelvic ultrasound surveillance for ovarian sex cord-stromal tu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6727,6 +6879,9 @@ This treatment is pelvic ultrasound surveillance for ovarian sex cord-stromal tu
 
 
     </div>
+
+
+
 
 
 
@@ -6757,6 +6912,7 @@ This treatment is pelvic ultrasound surveillance for ovarian sex cord-stromal tu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6778,6 +6934,7 @@ This treatment is pelvic ultrasound surveillance for ovarian sex cord-stromal tu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6845,6 +7002,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6855,6 +7015,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6885,6 +7048,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6906,6 +7070,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6981,6 +7146,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7002,6 +7168,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7070,6 +7237,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7091,6 +7259,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7141,6 +7310,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7209,6 +7379,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7317,6 +7488,7 @@ This clinical trial targets Ovarian neoplasm (HP:0100615). HP:0100615 is a pheno
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7389,6 +7561,7 @@ This clinical trial targets Ovarian neoplasm (HP:0100615). HP:0100615 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8564,6 +8737,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Malignant Sertoli-Leydig Cell Tumor of Ovary</strong> · 2026-08-20T21:06:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Malignant_Sertoli-Leydig_Cell_Tumor_of_Ovary/2026-08-20T210625Z-claude-code-22f33a.yaml">View source</a></p>
+                        <p class="research-review-text">Created the malignant ovarian Sertoli-Leydig cell tumor entry (MONDO:0020542) as the second of two mechanism-bearing Disease entries split out of the malignant ovarian sex cord-stromal tumor umbrella (issue #9002), alongside the new kb/groupings/Ovarian_Sex_Cord-Stromal_Tumors.yaml grouping that unions it with Adult Granulosa Cell Tumor of Ovary. Curated six pathophysiology nodes: germline DICER1 loss-of-function predisposition -&gt; somatic DICER1 RNase IIIb metal-binding hotspot mutation -&gt; loss of 5p-strand miRNA processing with 3p strand bias -&gt; derepression of 5p-miRNA target transcripts -&gt; Sertoli-Leydig tumor formation with heterologous/retiform differentiation -&gt; tumor androgen overproduction. Deliberately curated the hotspot lesion as a hypomorphic, activity-altering allele (RNase IIIa retained, RNase IIIb lost) rather than a null. Entry scope is the MALIGNANT MONDO class, which is mechanistically load-bearing: DICER1 variants are confined to moderately/poorly differentiated and retiform tumors, and an 18-case series of well-differentiated SLCT was entirely DICER1 wild-type. No hallmark mechanism module conformance was asserted, because none could be evidenced for this tumor without overreach. Added a KNOWLEDGE_GAP discussion recording that the FOXL2-mutant and DICER1/FOXL2 double-wild-type SLCT subsets have no established mechanism, with a proposed whole-genome-sequencing experiment. Deep research: falcon (Edison), report at research/Malignant_Sertoli-Leydig_Cell_Tumor_of_Ovary-deep-research-falcon.md; its own reference validation reported 5/5 references resolved, 0 unresolved, 5/5 on topic. &#39;just preflight-dr&#39; returned SKIP because MONDO records no causal gene for this somatic-driver cancer class; the manual NEC fallback passed - DICER1 dominates the report&#39;s gene mentions 69 to 10 over FOXL2, and MONDO:0020542 carries no OMIM xref to conflict. One claim in the report was found to be MIS-ATTRIBUTED (a mouse-model finding credited to a human case series) and was deliberately NOT curated. All evidence was curated from primary literature fetched with &#39;just fetch-reference&#39; and verified against the cached abstracts independently of the report. Validation actually run and read: &#39;just validate&#39; schema clean; &#39;just validate-terms&#39; passed (it caught one wrong NCIT id I had guessed - C15420 is Hypnotherapy, not Screening - which was replaced with C15576 Screening for Ovarian Cancer); &#39;just count-verified-snippets&#39; reported 46/46 for this file and 96/96 across both new disorder files; &#39;just validate-disorders&#39; over both files passed with 96/96 snippets; &#39;just check-duplicate-keys&#39; clean over 4242 files; &#39;just check-groupings kb/groupings/Ovarian_Sex_Cord-Stromal_Tumors.yaml --strict&#39; exited 0. Note: the repository history layout (docs/history.md) defines no &#39;grouping&#39; kind, so the new grouping file has no history record of its own and is recorded here and in the Adult_Granulosa_Cell_Tumor_of_Ovary record instead.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

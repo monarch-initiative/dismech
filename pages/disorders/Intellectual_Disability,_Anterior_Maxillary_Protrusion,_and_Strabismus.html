@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4208,6 +4276,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4229,6 +4298,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4476,6 +4546,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4500,6 +4571,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4521,6 +4593,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4695,6 +4768,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4716,6 +4790,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4897,6 +4972,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4918,6 +4994,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4955,6 +5032,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-sobp-truncating-variant-and-loss-of-nuclear-sobp" data-dismech-node="Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP</div>
+
 
                 <div class="item-desc">Homozygous truncating variants in SOBP (6q21) remove or destabilise sine oculis binding protein homolog, a nuclear protein carrying two FCS-type zinc finger domains, nuclear localisation signals, and highly conserved sequence motifs. The functional consequence is not merely reduced protein: in the orthologous mouse allele, wild-type protein is targeted to the nucleus whereas mutant isoforms are mislocalised to the cytoplasm, so the truncated product is excluded from the compartment in which SOBP acts. This is the initiating molecular lesion of the syndrome.</div>
 
@@ -5118,6 +5196,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5139,6 +5218,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5166,6 +5246,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5190,6 +5271,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-sobp-repression-of-six1-eya-transcriptional-activity" data-dismech-node="Loss of SOBP Repression of SIX1+EYA Transcriptional Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of SOBP Repression of SIX1+EYA Transcriptional Activity</div>
+
 
                 <div class="item-desc">SOBP is a co-factor of the SIX1 homeodomain transcription factor. It binds SIX1 and colocalises with it in the nucleus, and it binds the EYA1 and EYA2 co-activators; in luciferase reporter assays SOBP interferes with, and represses, SIX1+EYA1 and SIX1+EYA2 transcriptional activation. SIX1 in turn is required for normal expression of Sobp in the mandibular arch, so the two sit in a reciprocal regulatory relationship. Loss of SOBP therefore de-represses SIX1+EYA target-gene output. This is the same SIX1/EYA1 axis whose heterozygous disruption causes branchio-oto-renal syndrome, which is why SOBP has been proposed as a BOR candidate gene, and it explains why a single molecular lesion produces otic, craniofacial, and dental phenotypes together.</div>
 
@@ -5443,6 +5525,7 @@ This pathophysiological event involves absent transcription corepressor activity
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5464,6 +5547,7 @@ This pathophysiological event involves absent transcription corepressor activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5491,6 +5575,7 @@ This pathophysiological event involves absent transcription corepressor activity
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5515,6 +5600,7 @@ This pathophysiological event involves absent transcription corepressor activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-craniofacial-and-odontogenic-patterning" data-dismech-node="Disrupted Craniofacial and Odontogenic Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Craniofacial and Odontogenic Patterning</div>
+
 
                 <div class="item-desc">SOBP is expressed in the oral domain of the mandibular arch and during odontogenesis, where it colocalises with SIX1. Loss or gain of Sobp in Xenopus disrupts formation of the ectodermal (pre-placodal) domains at neural plate stages and produces craniofacial cartilage defects. In humans the corresponding developmental output is a maxilla that overgrows anteriorly and vertically, with the dental arch consequences of that overgrowth: an open bite that cannot close because of the vertical maxillary excess, and prominent crowded teeth. Notably the human phenotype is confined to the maxilla and dentition, without mandibular, malar, or auricular malformation.</div>
 
@@ -5712,6 +5798,7 @@ This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5733,6 +5820,7 @@ This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5760,6 +5848,7 @@ This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5782,6 +5871,7 @@ This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-otic-vesicle-and-organ-of-corti-patterning" data-dismech-node="Disrupted Otic Vesicle and Organ of Corti Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Otic Vesicle and Organ of Corti Patterning</div>
+
 
                 <div class="item-desc">Sobp is the gene disrupted in the recessive mouse mutant jackson circler (jc), in which deafness results from growth arrest of the cochlear duct at embryonic day 13.5. In jc mutants the cellular patterning of the organ of Corti is severely disrupted, with supernumerary hair cells at the apex, mirror-image duplications of the tunnel of Corti and inner hair cells, and ectopic vestibular-like hair cells within Koelliker&#39;s organ. Sobp mRNA is present in inner ear sensory hair cells, supporting cells, and the acoustic ganglia. The human counterpart of this arm is mild and was subclinical: one patient had cochlear hearing loss without gross cochlear malformation, a substantially milder outcome than the mouse, which is itself an open question about human-model fidelity.</div>
 
@@ -5979,6 +6069,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6000,6 +6091,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6027,6 +6119,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6051,6 +6144,13 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limbic-system-sobp-deficiency-during-synaptogenesis" data-dismech-node="Limbic System SOBP Deficiency During Synaptogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Limbic System SOBP Deficiency During Synaptogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">In situ RNA expression in postnatal mouse brain shows strong Sobp expression in the limbic system during the interval of active synaptogenesis. The limbic system regulates learning, memory, and affective behaviour, and this expression pattern is unusual among intellectual-disability genes, most of which are not limbic-restricted. Comparative proteomics between +/jc and jc/jc mouse brain detected 24 proteins differing by more than 1.5-fold, including two interacting proteins, dynamin and pacsin1, both of which function in synaptic vesicle endocytosis. The proposed route from SOBP loss to cognition is therefore failure of limbic circuit assembly during a critical postnatal synaptogenic window, with a candidate effector arm in dynamin/pacsin1-dependent synaptic vesicle recycling.</div>
 
@@ -6248,6 +6348,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6269,6 +6370,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6296,6 +6398,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6318,6 +6421,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maxillary-overgrowth-and-dental-arch-malformation" data-dismech-node="Maxillary Overgrowth and Dental Arch Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Maxillary Overgrowth and Dental Arch Malformation</div>
+
 
                 <div class="item-desc">The clinical craniofacial endpoint: the maxilla protrudes anteriorly and is vertically excessive, which prevents the incisors from meeting and produces an open bite, while the dental arch cannot accommodate the dentition, producing prominent crowded teeth. Within the reported kindred this triad co-segregated tightly: six of the seven affected siblings had it and none of the siblings with normal intelligence had any jaw or dental anomaly, which is what established the craniofacial findings as part of the syndrome rather than a family trait.</div>
 
@@ -6377,6 +6481,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6398,6 +6503,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6423,6 +6529,7 @@ This pathophysiological event occurs in maxilla (UBERON:0002397). UBERON:0002397
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-limbic-circuit-function" data-dismech-node="Impaired Limbic Circuit Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Limbic Circuit Function</div>
+
 
                 <div class="item-desc">The neurobehavioural endpoint. All affected siblings had severe intellectual disability. In one sibling the phenotype presented without any jaw or dental anomaly and with temporal lobe epilepsy and severe psychosis; because that individual carries the same homozygous SOBP truncating variant, SOBP loss of function produces both a syndromic and a nonsyndromic form of intellectual disability within a single family. The limbic-restricted expression of SOBP is the proposed anatomical explanation for a cognitive phenotype accompanied by temporal-lobe epilepsy and psychosis rather than by a structural brain malformation - brain MRI in these patients was normal.</div>
 
@@ -6482,6 +6589,7 @@ This pathophysiological event occurs in limbic lobe (UBERON:0002600). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6503,6 +6611,7 @@ This pathophysiological event occurs in limbic lobe (UBERON:0002600). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6530,6 +6639,7 @@ This pathophysiological event occurs in limbic lobe (UBERON:0002600). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6552,6 +6662,7 @@ This pathophysiological event occurs in limbic lobe (UBERON:0002600). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-hearing-impairment" data-dismech-node="Cochlear Hearing Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Hearing Impairment</div>
+
 
                 <div class="item-desc">Mild, subclinical cochlear hearing loss was documented in one patient, without gross cochlear structural abnormality. This is the human echo of the severe deafness seen in the orthologous mouse mutant, and its mildness is the principal human-versus-model discrepancy in this entry.</div>
 
@@ -6611,6 +6722,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6656,7 +6768,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous truncating variants in SOBP (6q21) remove or destabilise sine oculis binding protein homolog, a nuclear protein carrying two FCS-type zinc finger domains, nuclear localisation signals, and highly conserved sequence motifs. The functional consequence is not merely reduced protein: in the orthologous mouse allele, wild-type protein is targeted to the nucleus whereas mutant isoforms are mislocalised to the cytoplasm, so the truncated product is excluded from the compartment in which SOBP acts. This is the initiating molecular lesion of the syndrome.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"zinc ion binding\"], \"genes\": [\"SOBP\"], \"gene_terms\": [{\"label\": \"SOBP\", \"id\": \"hgnc:29256\"}]}}, {\"id\": \"Cochlear Hearing Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mild, subclinical cochlear hearing loss was documented in one patient, without gross cochlear structural abnormality. This is the human echo of the severe deafness seen in the orthologous mouse mutant, and its mildness is the principal human-versus-model discrepancy in this entry.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cochlea\"]}}, {\"id\": \"Disrupted Craniofacial and Odontogenic Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOBP is expressed in the oral domain of the mandibular arch and during odontogenesis, where it colocalises with SIX1. Loss or gain of Sobp in Xenopus disrupts formation of the ectodermal (pre-placodal) domains at neural plate stages and produces craniofacial cartilage defects. In humans the corresponding developmental output is a maxilla that overgrows anteriorly and vertically, with the dental arch consequences of that overgrowth: an open bite that cannot close because of the vertical maxillary excess, and prominent crowded teeth. Notably the human phenotype is confined to the maxilla and dentition, without mandibular, malar, or auricular malformation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cranial neural crest cell\"], \"biological_processes\": [\"embryonic cranial skeleton morphogenesis\", \"odontogenesis\"], \"locations\": [\"maxilla\", \"pharyngeal arch\"]}}, {\"id\": \"Disrupted Otic Vesicle and Organ of Corti Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sobp is the gene disrupted in the recessive mouse mutant jackson circler (jc), in which deafness results from growth arrest of the cochlear duct at embryonic day 13.5. In jc mutants the cellular patterning of the organ of Corti is severely disrupted, with supernumerary hair cells at the apex, mirror-image duplications of the tunnel of Corti and inner hair cells, and ectopic vestibular-like hair cells within Koelliker\u0027s organ. Sobp mRNA is present in inner ear sensory hair cells, supporting cells, and the acoustic ganglia. The human counterpart of this arm is mild and was subclinical: one patient had cochlear hearing loss without gross cochlear malformation, a substantially milder outcome than the mouse, which is itself an open question about human-model fidelity.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cochlear sensory hair cell\"], \"biological_processes\": [\"cochlea development\", \"inner ear development\"], \"locations\": [\"spiral organ of Corti\", \"cochlea\"]}}, {\"id\": \"Impaired Limbic Circuit Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neurobehavioural endpoint. All affected siblings had severe intellectual disability. In one sibling the phenotype presented without any jaw or dental anomaly and with temporal lobe epilepsy and severe psychosis; because that individual carries the same homozygous SOBP truncating variant, SOBP loss of function produces both a syndromic and a nonsyndromic form of intellectual disability within a single family. The limbic-restricted expression of SOBP is the proposed anatomical explanation for a cognitive phenotype accompanied by temporal-lobe epilepsy and psychosis rather than by a structural brain malformation - brain MRI in these patients was normal.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"limbic lobe\"]}}, {\"id\": \"Limbic System SOBP Deficiency During Synaptogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In situ RNA expression in postnatal mouse brain shows strong Sobp expression in the limbic system during the interval of active synaptogenesis. The limbic system regulates learning, memory, and affective behaviour, and this expression pattern is unusual among intellectual-disability genes, most of which are not limbic-restricted. Comparative proteomics between +/jc and jc/jc mouse brain detected 24 proteins differing by more than 1.5-fold, including two interacting proteins, dynamin and pacsin1, both of which function in synaptic vesicle endocytosis. The proposed route from SOBP loss to cognition is therefore failure of limbic circuit assembly during a critical postnatal synaptogenic window, with a candidate effector arm in dynamin/pacsin1-dependent synaptic vesicle recycling.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\", \"synaptic vesicle endocytosis\"], \"locations\": [\"limbic lobe\", \"temporal lobe\"]}}, {\"id\": \"Loss of SOBP Repression of SIX1+EYA Transcriptional Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOBP is a co-factor of the SIX1 homeodomain transcription factor. It binds SIX1 and colocalises with it in the nucleus, and it binds the EYA1 and EYA2 co-activators; in luciferase reporter assays SOBP interferes with, and represses, SIX1+EYA1 and SIX1+EYA2 transcriptional activation. SIX1 in turn is required for normal expression of Sobp in the mandibular arch, so the two sit in a reciprocal regulatory relationship. Loss of SOBP therefore de-represses SIX1+EYA target-gene output. This is the same SIX1/EYA1 axis whose heterozygous disruption causes branchio-oto-renal syndrome, which is why SOBP has been proposed as a BOR candidate gene, and it explains why a single molecular lesion produces otic, craniofacial, and dental phenotypes together.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"negative regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"transcription corepressor activity\"], \"genes\": [\"SIX1\", \"EYA1\"], \"gene_terms\": [{\"label\": \"SIX1\", \"id\": \"hgnc:10887\"}, {\"label\": \"EYA1\", \"id\": \"hgnc:3519\"}]}}, {\"id\": \"Maxillary Overgrowth and Dental Arch Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical craniofacial endpoint: the maxilla protrudes anteriorly and is vertically excessive, which prevents the incisors from meeting and produces an open bite, while the dental arch cannot accommodate the dentition, producing prominent crowded teeth. Within the reported kindred this triad co-segregated tightly: six of the seven affected siblings had it and none of the siblings with normal intelligence had any jaw or dental anomaly, which is what established the craniofacial findings as part of the syndrome rather than a family trait.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"maxilla\"]}}, {\"id\": \"SOBP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SOBP\"], \"gene_terms\": [{\"label\": \"SOBP\", \"id\": \"hgnc:29256\"}], \"presence\": \"Positive\", \"association\": \"Causal - homozygous truncating variant segregating in a consanguineous kindred\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"SOBP c.1981C\u003eT (p.Arg661Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense (stop-gain) variant, NM_018013.4:c.1981C\u003eT, p.Arg661Ter, segregating in the single reported consanguineous Israeli-Arab kindred. It truncates the C-terminal portion of SOBP. Functional work in Xenopus shows that a Sobp protein carrying the human variant still disrupts the pre-placodal ectoderm much as full-length Sobp does while differing in other respects, so the allele is not a straightforward complete null and may be partially functional or act through a distinct mechanism.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SOBP\"], \"gene_terms\": [{\"label\": \"SOBP\", \"id\": \"hgnc:29256\"}], \"variant_type\": \"nonsense\"}}], \"edges\": [{\"source\": \"Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP\", \"target\": \"Loss of SOBP Repression of SIX1+EYA Transcriptional Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without nuclear SOBP there is no SOBP-SIX1/EYA complex, so the repressive input onto SIX1+EYA target-gene transcription is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP\", \"target\": \"Limbic System SOBP Deficiency During Synaptogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same loss of functional nuclear SOBP is proposed to deprive the limbic system of SOBP during its postnatal synaptogenic window. This is the neurodevelopmental arm of the lesion, running in parallel to the SIX1+EYA-dependent craniofacial and otic arms; the intermediate steps between loss of nuclear SOBP and limbic synaptogenesis are not established, and it is not known whether this arm is SIX1+EYA-dependent.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of SOBP Repression of SIX1+EYA Transcriptional Activity\", \"target\": \"Disrupted Craniofacial and Odontogenic Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"De-repressed SIX1+EYA target-gene output in the first pharyngeal arch and tooth germ perturbs jaw and dental morphogenesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of SOBP Repression of SIX1+EYA Transcriptional Activity\", \"target\": \"Disrupted Otic Vesicle and Organ of Corti Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same SIX1/EYA-dependent programme governs otic placode and cochlear development, where altering Sobp levels disrupts otic vesicle formation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Craniofacial and Odontogenic Patterning\", \"target\": \"Maxillary Overgrowth and Dental Arch Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal patterning of the maxillary skeleton and tooth germs manifests clinically as anterior maxillary protrusion with vertical maxillary excess, open bite, and dental crowding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Otic Vesicle and Organ of Corti Patterning\", \"target\": \"Cochlear Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cochlear growth and organ of Corti patterning reduce auditory transduction capacity; in humans the deficit is mild and subclinical.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Limbic System SOBP Deficiency During Synaptogenesis\", \"target\": \"Impaired Limbic Circuit Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of SOBP during limbic synaptogenesis is proposed to leave the limbic circuitry that underpins learning, memory, and affect functionally abnormal; the intermediate steps are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SOBP\", \"target\": \"Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SOBP c.1981C\u003eT (p.Arg661Ter)\", \"target\": \"SOBP\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous truncating variants in SOBP (6q21) remove or destabilise sine oculis binding protein homolog, a nuclear protein carrying two FCS-type zinc finger domains, nuclear localisation signals, and highly conserved sequence motifs. The functional consequence is not merely reduced protein: in the orthologous mouse allele, wild-type protein is targeted to the nucleus whereas mutant isoforms are mislocalised to the cytoplasm, so the truncated product is excluded from the compartment in which SOBP acts. This is the initiating molecular lesion of the syndrome.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"zinc ion binding\"], \"genes\": [\"SOBP\"], \"gene_terms\": [{\"label\": \"SOBP\", \"id\": \"hgnc:29256\"}]}}, {\"id\": \"Cochlear Hearing Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mild, subclinical cochlear hearing loss was documented in one patient, without gross cochlear structural abnormality. This is the human echo of the severe deafness seen in the orthologous mouse mutant, and its mildness is the principal human-versus-model discrepancy in this entry.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cochlea\"]}}, {\"id\": \"Disrupted Craniofacial and Odontogenic Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOBP is expressed in the oral domain of the mandibular arch and during odontogenesis, where it colocalises with SIX1. Loss or gain of Sobp in Xenopus disrupts formation of the ectodermal (pre-placodal) domains at neural plate stages and produces craniofacial cartilage defects. In humans the corresponding developmental output is a maxilla that overgrows anteriorly and vertically, with the dental arch consequences of that overgrowth: an open bite that cannot close because of the vertical maxillary excess, and prominent crowded teeth. Notably the human phenotype is confined to the maxilla and dentition, without mandibular, malar, or auricular malformation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cranial neural crest cell\"], \"biological_processes\": [\"embryonic cranial skeleton morphogenesis\", \"odontogenesis\"], \"locations\": [\"maxilla\", \"pharyngeal arch\"]}}, {\"id\": \"Disrupted Otic Vesicle and Organ of Corti Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sobp is the gene disrupted in the recessive mouse mutant jackson circler (jc), in which deafness results from growth arrest of the cochlear duct at embryonic day 13.5. In jc mutants the cellular patterning of the organ of Corti is severely disrupted, with supernumerary hair cells at the apex, mirror-image duplications of the tunnel of Corti and inner hair cells, and ectopic vestibular-like hair cells within Koelliker\u0027s organ. Sobp mRNA is present in inner ear sensory hair cells, supporting cells, and the acoustic ganglia. The human counterpart of this arm is mild and was subclinical: one patient had cochlear hearing loss without gross cochlear malformation, a substantially milder outcome than the mouse, which is itself an open question about human-model fidelity.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cochlear sensory hair cell\"], \"biological_processes\": [\"cochlea development\", \"inner ear development\"], \"locations\": [\"spiral organ of Corti\", \"cochlea\"]}}, {\"id\": \"Impaired Limbic Circuit Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neurobehavioural endpoint. All affected siblings had severe intellectual disability. In one sibling the phenotype presented without any jaw or dental anomaly and with temporal lobe epilepsy and severe psychosis; because that individual carries the same homozygous SOBP truncating variant, SOBP loss of function produces both a syndromic and a nonsyndromic form of intellectual disability within a single family. The limbic-restricted expression of SOBP is the proposed anatomical explanation for a cognitive phenotype accompanied by temporal-lobe epilepsy and psychosis rather than by a structural brain malformation - brain MRI in these patients was normal.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"limbic lobe\"]}}, {\"id\": \"Limbic System SOBP Deficiency During Synaptogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In situ RNA expression in postnatal mouse brain shows strong Sobp expression in the limbic system during the interval of active synaptogenesis. The limbic system regulates learning, memory, and affective behaviour, and this expression pattern is unusual among intellectual-disability genes, most of which are not limbic-restricted. Comparative proteomics between +/jc and jc/jc mouse brain detected 24 proteins differing by more than 1.5-fold, including two interacting proteins, dynamin and pacsin1, both of which function in synaptic vesicle endocytosis. The proposed route from SOBP loss to cognition is therefore failure of limbic circuit assembly during a critical postnatal synaptogenic window, with a candidate effector arm in dynamin/pacsin1-dependent synaptic vesicle recycling.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\", \"synaptic vesicle endocytosis\"], \"locations\": [\"limbic lobe\", \"temporal lobe\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Loss of SOBP Repression of SIX1+EYA Transcriptional Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOBP is a co-factor of the SIX1 homeodomain transcription factor. It binds SIX1 and colocalises with it in the nucleus, and it binds the EYA1 and EYA2 co-activators; in luciferase reporter assays SOBP interferes with, and represses, SIX1+EYA1 and SIX1+EYA2 transcriptional activation. SIX1 in turn is required for normal expression of Sobp in the mandibular arch, so the two sit in a reciprocal regulatory relationship. Loss of SOBP therefore de-represses SIX1+EYA target-gene output. This is the same SIX1/EYA1 axis whose heterozygous disruption causes branchio-oto-renal syndrome, which is why SOBP has been proposed as a BOR candidate gene, and it explains why a single molecular lesion produces otic, craniofacial, and dental phenotypes together.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"negative regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"transcription corepressor activity\"], \"genes\": [\"SIX1\", \"EYA1\"], \"gene_terms\": [{\"label\": \"SIX1\", \"id\": \"hgnc:10887\"}, {\"label\": \"EYA1\", \"id\": \"hgnc:3519\"}]}}, {\"id\": \"Maxillary Overgrowth and Dental Arch Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical craniofacial endpoint: the maxilla protrudes anteriorly and is vertically excessive, which prevents the incisors from meeting and produces an open bite, while the dental arch cannot accommodate the dentition, producing prominent crowded teeth. Within the reported kindred this triad co-segregated tightly: six of the seven affected siblings had it and none of the siblings with normal intelligence had any jaw or dental anomaly, which is what established the craniofacial findings as part of the syndrome rather than a family trait.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"maxilla\"]}}, {\"id\": \"SOBP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SOBP\"], \"gene_terms\": [{\"label\": \"SOBP\", \"id\": \"hgnc:29256\"}], \"presence\": \"Positive\", \"association\": \"Causal - homozygous truncating variant segregating in a consanguineous kindred\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"SOBP c.1981C\u003eT (p.Arg661Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense (stop-gain) variant, NM_018013.4:c.1981C\u003eT, p.Arg661Ter, segregating in the single reported consanguineous Israeli-Arab kindred. It truncates the C-terminal portion of SOBP. Functional work in Xenopus shows that a Sobp protein carrying the human variant still disrupts the pre-placodal ectoderm much as full-length Sobp does while differing in other respects, so the allele is not a straightforward complete null and may be partially functional or act through a distinct mechanism.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SOBP\"], \"gene_terms\": [{\"label\": \"SOBP\", \"id\": \"hgnc:29256\"}], \"variant_type\": \"nonsense\"}}], \"edges\": [{\"source\": \"Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP\", \"target\": \"Loss of SOBP Repression of SIX1+EYA Transcriptional Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without nuclear SOBP there is no SOBP-SIX1/EYA complex, so the repressive input onto SIX1+EYA target-gene transcription is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP\", \"target\": \"Limbic System SOBP Deficiency During Synaptogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same loss of functional nuclear SOBP is proposed to deprive the limbic system of SOBP during its postnatal synaptogenic window. This is the neurodevelopmental arm of the lesion, running in parallel to the SIX1+EYA-dependent craniofacial and otic arms; the intermediate steps between loss of nuclear SOBP and limbic synaptogenesis are not established, and it is not known whether this arm is SIX1+EYA-dependent.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of SOBP Repression of SIX1+EYA Transcriptional Activity\", \"target\": \"Disrupted Craniofacial and Odontogenic Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"De-repressed SIX1+EYA target-gene output in the first pharyngeal arch and tooth germ perturbs jaw and dental morphogenesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of SOBP Repression of SIX1+EYA Transcriptional Activity\", \"target\": \"Disrupted Otic Vesicle and Organ of Corti Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same SIX1/EYA-dependent programme governs otic placode and cochlear development, where altering Sobp levels disrupts otic vesicle formation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Craniofacial and Odontogenic Patterning\", \"target\": \"Maxillary Overgrowth and Dental Arch Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal patterning of the maxillary skeleton and tooth germs manifests clinically as anterior maxillary protrusion with vertical maxillary excess, open bite, and dental crowding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Otic Vesicle and Organ of Corti Patterning\", \"target\": \"Cochlear Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cochlear growth and organ of Corti patterning reduce auditory transduction capacity; in humans the deficit is mild and subclinical.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Limbic System SOBP Deficiency During Synaptogenesis\", \"target\": \"Impaired Limbic Circuit Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of SOBP during limbic synaptogenesis is proposed to leave the limbic circuitry that underpins learning, memory, and affect functionally abnormal; the intermediate steps are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SOBP\", \"target\": \"Biallelic SOBP Truncating Variant and Loss of Nuclear SOBP\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SOBP c.1981C\u003eT (p.Arg661Ter)\", \"target\": \"SOBP\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6679,9 +6791,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6726,6 +6838,9 @@ This clinical feature is Subclinical cochlear hearing loss, annotated with Senso
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6740,6 +6855,7 @@ This clinical feature is Subclinical cochlear hearing loss, annotated with Senso
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6805,6 +6921,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6819,6 +6938,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6846,6 +6966,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6867,6 +6988,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6898,6 +7020,239 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anterior-maxillary-protrusion-with-vertical-maxillary-excess" data-dismech-node="Anterior Maxillary Protrusion with Vertical Maxillary Excess" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anterior Maxillary Protrusion with Vertical Maxillary Excess
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hyperplasia of the maxilla</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0430028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0430028</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anterior maxillary protrusion with vertical maxillary excess, annotated with Hyperplasia of the maxilla (HP:0430028). HP:0430028 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17618476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618476" target="_blank">PMID:17618476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Six of the seven had anterior maxillary protrusion with vertical maxillary excess, open bite, and prominent crowded teeth."</div>
+
+
+                <div class="evidence-explanation">6/7 affected siblings (86%) had anterior maxillary protrusion with vertical maxillary excess, supporting the VERY_FREQUENT band (80-99%).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-open-bite" data-dismech-node="Open Bite" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Open Bite
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0010807</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Open bite (HP:0010807). HP:0010807 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17618476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618476" target="_blank">PMID:17618476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Six of the seven had anterior maxillary protrusion with vertical maxillary excess, open bite, and prominent crowded teeth."</div>
+
+
+                <div class="evidence-explanation">Open bite was present in 6/7 affected siblings (86%), supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dental-crowding" data-dismech-node="Dental Crowding" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dental Crowding
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000678</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17618476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618476" target="_blank">PMID:17618476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Six of the seven had anterior maxillary protrusion with vertical maxillary excess, open bite, and prominent crowded teeth."</div>
+
+
+                <div class="evidence-explanation">Prominent crowded teeth were present in 6/7 affected siblings (86%), supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">3</span>
                 </summary>
@@ -6918,15 +7273,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0010864</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0010864</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6946,6 +7304,7 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6990,15 +7349,18 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0007359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Temporal lobe epilepsy, annotated with Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7018,6 +7380,7 @@ This clinical feature is Temporal lobe epilepsy, annotated with Focal-onset seiz
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7042,6 +7405,7 @@ This clinical feature is Temporal lobe epilepsy, annotated with Focal-onset seiz
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7084,15 +7448,18 @@ This clinical feature is Temporal lobe epilepsy, annotated with Focal-onset seiz
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000709</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000709</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7112,6 +7479,7 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7139,6 +7507,7 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7147,227 +7516,6 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
                 <div class="evidence-explanation">Confirms psychosis as part of the SOBP-related human phenotype rather than a coincidental comorbidity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anterior-maxillary-protrusion-with-vertical-maxillary-excess" data-dismech-node="Anterior Maxillary Protrusion with Vertical Maxillary Excess" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anterior Maxillary Protrusion with Vertical Maxillary Excess
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hyperplasia of the maxilla</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0430028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0430028</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anterior maxillary protrusion with vertical maxillary excess, annotated with Hyperplasia of the maxilla (HP:0430028). HP:0430028 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17618476" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618476" target="_blank">PMID:17618476</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Six of the seven had anterior maxillary protrusion with vertical maxillary excess, open bite, and prominent crowded teeth."</div>
-
-
-                <div class="evidence-explanation">6/7 affected siblings (86%) had anterior maxillary protrusion with vertical maxillary excess, supporting the VERY_FREQUENT band (80-99%).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-open-bite" data-dismech-node="Open Bite" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Open Bite
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0010807</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Open bite (HP:0010807). HP:0010807 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17618476" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618476" target="_blank">PMID:17618476</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Six of the seven had anterior maxillary protrusion with vertical maxillary excess, open bite, and prominent crowded teeth."</div>
-
-
-                <div class="evidence-explanation">Open bite was present in 6/7 affected siblings (86%), supporting the VERY_FREQUENT band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dental-crowding" data-dismech-node="Dental Crowding" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dental Crowding
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000678</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17618476" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618476" target="_blank">PMID:17618476</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Six of the seven had anterior maxillary protrusion with vertical maxillary excess, open bite, and prominent crowded teeth."</div>
-
-
-                <div class="evidence-explanation">Prominent crowded teeth were present in 6/7 affected siblings (86%), supporting the VERY_FREQUENT band.</div>
 
 
 
@@ -7459,6 +7607,9 @@ This disease-associated gene is SOBP (hgnc:29256). hgnc:29256 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7473,6 +7624,7 @@ This disease-associated gene is SOBP (hgnc:29256). hgnc:29256 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7497,6 +7649,7 @@ This disease-associated gene is SOBP (hgnc:29256). hgnc:29256 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7530,6 +7683,7 @@ This disease-associated gene is SOBP (hgnc:29256). hgnc:29256 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7549,11 +7703,17 @@ This variant is in SOBP (hgnc:29256). hgnc:29256 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous nonsense (stop-gain) variant, NM_018013.4:c.1981C&gt;T, p.Arg661Ter, segregating in the single reported consanguineous Israeli-Arab kindred. It truncates the C-terminal portion of SOBP. Functional work in Xenopus shows that a Sobp protein carrying the human variant still disrupts the pre-placodal ectoderm much as full-length Sobp does while differing in other respects, so the allele is not a straightforward complete null and may be partially functional or act through a distinct mechanism.</div>
@@ -7583,6 +7743,7 @@ This variant is in SOBP (hgnc:29256). hgnc:29256 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7604,6 +7765,7 @@ This variant is in SOBP (hgnc:29256). hgnc:29256 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7695,6 +7857,9 @@ This treatment is ophthalmologic surgical procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7705,6 +7870,9 @@ This treatment is ophthalmologic surgical procedure (NCIT:C15331). NCIT:C15331 i
 
 
     </div>
+
+
+
 
 
 
@@ -7765,6 +7933,9 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7775,6 +7946,9 @@ This treatment is orthodontic treatment (NCIT:C64248). NCIT:C64248 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7835,6 +8009,9 @@ This treatment is orthognathic surgical procedure, annotated with Surgical Proce
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7845,6 +8022,9 @@ This treatment is orthognathic surgical procedure, annotated with Surgical Proce
 
 
     </div>
+
+
+
 
 
 
@@ -7905,6 +8085,9 @@ This treatment is early intervention and special education, annotated with Rehab
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7915,6 +8098,9 @@ This treatment is early intervention and special education, annotated with Rehab
 
 
     </div>
+
+
+
 
 
 
@@ -7975,6 +8161,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7985,6 +8174,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -8067,6 +8259,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8077,6 +8272,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -8158,6 +8356,9 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8168,6 +8369,9 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
     </div>
+
+
+
 
 
 
@@ -8238,6 +8442,7 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8294,6 +8499,7 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8315,6 +8521,7 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8374,6 +8581,7 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8395,6 +8603,7 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8472,6 +8681,7 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8493,6 +8703,7 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9797,6 +10008,24 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry covers the biallelic-SOBP human syndrome. Evidence is intrinsically thin: the disorder rests essentially on one consanguineous kindred (PMID:17618476 clinical delineation; PMID:21035105 gene identification), so every human claim here derives from that pedigree and should be read as such. The mechanistic arms are supported by orthologous model-system work (mouse jackson circler/Jxc1, Xenopus, mouse mandibular arch), which is tagged MODEL_ORGANISM or IN_VITRO rather than presented as human evidence. Deep research. Two providers were run, falcon (Edison) and claude_code; both reports are in research/. Both were treated as leads only. Falcon proposed several ontology identifiers that are wrong on inspection (NCIT:C15329 is Surgical Procedure, not Supportive Care; NCIT:C51902 is not Physical Therapy), so every term in this entry was bound from an independent OAK lookup instead. Claude_code supplied the c.1981C&gt;T (p.Arg661Ter) HGVS nomenclature, which was then verified against the ClinVar variant record before use, and also supplied several block quotations attributed to PMID:34414417 that are not present in that abstract; those were discarded and only abstract-verifiable sentences were quoted. GeneReviews. PubMed was searched for a GeneReviews chapter for both SOBP and &#34;anterior maxillary protrusion&#34;; none exists, so the GeneReviews phenotype baseline was not available and the HPO annotation set for OMIM:613671 plus the two primary papers were used instead. Phenotype completeness gap. The HPO annotation set for OMIM:613671 records joint hypermobility (HP:0001382) in 7/7 affected siblings and short attention span (HP:0000736) in 4/7. Neither statement appears in the abstract of either primary paper, and no other citable source with a quotable snippet was found, so both are recorded here rather than asserted as evidence-backed phenotypes. The same annotation set records esotropia, amblyopia, hypermetropia and visual impairment, which are likewise not abstract-quotable and are referenced only in prose. Strabismus is deliberately not modeled in the pathograph. It is one of the three name-giving features and is VERY_FREQUENT and diagnostic, but no cited source establishes a mechanism for it in this syndrome. The only mechanistic hint available is PMID:39948700, a review of strabismus across 255 genetic syndromes, which supports a neurological rather than a primary orbital or extraocular-muscle basis for the strabismus of intellectual-disability syndromes in general but makes no SOBP-specific claim. Positing an ocular-motor or binocular-alignment node here would assert a SOBP-specific mechanism that no source supports, so the feature is left as an evidence-backed phenotype with no pathophysiology node until a source that addresses SOBP or the SIX1+EYA axis directly is available. Note that SIX1 and EYA1 do act in cranial placode and ocular development, so a placodal or ocular-motor arm is a plausible future extension rather than a closed question. Module conformance. Conformance to pharyngeal_arch_patterning_serial_homology was considered and deliberately NOT declared. That module requires a serially homologous malformation bundle across multiple arch derivatives (mandible + maxilla + zygoma + ear) arising from cranial-neural-crest depletion or EDN1-DLX arch-identity failure. The reported MRAMS craniofacial phenotype is confined to the maxilla and dentition with no mandibular, malar, or auricular malformation, and the SOBP lesion acts through SIX1+EYA co-regulation rather than through either module mechanism. The SIX1/EYA1 axis SOBP regulates is the branchio-oto-renal (BOR) axis; a future six1_eya_placodal_craniofacial module would be the natural shared home for SOBP with SIX1 and EYA1.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Intellectual Disability, Anterior Maxillary Protrusion, and Strabismus (MRAMS, SOBP)</strong> · 2026-07-31T20:46:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Intellectual_Disability_Anterior_Maxillary_Protrusion_and_Strabismus/2026-07-31T204658Z-claude-code-e9b689.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MRAMS syndrome (MONDO:0013353, OMIM:613671, SOBP / hgnc:29256). Deep research was run with two providers, falcon (Edison) and claude_code; both reports are committed under research/. Both were treated as leads only and every claim was re-verified. Falcon proposed several incorrect ontology identifiers (e.g. NCIT:C15329 labelled as Supportive Care when it is Surgical Procedure) which were discarded in favour of independent OAK lookups; claude_code supplied block quotations attributed to PMID:34414417 that are absent from that abstract, which were also discarded. The claude_code c.1981C&gt;T (p.Arg661Ter) HGVS nomenclature was independently confirmed against the ClinVar variant record before use, and no ClinVar pathogenicity classification was claimed because none is asserted there. NEC preflight passed: the MONDO:0013353 identity anchors (causal gene SOBP via RO:0004003, OMIM:613671 xref, MRAMS synonym) all match the curated content. No GeneReviews chapter exists for SOBP or for this disorder, so the HPO annotation set for OMIM:613671 was used as the phenotype baseline alongside the two primary papers (PMID:17618476 clinical delineation, PMID:21035105 gene identification). Content: eight pathophysiology nodes spanning MOLECULAR to ORGANISM scale with evidence-bearing causal edges, eight phenotypes with frequency bands derived from the 7-sibling kindred counts, a variant record, three diagnosis entries, seven treatments, and three discussions (one HUMAN_MODEL_MISMATCH on the mouse-versus-human cochlear severity gap, two KNOWLEDGE_GAP on SOBP-BOR candidacy and on intrafamilial expressivity). Module conformance to pharyngeal_arch_patterning_serial_homology was considered and deliberately declined; the rationale is recorded in notes. An Orphanet ORPHA:562559 cache file was generated but then removed because the upstream XML had drifted from its pinned checksum and the record was incomplete. Validation: just validate passed, just validate-terms passed, just validate-references verified 64/64 snippets across 8 cited references, compliance 85.7 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

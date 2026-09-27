@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4224,6 +4292,7 @@ One reported family departs from that pattern in a way worth knowing: a balanced
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4245,6 +4314,7 @@ One reported family departs from that pattern in a way worth knowing: a balanced
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4504,6 +4574,13 @@ The one place the mouse has predicted a human finding is metabolic - glucose int
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-truncating-asxl2-variant" data-dismech-node="De Novo Truncating ASXL2 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo Truncating ASXL2 Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Heterozygous truncating variants - nonsense and frameshift - in ASXL2. The defining series found six such variants in six unrelated probands, all de novo. Reported alleles since include p.Ser627Phefs*22 and further nonsense changes, and one family reached the same diagnosis through a balanced chromosomal rearrangement disrupting the gene rather than through a point variant.
 The variant class matters. All three ASXL germline diseases are caused by truncating variants, not missense, which is the observation the dominant-negative and gain-of-function arguments in this gene family are built on.</div>
 
@@ -4565,6 +4642,8 @@ This pathophysiological event involves ASXL2 (hgnc:23805). hgnc:23805 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -4577,6 +4656,9 @@ This pathophysiological event involves ASXL2 (hgnc:23805). hgnc:23805 is a gene 
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
 
 
@@ -4622,6 +4704,7 @@ This pathophysiological event involves ASXL2 (hgnc:23805). hgnc:23805 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4643,6 +4726,7 @@ This pathophysiological event involves ASXL2 (hgnc:23805). hgnc:23805 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4668,6 +4752,13 @@ This pathophysiological event involves ASXL2 (hgnc:23805). hgnc:23805 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-pr-dub-chromatin-regulation" data-dismech-node="Disturbed PR-DUB Chromatin Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed PR-DUB Chromatin Regulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ASXL proteins are the mammalian homologs of Drosophila Additional sex combs, which balances trithorax and Polycomb function, and they act as the scaffolding partner of the deubiquitinase BAP1 in the PR-DUB complex. The ASXL genes participate in body patterning during embryogenesis and encode proteins involved in epigenetic regulation and in assembling transcription factors at specific genomic loci.
 This node is PROVISIONAL, and the reason is specific rather than routine. No chromatin abnormality has been measured in tissue from a person with Shashi-Pena syndrome. The chromatin account is inherited from what is known about ASXL1 and about the mouse, and a review of the family notes that the domains of ASXL proteins are partly distinct from Asx and that the roles and redundancies of the three members are not well understood - including whether truncating variants give loss of protein or a stable truncated protein with dominant-negative or gain-of-function properties.</div>
@@ -4839,6 +4930,7 @@ This pathophysiological event involves PR-DUB complex (GO:0035517). GO:0035517 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4860,6 +4952,7 @@ This pathophysiological event involves PR-DUB complex (GO:0035517). GO:0035517 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4887,6 +4980,7 @@ This pathophysiological event involves PR-DUB complex (GO:0035517). GO:0035517 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4909,6 +5003,13 @@ This pathophysiological event involves PR-DUB complex (GO:0035517). GO:0035517 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-developmental-patterning" data-dismech-node="Dysregulated Developmental Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Developmental Patterning</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The route from a chromatin scaffold to macrocephaly, a specific facial gestalt, dental anomalies and variable intellectual disability is not traced. What can be said is that the phenotype is reproducible enough to be recognised clinically, and that it differs from its two paralogous neighbours in a consistent direction - overgrowth rather than growth restriction.
 That direction is itself informative and is the reason this node is worth stating separately from the chromatin node: ASXL1 and ASXL3 truncations restrict growth, ASXL2 truncations do not, and one patient has been reported with marked postnatal overgrowth and only minor neurodevelopmental features, which has led to the suggestion that SHAPNS belongs among the overgrowth disorders with macrocephaly.</div>
@@ -4967,6 +5068,7 @@ That direction is itself informative and is the reason this node is worth statin
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4988,6 +5090,7 @@ That direction is itself informative and is the reason this node is worth statin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5013,6 +5116,13 @@ That direction is itself informative and is the reason this node is worth statin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ppar-gamma-linked-metabolic-dysregulation" data-dismech-node="PPAR-gamma-Linked Metabolic Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">PPAR-gamma-Linked Metabolic Dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ASXL2 interacts with PPAR-gamma, and ASXL2-null mice are glucose-intolerant, insulin-resistant and lipodystrophic. That is a mouse-derived prediction about a human phenotype, and it is one of the few places in this entry where the prediction has been tested: an 8-year-old prepubertal boy with SHAPNS developed type 2 diabetes with dyslipidemia and fatty infiltration of the liver, in the absence of a family history.
 It is graded PROVISIONAL because that is one patient. The source itself asks for further cases before treating the association as established, and the infantile hypoglycemia that is well documented in this syndrome is a different metabolic problem in the opposite direction, not obviously part of the same account.</div>
@@ -5085,6 +5195,7 @@ It is graded PROVISIONAL because that is one patient. The source itself asks for
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5106,6 +5217,7 @@ It is graded PROVISIONAL because that is one patient. The source itself asks for
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5133,6 +5245,7 @@ It is graded PROVISIONAL because that is one patient. The source itself asks for
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5180,7 +5293,7 @@ It is graded PROVISIONAL because that is one patient. The source itself asks for
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASXL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ASXL2\"], \"gene_terms\": [{\"label\": \"ASXL2\", \"id\": \"hgnc:23805\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"Asxl2 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The available Asxl2 mouse. It was made and characterised to study myeloid malignancy, and that is what it shows: increased long-term haematopoietic stem cells and granulocyte-macrophage progenitors, enhanced HSC self-renewal, dysregulated H3K27ac and H3K4me1/2, and a myelodysplastic-syndrome-like disease in transplant recipients. Separately, ASXL2-null mice are reported as glucose-intolerant, insulin-resistant and lipodystrophic.\"}, {\"id\": \"De Novo Truncating ASXL2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous truncating variants - nonsense and frameshift - in ASXL2. The defining series found six such variants in six unrelated probands, all de novo. Reported alleles since include p.Ser627Phefs*22 and further nonsense changes, and one family reached the same diagnosis through a balanced chromosomal rearrangement disrupting the gene rather than through a point variant.\\nThe variant class matters. All three ASXL germline diseases are caused by truncating variants, not missense, which is the observation the dominant-negative and gain-of-function arguments in this gene family are built on.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ASXL2\"], \"gene_terms\": [{\"label\": \"ASXL2\", \"id\": \"hgnc:23805\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\"}, \"role\": \"trigger\"}}, {\"id\": \"Disturbed PR-DUB Chromatin Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASXL proteins are the mammalian homologs of Drosophila Additional sex combs, which balances trithorax and Polycomb function, and they act as the scaffolding partner of the deubiquitinase BAP1 in the PR-DUB complex. The ASXL genes participate in body patterning during embryogenesis and encode proteins involved in epigenetic regulation and in assembling transcription factors at specific genomic loci.\\nThis node is PROVISIONAL, and the reason is specific rather than routine. No chromatin abnormality has been measured in tissue from a person with Shashi-Pena syndrome. The chromatin account is inherited from what is known about ASXL1 and about the mouse, and a review of the family notes that the domains of ASXL proteins are partly distinct from Asx and that the roles and redundancies of the three members are not well understood - including whether truncating variants give loss of protein or a stable truncated protein with dominant-negative or gain-of-function properties.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chromatin organization\", \"regulation of transcription by RNA polymerase II\"], \"animal_models\": [{\"name\": \"Asxl2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Asxl2 -/- and Asxl2 +/-\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"It demonstrates that losing Asxl2 does dysregulate histone marks and gene expression in vivo, which supports the chromatin node in kind. It does not model this disease: the phenotype it produces is haematological, the genotype is a deletion rather than a truncating allele, and the developmental features that define Shashi-Pena syndrome are not what the model was assessed for.\"}]}}, {\"id\": \"Dysregulated Developmental Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The route from a chromatin scaffold to macrocephaly, a specific facial gestalt, dental anomalies and variable intellectual disability is not traced. What can be said is that the phenotype is reproducible enough to be recognised clinically, and that it differs from its two paralogous neighbours in a consistent direction - overgrowth rather than growth restriction.\\nThat direction is itself informative and is the reason this node is worth stating separately from the chromatin node: ASXL1 and ASXL3 truncations restrict growth, ASXL2 truncations do not, and one patient has been reported with marked postnatal overgrowth and only minor neurodevelopmental features, which has led to the suggestion that SHAPNS belongs among the overgrowth disorders with macrocephaly.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable in a way that is clinically important: outcomes range from low-average intellectual ability to severe intellectual disability, and at least one reported patient has only minor neurodevelopmental features. This variability is itself a distinguishing feature against the ASXL1 and ASXL3 disorders.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Common, and one of the three features that distinguish this disorder from Bohring-Opitz and Bainbridge-Ropers syndrome. Macrosomia is also common, and growth retardation is characteristically absent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"PPAR-gamma-Linked Metabolic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASXL2 interacts with PPAR-gamma, and ASXL2-null mice are glucose-intolerant, insulin-resistant and lipodystrophic. That is a mouse-derived prediction about a human phenotype, and it is one of the few places in this entry where the prediction has been tested: an 8-year-old prepubertal boy with SHAPNS developed type 2 diabetes with dyslipidemia and fatty infiltration of the liver, in the absence of a family history.\\nIt is graded PROVISIONAL because that is one patient. The source itself asks for further cases before treating the association as established, and the infantile hypoglycemia that is well documented in this syndrome is a different metabolic problem in the opposite direction, not obviously part of the same account.\", \"meta\": {\"evidence_count\": 3, \"animal_models\": [{\"name\": \"Asxl2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Asxl2 -/- and Asxl2 +/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The null mouse\u0027s glucose intolerance, insulin resistance and lipodystrophy is the observation that generated the metabolic prediction for this syndrome, and a human case has since matched it.\"}]}}, {\"id\": \"Type 2 Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported once, prepubertally, with dyslipidemia and hepatic steatosis. It is here because it was predicted by the mouse before it was seen in a person, not because it is expected in a given patient.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0005978\"}}], \"edges\": [{\"source\": \"De Novo Truncating ASXL2 Variant\", \"target\": \"Disturbed PR-DUB Chromatin Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed PR-DUB Chromatin Regulation\", \"target\": \"Dysregulated Developmental Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed PR-DUB Chromatin Regulation\", \"target\": \"PPAR-gamma-Linked Metabolic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Patterning\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Patterning\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PPAR-gamma-Linked Metabolic Dysregulation\", \"target\": \"Type 2 Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asxl2 knockout mouse\", \"target\": \"Disturbed PR-DUB Chromatin Regulation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"It demonstrates that losing Asxl2 does dysregulate histone marks and gene expression in vivo, which supports the chromatin node in kind. It does not model this disease: the phenotype it produces is haematological, the genotype is a deletion rather than a truncating allele, and the developmental features that define Shashi-Pena syndrome are not what the model was assessed for.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Two mismatches, and the second is the important one. First, the readout is myeloid rather than neurodevelopmental. Second, a deletion models haploinsufficiency or null, whereas the human disease is caused by truncating variants whose transcripts escape nonsense-mediated decay and which are argued to act dominant-negatively - so the mouse may be testing a different molecular lesion, not merely a different tissue.\"}, {\"source\": \"Asxl2 knockout mouse\", \"target\": \"PPAR-gamma-Linked Metabolic Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The null mouse\u0027s glucose intolerance, insulin resistance and lipodystrophy is the observation that generated the metabolic prediction for this syndrome, and a human case has since matched it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse phenotype and the human case are one-to-one: a single reported patient with type 2 diabetes. Fidelity is called MODERATE on the strength of the prediction having been met once, not on any systematic comparison. The metabolic characterisation is also cited here second-hand, from the case report rather than from the primary mouse metabolic study.\"}, {\"source\": \"ASXL2\", \"target\": \"De Novo Truncating ASXL2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASXL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ASXL2\"], \"gene_terms\": [{\"label\": \"ASXL2\", \"id\": \"hgnc:23805\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"Asxl2 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The available Asxl2 mouse. It was made and characterised to study myeloid malignancy, and that is what it shows: increased long-term haematopoietic stem cells and granulocyte-macrophage progenitors, enhanced HSC self-renewal, dysregulated H3K27ac and H3K4me1/2, and a myelodysplastic-syndrome-like disease in transplant recipients. Separately, ASXL2-null mice are reported as glucose-intolerant, insulin-resistant and lipodystrophic.\"}, {\"id\": \"De Novo Truncating ASXL2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous truncating variants - nonsense and frameshift - in ASXL2. The defining series found six such variants in six unrelated probands, all de novo. Reported alleles since include p.Ser627Phefs*22 and further nonsense changes, and one family reached the same diagnosis through a balanced chromosomal rearrangement disrupting the gene rather than through a point variant.\\nThe variant class matters. All three ASXL germline diseases are caused by truncating variants, not missense, which is the observation the dominant-negative and gain-of-function arguments in this gene family are built on.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ASXL2\"], \"gene_terms\": [{\"label\": \"ASXL2\", \"id\": \"hgnc:23805\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Disturbed PR-DUB Chromatin Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASXL proteins are the mammalian homologs of Drosophila Additional sex combs, which balances trithorax and Polycomb function, and they act as the scaffolding partner of the deubiquitinase BAP1 in the PR-DUB complex. The ASXL genes participate in body patterning during embryogenesis and encode proteins involved in epigenetic regulation and in assembling transcription factors at specific genomic loci.\\nThis node is PROVISIONAL, and the reason is specific rather than routine. No chromatin abnormality has been measured in tissue from a person with Shashi-Pena syndrome. The chromatin account is inherited from what is known about ASXL1 and about the mouse, and a review of the family notes that the domains of ASXL proteins are partly distinct from Asx and that the roles and redundancies of the three members are not well understood - including whether truncating variants give loss of protein or a stable truncated protein with dominant-negative or gain-of-function properties.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chromatin organization\", \"regulation of transcription by RNA polymerase II\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Asxl2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Asxl2 -/- and Asxl2 +/-\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"It demonstrates that losing Asxl2 does dysregulate histone marks and gene expression in vivo, which supports the chromatin node in kind. It does not model this disease: the phenotype it produces is haematological, the genotype is a deletion rather than a truncating allele, and the developmental features that define Shashi-Pena syndrome are not what the model was assessed for.\"}]}}, {\"id\": \"Dysregulated Developmental Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The route from a chromatin scaffold to macrocephaly, a specific facial gestalt, dental anomalies and variable intellectual disability is not traced. What can be said is that the phenotype is reproducible enough to be recognised clinically, and that it differs from its two paralogous neighbours in a consistent direction - overgrowth rather than growth restriction.\\nThat direction is itself informative and is the reason this node is worth stating separately from the chromatin node: ASXL1 and ASXL3 truncations restrict growth, ASXL2 truncations do not, and one patient has been reported with marked postnatal overgrowth and only minor neurodevelopmental features, which has led to the suggestion that SHAPNS belongs among the overgrowth disorders with macrocephaly.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable in a way that is clinically important: outcomes range from low-average intellectual ability to severe intellectual disability, and at least one reported patient has only minor neurodevelopmental features. This variability is itself a distinguishing feature against the ASXL1 and ASXL3 disorders.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Common, and one of the three features that distinguish this disorder from Bohring-Opitz and Bainbridge-Ropers syndrome. Macrosomia is also common, and growth retardation is characteristically absent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"PPAR-gamma-Linked Metabolic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASXL2 interacts with PPAR-gamma, and ASXL2-null mice are glucose-intolerant, insulin-resistant and lipodystrophic. That is a mouse-derived prediction about a human phenotype, and it is one of the few places in this entry where the prediction has been tested: an 8-year-old prepubertal boy with SHAPNS developed type 2 diabetes with dyslipidemia and fatty infiltration of the liver, in the absence of a family history.\\nIt is graded PROVISIONAL because that is one patient. The source itself asks for further cases before treating the association as established, and the infantile hypoglycemia that is well documented in this syndrome is a different metabolic problem in the opposite direction, not obviously part of the same account.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Asxl2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Asxl2 -/- and Asxl2 +/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The null mouse\u0027s glucose intolerance, insulin resistance and lipodystrophy is the observation that generated the metabolic prediction for this syndrome, and a human case has since matched it.\"}]}}, {\"id\": \"Type 2 Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported once, prepubertally, with dyslipidemia and hepatic steatosis. It is here because it was predicted by the mouse before it was seen in a person, not because it is expected in a given patient.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0005978\"}}], \"edges\": [{\"source\": \"De Novo Truncating ASXL2 Variant\", \"target\": \"Disturbed PR-DUB Chromatin Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed PR-DUB Chromatin Regulation\", \"target\": \"Dysregulated Developmental Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed PR-DUB Chromatin Regulation\", \"target\": \"PPAR-gamma-Linked Metabolic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Patterning\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Patterning\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PPAR-gamma-Linked Metabolic Dysregulation\", \"target\": \"Type 2 Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asxl2 knockout mouse\", \"target\": \"Disturbed PR-DUB Chromatin Regulation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"It demonstrates that losing Asxl2 does dysregulate histone marks and gene expression in vivo, which supports the chromatin node in kind. It does not model this disease: the phenotype it produces is haematological, the genotype is a deletion rather than a truncating allele, and the developmental features that define Shashi-Pena syndrome are not what the model was assessed for.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Two mismatches, and the second is the important one. First, the readout is myeloid rather than neurodevelopmental. Second, a deletion models haploinsufficiency or null, whereas the human disease is caused by truncating variants whose transcripts escape nonsense-mediated decay and which are argued to act dominant-negatively - so the mouse may be testing a different molecular lesion, not merely a different tissue.\"}, {\"source\": \"Asxl2 knockout mouse\", \"target\": \"PPAR-gamma-Linked Metabolic Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The null mouse\u0027s glucose intolerance, insulin resistance and lipodystrophy is the observation that generated the metabolic prediction for this syndrome, and a human case has since matched it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse phenotype and the human case are one-to-one: a single reported patient with type 2 diabetes. Fidelity is called MODERATE on the strength of the prediction having been met once, not on any systematic comparison. The metabolic characterisation is also cited here second-hand, from the case report rather than from the primary mouse metabolic study.\"}, {\"source\": \"ASXL2\", \"target\": \"De Novo Truncating ASXL2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5213,13 +5326,13 @@ It is graded PROVISIONAL because that is one patient. The source itself asks for
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5293,6 +5406,9 @@ This clinical feature is Decreased circulating immunoglobulin concentration (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5307,6 +5423,7 @@ This clinical feature is Decreased circulating immunoglobulin concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5374,6 +5491,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5388,6 +5508,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5412,6 +5533,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5477,6 +5599,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5491,6 +5616,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5556,6 +5682,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5570,6 +5699,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5637,6 +5767,9 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5651,6 +5784,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5716,6 +5850,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5730,6 +5867,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5786,6 +5924,9 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5800,6 +5941,7 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5856,6 +5998,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5870,6 +6015,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5935,6 +6081,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5949,6 +6098,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6007,6 +6157,9 @@ This clinical feature is Abnormality of dental eruption (HP:0006292). HP:0006292
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6021,6 +6174,7 @@ This clinical feature is Abnormality of dental eruption (HP:0006292). HP:0006292
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6052,6 +6206,89 @@ This clinical feature is Abnormality of dental eruption (HP:0006292). HP:0006292
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-glabellar-nevus-flammeus" data-dismech-node="Glabellar Nevus Flammeus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Glabellar Nevus Flammeus
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001052" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001052</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nevus flammeus (HP:0001052). HP:0001052 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27693232" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27693232" target="_blank">PMID:27693232</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A careful review enabled the recognition of a specific phenotype consisting of macrocephaly, prominent eyes, arched eyebrows, hypertelorism, a glabellar nevus flammeus, neonatal feeding difficulties, hypotonia, and developmental disabilities."</div>
+
+
+                <div class="evidence-explanation">The recognisable gestalt as originally described, including the glabellar lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
@@ -6072,10 +6309,10 @@ This clinical feature is Abnormality of dental eruption (HP:0006292). HP:0006292
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001943</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001943</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoglycemia (HP:0001943), qualified as infantile onset. HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6115,6 +6352,9 @@ This clinical feature is Hypoglycemia (HP:0001943), qualified as infantile onset
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6129,6 +6369,7 @@ This clinical feature is Hypoglycemia (HP:0001943), qualified as infantile onset
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6157,7 +6398,7 @@ This clinical feature is Hypoglycemia (HP:0001943), qualified as infantile onset
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -6180,10 +6421,10 @@ This clinical feature is Hypoglycemia (HP:0001943), qualified as infantile onset
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6223,6 +6464,9 @@ This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6237,6 +6481,7 @@ This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6279,15 +6524,18 @@ This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6307,6 +6555,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6335,7 +6584,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-10">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6358,15 +6607,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6386,6 +6638,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6428,15 +6681,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6456,6 +6712,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6498,15 +6755,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6529,6 +6789,7 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6537,85 +6798,6 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
                 <div class="evidence-explanation">Frequency statement mapping to FREQUENT.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-glabellar-nevus-flammeus" data-dismech-node="Glabellar Nevus Flammeus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Glabellar Nevus Flammeus
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001052" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001052</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nevus flammeus (HP:0001052). HP:0001052 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27693232" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27693232" target="_blank">PMID:27693232</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A careful review enabled the recognition of a specific phenotype consisting of macrocephaly, prominent eyes, arched eyebrows, hypertelorism, a glabellar nevus flammeus, neonatal feeding difficulties, hypotonia, and developmental disabilities."</div>
-
-
-                <div class="evidence-explanation">The recognisable gestalt as originally described, including the glabellar lesion.</div>
 
 
 
@@ -6705,6 +6887,9 @@ This disease-associated gene is ASXL2 (hgnc:23805). hgnc:23805 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6719,6 +6904,7 @@ This disease-associated gene is ASXL2 (hgnc:23805). hgnc:23805 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6743,6 +6929,7 @@ This disease-associated gene is ASXL2 (hgnc:23805). hgnc:23805 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6828,6 +7015,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6838,6 +7028,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6865,6 +7058,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6953,6 +7147,9 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6963,6 +7160,9 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -6993,6 +7193,7 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7014,6 +7215,7 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7080,6 +7282,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7090,6 +7295,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7117,6 +7325,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7193,6 +7402,7 @@ The practically useful addition is the negative-exome case. A balanced t(2;11) t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7214,6 +7424,7 @@ The practically useful addition is the negative-exome case. A balanced t(2;11) t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7288,6 +7499,7 @@ The practically useful addition is the negative-exome case. A balanced t(2;11) t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7373,6 +7585,7 @@ The practically useful addition is the negative-exome case. A balanced t(2;11) t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7428,6 +7641,7 @@ The practically useful addition is the negative-exome case. A balanced t(2;11) t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7480,6 +7694,7 @@ The practically useful addition is the negative-exome case. A balanced t(2;11) t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7607,6 +7822,7 @@ The practically useful addition is the negative-exome case. A balanced t(2;11) t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7663,6 +7879,7 @@ The practically useful addition is the negative-exome case. A balanced t(2;11) t
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8965,6 +9182,70 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation inputs. One Perplexity deep-research run, committed alongside, plus independent PubMed searching. The report was used for orientation only. It contains no PMID or DOI in its body, and its term validation flagged, among others, UBERON:0004288 offered as &#34;vertebral column&#34; when UBERON calls it skeleton, and UBERON:0008896 offered as &#34;skeleton&#34; when UBERON calls it post-hyoid pharyngeal arch - two labels swapped between two real terms, which is the failure mode hardest to catch by eye. Every CURIE here was verified independently against OLS.
+Phenotypes represented in prose rather than as structured entries. The GeneReviews clinical-characteristics sentence enumerates a long list of variable findings, and quoting it once per phenotype would multiply near-identical snippets. Congenital heart defect, strabismus, feeding difficulty and conductive hearing loss are curated from it; the skin findings (capillary malformations, deep palmar creases, hypertrichosis), hypermobility, frequent fractures, temperature dysregulation, sleep apnea and global volume loss on brain MRI are not, and are represented only here. That is a curation choice about snippet economy, not a judgement that they are absent.
+Immune involvement. The hypogammaglobulinaemia phenotype is a single 2025 case and postdates the GeneReviews chapter, so it is not part of the established phenotype. It is recorded at VERY_RARE with its novelty stated, because a curator adding immune features later should be able to see where the claim came from.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: add congenital heart defect and strabismus phenotypes</strong> · 2026-08-29T21:06:57Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Shashi-Pena_Syndrome/2026-08-29T210657Z-claude-code-4c2629.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the automated review on PR #10098 (ai4c-reviewer, CHANGES_REQUESTED). The one blocking item and two of the three non-blocking suggestions are addressed; the third is declined with a reason. Nothing disputed. Snippets 42 to 45 verified.
+
+Blocking item, congenital heart defects. Correct, and the reviewer&#39;s diagnosis of why it slipped is right: it was inside two quoted snippets already in the file but was never curated as a phenotype and, unlike sleep apnea or temperature dysregulation, was not covered by the scoping rationale given in the PR body either. So it fell into a gap between &#34;curated&#34; and &#34;explicitly deferred&#34;. Added as Abnormal heart morphology (HP:0001627, OCCASIONAL) with two evidence items - the GeneReviews clinical-characteristics sentence already quoted elsewhere in the entry, and the independent 2025 case report. The binding is deliberately general: the reported defects are minor and no systematic imaging series exists, so a narrower term would assert structure the sources do not describe. The description says so.
+
+Non-blocking, vision abnormalities. Added Strabismus (HP:0000486, OCCASIONAL) from the same GeneReviews sentence. Amblyopia was left out on the grounds that it is a consequence of the strabismus rather than an independent finding, and both are named in one clause.
+
+Non-blocking, octreotide modality. Changed therapeutic_modality from SMALL_MOLECULE to PEPTIDE. Octreotide is an octapeptide and PEPTIDE is the accurate platform classification.
+
+Non-blocking, a third modeled_mechanisms link for the Asxl2 cardiac phenotype. Declined, on the condition the reviewer themselves attached to it - &#34;if you cache a primary source for it&#34;. A PubMed search for an Asxl2 cardiac or skeletal mouse study returned nothing fetchable that reports it as a primary result. Adding the link on the strength of the deep-research report&#39;s assertion would be exactly the failure this entry&#39;s notes warn about, since that report carries no PMID or DOI anywhere in its body. If a primary source surfaces, the link is a small addition.
+
+A gap the fix exposed, now closed properly. The original PR body said a handful of GeneReviews features were &#34;represented in prose rather than as structured phenotypes&#34; but the prose in question was in the PR description, not in the entry, so it was invisible to anyone reading the file. The notes block now carries that scoping paragraph: it names which features are curated from the long clinical-characteristics sentence and which are not, and states that the omission is a choice about snippet economy rather than a judgement that the features are absent. That is the durable form of the argument.
+
+Two things the reviewer was explicit about not flagging, recorded because they were deliberate choices: the NO_EVIDENCE grading on the ASXL1 sentence, and the DOMINANT_NEGATIVE assignment paired with a KNOWLEDGE_GAP discussion setting out the contrary haploinsufficiency evidence. Both were confirmed as the right handling rather than as hedges.
+
+Validation after the round: schema validation passes; 45 of 45 evidence snippets verified; term validation, duplicate-key, entity-ref, folded-hyphen, snippet-length, title-snippet and snippet-grading checks all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Shashi-Pena Syndrome (MONDO:0014963, ASXL2)</strong> · 2026-08-29T20:25:54Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Shashi-Pena_Syndrome/2026-08-29T202554Z-claude-code-bddc9e.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of Shashi-Pena syndrome (SHAPNS), the ASXL2-related developmental disorder.
+
+Lump/split decision. Curated as its own kb/disorders entry. MONDO:0014963 is a leaf with one causal gene. The KB already carries the two paralogous disorders - Bohring-Opitz syndrome (ASXL1) and Bainbridge-Ropers syndrome (ASXL3) - and the Bainbridge-Ropers entry already names Shashi-Pena syndrome as a distinct differential with its own MONDO term. That is a positive signal for a separate entry rather than a has_subtypes entry, and it is why this entry is written to be read alongside those two: the useful clinical content is what separates the three, not what they share.
+
+Curation inputs. One Perplexity deep-research run (research/Shashi-Pena_Syndrome-deep-research-perplexity.md, committed alongside) plus independent PubMed E-utilities searching, and the GeneReviews chapter PMID:39527683 as the mandatory phenotype baseline.
+
+The report was used for orientation only. It contains no PMID and no DOI in its body - reference validation found no parseable references at all on the first run - and its term validation reported 6 of 7 checked labels naming a different term. Two of those are the failure mode hardest to catch by eye, because they are real terms with their labels swapped: UBERON:0004288 offered as &#34;vertebral column&#34; when UBERON calls it skeleton, and UBERON:0008896 offered as &#34;skeleton&#34; when UBERON calls it post-hyoid pharyngeal arch. Neither CURIE nor name looks wrong in isolation. Every CURIE in this entry was verified independently against OLS.
+
+GeneReviews baseline. PMID:39527683 is tagged in the top-level references and is the source for most phenotype frequencies, the surveillance schedule, and the agents-to-avoid item (prolonged fasting in those with hypoglycemia). Its Clinical Characteristics list was cross-referenced against the phenotypes block; features from it that are recorded are macrocephaly, macrosomia, developmental delay with variable intellectual outcome, infantile hypotonia, the facial gestalt, dental anomalies, feeding difficulty, hypoglycemia, seizures, scoliosis, aggression/attention difficulty and conductive hearing loss. Features left out of the structured phenotypes and represented only in prose are the skin findings, hypermobility, temperature dysregulation, sleep apnea and global volume loss on MRI - these were not dropped for lack of relevance but because each would need its own evidence item quoting the same long list sentence, which would multiply near-duplicate snippets without adding information.
+
+The mechanism is unsettled, and the entry records the disagreement rather than picking a side quietly. The defining 2016 study argued a dominant-negative effect on mRNA evidence: truncated ASXL2 transcripts escape nonsense-mediated decay and both alleles are expressed in blood. Its own wording is &#34;likely to exert&#34;, not &#34;demonstrated&#34;. A 2021 family reached the same diagnosis through a balanced t(2;11) translocation with RNA-seq showing decreased average ASXL2 mRNA - a haploinsufficiency mechanism. Both cannot be the general explanation. genetic_context carries functional_impact_category DOMINANT_NEGATIVE, which is a choice made with the contrary evidence in view and stated as such in the discussion, not in ignorance of it.
+
+An evidence item graded NO_EVIDENCE on purpose. The chromatin node cites a sentence from the ASXL cancer review saying it is not clarified whether ASXL1 truncating mutations give loss of protein or a stable truncated protein. That sentence is about ASXL1, not ASXL2, so it does not bear on this node&#39;s claim either way. Grading it NO_EVIDENCE rather than SUPPORT is the honest reading and keeps it citable as a record that the question is open across the family.
+
+Model organism recorded with its mismatch. The Asxl2 knockout mouse is entered once with two links: PARTIALLY_RECAPITULATES / LOW fidelity against the chromatin node, and RECAPITULATES / MODERATE against the metabolic node. The chromatin link&#39;s limitations state both mismatches - the readout is myeloid rather than neurodevelopmental, and a deletion may test a different molecular lesion than a truncating dominant-negative allele. The metabolic link is the one place in this entry where a mouse phenotype preceded and correctly anticipated a human one: ASXL2-null mice are glucose-intolerant, insulin-resistant and lipodystrophic through PPAR-gamma, and a single prepubertal case of type 2 diabetes with dyslipidemia and hepatic steatosis has since been reported. MODERATE fidelity reflects that the prediction was met once, not a systematic comparison, and the limitations say so.
+
+Two discussions, both OPEN: the dominant-negative versus haploinsufficiency question (KNOWLEDGE_GAP, with a proposed allelic series), and the absence of any model for the neurodevelopmental phenotype (HUMAN_MODEL_MISMATCH, with a proposed truncating-allele knock-in that would also address the first question).
+
+A schema gap encountered. The classifications block originally carried mechanistic_category &#34;chromatin disorder&#34;, which the MechanisticCategory enum does not contain - its values are RASopathy, ciliopathy, laminopathy, collagenopathy, desmosomopathy, mitochondrial disease, amyloidopathy, tauopathy, synucleinopathy, intermediate filament disease and proteotoxic disease. The block was removed rather than forced into an ill-fitting value. The KB already holds several disorders of the epigenetic machinery, so a chromatinopathy value may be worth adding; that is a schema change and does not belong in a curation PR.
+
+Somatic-germline caution. ASXL2 is recurrently mutated in AML with t(8;21) and its mouse deletion causes an MDS-like disease. The genetic notes state explicitly that this does not license a cancer-risk claim for Shashi-Pena syndrome: GeneReviews recommends no malignancy surveillance, no case of myeloid malignancy in a SHAPNS patient appears in the material reviewed, and the germline and somatic variant classes are not the same lesion.
+
+Immune involvement. The 2025 hypogammaglobulinaemia case postdates the GeneReviews chapter and is recorded at VERY_RARE with its novelty stated in the description, so a later curator can see where the claim came from.
+
+Validation. Schema validation passes; 42 of 42 evidence snippets verified against cached primary references; term validation, duplicate-key, entity-ref, folded-hyphen, snippet-length, title-snippet and snippet-grading checks all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

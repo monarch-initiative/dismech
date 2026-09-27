@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Osteogenesis%20Imperfecta%20Type%20VII"
@@ -3976,7 +4044,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4185,6 +4253,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4232,6 +4301,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collagen-3-hydroxylation-deficiency" data-dismech-node="Collagen 3-Hydroxylation Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Collagen 3-Hydroxylation Deficiency</div>
 
+
                 <div class="item-desc">CRTAP is a component of the prolyl 3-hydroxylation complex that modifies Pro986 in the alpha1(I) chain of type I collagen. Loss of this modification delays collagen folding, causing overmodification of the helix and altered collagen structure and cross-linking.
 </div>
 
@@ -4273,6 +4343,53 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CRTAP
+
+
+    <a href="https://bioregistry.io/hgnc:2379" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2379</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CRTAP (hgnc:2379), qualified as loss of function. hgnc:2379 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⇓ LOSS OF FUNCTION
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4288,11 +4405,11 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0018126" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0018126</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0018126" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0018126</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Protein Hydroxylation (GO:0018126). GO:0018126 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4318,11 +4435,11 @@ This pathophysiological event involves Protein Hydroxylation (GO:0018126). GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0030199</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Collagen Fibril Organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4411,6 +4528,7 @@ This pathophysiological event involves Collagen Fibril Organization (GO:0030199)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4432,6 +4550,7 @@ This pathophysiological event involves Collagen Fibril Organization (GO:0030199)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4458,6 +4577,7 @@ This pathophysiological event involves Collagen Fibril Organization (GO:0030199)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteoblast-dysfunction-and-impaired-bone-formation" data-dismech-node="Osteoblast Dysfunction and Impaired Bone Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteoblast Dysfunction and Impaired Bone Formation</div>
 
+
                 <div class="item-desc">CRTAP deficiency in patient osteoblasts reduces CRTAP expression and prolyl 3-hydroxylation of type I collagen, with reduced osteoblast numbers, diminished osteoid volume, and markedly impaired active bone formation.
 </div>
 
@@ -4480,11 +4600,11 @@ This pathophysiological event involves Collagen Fibril Organization (GO:0030199)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001649</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4510,11 +4630,11 @@ This pathophysiological event involves Osteoblast differentiation (GO:0001649). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001503</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4621,6 +4741,7 @@ This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4644,12 +4765,56 @@ This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collagen-proteotoxicity-in-severe-crtap-variants" data-dismech-node="Collagen Proteotoxicity in Severe CRTAP Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Collagen Proteotoxicity in Severe CRTAP Variants</div>
 
+
                 <div class="item-desc">Some severe CRTAP variants can generate unstable CRTAP isoforms that cause loss of proline hydroxylation, type I collagen aggregation, autophagy, and cellular senescence. This captures a severe/lethal variant mechanism rather than a uniform mechanism for every CRTAP allele.
 </div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CRTAP
+
+
+    <a href="https://bioregistry.io/hgnc:2379" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:2379</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CRTAP (hgnc:2379). hgnc:2379 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4666,11 +4831,11 @@ This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006457</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4687,135 +4852,6 @@ This pathophysiological event involves protein folding (GO:0006457). GO:0006457 
 
 
 
-
-
-
-                    <span class="tag tag-bio">
-                        extracellular matrix organization
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030198</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37146916" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37146916" target="_blank">PMID:37146916</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both mutant isoforms of CRTAP are unstable due to the presence of a unique &#39;GWxxI&#39; degron, which finally leads to loss of proline hydroxylation and aggregation of type I collagen. Although type I collagen aggregates undergo autophagy, the overall proteotoxicity resulted in death of the proband..."</div>
-
-
-                <div class="evidence-explanation">Patient-cell functional data connect a lethal CRTAP variant to collagen aggregation, proteotoxic stress, and senescence.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-primary-lung-matrix-dysfunction" data-dismech-node="Primary Lung Matrix Dysfunction" data-dismech-type="pathophysiology">
-                <div class="item-name">Primary Lung Matrix Dysfunction</div>
-
-                <div class="item-desc">Crtap knockout mouse data support a primary lung contribution in recessive OI, with altered collagen post-translational modification in lung fibroblasts, parenchymal changes, and impaired respiratory mechanics. This supports respiratory surveillance while remaining model-organism evidence.
-</div>
-
-
-
-                <div class="item-meta">
-
-
-
-                    <span class="tag tag-cell">
-                        fibroblast
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000057</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-                <div class="item-meta">
 
 
 
@@ -4864,6 +4900,137 @@ This pathophysiological event involves extracellular matrix organization (GO:003
         </summary>
         <div class="evidence-list">
 
+            <div class="evidence-item" data-dismech-evidence="PMID:37146916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37146916" target="_blank">PMID:37146916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both mutant isoforms of CRTAP are unstable due to the presence of a unique &#39;GWxxI&#39; degron, which finally leads to loss of proline hydroxylation and aggregation of type I collagen. Although type I collagen aggregates undergo autophagy, the overall proteotoxicity resulted in death of the proband..."</div>
+
+
+                <div class="evidence-explanation">Patient-cell functional data connect a lethal CRTAP variant to collagen aggregation, proteotoxic stress, and senescence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-primary-lung-matrix-dysfunction" data-dismech-node="Primary Lung Matrix Dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">Primary Lung Matrix Dysfunction</div>
+
+
+                <div class="item-desc">Crtap knockout mouse data support a primary lung contribution in recessive OI, with altered collagen post-translational modification in lung fibroblasts, parenchymal changes, and impaired respiratory mechanics. This supports respiratory surveillance while remaining model-organism evidence.
+</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        fibroblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000057</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        extracellular matrix organization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030198</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
             <div class="evidence-item" data-dismech-evidence="PMID:32022592" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
@@ -4872,6 +5039,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4920,7 +5088,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blue Sclerae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bluish sclerae are part of the original clinical description of OI type VII.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000592\"}}, {\"id\": \"Collagen 3-Hydroxylation Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRTAP is a component of the prolyl 3-hydroxylation complex that modifies Pro986 in the alpha1(I) chain of type I collagen. Loss of this modification delays collagen folding, causing overmodification of the helix and altered collagen structure and cross-linking.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"Protein Hydroxylation\", \"Collagen Fibril Organization\"]}}, {\"id\": \"Collagen Proteotoxicity in Severe CRTAP Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some severe CRTAP variants can generate unstable CRTAP isoforms that cause loss of proline hydroxylation, type I collagen aggregation, autophagy, and cellular senescence. This captures a severe/lethal variant mechanism rather than a uniform mechanism for every CRTAP allele.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding\", \"extracellular matrix organization\"]}}, {\"id\": \"Coxa Vara\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal angle of the femoral neck contributing to hip dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002812\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired growth is reported in childhood survivors and contributes to short stature in more severely affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"High Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High myopia has been reported in an adult with CRTAP-related OI, suggesting that ocular involvement can occur outside the skeleton.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011003\"}}, {\"id\": \"Low Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density ranges from osteopenia in the founding cohort to extremely low bone mineral density in more severe cases.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000938\"}}, {\"id\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRTAP deficiency in patient osteoblasts reduces CRTAP expression and prolyl 3-hydroxylation of type I collagen, with reduced osteoblast numbers, diminished osteoid volume, and markedly impaired active bone formation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Osteoblast differentiation\", \"Ossification\"]}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe osteoporosis is part of the more severe CRTAP-related OI type VII phenotype spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Platybasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Platybasia has been reported as part of the craniofacial phenotype in severe childhood OI type VII.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002691\"}}, {\"id\": \"Primary Lung Matrix Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Crtap knockout mouse data support a primary lung contribution in recessive OI, with altered collagen post-translational modification in lung fibroblasts, parenchymal changes, and impaired respiratory mechanics. This supports respiratory surveillance while remaining model-organism evidence.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Recurrent Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone fragility typically manifests with recurrent fractures beginning prenatally, at birth, or in early childhood.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002757\"}}, {\"id\": \"Retinal Detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral retinal detachment has been reported in an adult with CRTAP-related OI type VII.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000541\"}}, {\"id\": \"Rhizomelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic shortening of the proximal limb segments (humerus, femur), which helps distinguish recessive OI from dominant forms.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008905\"}}, {\"id\": \"Skeletal Deformities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-bone and other skeletal deformities arise early and contribute to clinical severity.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000924\"}}, {\"id\": \"Wormian Bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wormian bones have been reported in severe craniofacial involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002645\"}}], \"edges\": [{\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Collagen Proteotoxicity in Severe CRTAP Variants\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Primary Lung Matrix Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Blue Sclerae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"High Myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Retinal Detachment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Recurrent Fractures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Rhizomelia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Coxa Vara\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Low Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Skeletal Deformities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Wormian Bones\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Platybasia\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blue Sclerae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bluish sclerae are part of the original clinical description of OI type VII.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000592\"}}, {\"id\": \"CRTAP Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CRTAP\"], \"gene_terms\": [{\"label\": \"CRTAP\", \"id\": \"hgnc:2379\", \"modifier\": \"LOSS_OF_FUNCTION\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Collagen 3-Hydroxylation Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRTAP is a component of the prolyl 3-hydroxylation complex that modifies Pro986 in the alpha1(I) chain of type I collagen. Loss of this modification delays collagen folding, causing overmodification of the helix and altered collagen structure and cross-linking.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"Protein Hydroxylation\", \"Collagen Fibril Organization\"], \"genes\": [\"CRTAP\"], \"gene_terms\": [{\"label\": \"CRTAP\", \"id\": \"hgnc:2379\", \"modifier\": \"LOSS_OF_FUNCTION\"}]}}, {\"id\": \"Collagen Proteotoxicity in Severe CRTAP Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some severe CRTAP variants can generate unstable CRTAP isoforms that cause loss of proline hydroxylation, type I collagen aggregation, autophagy, and cellular senescence. This captures a severe/lethal variant mechanism rather than a uniform mechanism for every CRTAP allele.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding\", \"extracellular matrix organization\"], \"genes\": [\"CRTAP\"], \"gene_terms\": [{\"label\": \"CRTAP\", \"id\": \"hgnc:2379\"}]}}, {\"id\": \"Coxa Vara\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal angle of the femoral neck contributing to hip dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002812\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired growth is reported in childhood survivors and contributes to short stature in more severely affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"High Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High myopia has been reported in an adult with CRTAP-related OI, suggesting that ocular involvement can occur outside the skeleton.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011003\"}}, {\"id\": \"Low Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density ranges from osteopenia in the founding cohort to extremely low bone mineral density in more severe cases.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000938\"}}, {\"id\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRTAP deficiency in patient osteoblasts reduces CRTAP expression and prolyl 3-hydroxylation of type I collagen, with reduced osteoblast numbers, diminished osteoid volume, and markedly impaired active bone formation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Osteoblast differentiation\", \"Ossification\"]}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe osteoporosis is part of the more severe CRTAP-related OI type VII phenotype spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Platybasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Platybasia has been reported as part of the craniofacial phenotype in severe childhood OI type VII.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002691\"}}, {\"id\": \"Primary Lung Matrix Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Crtap knockout mouse data support a primary lung contribution in recessive OI, with altered collagen post-translational modification in lung fibroblasts, parenchymal changes, and impaired respiratory mechanics. This supports respiratory surveillance while remaining model-organism evidence.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Recurrent Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone fragility typically manifests with recurrent fractures beginning prenatally, at birth, or in early childhood.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002757\"}}, {\"id\": \"Retinal Detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral retinal detachment has been reported in an adult with CRTAP-related OI type VII.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000541\"}}, {\"id\": \"Rhizomelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic shortening of the proximal limb segments (humerus, femur), which helps distinguish recessive OI from dominant forms.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008905\"}}, {\"id\": \"Skeletal Deformities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-bone and other skeletal deformities arise early and contribute to clinical severity.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000924\"}}, {\"id\": \"Wormian Bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wormian bones have been reported in severe craniofacial involvement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002645\"}}], \"edges\": [{\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Collagen Proteotoxicity in Severe CRTAP Variants\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Primary Lung Matrix Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Blue Sclerae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"High Myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen 3-Hydroxylation Deficiency\", \"target\": \"Retinal Detachment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Recurrent Fractures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Rhizomelia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Coxa Vara\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Low Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Skeletal Deformities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Wormian Bones\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteoblast Dysfunction and Impaired Bone Formation\", \"target\": \"Platybasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CRTAP Mutations\", \"target\": \"Collagen 3-Hydroxylation Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CRTAP Mutations\", \"target\": \"Collagen Proteotoxicity in Severe CRTAP Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4941,15 +5109,13 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4976,15 +5142,18 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000592</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000592</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5004,6 +5173,7 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5044,15 +5214,18 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0011003</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011003</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5072,6 +5245,7 @@ This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5112,15 +5286,18 @@ This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000541</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5140,6 +5317,7 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5172,7 +5350,7 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-wormian-bones" data-dismech-node="Wormian Bones" data-dismech-type="phenotype">
@@ -5189,15 +5367,18 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002645</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5220,6 +5401,7 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5228,6 +5410,78 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
                 <div class="evidence-explanation">Wormian bones were documented on craniofacial imaging in the more severe of two 11-year-old girls with CRTAP-related OI.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-platybasia" data-dismech-node="Platybasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Platybasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002691</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Platybasia (HP:0002691). HP:0002691 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35970273" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35970273" target="_blank">PMID:35970273</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cone-beam computed tomography showed occipital bossing, platybasia and wormian bones."</div>
+
+
+                <div class="evidence-explanation">Platybasia was documented on craniofacial imaging in the more severe of two 11-year-old girls with CRTAP-related OI.</div>
 
 
 
@@ -5266,15 +5520,18 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002812</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002812</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5294,6 +5551,7 @@ This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5343,15 +5601,18 @@ This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002757</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002757</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5371,6 +5632,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5398,6 +5660,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5419,6 +5682,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5461,15 +5725,18 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000938</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000938</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Low bone mineral density, annotated with Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5489,6 +5756,7 @@ This clinical feature is Low bone mineral density, annotated with Osteopenia (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5513,6 +5781,7 @@ This clinical feature is Low bone mineral density, annotated with Osteopenia (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5553,15 +5822,18 @@ This clinical feature is Low bone mineral density, annotated with Osteopenia (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000939</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5581,6 +5853,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5623,15 +5896,18 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000924</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000924</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal deformity, annotated with Abnormality of the skeletal system (HP:0000924). HP:0000924 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5651,6 +5927,7 @@ This clinical feature is Skeletal deformity, annotated with Abnormality of the s
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5675,6 +5952,7 @@ This clinical feature is Skeletal deformity, annotated with Abnormality of the s
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5724,15 +6002,18 @@ This clinical feature is Skeletal deformity, annotated with Abnormality of the s
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008905</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0008905</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5752,6 +6033,7 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5792,15 +6074,18 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5823,6 +6108,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5831,83 +6117,6 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                 <div class="evidence-explanation">This human cohort supports impaired growth, but not a uniform claim of severe short stature across all OI type VII patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-platybasia" data-dismech-node="Platybasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Platybasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002691</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Platybasia (HP:0002691). HP:0002691 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35970273" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35970273" target="_blank">PMID:35970273</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cone-beam computed tomography showed occipital bossing, platybasia and wormian bones."</div>
-
-
-                <div class="evidence-explanation">Platybasia was documented on craniofacial imaging in the more severe of two 11-year-old girls with CRTAP-related OI.</div>
 
 
 
@@ -5970,6 +6179,33 @@ This clinical feature is Platybasia (HP:0002691). HP:0002691 is a phenotype from
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CRTAP
+
+
+    <a href="https://bioregistry.io/hgnc:2379" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:2379</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CRTAP (hgnc:2379), qualified as loss of function. hgnc:2379 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
 
 
 
@@ -5987,6 +6223,7 @@ This clinical feature is Platybasia (HP:0002691). HP:0002691 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6011,6 +6248,7 @@ This clinical feature is Platybasia (HP:0002691). HP:0002691 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6061,7 +6299,7 @@ This clinical feature is Platybasia (HP:0002691). HP:0002691 is a phenotype from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Bisphosphonate therapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Bisphosphonate therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Bisphosphonate therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6102,6 +6340,12 @@ This treatment is Bisphosphonate therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Bisphosphonates to improve bone density, though response may differ from classical OI due to distinct pathophysiology.
 </div>
 
@@ -6124,6 +6368,7 @@ This treatment is Bisphosphonate therapy (NCIT:C198585). NCIT:C198585 is a clini
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6155,7 +6400,7 @@ This treatment is Bisphosphonate therapy (NCIT:C198585). NCIT:C198585 is a clini
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Orthopedic surgery<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Orthopedic surgery<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Orthopedic surgery, annotated with Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6191,6 +6436,9 @@ This treatment is Orthopedic surgery, annotated with Orthopedic Surgical Procedu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6201,6 +6449,9 @@ This treatment is Orthopedic surgery, annotated with Orthopedic Surgical Procedu
 
 
     </div>
+
+
+
 
 
 
@@ -6232,6 +6483,7 @@ This treatment is Orthopedic surgery, annotated with Orthopedic Surgical Procedu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6260,7 +6512,7 @@ This treatment is Orthopedic surgery, annotated with Orthopedic Surgical Procedu
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6296,6 +6548,9 @@ This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6306,6 +6561,9 @@ This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6337,6 +6595,7 @@ This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6365,7 +6624,7 @@ This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6406,6 +6665,12 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for families regarding recurrence risk and carrier testing for at-risk relatives.
 </div>
 
@@ -6428,6 +6693,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6491,11 +6757,11 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6536,6 +6802,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6557,6 +6824,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6614,6 +6882,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6638,6 +6907,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6659,6 +6929,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6735,6 +7006,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6847,6 +7119,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6868,6 +7141,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6985,6 +7259,12 @@ pathophysiology:
     Pro986 in the alpha1(I) chain of type I collagen. Loss of this modification
     delays collagen folding, causing overmodification of the helix and altered
     collagen structure and cross-linking.
+  genes:
+  - preferred_term: CRTAP
+    term:
+      id: hgnc:2379
+      label: CRTAP
+    modifier: LOSS_OF_FUNCTION
   cell_types:
   - preferred_term: Osteoblast
     term:
@@ -7077,6 +7357,15 @@ pathophysiology:
     loss of proline hydroxylation, type I collagen aggregation, autophagy, and
     cellular senescence. This captures a severe/lethal variant mechanism rather
     than a uniform mechanism for every CRTAP allele.
+  genes:
+  - preferred_term: CRTAP
+    description: &gt;-
+      Bound to this node as well as to the hydroxylation-deficiency node
+      because the claim here is allele-specific: it concerns the severe
+      variants that yield an unstable isoform, not every CRTAP allele.
+    term:
+      id: hgnc:2379
+      label: CRTAP
   biological_processes:
   - preferred_term: protein folding
     term:
@@ -7134,6 +7423,13 @@ pathophysiology:
 genetic:
 - name: CRTAP Mutations
   association: Causative
+  relationship_type: CAUSATIVE
+  gene_term:
+    preferred_term: CRTAP
+    term:
+      id: hgnc:2379
+      label: CRTAP
+    modifier: LOSS_OF_FUNCTION
   notes: &gt;
     Biallelic loss-of-function mutations in CRTAP cause type VII OI. A
     common founder mutation (IVS1+1G&gt;A) is found in West African populations.
@@ -7705,13 +8001,13 @@ references:
   title: Genetic Analysis, Phenotypic Spectrum and Functional Study of Rare Osteogenesis Imperfecta Caused by &lt;i&gt;CRTAP&lt;/i&gt; Variants
   findings: []
 - reference: DOI:10.1016/j.bone.2022.116516
-  title: Craniofacial and dental phenotype of two girls with osteogenesis imperfecta due to mutations in &lt;i&gt;CRTAP&lt;/i&gt;
+  title: &#34;Craniofacial and dental phenotype of two girls with osteogenesis imperfecta due to mutations in CRTAP&#34;
   findings: []
 - reference: DOI:10.1002/humu.20799
   title: &lt;i&gt;CRTAP&lt;/i&gt; and &lt;i&gt;LEPRE1&lt;/i&gt; mutations in recessive osteogenesis imperfecta
   findings: []
 - reference: DOI:10.1159/000547923
-  title: &#34;&lt;i&gt;CRTAP&lt;/i&gt;-Related Osteogenesis Imperfecta: Clinical Variability and a Potential Founder Variant in &lt;i&gt;CRTAP&lt;/i&gt;&#34;
+  title: &#34;CRTAP-Related Osteogenesis Imperfecta: Clinical Variability and a Potential Founder Variant in CRTAP&#34;
   findings: []
 </pre>
             </div>
@@ -7891,7 +8187,7 @@ references:
                                 <a href="https://bioregistry.io/DOI:10.1016/j.bone.2022.116516" target="_blank">DOI:10.1016/j.bone.2022.116516</a>
                             </div>
 
-                            <div class="reference-title">Craniofacial and dental phenotype of two girls with osteogenesis imperfecta due to mutations in &lt;i&gt;CRTAP&lt;/i&gt;</div>
+                            <div class="reference-title">Craniofacial and dental phenotype of two girls with osteogenesis imperfecta due to mutations in CRTAP</div>
 
                         </div>
 
@@ -7925,7 +8221,7 @@ references:
                                 <a href="https://bioregistry.io/DOI:10.1159/000547923" target="_blank">DOI:10.1159/000547923</a>
                             </div>
 
-                            <div class="reference-title">&lt;i&gt;CRTAP&lt;/i&gt;-Related Osteogenesis Imperfecta: Clinical Variability and a Potential Founder Variant in &lt;i&gt;CRTAP&lt;/i&gt;</div>
+                            <div class="reference-title">CRTAP-Related Osteogenesis Imperfecta: Clinical Variability and a Potential Founder Variant in CRTAP</div>
 
                         </div>
 
@@ -7943,6 +8239,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8355,7 +8653,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Osteogenesis Imperfecta Type VII", "mondoId": "MONDO:0012536", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteogenesis_Imperfecta_Type_VII", "yamlRevision": "82c9cca50b75"};
+        const OS_CONFIG = {"diseaseName": "Osteogenesis Imperfecta Type VII", "mondoId": "MONDO:0012536", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteogenesis_Imperfecta_Type_VII", "yamlRevision": "73e22914670b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

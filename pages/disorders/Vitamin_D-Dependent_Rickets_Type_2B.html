@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4185,6 +4253,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4209,6 +4278,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4230,6 +4300,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4363,6 +4434,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4387,6 +4459,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4408,6 +4481,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4445,6 +4519,13 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cauca-cohort-receptor-positive-vitamin-d-resistance" data-dismech-node="Cauca-Cohort Receptor-Positive Vitamin D Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cauca-Cohort Receptor-Positive Vitamin D Resistance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The 1995 Cauca study described more than 200 children with lower-limb deformities, elevated calcitriol, normal 25-hydroxyvitamin D, and a normal VDR cDNA sequence. The authors called this a distinct receptor-positive form of vitamin D resistance. HNRNPC abundance, VDRE occupancy, and the index-case cellular mechanism were not studied in this cohort, so its proximal molecular block remains unknown.</div>
 
@@ -4498,6 +4579,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4519,6 +4601,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4544,6 +4627,13 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-index-case-endogenous-vdr-nuclear-localization-failure" data-dismech-node="Index-Case Endogenous VDR Nuclear-Localization Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Index-Case Endogenous VDR Nuclear-Localization Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In cells from the single alopecic child, endogenous VDR bound calcitriol but failed to show normal nuclear localization or a functional response. The VDR coding sequence was normal, and transfer of the patient&#39;s VDR cDNA into a different cellular context restored normal transactivation. This establishes a cell-contextual receptor-handling phenotype, not a causal VDR variant.</div>
 
@@ -4614,6 +4704,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4635,6 +4726,7 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4660,6 +4752,13 @@ HNRNPC is therefore represented only as a molecular actor in the index-case mech
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-index-case-hnrnpc-c1-c2-competition-at-vitamin-d-response-elements" data-dismech-node="Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements" data-dismech-type="pathophysiology">
                 <div class="item-name">Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Follow-up work on the index-case cells first detected an overexpressed response-element-binding protein and provisionally assigned it to the hnRNPA family. The protein was subsequently purified and cloned as HNRNPC C1/C2. Overexpressed HNRNPC competed with VDR-RXR for VDRE occupancy, disrupted the normal reciprocal occupancy cycle, and suppressed vitamin-D-directed transcription. HNRNPC is annotated here as the experimentally implicated actor; these studies did not identify a germline HNRNPC lesion.</div>
 
@@ -4877,6 +4976,7 @@ This pathophysiological event involves increased Vitamin D response-element bind
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4898,6 +4998,7 @@ This pathophysiological event involves increased Vitamin D response-element bind
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4925,6 +5026,7 @@ This pathophysiological event involves increased Vitamin D response-element bind
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4947,6 +5049,13 @@ This pathophysiological event involves increased Vitamin D response-element bind
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-index-case-loss-of-vitamin-d-responsive-transcription" data-dismech-node="Index-Case Loss of Vitamin D-Responsive Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Index-Case Loss of Vitamin D-Responsive Transcription</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Patient-derived cells were broadly insensitive to calcitriol-responsive gene regulation. The later transcriptomic study found that 113 of 114 genes regulated by calcitriol in control cells became insensitive in the VDRE-binding-protein-overexpressing patient cells.</div>
 
@@ -5075,6 +5184,7 @@ This pathophysiological event involves decreased Vitamin D receptor signaling, a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5097,6 +5207,13 @@ This pathophysiological event involves decreased Vitamin D receptor signaling, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-index-case-hypocalcemic-mineral-disturbance" data-dismech-node="Index-Case Hypocalcemic Mineral Disturbance" data-dismech-type="pathophysiology">
                 <div class="item-name">Index-Case Hypocalcemic Mineral Disturbance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The index child had albumin-corrected calcium of 2.03 mmol/L against a stated reference interval of 2.25-2.55 mmol/L, elevated alkaline phosphatase, and elevated calcitriol. This stratum-specific node does not absorb the Cauca cohort, whose calcium was low-normal and whose phosphate was normal, and it avoids asserting directly measured intestinal malabsorption.</div>
 
@@ -5146,6 +5263,7 @@ This pathophysiological event involves decreased Vitamin D receptor signaling, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-skeletal-mineralization" data-dismech-node="Defective Skeletal Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Skeletal Mineralization</div>
+
 
                 <div class="item-desc">Failure of growth-plate and bone mineralization manifests as rickets in the index child and as diverse lower-limb deformities in the Cauca cluster. This is the only asserted convergence of the two evidence strata.</div>
 
@@ -5311,7 +5429,7 @@ This pathophysiological event occurs in Bone, annotated with bone element (UBERO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of the lower limb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diverse lower-limb deformities were the ascertainment feature of the Cauca cluster. The source does not justify assigning a more specific deformity or a frequency distribution.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002814\"}}, {\"id\": \"Cauca-Cohort Receptor-Positive Vitamin D Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 1995 Cauca study described more than 200 children with lower-limb deformities, elevated calcitriol, normal 25-hydroxyvitamin D, and a normal VDR cDNA sequence. The authors called this a distinct receptor-positive form of vitamin D resistance. HNRNPC abundance, VDRE occupancy, and the index-case cellular mechanism were not studied in this cohort, so its proximal molecular block remains unknown.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Defective Skeletal Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of growth-plate and bone mineralization manifests as rickets in the index child and as diverse lower-limb deformities in the Cauca cluster. This is the only asserted convergence of the two evidence strata.\", \"meta\": {\"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"Bone Mineralization\"], \"role\": \"effector\", \"locations\": [\"Bone\"]}}, {\"id\": \"Elevated circulating alkaline phosphatase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated alkaline phosphatase was reported in both principal strata. The cache-backed cluster evidence is below; the index-case full text gives 1101 U/L against a stated normal value below 300 U/L.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Defective Skeletal Mineralization\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated total serum alkaline phosphatase is a clinical laboratory correlate of rachitic skeletal disease, but without isoenzyme fractionation it is not bone-specific and does not by itself measure mineralization.\"}], \"term_id\": \"HP:0003155\"}}, {\"id\": \"HKC-8 HNRNPC C1/C2 overexpression system\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human HKC-8 cells were engineered to overexpress HNRNPC C1 or C2. Each isoform suppressed VDR-VDRE transactivation, testing an actor-level perturbation without reproducing the complete patient state.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"conditions\": [\"HNRNPC C1 overexpression\", \"HNRNPC C2 overexpression\", \"Control transfection\", \"Transient CYP24-VDRE luciferase reporter\", \"10 nM calcitriol stimulation\"], \"publication\": \"PMID:17071612\"}}, {\"id\": \"Heterologous CV-1 transfer of index-case VDR cDNA\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The index patient\u0027s VDR cDNA was transferred into VDR-deficient CV-1 cells and tested with a cotransfected reporter. Normal calcitriol-dependent transactivation in this heterologous context demonstrates that the VDR coding product itself was functional; it does not reproduce the patient-cell defect.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Index-patient VDR cDNA transfer\", \"VDR-deficient CV-1 recipient cells\", \"1,25-dihydroxyvitamin D3 exposure\"], \"publication\": \"PMID:8287584\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypocalcemia was reported for the single index child and was described as responsive to high-dose calcitriol in a regimen that also included calcium. The Cauca cohort instead had calcium below related controls but still within the low-normal range, so this phenotype is not generalized to that cohort.\", \"meta\": {\"term_id\": \"HP:0002901\"}}, {\"id\": \"Index-Case Endogenous VDR Nuclear-Localization Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In cells from the single alopecic child, endogenous VDR bound calcitriol but failed to show normal nuclear localization or a functional response. The VDR coding sequence was normal, and transfer of the patient\u0027s VDR cDNA into a different cellular context restored normal transactivation. This establishes a cell-contextual receptor-handling phenotype, not a causal VDR variant.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Index-case skin fibroblast culture\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Patient-derived cells directly reproduce ligand binding with absent normal nuclear localization in the index case\u0027s own cellular context.\"}]}}, {\"id\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Follow-up work on the index-case cells first detected an overexpressed response-element-binding protein and provisionally assigned it to the hnRNPA family. The protein was subsequently purified and cloned as HNRNPC C1/C2. Overexpressed HNRNPC competed with VDR-RXR for VDRE occupancy, disrupted the normal reciprocal occupancy cycle, and suppressed vitamin-D-directed transcription. HNRNPC is annotated here as the experimentally implicated actor; these studies did not identify a germline HNRNPC lesion.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Vitamin D receptor signaling\"], \"molecular_functions\": [\"Vitamin D response-element binding by HNRNPC C1/C2\"], \"genes\": [\"HNRNPC\"], \"gene_terms\": [{\"label\": \"HNRNPC\", \"id\": \"hgnc:5035\"}], \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Index-case EBV-transformed B-cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The patient line carries the elevated VDRE-binding-protein state used to characterize competitive occupancy.\"}, {\"name\": \"HKC-8 HNRNPC C1/C2 overexpression system\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Isoform overexpression suppresses VDR-VDRE transactivation, testing sufficiency of increased HNRNPC activity in this engineered context.\"}, {\"name\": \"ROS 17/2.8 HNRNPC C1/C2 siRNA system\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Knockdown relieves endogenous repression of VDR transactivation in a responsive rat cell line.\"}, {\"name\": \"MG63 osteoblast-like HNRNPC perturbation model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Isoform overexpression and knockdown separately probe HNRNPC control of vitamin D-directed transcription and RNA processing in a human bone-lineage context.\"}]}}, {\"id\": \"Index-Case High-Dose Calcitriol Plus Calcium\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the single alopecic index child, a regimen of calcitriol at 12 micrograms per day plus calcium at 1 gram per day was reported to correct rachitic bone disease, while alopecia persisted. This is an observed n=1 combined regimen, not evidence that either component was sufficient alone and not a general dosing recommendation for the unresolved umbrella entity.\", \"meta\": {\"therapeutic_agents\": [\"calcitriol\", \"calcium(2+)\"]}}, {\"id\": \"Index-Case Hypocalcemic Mineral Disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The index child had albumin-corrected calcium of 2.03 mmol/L against a stated reference interval of 2.25-2.55 mmol/L, elevated alkaline phosphatase, and elevated calcitriol. This stratum-specific node does not absorb the Cauca cohort, whose calcium was low-normal and whose phosphate was normal, and it avoids asserting directly measured intestinal malabsorption.\", \"meta\": {\"role\": \"central_effector\"}}, {\"id\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived cells were broadly insensitive to calcitriol-responsive gene regulation. The later transcriptomic study found that 113 of 114 genes regulated by calcitriol in control cells became insensitive in the VDRE-binding-protein-overexpressing patient cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Vitamin D receptor signaling\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"Index-case skin fibroblast culture\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Calcitriol-responsive 24-hydroxylase activity and cotransfection in patient cells provide functional readouts of the suppressive patient-cell context.\"}, {\"name\": \"Heterologous CV-1 transfer of index-case VDR cDNA\", \"model_type\": \"CELL_LINE\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Normal reporter transactivation after transfer fails to reproduce the transcriptional loss and demonstrates intrinsic function of the patient\u0027s VDR coding product outside the suppressive patient context.\"}, {\"name\": \"Index-case EBV-transformed B-cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The microarray measures the breadth of calcitriol-responsive transcription lost in the patient line relative to control.\"}]}}, {\"id\": \"Index-case EBV-transformed B-cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"EBV-transformed B-cell lines from the index patient and a matched control were used for VDRE-binding-protein studies and the GSE22523 calcitriol-response microarray. This is the direct patient-cell transcriptomic resource for the HNRNPC/VDRE mechanism.\", \"meta\": {\"cell_types\": [\"B cell\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"Index-patient EBV-transformed B cells\", \"Matched-control EBV-transformed B cells\", \"Vehicle and 1,25-dihydroxyvitamin D3 exposure\"], \"publication\": \"PMID:21123297\"}}, {\"id\": \"Index-case skin fibroblast culture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Skin fibroblast cultures from the alopecic index child and controls were used to measure calcitriol binding, endogenous VDR nuclear association, 24-hydroxylase response, VDR coding sequence, and suppression of wild-type VDR transactivation in the patient-cell context.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skin fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Alopecic index-case fibroblasts\", \"Control fibroblasts\", \"1,25-dihydroxyvitamin D3 exposure\"], \"publication\": \"PMID:8287584\"}}, {\"id\": \"MG63 osteoblast-like HNRNPC perturbation model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human MG63 osteoblast-like cells were used to test HNRNPC isoform overexpression and later knockdown effects on vitamin-D-directed transcription and RNA processing. This is a mechanistic osteoblast-line model, not a patient-derived VDDR2B model or disease dataset.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"HNRNPC C1 overexpression\", \"HNRNPC C2 overexpression\", \"Combined HNRNPC C1 and C2 overexpression\", \"HNRNPC C1/C2 knockdown\", \"1,25-dihydroxyvitamin D exposure\"], \"publication\": \"PMID:25506471\"}}, {\"id\": \"ROS 17/2.8 HNRNPC C1/C2 siRNA system\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rat ROS 17/2.8 cells were transfected with HNRNPC C1/C2 siRNA. Increased VDR transactivation after knockdown shows that endogenous HNRNPC restrains the response in this rat cell context; it was not a rescue of patient-derived cells.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"conditions\": [\"HNRNPC C1/C2 siRNA\", \"Control transfection\", \"Stable CYP24-VDRE luciferase reporter\", \"10 nM calcitriol stimulation\"], \"publication\": \"PMID:17071612\"}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rickets was diagnosed in the single alopecic index child. The Cauca report described a large cluster under the same diagnostic label with lower-limb deformities, but did not provide case-level skeletal phenotyping in the abstract.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002748\"}}], \"edges\": [{\"source\": \"Cauca-Cohort Receptor-Positive Vitamin D Resistance\", \"target\": \"Defective Skeletal Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cluster\u0027s biochemical resistance was associated with lower-limb deformities, but calcium remained within the low-normal range and phosphate was normal. The causal mineral intermediates were not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Index-Case Endogenous VDR Nuclear-Localization Failure\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of endogenous ligand-bound VDR to localize normally was accompanied by absent calcitriol-responsive 24-hydroxylase activity in the same cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Competitive VDRE occupancy limits VDR-RXR access and suppresses target-gene transactivation in index-case and engineered cell systems.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"target\": \"Index-Case Hypocalcemic Mineral Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cellular transcriptional resistance is consistent with the index child\u0027s hypocalcemic rickets, but intestinal calcium transport and the intervening organism-level steps were not directly measured in these mechanistic studies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Index-Case Hypocalcemic Mineral Disturbance\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The measured low serum calcium is the defining clinical phenotype of this stratum-specific mineral disturbance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Index-Case Hypocalcemic Mineral Disturbance\", \"target\": \"Defective Skeletal Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced calcium availability can impair skeletal mineralization. The exact intermediate physiology, including the growth-plate route, was not fully measured in the index-case mechanistic studies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Skeletal Mineralization\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired growth-plate mineralization manifests as rickets in the alopecic index child.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Skeletal Mineralization\", \"target\": \"Abnormality of the lower limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective skeletal mineralization is associated with the diverse lower-limb deformities used to ascertain the Cauca cluster, but the abstract does not resolve the intervening skeletal morphology.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Index-Case High-Dose Calcitriol Plus Calcium\", \"target\": \"Defective Skeletal Mineralization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Index-Case High-Dose Calcitriol Plus Calcium\", \"target\": \"Rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Index-case skin fibroblast culture\", \"target\": \"Index-Case Endogenous VDR Nuclear-Localization Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient-derived cells directly reproduce ligand binding with absent normal nuclear localization in the index case\u0027s own cellular context.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"This is a culture from one patient and is not the intestinal target tissue; it cannot establish that the finding is shared by the Cauca cohort or other receptor-positive cases.\"}, {\"source\": \"Index-case skin fibroblast culture\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Calcitriol-responsive 24-hydroxylase activity and cotransfection in patient cells provide functional readouts of the suppressive patient-cell context.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"The assays measure selected vitamin D responses in fibroblasts and do not reproduce whole-body mineral physiology.\"}, {\"source\": \"Heterologous CV-1 transfer of index-case VDR cDNA\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Normal reporter transactivation after transfer fails to reproduce the transcriptional loss and demonstrates intrinsic function of the patient\u0027s VDR coding product outside the suppressive patient context.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The heterologous recipient lacks the patient\u0027s cellular environment, so the assay cannot reproduce the localization or HNRNPC/VDRE phenotype and should not be treated as a rescue of the patient state.\"}, {\"source\": \"Index-case EBV-transformed B-cell line\", \"target\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The patient line carries the elevated VDRE-binding-protein state used to characterize competitive occupancy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"It is one transformed B-cell line from one patient; viral transformation, cell lineage, and long-term culture limit transfer to intestine or bone and provide no evidence for the Cauca cohort.\"}, {\"source\": \"Index-case EBV-transformed B-cell line\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The microarray measures the breadth of calcitriol-responsive transcription lost in the patient line relative to control.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Expression response in transformed B cells is a cellular readout, not a direct skeletal or intestinal phenotype.\"}, {\"source\": \"HKC-8 HNRNPC C1/C2 overexpression system\", \"target\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Isoform overexpression suppresses VDR-VDRE transactivation, testing sufficiency of increased HNRNPC activity in this engineered context.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Engineered expression magnitude and a renal epithelial line may not match the patient B-cell or fibroblast state. The model does not establish a germline cause or applicability to the Cauca cohort.\"}, {\"source\": \"ROS 17/2.8 HNRNPC C1/C2 siRNA system\", \"target\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Knockdown relieves endogenous repression of VDR transactivation in a responsive rat cell line.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"This is a cross-species wild-type cell system, not patient material. It tests normal endogenous regulation rather than reversal of the index-case HNRNPC-overexpression state.\"}, {\"source\": \"MG63 osteoblast-like HNRNPC perturbation model\", \"target\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Isoform overexpression and knockdown separately probe HNRNPC control of vitamin D-directed transcription and RNA processing in a human bone-lineage context.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"MG63 is a transformed osteosarcoma line with endogenous HNRNPC and no patient background. Species-specific HNRNPC heterodimerization means the paired human/mouse experiments cannot be transferred without qualification.\"}, {\"source\": \"Defective Skeletal Mineralization\", \"target\": \"Elevated circulating alkaline phosphatase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated total serum alkaline phosphatase is a clinical laboratory correlate of rachitic skeletal disease, but without isoenzyme fractionation it is not bone-specific and does not by itself measure mineralization.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of the lower limb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diverse lower-limb deformities were the ascertainment feature of the Cauca cluster. The source does not justify assigning a more specific deformity or a frequency distribution.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002814\"}}, {\"id\": \"Cauca-Cohort Receptor-Positive Vitamin D Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 1995 Cauca study described more than 200 children with lower-limb deformities, elevated calcitriol, normal 25-hydroxyvitamin D, and a normal VDR cDNA sequence. The authors called this a distinct receptor-positive form of vitamin D resistance. HNRNPC abundance, VDRE occupancy, and the index-case cellular mechanism were not studied in this cohort, so its proximal molecular block remains unknown.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Defective Skeletal Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of growth-plate and bone mineralization manifests as rickets in the index child and as diverse lower-limb deformities in the Cauca cluster. This is the only asserted convergence of the two evidence strata.\", \"meta\": {\"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"Bone Mineralization\"], \"role\": \"effector\", \"locations\": [\"Bone\"]}}, {\"id\": \"Elevated circulating alkaline phosphatase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated alkaline phosphatase was reported in both principal strata. The cache-backed cluster evidence is below; the index-case full text gives 1101 U/L against a stated normal value below 300 U/L.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Defective Skeletal Mineralization\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated total serum alkaline phosphatase is a clinical laboratory correlate of rachitic skeletal disease, but without isoenzyme fractionation it is not bone-specific and does not by itself measure mineralization.\"}], \"term_id\": \"HP:0003155\"}}, {\"id\": \"HKC-8 HNRNPC C1/C2 overexpression system\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human HKC-8 cells were engineered to overexpress HNRNPC C1 or C2. Each isoform suppressed VDR-VDRE transactivation, testing an actor-level perturbation without reproducing the complete patient state.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"conditions\": [\"HNRNPC C1 overexpression\", \"HNRNPC C2 overexpression\", \"Control transfection\", \"Transient CYP24-VDRE luciferase reporter\", \"10 nM calcitriol stimulation\"], \"publication\": \"PMID:17071612\"}}, {\"id\": \"Heterologous CV-1 transfer of index-case VDR cDNA\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The index patient\u0027s VDR cDNA was transferred into VDR-deficient CV-1 cells and tested with a cotransfected reporter. Normal calcitriol-dependent transactivation in this heterologous context demonstrates that the VDR coding product itself was functional; it does not reproduce the patient-cell defect.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Index-patient VDR cDNA transfer\", \"VDR-deficient CV-1 recipient cells\", \"1,25-dihydroxyvitamin D3 exposure\"], \"publication\": \"PMID:8287584\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypocalcemia was reported for the single index child and was described as responsive to high-dose calcitriol in a regimen that also included calcium. The Cauca cohort instead had calcium below related controls but still within the low-normal range, so this phenotype is not generalized to that cohort.\", \"meta\": {\"term_id\": \"HP:0002901\"}}, {\"id\": \"Index-Case Endogenous VDR Nuclear-Localization Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In cells from the single alopecic child, endogenous VDR bound calcitriol but failed to show normal nuclear localization or a functional response. The VDR coding sequence was normal, and transfer of the patient\u0027s VDR cDNA into a different cellular context restored normal transactivation. This establishes a cell-contextual receptor-handling phenotype, not a causal VDR variant.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"Index-case skin fibroblast culture\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Patient-derived cells directly reproduce ligand binding with absent normal nuclear localization in the index case\u0027s own cellular context.\"}]}}, {\"id\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Follow-up work on the index-case cells first detected an overexpressed response-element-binding protein and provisionally assigned it to the hnRNPA family. The protein was subsequently purified and cloned as HNRNPC C1/C2. Overexpressed HNRNPC competed with VDR-RXR for VDRE occupancy, disrupted the normal reciprocal occupancy cycle, and suppressed vitamin-D-directed transcription. HNRNPC is annotated here as the experimentally implicated actor; these studies did not identify a germline HNRNPC lesion.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Vitamin D receptor signaling\"], \"molecular_functions\": [\"Vitamin D response-element binding by HNRNPC C1/C2\"], \"genes\": [\"HNRNPC\"], \"gene_terms\": [{\"label\": \"HNRNPC\", \"id\": \"hgnc:5035\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"Index-case EBV-transformed B-cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The patient line carries the elevated VDRE-binding-protein state used to characterize competitive occupancy.\"}, {\"name\": \"HKC-8 HNRNPC C1/C2 overexpression system\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Isoform overexpression suppresses VDR-VDRE transactivation, testing sufficiency of increased HNRNPC activity in this engineered context.\"}, {\"name\": \"ROS 17/2.8 HNRNPC C1/C2 siRNA system\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Knockdown relieves endogenous repression of VDR transactivation in a responsive rat cell line.\"}, {\"name\": \"MG63 osteoblast-like HNRNPC perturbation model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Isoform overexpression and knockdown separately probe HNRNPC control of vitamin D-directed transcription and RNA processing in a human bone-lineage context.\"}]}}, {\"id\": \"Index-Case High-Dose Calcitriol Plus Calcium\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the single alopecic index child, a regimen of calcitriol at 12 micrograms per day plus calcium at 1 gram per day was reported to correct rachitic bone disease, while alopecia persisted. This is an observed n=1 combined regimen, not evidence that either component was sufficient alone and not a general dosing recommendation for the unresolved umbrella entity.\", \"meta\": {\"therapeutic_agents\": [\"calcitriol\", \"calcium(2+)\"]}}, {\"id\": \"Index-Case Hypocalcemic Mineral Disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The index child had albumin-corrected calcium of 2.03 mmol/L against a stated reference interval of 2.25-2.55 mmol/L, elevated alkaline phosphatase, and elevated calcitriol. This stratum-specific node does not absorb the Cauca cohort, whose calcium was low-normal and whose phosphate was normal, and it avoids asserting directly measured intestinal malabsorption.\", \"meta\": {\"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived cells were broadly insensitive to calcitriol-responsive gene regulation. The later transcriptomic study found that 113 of 114 genes regulated by calcitriol in control cells became insensitive in the VDRE-binding-protein-overexpressing patient cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Vitamin D receptor signaling\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"Index-case skin fibroblast culture\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Calcitriol-responsive 24-hydroxylase activity and cotransfection in patient cells provide functional readouts of the suppressive patient-cell context.\"}, {\"name\": \"Heterologous CV-1 transfer of index-case VDR cDNA\", \"model_type\": \"CELL_LINE\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Normal reporter transactivation after transfer fails to reproduce the transcriptional loss and demonstrates intrinsic function of the patient\u0027s VDR coding product outside the suppressive patient context.\"}, {\"name\": \"Index-case EBV-transformed B-cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The microarray measures the breadth of calcitriol-responsive transcription lost in the patient line relative to control.\"}]}}, {\"id\": \"Index-case EBV-transformed B-cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"EBV-transformed B-cell lines from the index patient and a matched control were used for VDRE-binding-protein studies and the GSE22523 calcitriol-response microarray. This is the direct patient-cell transcriptomic resource for the HNRNPC/VDRE mechanism.\", \"meta\": {\"cell_types\": [\"B cell\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"Index-patient EBV-transformed B cells\", \"Matched-control EBV-transformed B cells\", \"Vehicle and 1,25-dihydroxyvitamin D3 exposure\"], \"publication\": \"PMID:21123297\"}}, {\"id\": \"Index-case skin fibroblast culture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Skin fibroblast cultures from the alopecic index child and controls were used to measure calcitriol binding, endogenous VDR nuclear association, 24-hydroxylase response, VDR coding sequence, and suppression of wild-type VDR transactivation in the patient-cell context.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skin fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Alopecic index-case fibroblasts\", \"Control fibroblasts\", \"1,25-dihydroxyvitamin D3 exposure\"], \"publication\": \"PMID:8287584\"}}, {\"id\": \"MG63 osteoblast-like HNRNPC perturbation model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human MG63 osteoblast-like cells were used to test HNRNPC isoform overexpression and later knockdown effects on vitamin-D-directed transcription and RNA processing. This is a mechanistic osteoblast-line model, not a patient-derived VDDR2B model or disease dataset.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"HNRNPC C1 overexpression\", \"HNRNPC C2 overexpression\", \"Combined HNRNPC C1 and C2 overexpression\", \"HNRNPC C1/C2 knockdown\", \"1,25-dihydroxyvitamin D exposure\"], \"publication\": \"PMID:25506471\"}}, {\"id\": \"ROS 17/2.8 HNRNPC C1/C2 siRNA system\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rat ROS 17/2.8 cells were transfected with HNRNPC C1/C2 siRNA. Increased VDR transactivation after knockdown shows that endogenous HNRNPC restrains the response in this rat cell context; it was not a rescue of patient-derived cells.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"conditions\": [\"HNRNPC C1/C2 siRNA\", \"Control transfection\", \"Stable CYP24-VDRE luciferase reporter\", \"10 nM calcitriol stimulation\"], \"publication\": \"PMID:17071612\"}}, {\"id\": \"Rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rickets was diagnosed in the single alopecic index child. The Cauca report described a large cluster under the same diagnostic label with lower-limb deformities, but did not provide case-level skeletal phenotyping in the abstract.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002748\"}}], \"edges\": [{\"source\": \"Cauca-Cohort Receptor-Positive Vitamin D Resistance\", \"target\": \"Defective Skeletal Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cluster\u0027s biochemical resistance was associated with lower-limb deformities, but calcium remained within the low-normal range and phosphate was normal. The causal mineral intermediates were not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Index-Case Endogenous VDR Nuclear-Localization Failure\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of endogenous ligand-bound VDR to localize normally was accompanied by absent calcitriol-responsive 24-hydroxylase activity in the same cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Competitive VDRE occupancy limits VDR-RXR access and suppresses target-gene transactivation in index-case and engineered cell systems.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"target\": \"Index-Case Hypocalcemic Mineral Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cellular transcriptional resistance is consistent with the index child\u0027s hypocalcemic rickets, but intestinal calcium transport and the intervening organism-level steps were not directly measured in these mechanistic studies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Index-Case Hypocalcemic Mineral Disturbance\", \"target\": \"Hypocalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The measured low serum calcium is the defining clinical phenotype of this stratum-specific mineral disturbance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Index-Case Hypocalcemic Mineral Disturbance\", \"target\": \"Defective Skeletal Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced calcium availability can impair skeletal mineralization. The exact intermediate physiology, including the growth-plate route, was not fully measured in the index-case mechanistic studies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Skeletal Mineralization\", \"target\": \"Rickets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired growth-plate mineralization manifests as rickets in the alopecic index child.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Skeletal Mineralization\", \"target\": \"Abnormality of the lower limb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective skeletal mineralization is associated with the diverse lower-limb deformities used to ascertain the Cauca cluster, but the abstract does not resolve the intervening skeletal morphology.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Index-Case High-Dose Calcitriol Plus Calcium\", \"target\": \"Defective Skeletal Mineralization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Index-Case High-Dose Calcitriol Plus Calcium\", \"target\": \"Rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Index-case skin fibroblast culture\", \"target\": \"Index-Case Endogenous VDR Nuclear-Localization Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient-derived cells directly reproduce ligand binding with absent normal nuclear localization in the index case\u0027s own cellular context.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"This is a culture from one patient and is not the intestinal target tissue; it cannot establish that the finding is shared by the Cauca cohort or other receptor-positive cases.\"}, {\"source\": \"Index-case skin fibroblast culture\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Calcitriol-responsive 24-hydroxylase activity and cotransfection in patient cells provide functional readouts of the suppressive patient-cell context.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"The assays measure selected vitamin D responses in fibroblasts and do not reproduce whole-body mineral physiology.\"}, {\"source\": \"Heterologous CV-1 transfer of index-case VDR cDNA\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Normal reporter transactivation after transfer fails to reproduce the transcriptional loss and demonstrates intrinsic function of the patient\u0027s VDR coding product outside the suppressive patient context.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The heterologous recipient lacks the patient\u0027s cellular environment, so the assay cannot reproduce the localization or HNRNPC/VDRE phenotype and should not be treated as a rescue of the patient state.\"}, {\"source\": \"Index-case EBV-transformed B-cell line\", \"target\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The patient line carries the elevated VDRE-binding-protein state used to characterize competitive occupancy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"It is one transformed B-cell line from one patient; viral transformation, cell lineage, and long-term culture limit transfer to intestine or bone and provide no evidence for the Cauca cohort.\"}, {\"source\": \"Index-case EBV-transformed B-cell line\", \"target\": \"Index-Case Loss of Vitamin D-Responsive Transcription\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The microarray measures the breadth of calcitriol-responsive transcription lost in the patient line relative to control.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Expression response in transformed B cells is a cellular readout, not a direct skeletal or intestinal phenotype.\"}, {\"source\": \"HKC-8 HNRNPC C1/C2 overexpression system\", \"target\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Isoform overexpression suppresses VDR-VDRE transactivation, testing sufficiency of increased HNRNPC activity in this engineered context.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Engineered expression magnitude and a renal epithelial line may not match the patient B-cell or fibroblast state. The model does not establish a germline cause or applicability to the Cauca cohort.\"}, {\"source\": \"ROS 17/2.8 HNRNPC C1/C2 siRNA system\", \"target\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Knockdown relieves endogenous repression of VDR transactivation in a responsive rat cell line.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"This is a cross-species wild-type cell system, not patient material. It tests normal endogenous regulation rather than reversal of the index-case HNRNPC-overexpression state.\"}, {\"source\": \"MG63 osteoblast-like HNRNPC perturbation model\", \"target\": \"Index-Case HNRNPC C1/C2 Competition at Vitamin D Response Elements\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Isoform overexpression and knockdown separately probe HNRNPC control of vitamin D-directed transcription and RNA processing in a human bone-lineage context.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"MG63 is a transformed osteosarcoma line with endogenous HNRNPC and no patient background. Species-specific HNRNPC heterodimerization means the paired human/mouse experiments cannot be transferred without qualification.\"}, {\"source\": \"Defective Skeletal Mineralization\", \"target\": \"Elevated circulating alkaline phosphatase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated total serum alkaline phosphatase is a clinical laboratory correlate of rachitic skeletal disease, but without isoenzyme fractionation it is not bone-specific and does not by itself measure mineralization.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5332,11 +5450,11 @@ This pathophysiological event occurs in Bone, annotated with bone element (UBERO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5374,6 +5492,9 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Alopecia is deliberately left without a pathophysiology edge because no study tested a causal link between hair loss and the index-case localization or HNRNPC/VDRE mechanisms.</div>
 
 
@@ -5393,6 +5514,7 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +5539,7 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5448,8 +5571,89 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
+                    Limbs
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-lower-limb" data-dismech-node="Abnormality of the lower limb" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of the lower limb
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002814" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002814</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the lower limb (HP:0002814). HP:0002814 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7586652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7586652" target="_blank">PMID:7586652</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More than 200 patients with different types of lower limb deformities were detected in a rural area of the Cauca department in the southwest part of Colombia."</div>
+
+
+                <div class="evidence-explanation">Directly supports a broad lower-limb abnormality in the cluster stratum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypocalcemia" data-dismech-node="Hypocalcemia" data-dismech-type="phenotype">
@@ -5466,15 +5670,18 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002901</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002901</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The full text of PMID:12716975 (PMCID:PMC156334) reports albumin-corrected calcium of 2.03 mmol/L against a stated 2.25-2.55 mmol/L reference interval. The sanctioned PMID cache is abstract-only, so no unverifiable snippet is attached here. Other historical receptor-positive/postreceptor HVDRR reports are not assumed to belong to this index-case lineage.</div>
@@ -5488,9 +5695,83 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-alkaline-phosphatase-concentration" data-dismech-node="Elevated circulating alkaline phosphatase concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated circulating alkaline phosphatase concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003155</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">The index-case value is in the full text of PMID:12716975; its sanctioned cache is abstract-only, so the exact value is not presented as a verified snippet.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7586652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7586652" target="_blank">PMID:7586652</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serum analysis showed significantly lower serum calcium as compared to normal relatives, though in the normal low range, normal phosphorus, high alkaline phosphatase, normal 25-hydroxyvitamin D3 and high 1,25-dihydroxyvitamin D3, indicating target organ resistance."</div>
+
+
+                <div class="evidence-explanation">Directly reports high alkaline phosphatase in the cluster.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5511,15 +5792,18 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002748</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002748</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5539,6 +5823,7 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5566,6 +5851,7 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5574,153 +5860,6 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
                 <div class="evidence-explanation">Records the cluster&#39;s skeletal presentation; PARTIAL avoids treating the broad deformity phrase as standardized case-level rickets ascertainment.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-lower-limb" data-dismech-node="Abnormality of the lower limb" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of the lower limb
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002814" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002814</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the lower limb (HP:0002814). HP:0002814 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:7586652" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7586652" target="_blank">PMID:7586652</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"More than 200 patients with different types of lower limb deformities were detected in a rural area of the Cauca department in the southwest part of Colombia."</div>
-
-
-                <div class="evidence-explanation">Directly supports a broad lower-limb abnormality in the cluster stratum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-alkaline-phosphatase-concentration" data-dismech-node="Elevated circulating alkaline phosphatase concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated circulating alkaline phosphatase concentration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003155</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">The index-case value is in the full text of PMID:12716975; its sanctioned cache is abstract-only, so the exact value is not presented as a verified snippet.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:7586652" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7586652" target="_blank">PMID:7586652</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Serum analysis showed significantly lower serum calcium as compared to normal relatives, though in the normal low range, normal phosphorus, high alkaline phosphatase, normal 25-hydroxyvitamin D3 and high 1,25-dihydroxyvitamin D3, indicating target organ resistance."</div>
-
-
-                <div class="evidence-explanation">Directly reports high alkaline phosphatase in the cluster.</div>
 
 
 
@@ -5868,6 +6007,9 @@ This treatment uses calcium(2+) (CHEBI:29108). CHEBI:29108 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5878,6 +6020,9 @@ This treatment uses calcium(2+) (CHEBI:29108). CHEBI:29108 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -5980,6 +6125,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6028,6 +6174,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6082,6 +6229,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6130,6 +6278,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6234,6 +6383,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6323,6 +6473,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6344,6 +6495,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6400,6 +6552,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6516,6 +6669,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6590,6 +6744,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6611,6 +6766,7 @@ This treatment targets Rickets (HP:0002748). HP:0002748 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6876,6 +7032,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6930,6 +7087,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6974,6 +7132,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7110,6 +7269,7 @@ This experimental model is built in African green monkey, annotated with Chloroc
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7154,6 +7314,7 @@ This experimental model is built in African green monkey, annotated with Chloroc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7310,6 +7471,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7361,6 +7523,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7516,6 +7679,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7661,6 +7825,7 @@ This experimental model is built in rat, annotated with Rattus norvegicus (NCBIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7834,6 +7999,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7880,6 +8046,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

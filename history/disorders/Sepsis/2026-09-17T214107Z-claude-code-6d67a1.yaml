@@ -1,0 +1,56 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Sepsis
+  path: kb/disorders/Sepsis.yaml
+session:
+  id: 2026-09-17T214107Z-claude-code-6d67a1
+  timestamp: '2026-09-17T21:41:07Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/6274
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/8736
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - treatments
+  - diagnosis
+  - pathophysiology
+  - phenotypes
+  - notes
+  summary: 'Review round 2: three central treatments, diagnosis section, thrombogenesis
+    conformance'
+  details: |
+    Second follow-up to the ai4c-reviewer CHANGES_REQUESTED reviews on PR #8736 (2026-08-17 and 2026-09-15). Closes the one remaining blocker and every outstanding suggestion.
+
+    Rebase first. The branch was 143 commits behind origin/main; rebased onto 2faf382875 with no conflicts. The post-rebase diff against origin/main is the Sepsis files plus the two single cache rows (MONDO:0700217 in cache/mondo/terms.csv and in the diseaseorsubtypeterm enum cache).
+
+    Blocker (reviewer item 2): the three central treatments. All three are added with target_mechanisms, and every quote was checked against references_cache/PMID_34599691.md before being written, using the repository's own snippet matcher rather than by eye. The reviewer's line references were good but several of the spans they name are hyphen-split across line wraps in the cached PDF text, and a hyphen-split span verifies only under the audit's relaxed pass, which the gating validator does not run. Spans were re-cut to hyphen-clean sentences and each one verifies strictly:
+
+    - Source Control of the Infectious Focus. treatment_term NCIT:C49236 Therapeutic Procedure, therapeutic_modality SURGERY, target_mechanisms -> Invasive Infection and Pattern Recognition (INHIBITS) with its own evidence item. NCIT has no clinical-action term for source control as a concept; its instances (percutaneous drainage, open debridement, device removal) are heterogeneous, and binding NCIT:C50434 Drainage would have named one instance as the category. The gap is recorded in the entry's top-level notes alongside the two MONDO gaps and in the treatment's own notes.
+    - Low-Dose IV Hydrocortisone. NCIT:C15986 Pharmacotherapy + therapeutic_agent NCIT:C555 Therapeutic Hydrocortisone, target_mechanisms -> Dysregulated Innate Immune Activation (INHIBITS). That node previously had no incoming treatment edge. The link description states plainly that the cited evidence is clinical (shock resolution, vasopressor-free days) and does not measure the node, so the link records where the drug is understood to act rather than a demonstrated change. A third evidence item (PMID:34758337) carries the VANISH re-analysis associating corticosteroid exposure with increased mortality in one transcriptomic endotype; it is curated as an open caveat in the treatment's notes, not as a contraindication, since the endotypes are research instruments.
+    - Vasopressin as Second-Line Vasopressor. NCIT:C15986 + therapeutic_agent CHEBI:34543 argipressin, therapeutic_modality PEPTIDE, target_mechanisms -> Microcirculatory Dysfunction and Tissue Hypoperfusion (INHIBITS) with the V1-receptor mechanism sentence as link evidence.
+
+    Treatments were reordered to follow the clinical sequence (antimicrobials, source control, fluids, norepinephrine, vasopressin, hydrocortisone).
+
+    Reviewer suggestions, all taken except one:
+    - Crystalloid Fluid Resuscitation: treatment_term NCIT:C49236 -> NCIT:C116537 Fluid Therapy.
+    - Immediate Antimicrobial Therapy: therapeutic_agent NCIT:C254 Anti-Infective Agent added. The paired suggestion of NCIT:C15620 Antibiotic Therapy as the action term was NOT taken: the guideline recommendation and this entry both cover antibacterial, antifungal and antiviral therapy, so Antibiotic Therapy would narrow the claim. Anti-Infective Agent carries the specificity without that narrowing.
+    - conforms_to: thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation on Thromboinflammation and Sepsis-Induced Coagulopathy. The node was specialized to match the module node it now claims: GO:0072378 fibrin clot formation added alongside GO:0007596, and two evidence items added from the cached DIC review full text (monocyte tissue factor initiating the cascade; thrombin as the critical mediator). The module's conformance boundary requires a platelet-assisted, thrombin-generated fibrin thrombus, which is what those two items establish for sepsis.
+    - diagnosis: section added, five entries: SOFA organ-dysfunction scoring, bedside screening (qSOFA, curated with the 2021 guideline's recommendation AGAINST its use as a single screening tool), microbiologic cultures before antimicrobials, serum lactate measurement (curated with the guideline's statement that lactate alone cannot rule the diagnosis in or out), and continued search for an alternative diagnosis (there is no gold-standard test, and a third or more of patients turn out to have something else).
+    - datasets: [] removed. The omitted key says the same thing.
+    - Compound node names: NOT changed. The reviewer said they would not force a split and neither would I. Endothelial activation and glycocalyx degradation are one measured event in the cited source, and splitting them would create a node with no evidence of its own.
+
+    Deep-research report reconciliation (left open by the previous session): the falcon report's NET-formation suggestion is taken, as GO:0140645 neutrophil extracellular trap formation on Dysregulated Innate Immune Activation with evidence from PMID:34758337; the report gives the identifier as GO:0140725 in two places (lines 1042 and 1196), and GO:0140725 is 'free heme detoxification'. The correct term is GO:0140645 neutrophil extracellular trap formation, which is already in the local label and enum caches. This is the invented-ontology-identifier failure mode CLAUDE.md section 2a describes, and it is exactly what the previous session's warning covered: `just validate-research-terms` could not complete on this report because OLS timed out, so none of its identifiers were term-checked. The five HP identifiers the report names as phenotype gaps (HP:0002045, HP:0100520, HP:0002904, HP:0031258, HP:0012418) were each checked against the local cache or live OLS, and all five are correct; only the GO identifier was wrong. Hypoxemia (HP:0012418) is not added separately because the respiratory failure phenotype already curated here rests on the guideline's acute hypoxemic respiratory failure sentence. Oliguria (HP:0100520) added as a Renal phenotype from the S-AKI review's definition sentence. Hypothermia (HP:0002045) and delirium (HP:0031258) were NOT added: no cached reference in this branch mentions either, and hyperbilirubinemia (HP:0002904) was NOT added because the only cached mention is the Sepsis-3 statement of which laboratory variables SOFA computation needs, which is a statement about the score rather than an observation of the phenotype.
+
+    Validated after the edits: `just validate kb/disorders/Sepsis.yaml` passed (schema + terms + references), Snippets checked: 67/67 verified; `just count-verified-snippets` 67/67; `just check-duplicate-keys`, `check-entity-refs`, `check-causal-targets`, `check-enum-values`, `check-qualifier-terms` OK; `check-folded-hyphens`, `check-snippet-grading`, `check-snippet-length`, `check-title-snippets`, `check-reference-titles` OK with no new occurrences; pytest tests/test_data.py -k "Sepsis or subtype or attaches or target or conforms or unique or duplicate or discussion or treatment or history or diagnosis" 20 passed. Evidence items went 42 -> 67. `just validate-disorders kb/disorders/Sepsis.yaml`, the CI-equivalent batched pass, also passed at 67/67. `just validate-history-all` reported no issues over 10,691 records. `just check-groupings --strict` fails on this branch and fails identically on origin/main with the same advisory NOT_SATISFIED output; no line of it names Sepsis.
+
+    Still not done, and named rather than left silent: no progression, histopathology or datasets sections; no clinical_trials; no sepsis mechanism module; the neonatal sepsis subtype remains a placeholder; Hospital-Acquired_Acute_Kidney_Injury is still not cross-linked to this entry.

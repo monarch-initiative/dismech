@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4209,6 +4277,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4230,6 +4299,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4424,6 +4494,7 @@ Their leaving the sub-question open is the strongest available evidence that it 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4448,6 +4519,7 @@ Their leaving the sub-question open is the strongest available evidence that it 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4469,6 +4541,7 @@ Their leaving the sub-question open is the strongest available evidence that it 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4508,6 +4581,13 @@ Their leaving the sub-question open is the strongest available evidence that it 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cfap54-loss-of-function" data-dismech-node="CFAP54 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">CFAP54 Loss of Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic loss-of-function variants remove or impair CFAP54, a component of the C1d projection of the central microtubule apparatus. The C1d complex is conserved from Chlamydomonas, where the orthologue FAP54 occupies the same position, and mouse work established that C1d assembly requires CFAP54 specifically.</div>
 
@@ -4569,6 +4649,8 @@ This pathophysiological event involves CFAP54 (hgnc:26456). hgnc:26456 is a gene
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4579,6 +4661,9 @@ This pathophysiological event involves CFAP54 (hgnc:26456). hgnc:26456 is a gene
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic frameshift, missense and compound heterozygous variants, absent or extremely rare in population databases.</div>
 
@@ -4647,6 +4732,7 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4668,6 +4754,7 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4693,6 +4780,13 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-flagellar-axoneme-disorganisation-and-assembly-protein-depletion" data-dismech-node="Flagellar Axoneme Disorganisation and Assembly Protein Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Flagellar Axoneme Disorganisation and Assembly Protein Depletion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Sperm from affected men show significant axonemal disorganisation on ultrastructural examination. The lesion is not confined to the C1d projection itself: immunofluorescence showed markedly reduced staining of four flagellar-assembly-associated proteins — IFT20, IFT52, IFT122 and SPEF2 — in the spermatozoa of CFAP54-deficient men, indicating that losing this central apparatus component destabilises the wider flagellar assembly machinery rather than deleting one projection in isolation.</div>
 
@@ -4857,6 +4951,7 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4878,6 +4973,7 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4905,6 +5001,7 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4929,6 +5026,13 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multiple-morphological-abnormalities-of-the-sperm-flagella" data-dismech-node="Multiple Morphological Abnormalities of the Sperm Flagella" data-dismech-type="pathophysiology">
                 <div class="item-name">Multiple Morphological Abnormalities of the Sperm Flagella</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The disorganised axoneme yields the MMAF phenotype: abnormal sperm morphology with reduced motility. This is the sperm-flagellar instance of the same motile-axoneme failure that produces impaired ciliary beating in airway cilia, which is why this node conforms to the motile cilia arm of the ciliopathy module.</div>
 
@@ -5052,6 +5156,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5073,6 +5178,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5098,6 +5204,13 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-male-infertility" data-dismech-node="Male Infertility" data-dismech-type="pathophysiology">
                 <div class="item-name">Male Infertility</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint. Affected men present with infertility spanning severe MMAF through to non-obstructive azoospermia — that is, the defect can manifest either as dysfunctional sperm or as an apparent failure to produce them. In the mouse, infertility was shown to result from defects in spermatogenesis rather than from obstruction.</div>
 
@@ -5169,6 +5282,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5190,6 +5304,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5238,7 +5353,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CFAP54\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CFAP54\"], \"gene_terms\": [{\"label\": \"CFAP54\", \"id\": \"hgnc:26456\"}], \"frequency\": \"3 of 334 MMAF/NOA probands; separately 1 of 167 primary-infertility probands\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CFAP54 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants remove or impair CFAP54, a component of the C1d projection of the central microtubule apparatus. The C1d complex is conserved from Chlamydomonas, where the orthologue FAP54 occupies the same position, and mouse work established that C1d assembly requires CFAP54 specifically.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CFAP54\"], \"gene_terms\": [{\"label\": \"CFAP54\", \"id\": \"hgnc:26456\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline biallelic frameshift, missense and compound heterozygous variants, absent or extremely rare in population databases.\"}, \"role\": \"trigger\"}}, {\"id\": \"Cfap54 gene-trap mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mouse line carrying a gene-trapped Cfap54 allele, established by its authors as a new model of primary ciliary dyskinesia.\"}, {\"id\": \"Cfap54 in-frame variant knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in mouse carrying a human CFAP54 pathogenic variant rather than a gene trap, so it tests the specific allele class found in patients. Its relevance to this entry cuts in a particular direction: the mouse develops full PCD \\u2014 hydrocephalus and nasal mucus accumulation as well as infertility \\u2014 so on the closest available allele-matched model, CFAP54 loss does not produce isolated infertility.\"}, {\"id\": \"Flagellar Axoneme Disorganisation and Assembly Protein Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sperm from affected men show significant axonemal disorganisation on ultrastructural examination. The lesion is not confined to the C1d projection itself: immunofluorescence showed markedly reduced staining of four flagellar-assembly-associated proteins \\u2014 IFT20, IFT52, IFT122 and SPEF2 \\u2014 in the spermatozoa of CFAP54-deficient men, indicating that losing this central apparatus component destabilises the wider flagellar assembly machinery rather than deleting one projection in isolation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Sperm\"], \"biological_processes\": [\"sperm axoneme assembly\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Cfap54 gene-trap mouse\", \"species\": \"Mouse\", \"genotype\": \"Cfap54 gene-trapped allele, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the specific C1d projection structural defect that defines the molecular lesion, with functional consequences for ciliary beating.\"}]}}, {\"id\": \"Male Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting feature, through which these men are ascertained.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003251\", \"animal_models\": [{\"name\": \"Cfap54 gene-trap mouse\", \"species\": \"Mouse\", \"genotype\": \"Cfap54 gene-trapped allele, homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous mice are infertile through defects in spermatogenesis, matching the human infertility. But they also have hydrocephalus and mucus accumulation \\u2014 full PCD \\u2014 whereas the men in the human infertility cohort were ascertained for infertility alone.\"}, {\"name\": \"Cfap54 in-frame variant knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Cfap54 in-frame variant knock-in, modelling a human pathogenic allele\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the infertility endpoint of this entry, but as one component of a full PCD phenotype rather than in isolation.\"}]}}, {\"id\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disorganised axoneme yields the MMAF phenotype: abnormal sperm morphology with reduced motility. This is the sperm-flagellar instance of the same motile-axoneme failure that produces impaired ciliary beating in airway cilia, which is why this node conforms to the motile cilia arm of the ciliopathy module.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Sperm\"], \"biological_processes\": [\"cilium movement\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"CFAP54 Loss of Function\", \"target\": \"Flagellar Axoneme Disorganisation and Assembly Protein Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Flagellar Axoneme Disorganisation and Assembly Protein Depletion\", \"target\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Male Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cfap54 gene-trap mouse\", \"target\": \"Flagellar Axoneme Disorganisation and Assembly Protein Depletion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the specific C1d projection structural defect that defines the molecular lesion, with functional consequences for ciliary beating.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The structural and functional characterisation is of motile cilia rather than of the sperm flagellum, so the flagellar readout is inferred from the shared axonemal architecture; a gene trap is also not equivalent to the human missense alleles.\"}, {\"source\": \"Cfap54 gene-trap mouse\", \"target\": \"Male Infertility\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Homozygous mice are infertile through defects in spermatogenesis, matching the human infertility. But they also have hydrocephalus and mucus accumulation \\u2014 full PCD \\u2014 whereas the men in the human infertility cohort were ascertained for infertility alone.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse phenotype is broader than the curated human phenotype: it includes hydrocephalus and mucus accumulation not reported in the infertility probands. The model therefore cannot be used to argue that isolated spermatogenic failure is the expected consequence of CFAP54 loss, and this mismatch is the substance of the open phenotypic-boundary discussion.\"}, {\"source\": \"Cfap54 in-frame variant knock-in mouse\", \"target\": \"Male Infertility\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the infertility endpoint of this entry, but as one component of a full PCD phenotype rather than in isolation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The human probands curated here have infertility without recognised airway disease, whereas this mouse has both. Whether that is a species difference, an allele difference, or undetected airway disease in the men is exactly the question left open in this entry\u0027s discussion, so the model cannot be read as settling it. The variant is in-frame, which need not match the frameshift and missense alleles in the infertility cohort.\"}, {\"source\": \"CFAP54\", \"target\": \"CFAP54 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CFAP54\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"CFAP54\"], \"gene_terms\": [{\"label\": \"CFAP54\", \"id\": \"hgnc:26456\"}], \"frequency\": \"3 of 334 MMAF/NOA probands; separately 1 of 167 primary-infertility probands\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CFAP54 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants remove or impair CFAP54, a component of the C1d projection of the central microtubule apparatus. The C1d complex is conserved from Chlamydomonas, where the orthologue FAP54 occupies the same position, and mouse work established that C1d assembly requires CFAP54 specifically.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CFAP54\"], \"gene_terms\": [{\"label\": \"CFAP54\", \"id\": \"hgnc:26456\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline biallelic frameshift, missense and compound heterozygous variants, absent or extremely rare in population databases.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cfap54 gene-trap mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mouse line carrying a gene-trapped Cfap54 allele, established by its authors as a new model of primary ciliary dyskinesia.\"}, {\"id\": \"Cfap54 in-frame variant knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in mouse carrying a human CFAP54 pathogenic variant rather than a gene trap, so it tests the specific allele class found in patients. Its relevance to this entry cuts in a particular direction: the mouse develops full PCD \\u2014 hydrocephalus and nasal mucus accumulation as well as infertility \\u2014 so on the closest available allele-matched model, CFAP54 loss does not produce isolated infertility.\"}, {\"id\": \"Flagellar Axoneme Disorganisation and Assembly Protein Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sperm from affected men show significant axonemal disorganisation on ultrastructural examination. The lesion is not confined to the C1d projection itself: immunofluorescence showed markedly reduced staining of four flagellar-assembly-associated proteins \\u2014 IFT20, IFT52, IFT122 and SPEF2 \\u2014 in the spermatozoa of CFAP54-deficient men, indicating that losing this central apparatus component destabilises the wider flagellar assembly machinery rather than deleting one projection in isolation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Sperm\"], \"biological_processes\": [\"sperm axoneme assembly\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Cfap54 gene-trap mouse\", \"species\": \"Mouse\", \"genotype\": \"Cfap54 gene-trapped allele, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the specific C1d projection structural defect that defines the molecular lesion, with functional consequences for ciliary beating.\"}]}}, {\"id\": \"Male Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting feature, through which these men are ascertained.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003251\", \"animal_models\": [{\"name\": \"Cfap54 gene-trap mouse\", \"species\": \"Mouse\", \"genotype\": \"Cfap54 gene-trapped allele, homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous mice are infertile through defects in spermatogenesis, matching the human infertility. But they also have hydrocephalus and mucus accumulation \\u2014 full PCD \\u2014 whereas the men in the human infertility cohort were ascertained for infertility alone.\"}, {\"name\": \"Cfap54 in-frame variant knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Cfap54 in-frame variant knock-in, modelling a human pathogenic allele\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the infertility endpoint of this entry, but as one component of a full PCD phenotype rather than in isolation.\"}]}}, {\"id\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disorganised axoneme yields the MMAF phenotype: abnormal sperm morphology with reduced motility. This is the sperm-flagellar instance of the same motile-axoneme failure that produces impaired ciliary beating in airway cilia, which is why this node conforms to the motile cilia arm of the ciliopathy module.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Sperm\"], \"biological_processes\": [\"cilium movement\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"CFAP54 Loss of Function\", \"target\": \"Flagellar Axoneme Disorganisation and Assembly Protein Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Flagellar Axoneme Disorganisation and Assembly Protein Depletion\", \"target\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Male Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cfap54 gene-trap mouse\", \"target\": \"Flagellar Axoneme Disorganisation and Assembly Protein Depletion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the specific C1d projection structural defect that defines the molecular lesion, with functional consequences for ciliary beating.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The structural and functional characterisation is of motile cilia rather than of the sperm flagellum, so the flagellar readout is inferred from the shared axonemal architecture; a gene trap is also not equivalent to the human missense alleles.\"}, {\"source\": \"Cfap54 gene-trap mouse\", \"target\": \"Male Infertility\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Homozygous mice are infertile through defects in spermatogenesis, matching the human infertility. But they also have hydrocephalus and mucus accumulation \\u2014 full PCD \\u2014 whereas the men in the human infertility cohort were ascertained for infertility alone.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse phenotype is broader than the curated human phenotype: it includes hydrocephalus and mucus accumulation not reported in the infertility probands. The model therefore cannot be used to argue that isolated spermatogenic failure is the expected consequence of CFAP54 loss, and this mismatch is the substance of the open phenotypic-boundary discussion.\"}, {\"source\": \"Cfap54 in-frame variant knock-in mouse\", \"target\": \"Male Infertility\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the infertility endpoint of this entry, but as one component of a full PCD phenotype rather than in isolation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The human probands curated here have infertility without recognised airway disease, whereas this mouse has both. Whether that is a species difference, an allele difference, or undetected airway disease in the men is exactly the question left open in this entry\u0027s discussion, so the model cannot be read as settling it. The variant is in-frame, which need not match the frameshift and missense alleles in the infertility cohort.\"}, {\"source\": \"CFAP54\", \"target\": \"CFAP54 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5255,34 +5370,18 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(4)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-male-infertility" data-dismech-node="Male Infertility" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Male Infertility
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-male-infertility" data-dismech-node="Male Infertility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Male Infertility
-
-
+                    <span class="phenotype-category">Reproductive</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5294,7 +5393,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5314,6 +5416,7 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5338,28 +5441,19 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-sperm-morphology" data-dismech-node="Abnormal Sperm Morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Sperm Morphology
+            <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-sperm-morphology" data-dismech-node="Abnormal Sperm Morphology" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Abnormal Sperm Morphology
 
 
+                    <span class="phenotype-category">Reproductive</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5371,7 +5465,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal sperm morphology (HP:0012864). HP:0012864 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5391,6 +5488,7 @@ This clinical feature is Abnormal sperm morphology (HP:0012864). HP:0012864 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5415,19 +5513,19 @@ This clinical feature is Abnormal sperm morphology (HP:0012864). HP:0012864 is a
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-sperm-motility" data-dismech-node="Reduced Sperm Motility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced Sperm Motility
+            <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-sperm-motility" data-dismech-node="Reduced Sperm Motility" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Reduced Sperm Motility
 
 
+                    <span class="phenotype-category">Reproductive</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5439,7 +5537,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Reduced sperm motility (HP:0012207). HP:0012207 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5459,6 +5560,7 @@ This clinical feature is Reduced sperm motility (HP:0012207). HP:0012207 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5483,19 +5585,19 @@ This clinical feature is Reduced sperm motility (HP:0012207). HP:0012207 is a ph
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-non-obstructive-azoospermia" data-dismech-node="Non-Obstructive Azoospermia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Non-Obstructive Azoospermia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-non-obstructive-azoospermia" data-dismech-node="Non-Obstructive Azoospermia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Non-Obstructive Azoospermia
 
 
+                    <span class="phenotype-category">Reproductive</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5507,7 +5609,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Non-obstructive azoospermia (HP:0011961). HP:0011961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5527,6 +5632,7 @@ This clinical feature is Non-obstructive azoospermia (HP:0011961). HP:0011961 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5551,21 +5657,19 @@ This clinical feature is Non-obstructive azoospermia (HP:0011961). HP:0011961 is
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-sperm-concentration" data-dismech-node="Reduced Sperm Concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced Sperm Concentration
+            <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-sperm-concentration" data-dismech-node="Reduced Sperm Concentration" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Reduced Sperm Concentration
 
 
+                    <span class="phenotype-category">Reproductive</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Oligozoospermia</span>
-
 
 
 
@@ -5577,7 +5681,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5597,6 +5704,7 @@ This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5621,34 +5729,8 @@ This clinical feature is Oligozoospermia (HP:0000798). HP:0000798 is a phenotype
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -5697,6 +5779,9 @@ This disease-associated gene is CFAP54 (hgnc:26456). hgnc:26456 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -5711,6 +5796,7 @@ This disease-associated gene is CFAP54 (hgnc:26456). hgnc:26456 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5738,6 +5824,7 @@ This disease-associated gene is CFAP54 (hgnc:26456). hgnc:26456 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5759,6 +5846,7 @@ This disease-associated gene is CFAP54 (hgnc:26456). hgnc:26456 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5847,6 +5935,9 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5857,6 +5948,9 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
     </div>
+
+
+
 
 
 
@@ -5884,6 +5978,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6012,6 +6107,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6033,6 +6129,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6182,6 +6279,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6241,6 +6339,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6280,6 +6379,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6359,6 +6459,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6398,6 +6499,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6535,6 +6637,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6574,6 +6677,7 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

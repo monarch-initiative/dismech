@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Vascular%20Ehlers-Danlos%20Syndrome"
@@ -3990,7 +4058,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4004,6 +4072,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#treatments">
@@ -4168,6 +4244,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4215,6 +4292,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-iii-collagen-matrix-fragility" data-dismech-node="Type III collagen matrix fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Type III collagen matrix fragility</div>
 
+
                 <div class="item-desc">COL3A1 variants disrupt type III collagen triple-helix formation, secretion, and extracellular-matrix deposition. Glycine substitutions destroy the triple-helical winding, so misfolded procollagen III is retained in the endoplasmic reticulum and secretion of functionally mature collagen III is impaired. The resulting collagen III matrix weakness compromises blood-vessel and hollow-organ tensile strength, leading to arterial dissection or rupture, intestinal perforation, uterine rupture, easy bruising, and thin translucent skin.
 </div>
 
@@ -4256,6 +4334,49 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COL3A1
+
+
+    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2201</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL3A1 (hgnc:2201). hgnc:2201 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4271,11 +4392,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030199</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4305,11 +4426,11 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4399,6 +4520,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4420,6 +4542,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4448,6 +4571,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4472,6 +4596,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arterial-and-hollow-organ-rupture" data-dismech-node="Arterial and hollow-organ rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Arterial and hollow-organ rupture</div>
 
+
                 <div class="item-desc">Weak type III collagen matrix in arteries, bowel, uterus, and other organs produces spontaneous or minor-trauma vascular rupture, dissection, gastrointestinal perforation, and pregnancy-associated uterine rupture.
 </div>
 
@@ -4487,11 +4612,11 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4528,11 +4653,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4621,6 +4746,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4646,6 +4772,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4668,6 +4795,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4717,7 +4845,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arterial and hollow-organ rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Weak type III collagen matrix in arteries, bowel, uterus, and other organs produces spontaneous or minor-trauma vascular rupture, dissection, gastrointestinal perforation, and pregnancy-associated uterine rupture.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Arterial dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial dissection is a major vascular fragility manifestation in vEDS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005294\"}}, {\"id\": \"Arterial rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial rupture or dissection is a hallmark and life-threatening vEDS manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025019\"}}, {\"id\": \"Easy bruising\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Easy bruising reflects perivascular connective-tissue fragility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"Intestinal perforation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal perforation is part of the hollow-organ fragility phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031368\"}}, {\"id\": \"Prematurely aged appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acrogeric, prematurely aged appearance is a frequent vEDS connective-tissue feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007495\"}}, {\"id\": \"Thin skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin translucent skin is a characteristic connective-tissue feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000963\"}}, {\"id\": \"Type III collagen matrix fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COL3A1 variants disrupt type III collagen triple-helix formation, secretion, and extracellular-matrix deposition. Glycine substitutions destroy the triple-helical winding, so misfolded procollagen III is retained in the endoplasmic reticulum and secretion of functionally mature collagen III is impaired. The resulting collagen III matrix weakness compromises blood-vessel and hollow-organ tensile strength, leading to arterial dissection or rupture, intestinal perforation, uterine rupture, easy bruising, and thin translucent skin.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"]}}, {\"id\": \"Uterine rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Uterine rupture during pregnancy is a life-threatening hollow-organ complication in affected women.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100718\"}}], \"edges\": [{\"source\": \"Type III collagen matrix fragility\", \"target\": \"Arterial and hollow-organ rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weak type III collagen matrix reduces tensile strength in arteries, bowel, uterus, and other organs, producing spontaneous or trauma-triggered dissection, rupture, and perforation.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Type III collagen matrix fragility\", \"target\": \"Thin skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective type III collagen matrix contributes to thin translucent skin.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Type III collagen matrix fragility\", \"target\": \"Easy bruising\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perivascular connective-tissue fragility increases bruising susceptibility.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Type III collagen matrix fragility\", \"target\": \"Prematurely aged appearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dermal connective-tissue fragility produces acrogeric, prematurely aged facial and skin features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arterial and hollow-organ rupture\", \"target\": \"Arterial rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arterial wall fragility can culminate in spontaneous arterial rupture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arterial and hollow-organ rupture\", \"target\": \"Arterial dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile arterial walls can separate along vessel-wall layers before or without rupture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arterial and hollow-organ rupture\", \"target\": \"Intestinal perforation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hollow-organ fragility can produce gastrointestinal perforation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arterial and hollow-organ rupture\", \"target\": \"Uterine rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gravid uterine connective-tissue fragility can result in pregnancy-associated uterine rupture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arterial and hollow-organ rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Weak type III collagen matrix in arteries, bowel, uterus, and other organs produces spontaneous or minor-trauma vascular rupture, dissection, gastrointestinal perforation, and pregnancy-associated uterine rupture.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Arterial dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial dissection is a major vascular fragility manifestation in vEDS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005294\"}}, {\"id\": \"Arterial rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial rupture or dissection is a hallmark and life-threatening vEDS manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025019\"}}, {\"id\": \"COL3A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"COL3A1\"], \"gene_terms\": [{\"label\": \"COL3A1\", \"id\": \"hgnc:2201\"}], \"presence\": \"Positive\", \"association\": \"Causal heterozygous pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"Easy bruising\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Easy bruising reflects perivascular connective-tissue fragility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"Glycine substitutions and splice-site or in-frame insertion-deletion alleles\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The dominant-negative classes. In a cohort of 215 molecularly proven patients carrying 126 distinct variants, glycine substitutions were the largest group and splice-site plus in-frame insertion-deletion alleles the second; together they were significantly more severe than the haploinsufficiency and terminal non-glycine classes, with extreme median ages at first major complication spanning 23-47 years across the five groups.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"COL3A1\"], \"gene_terms\": [{\"label\": \"COL3A1\", \"id\": \"hgnc:2201\"}], \"variant_type\": \"glycine substitution, splice-site, or in-frame insertion-deletion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Haploinsufficiency and terminal non-glycine missense alleles\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The milder classes. In the same cohort these are groups 3 to 5: alleles leading to haploinsufficiency, non-glycine missense alleles within the triple helix, and non-glycine missense or in-frame insertion-deletion alleles in the N- or C-terminal part of the protein. Patients in those three groups had a less typical phenotype and no digestive events. The record is named for the two classes the authors single out in their conclusion, haploinsufficiency and the terminal non-glycine alleles.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL3A1\"], \"gene_terms\": [{\"label\": \"COL3A1\", \"id\": \"hgnc:2201\"}], \"variant_type\": \"haploinsufficiency or terminal non-glycine missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Intestinal perforation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal perforation is part of the hollow-organ fragility phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031368\"}}, {\"id\": \"Prematurely aged appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acrogeric, prematurely aged appearance is a frequent vEDS connective-tissue feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007495\"}}, {\"id\": \"Thin skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin translucent skin is a characteristic connective-tissue feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000963\"}}, {\"id\": \"Type III collagen matrix fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COL3A1 variants disrupt type III collagen triple-helix formation, secretion, and extracellular-matrix deposition. Glycine substitutions destroy the triple-helical winding, so misfolded procollagen III is retained in the endoplasmic reticulum and secretion of functionally mature collagen III is impaired. The resulting collagen III matrix weakness compromises blood-vessel and hollow-organ tensile strength, leading to arterial dissection or rupture, intestinal perforation, uterine rupture, easy bruising, and thin translucent skin.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"genes\": [\"COL3A1\"], \"gene_terms\": [{\"label\": \"COL3A1\", \"id\": \"hgnc:2201\"}]}}, {\"id\": \"Uterine rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Uterine rupture during pregnancy is a life-threatening hollow-organ complication in affected women.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100718\"}}], \"edges\": [{\"source\": \"Type III collagen matrix fragility\", \"target\": \"Arterial and hollow-organ rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weak type III collagen matrix reduces tensile strength in arteries, bowel, uterus, and other organs, producing spontaneous or trauma-triggered dissection, rupture, and perforation.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Type III collagen matrix fragility\", \"target\": \"Thin skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective type III collagen matrix contributes to thin translucent skin.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Type III collagen matrix fragility\", \"target\": \"Easy bruising\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perivascular connective-tissue fragility increases bruising susceptibility.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Type III collagen matrix fragility\", \"target\": \"Prematurely aged appearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dermal connective-tissue fragility produces acrogeric, prematurely aged facial and skin features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arterial and hollow-organ rupture\", \"target\": \"Arterial rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arterial wall fragility can culminate in spontaneous arterial rupture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arterial and hollow-organ rupture\", \"target\": \"Arterial dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile arterial walls can separate along vessel-wall layers before or without rupture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arterial and hollow-organ rupture\", \"target\": \"Intestinal perforation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hollow-organ fragility can produce gastrointestinal perforation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Arterial and hollow-organ rupture\", \"target\": \"Uterine rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gravid uterine connective-tissue fragility can result in pregnancy-associated uterine rupture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"COL3A1\", \"target\": \"Type III collagen matrix fragility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Glycine substitutions and splice-site or in-frame insertion-deletion alleles\", \"target\": \"COL3A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency and terminal non-glycine missense alleles\", \"target\": \"COL3A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4738,13 +4866,19 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Limbs<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4773,15 +4907,18 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000978</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000978</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Easy bruising, annotated with Bruising susceptibility (HP:0000978). HP:0000978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4801,6 +4938,7 @@ This clinical feature is Easy bruising, annotated with Bruising susceptibility (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4832,13 +4970,13 @@ This clinical feature is Easy bruising, annotated with Bruising susceptibility (
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">3</span>
+                    Cardiovascular
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-skin" data-dismech-node="Thin skin" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-rupture" data-dismech-node="Arterial rupture" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Thin skin
+                        Arterial rupture
 
 
 
@@ -4850,15 +4988,18 @@ This clinical feature is Easy bruising, annotated with Bruising susceptibility (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000963" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000963</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0025019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thin skin (HP:0000963). HP:0000963 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Arterial rupture (HP:0025019). HP:0025019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4878,6 +5019,406 @@ This clinical feature is Thin skin (HP:0000963). HP:0000963 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arterial rupture may be preceded by aneurysm, arteriovenous fistulae, or dissection but also may occur spontaneously."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly supports arterial rupture/dissection in vEDS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-dissection" data-dismech-node="Arterial dissection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arterial dissection
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005294" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0005294</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arterial dissection (HP:0005294). HP:0005294 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arterial rupture may be preceded by aneurysm, arteriovenous fistulae, or dissection but also may occur spontaneously."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly supports arterial dissection as part of the vEDS vascular phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intestinal-perforation" data-dismech-node="Intestinal perforation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intestinal perforation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0031368</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intestinal perforation (HP:0031368). HP:0031368 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vascular dissection or rupture, gastrointestinal perforation, or organ rupture are the presenting signs in most adults with vEDS."</div>
+
+
+                <div class="evidence-explanation">This supports intestinal perforation as a key vEDS complication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-uterine-rupture" data-dismech-node="Uterine rupture" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Uterine rupture
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0100718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uterine rupture (HP:0100718). HP:0100718 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment may include medical or surgical management for arterial complications, bowel rupture, or uterine rupture during pregnancy."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly identifies uterine rupture during pregnancy as a vEDS complication requiring emergency management.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-vermilion-of-the-lips" data-dismech-node="Thin vermilion of the lips" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thin vermilion of the lips
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Thin vermilion border</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000233" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000233</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin vermilion border (HP:0000233). HP:0000233 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characteristic facial appearance (thin vermilion of the lips, micrognathia, narrow nose, prominent eyes)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews describes the characteristic vEDS facial appearance including thin vermilion of the lips.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-skin" data-dismech-node="Thin skin" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thin skin
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000963" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000963</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin skin (HP:0000963). HP:0000963 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4918,15 +5459,18 @@ This clinical feature is Thin skin (HP:0000963). HP:0000963 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0010648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010648</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dermal translucency (HP:0010648). HP:0010648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4946,6 +5490,7 @@ This clinical feature is Dermal translucency (HP:0010648). HP:0010648 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4987,15 +5532,18 @@ This clinical feature is Dermal translucency (HP:0010648). HP:0010648 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0007495</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007495</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acrogeric appearance, annotated with Prematurely aged appearance (HP:0007495). HP:0007495 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5015,6 +5563,7 @@ This clinical feature is Acrogeric appearance, annotated with Prematurely aged a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5043,7 +5592,7 @@ This clinical feature is Acrogeric appearance, annotated with Prematurely aged a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -5066,15 +5615,18 @@ This clinical feature is Acrogeric appearance, annotated with Prematurely aged a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001762</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001762</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Clubfoot, annotated with Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5094,6 +5646,7 @@ This clinical feature is Clubfoot, annotated with Talipes equinovarus (HP:000176
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5122,7 +5675,7 @@ This clinical feature is Clubfoot, annotated with Talipes equinovarus (HP:000176
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5143,15 +5696,18 @@ This clinical feature is Clubfoot, annotated with Talipes equinovarus (HP:000176
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001382</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Small-joint hypermobility, annotated with Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5171,6 +5727,7 @@ This clinical feature is Small-joint hypermobility, annotated with Joint hypermo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5182,358 +5739,6 @@ This clinical feature is Small-joint hypermobility, annotated with Joint hypermo
 
 
                 <div class="evidence-explanation">GeneReviews lists distal joint hypermobility among the minor diagnostic features of vEDS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-rupture" data-dismech-node="Arterial rupture" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arterial rupture
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0025019</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arterial rupture (HP:0025019). HP:0025019 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Arterial rupture may be preceded by aneurysm, arteriovenous fistulae, or dissection but also may occur spontaneously."</div>
-
-
-                <div class="evidence-explanation">GeneReviews directly supports arterial rupture/dissection in vEDS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-dissection" data-dismech-node="Arterial dissection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arterial dissection
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005294" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005294</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arterial dissection (HP:0005294). HP:0005294 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Arterial rupture may be preceded by aneurysm, arteriovenous fistulae, or dissection but also may occur spontaneously."</div>
-
-
-                <div class="evidence-explanation">GeneReviews directly supports arterial dissection as part of the vEDS vascular phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intestinal-perforation" data-dismech-node="Intestinal perforation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intestinal perforation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0031368</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intestinal perforation (HP:0031368). HP:0031368 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Vascular dissection or rupture, gastrointestinal perforation, or organ rupture are the presenting signs in most adults with vEDS."</div>
-
-
-                <div class="evidence-explanation">This supports intestinal perforation as a key vEDS complication.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-uterine-rupture" data-dismech-node="Uterine rupture" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Uterine rupture
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100718</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Uterine rupture (HP:0100718). HP:0100718 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Treatment may include medical or surgical management for arterial complications, bowel rupture, or uterine rupture during pregnancy."</div>
-
-
-                <div class="evidence-explanation">GeneReviews directly identifies uterine rupture during pregnancy as a vEDS complication requiring emergency management.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-vermilion-of-the-lips" data-dismech-node="Thin vermilion of the lips" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thin vermilion of the lips
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Thin vermilion border</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000233" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000233</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thin vermilion border (HP:0000233). HP:0000233 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301667" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301667" target="_blank">PMID:20301667</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"characteristic facial appearance (thin vermilion of the lips, micrognathia, narrow nose, prominent eyes)"</div>
-
-
-                <div class="evidence-explanation">GeneReviews describes the characteristic vEDS facial appearance including thin vermilion of the lips.</div>
 
 
 
@@ -5606,17 +5811,24 @@ This clinical feature is Thin vermilion border (HP:0000233). HP:0000233 is a phe
                         Gene: COL3A1
 
 
-    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:2201</a>
+    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:2201</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -5635,6 +5847,7 @@ This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5662,6 +5875,7 @@ This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5686,6 +5900,7 @@ This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5705,6 +5920,274 @@ This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (2)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-glycine-substitutions-and-splice-site-or-in-frame-insertion-deletion-alleles" data-dismech-node="Glycine substitutions and splice-site or in-frame insertion-deletion alleles" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Glycine substitutions and splice-site or in-frame insertion-deletion alleles
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: COL3A1
+
+
+    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2201</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in COL3A1 (hgnc:2201). hgnc:2201 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">glycine substitution, splice-site, or in-frame insertion-deletion</span>
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="item-desc">The dominant-negative classes. In a cohort of 215 molecularly proven patients carrying 126 distinct variants, glycine substitutions were the largest group and splice-site plus in-frame insertion-deletion alleles the second; together they were significantly more severe than the haploinsufficiency and terminal non-glycine classes, with extreme median ages at first major complication spanning 23-47 years across the five groups.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">type III procollagen triple-helix assembly and secretion</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">dominant negative</span>
+
+
+
+            </div>
+
+
+            <div class="item-desc">A glycine substitution destroys the triple-helical winding, so misfolded procollagen III is retained in the endoplasmic reticulum and secretion of functionally mature collagen III into the matrix is impaired. The entry&#39;s Type III collagen matrix fragility node carries the quoted evidence for that chain of events.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25758994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25758994" target="_blank">PMID:25758994</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found 126 distincts variants that were divided into five groups: (1) Glycine substitutions (n=71), (2) splice-site and in-frame insertions-deletions (n=36), (3) variants leading to haplo-insufficiency (n=7)"</div>
+
+
+                <div class="evidence-explanation">Gives the variant-class composition of the 215-patient cohort behind this variant grouping.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25758994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25758994" target="_blank">PMID:25758994</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Groups 2 and 1 were significantly more severe than groups 3-5, with extreme median ages at first major complication of 23-47 years."</div>
+
+
+                <div class="evidence-explanation">Establishes that the splice/in-frame and glycine-substitution classes are the severe end of the COL3A1 variant spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-haploinsufficiency-and-terminal-non-glycine-missense-alleles" data-dismech-node="Haploinsufficiency and terminal non-glycine missense alleles" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Haploinsufficiency and terminal non-glycine missense alleles
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: COL3A1
+
+
+    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:2201</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in COL3A1 (hgnc:2201). hgnc:2201 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">haploinsufficiency or terminal non-glycine missense</span>
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="item-desc">The milder classes. In the same cohort these are groups 3 to 5: alleles leading to haploinsufficiency, non-glycine missense alleles within the triple helix, and non-glycine missense or in-frame insertion-deletion alleles in the N- or C-terminal part of the protein. Patients in those three groups had a less typical phenotype and no digestive events. The record is named for the two classes the authors single out in their conclusion, haploinsufficiency and the terminal non-glycine alleles.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">type III procollagen production</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss of function</span>
+
+
+
+            </div>
+
+
+            <div class="item-desc">Haploinsufficiency reduces the output of collagen III rather than introducing a structurally defective chain into the assembled molecule. Whether that difference is what makes this class run milder is the natural reading of the cohort result, not something the cohort tested.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25758994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25758994" target="_blank">PMID:25758994</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients of groups 3-5 had a less typical phenotype and remarkably absence of digestive events."</div>
+
+
+                <div class="evidence-explanation">Records the milder course and the absent digestive events that separate this variant class from the dominant-negative one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
 
             </div>
 
@@ -5734,7 +6217,7 @@ This disease-associated gene is COL3A1 (hgnc:2201). hgnc:2201 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5775,6 +6258,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management centers on specialized multidisciplinary care, emergency documentation, periodic arterial imaging, blood pressure monitoring, and avoidance of high-risk trauma or invasive procedures when possible.
 </div>
 
@@ -5800,6 +6289,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5821,6 +6311,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5852,7 +6343,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5893,16 +6384,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C79558" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C79558</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C79558" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C79558</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses celiprolol (NCIT:C79558). NCIT:C79558 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5919,6 +6413,9 @@ This treatment uses celiprolol (NCIT:C79558). NCIT:C79558 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -5950,6 +6447,7 @@ This treatment uses celiprolol (NCIT:C79558). NCIT:C79558 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5972,6 +6470,7 @@ This treatment uses celiprolol (NCIT:C79558). NCIT:C79558 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6052,6 +6551,7 @@ This treatment uses celiprolol (NCIT:C79558). NCIT:C79558 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6106,6 +6606,7 @@ This treatment uses celiprolol (NCIT:C79558). NCIT:C79558 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6128,6 +6629,7 @@ This treatment uses celiprolol (NCIT:C79558). NCIT:C79558 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6353,6 +6855,8 @@ progression:
 genetic:
 - name: COL3A1
   association: Causal heterozygous pathogenic variants
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   presence: Positive
   gene_term:
     preferred_term: COL3A1
@@ -6364,6 +6868,82 @@ genetic:
     vessels and hollow organs. Pathogenic variants include dominant-negative
     glycine substitutions, splice or in-frame variants, and haploinsufficiency
     alleles with different average severities.
+  variants:
+  - name: Glycine substitutions and splice-site or in-frame insertion-deletion alleles
+    description: &gt;-
+      The dominant-negative classes. In a cohort of 215 molecularly proven
+      patients carrying 126 distinct variants, glycine substitutions were the
+      largest group and splice-site plus in-frame insertion-deletion alleles the
+      second; together they were significantly more severe than the
+      haploinsufficiency and terminal non-glycine classes, with extreme median
+      ages at first major complication spanning 23-47 years across the five
+      groups.
+    gene:
+      preferred_term: COL3A1
+      term:
+        id: hgnc:2201
+        label: COL3A1
+    clinical_significance: PATHOGENIC
+    type: glycine substitution, splice-site, or in-frame insertion-deletion
+    functional_effects:
+    - function: type III procollagen triple-helix assembly and secretion
+      type: dominant negative
+      description: &gt;-
+        A glycine substitution destroys the triple-helical winding, so misfolded
+        procollagen III is retained in the endoplasmic reticulum and secretion of
+        functionally mature collagen III into the matrix is impaired. The
+        entry&#39;s Type III collagen matrix fragility node carries the quoted
+        evidence for that chain of events.
+    evidence:
+    - reference: PMID:25758994
+      reference_title: &#34;The type of variants at the COL3A1 gene associates with the phenotype and severity of vascular Ehlers-Danlos syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We found 126 distincts variants that were divided into five groups: (1) Glycine substitutions (n=71), (2) splice-site and in-frame insertions-deletions (n=36), (3) variants leading to haplo-insufficiency (n=7)&#34;
+      explanation: &gt;-
+        Gives the variant-class composition of the 215-patient cohort behind this
+        variant grouping.
+    - reference: PMID:25758994
+      reference_title: &#34;The type of variants at the COL3A1 gene associates with the phenotype and severity of vascular Ehlers-Danlos syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Groups 2 and 1 were significantly more severe than groups 3-5, with extreme median ages at first major complication of 23-47 years.&#34;
+      explanation: &gt;-
+        Establishes that the splice/in-frame and glycine-substitution classes are
+        the severe end of the COL3A1 variant spectrum.
+  - name: Haploinsufficiency and terminal non-glycine missense alleles
+    description: &gt;-
+      The milder classes. In the same cohort these are groups 3 to 5: alleles
+      leading to haploinsufficiency, non-glycine missense alleles within the
+      triple helix, and non-glycine missense or in-frame insertion-deletion
+      alleles in the N- or C-terminal part of the protein. Patients in those
+      three groups had a less typical phenotype and no digestive events. The
+      record is named for the two classes the authors single out in their
+      conclusion, haploinsufficiency and the terminal non-glycine alleles.
+    gene:
+      preferred_term: COL3A1
+      term:
+        id: hgnc:2201
+        label: COL3A1
+    clinical_significance: PATHOGENIC
+    type: haploinsufficiency or terminal non-glycine missense
+    functional_effects:
+    - function: type III procollagen production
+      type: loss of function
+      description: &gt;-
+        Haploinsufficiency reduces the output of collagen III rather than
+        introducing a structurally defective chain into the assembled molecule.
+        Whether that difference is what makes this class run milder is the
+        natural reading of the cohort result, not something the cohort tested.
+    evidence:
+    - reference: PMID:25758994
+      reference_title: &#34;The type of variants at the COL3A1 gene associates with the phenotype and severity of vascular Ehlers-Danlos syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Patients of groups 3-5 had a less typical phenotype and remarkably absence of digestive events.&#34;
+      explanation: &gt;-
+        Records the milder course and the absent digestive events that separate
+        this variant class from the dominant-negative one.
   evidence:
   - reference: PMID:20301667
     reference_title: &#34;Vascular Ehlers-Danlos Syndrome.&#34;
@@ -6398,6 +6978,15 @@ pathophysiology:
     and hollow-organ tensile strength, leading to arterial dissection or rupture,
     intestinal perforation, uterine rupture, easy bruising, and thin translucent
     skin.
+  genes:
+  - preferred_term: COL3A1
+    description: &gt;-
+      The gene whose heterozygous pathogenic variants produce this node. The
+      fibrillar type III collagen it encodes is the matrix component that is
+      misfolded, retained, or reduced here.
+    term:
+      id: hgnc:2201
+      label: COL3A1
   cell_types:
   - preferred_term: fibroblast
     term:
@@ -7081,6 +7670,8 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7671,7 +8262,7 @@ The UK service uses emergency information cards and electronic record alerts to 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Vascular Ehlers-Danlos Syndrome", "mondoId": "MONDO:0017314", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vascular_Ehlers-Danlos_Syndrome", "yamlRevision": "bfc22dd5c024"};
+        const OS_CONFIG = {"diseaseName": "Vascular Ehlers-Danlos Syndrome", "mondoId": "MONDO:0017314", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vascular_Ehlers-Danlos_Syndrome", "yamlRevision": "8daec5e1c528"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4179,6 +4247,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4200,6 +4269,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4427,6 +4497,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4448,6 +4519,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4572,6 +4644,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-susceptibility-to-generalized-epilepsy" data-dismech-node="Polygenic Susceptibility to Generalized Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic Susceptibility to Generalized Epilepsy</div>
+
 
                 <div class="item-desc">Susceptibility is conferred by many common variants of individually small effect together with rarer variants in genes encoding neuronal ion channels and neurotransmitter receptors, in particular voltage-gated calcium and chloride channels and GABA-A receptor subunits. No single gene is necessary or sufficient. The net effect is a lowered seizure threshold in cortico-thalamocortical circuits rather than a discrete molecular lesion, which is why the node is a distributed liability rather than a named mutation.</div>
 
@@ -4729,6 +4802,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4750,6 +4824,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4775,6 +4850,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortico-thalamocortical-excitation-inhibition-imbalance" data-dismech-node="Cortico-Thalamocortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortico-Thalamocortical Excitation-Inhibition Imbalance</div>
+
 
                 <div class="item-desc">The susceptibility alleles shift the balance between glutamatergic excitation and GABAergic inhibition within reciprocally connected cortical and thalamic populations toward net excitation. The thalamic reticular nucleus, whose GABAergic output paces thalamocortical relay neurons, is the inhibitory element whose dysfunction is most consistently implicated across the idiopathic generalized epilepsies.</div>
 
@@ -4968,6 +5044,7 @@ This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4994,6 +5071,7 @@ This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5016,6 +5094,7 @@ This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-hypersynchronous-discharge" data-dismech-node="Generalized Hypersynchronous Discharge" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Hypersynchronous Discharge</div>
+
 
                 <div class="item-desc">Net excitatory bias permits large populations of cortical and thalamic neurons to fire in phase, producing the bilaterally synchronous generalized spike-wave and polyspike-wave discharges that are the electrographic signature of the syndrome. Between discharges the background is normal, which is what separates this from the encephalopathic generalized epilepsies.</div>
 
@@ -5171,6 +5250,7 @@ This pathophysiological event involves abnormal Regulation of Membrane Potential
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5192,6 +5272,7 @@ This pathophysiological event involves abnormal Regulation of Membrane Potential
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5217,6 +5298,7 @@ This pathophysiological event involves abnormal Regulation of Membrane Potential
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-wake-state-gating-of-seizure-threshold" data-dismech-node="Sleep-Wake State Gating of Seizure Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-Wake State Gating of Seizure Threshold</div>
+
 
                 <div class="item-desc">The distinctive feature of EGTCA is not that seizures occur but when. The transition out of sleep, and sleep deprivation preceding it, transiently lower the threshold at which the hyperexcitable network converts into a clinical seizure, concentrating seizures in the hour or two after awakening independent of clock time. This node is deliberately modeled as a modulator acting on seizure generation rather than as a step in the causal chain, because it changes the probability and timing of the output without being required to produce it.</div>
 
@@ -5302,6 +5384,7 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5323,6 +5406,7 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5352,6 +5436,7 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5374,6 +5459,7 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catamenial-gating-of-seizure-threshold" data-dismech-node="Catamenial Gating of Seizure Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Catamenial Gating of Seizure Threshold</div>
+
 
                 <div class="item-desc">A second state-gating input, parallel to the sleep-wake one. In some patients seizures cluster with the menstrual cycle, and catamenial seizures are one of only two features that independently predicted drug resistance in the largest ILAE-criteria cohort. It is modeled as a modulator on seizure generation for the same reason as the sleep-wake node: it changes when and how readily the hyperexcitable network converts to a clinical seizure without being required to produce one.</div>
 
@@ -5425,6 +5511,7 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5447,6 +5534,7 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recruitment-of-motor-systems-into-tonic-clonic-output" data-dismech-node="Recruitment of Motor Systems into Tonic-Clonic Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Recruitment of Motor Systems into Tonic-Clonic Output</div>
+
 
                 <div class="item-desc">When hypersynchronous activity crosses the threshold at which it recruits motor cortex and brainstem tonic and clonic generators, the clinical output is a generalized tonic-clonic seizure rather than the behavioral arrest of an absence or the brief jerk of a myoclonic seizure. Why the same class of network abnormality produces convulsive output alone in this syndrome, and absence or myoclonus in its siblings, is not established; it is curated here as a difference in network engagement rather than a distinct etiology, and the uncertainty is recorded as an explicit knowledge gap.</div>
 
@@ -5536,6 +5624,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5558,6 +5647,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-unprovoked-generalized-tonic-clonic-seizures" data-dismech-node="Recurrent Unprovoked Generalized Tonic-Clonic Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Unprovoked Generalized Tonic-Clonic Seizures</div>
+
 
                 <div class="item-desc">The established clinical disease: recurrent unprovoked generalized tonic-clonic seizures with no other seizure type, normal cognition, and normal imaging. Seizures are typically infrequent, respond well to antiseizure medication, and carry the injury risk inherent to convulsive seizures rather than the cognitive burden of the encephalopathic epilepsies.</div>
 
@@ -5609,6 +5699,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5631,6 +5722,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-seizure-related-injury" data-dismech-node="Seizure-Related Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Seizure-Related Injury</div>
+
 
                 <div class="item-desc">Because every seizure in this syndrome is convulsive by definition, the morbidity is dominated by physical injury sustained during the seizure rather than by interictal cognitive impairment. This is the mechanistic reason the syndrome is not benign despite low seizure frequency and good treatment response.</div>
 
@@ -5666,6 +5758,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5733,9 +5826,9 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5745,7 +5838,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-tonic-clonic-seizures" data-dismech-node="Generalized Tonic-Clonic Seizures" data-dismech-type="phenotype">
@@ -5809,6 +5902,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5823,6 +5919,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5850,6 +5947,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5871,6 +5969,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5944,6 +6043,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band note. FREQUENT rests on the 30% figure, which sits barely inside the 30-79% band, and on a single cohort. An earlier draft of this entry justified the band with the cohort&#39;s 59.6% &#34;exclusively diurnal&#34; statistic; that was wrong, because diurnal is a much weaker claim than within-two-hours-of-awakening, and it is corrected here.</div>
 
 
@@ -5963,6 +6065,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5987,6 +6090,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6016,6 +6120,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6039,109 +6144,6 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absence-seizures-absent" data-dismech-node="Absence Seizures Absent" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absence Seizures Absent
-
-                        <span class="phenotype-freq">EXCLUDED</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Generalized non-motor (absence) seizure</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002121</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is absent Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-    <span class="tag tag-modifier">
-        ∅ ABSENT
-    </span>
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-                    <div class="item-desc">This descriptor and the myoclonic one below use `modifier: ABSENT` on the excluded seizure type rather than reusing the syndrome&#39;s own seizure term. An earlier draft bound both exclusions to HP:0002069, which is semantically backwards: it asserted bilateral tonic-clonic seizure three times over instead of stating what is absent. The two exclusions are also split into separate phenotypes so each carries its own term rather than being bundled. The absence is carried by `frequency: EXCLUDED`, which is what the HPOA exporter reads to emit a NOT-qualified row; `modifier: ABSENT` alone is not consulted by the export layer and documents intent only.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35503716" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503716" target="_blank">PMID:35503716</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients that do not fulfill criteria for one of these syndromes, but that have one, or a combination, of the following generalized seizure types: absence, myoclonic, tonic-clonic and myoclonic-tonic-clonic seizures, with 2.5-5.5 Hz generalized spike-wave should be classified as having GGE."</div>
-
-
-                <div class="evidence-explanation">Establishes that seizure-type combination is what partitions this syndrome group, and that patients falling outside the four defined syndromes go to the residual GGE category rather than into EGTCA. Evidence source is OTHER because this is a consensus position statement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-spike-wave-discharges" data-dismech-node="Generalized Spike-Wave Discharges" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Spike-Wave Discharges
@@ -6160,15 +6162,18 @@ This clinical feature is absent Absence seizure, annotated with Generalized non-
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0010850</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0010850</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6188,6 +6193,7 @@ This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6215,6 +6221,7 @@ This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6258,15 +6265,18 @@ This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010852" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0010852</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010852" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0010852</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010852 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6286,6 +6296,7 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6310,6 +6321,7 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6339,6 +6351,7 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6362,72 +6375,89 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-normal-interictal-neurological-and-cognitive-status" data-dismech-node="Normal Interictal Neurological and Cognitive Status" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absence-seizures-absent" data-dismech-node="Absence Seizures Absent" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Normal Interictal Neurological and Cognitive Status
+                        Absence Seizures Absent
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">EXCLUDED</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized non-motor (absence) seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is absent Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+    <span class="tag tag-modifier">
+        ∅ ABSENT
+    </span>
+
+
+
+
+
+
+
+
 
 
                     </div>
 
 
-                    <div class="item-desc">No ontology term is bound here on purpose. HPO has no positive term for normal interictal status, and binding this to the syndrome&#39;s seizure term (as an earlier draft did) would export a false assertion. Omitting `term:` is the established pattern in this repository for a phenotype the ontology cannot express.</div>
+
+
+
+                    <div class="item-desc">This descriptor and the myoclonic one below use `modifier: ABSENT` on the excluded seizure type rather than reusing the syndrome&#39;s own seizure term. An earlier draft bound both exclusions to HP:0002069, which is semantically backwards: it asserted bilateral tonic-clonic seizure three times over instead of stating what is absent. The two exclusions are also split into separate phenotypes so each carries its own term rather than being bundled. The absence is carried by `frequency: EXCLUDED`, which is what the HPOA exporter reads to emit a NOT-qualified row; `modifier: ABSENT` alone is not consulted by the export layer and documents intent only.</div>
 
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:35503716" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503716" target="_blank">PMID:35503716</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Four patients (4.5%) were diagnosed with mild developmental delay and five patients (5.6%) had concomitant psychiatric comorbidity, predominantly depression and/or anxiety disorder."</div>
-
-
-                <div class="evidence-explanation">Quantifies the exception rather than the rule: 4.5% with developmental delay implies roughly 95% with normal development in an EGTCA cohort, which is the basis for the VERY_FREQUENT band. It also shows the claim is about development and cognition, not about freedom from psychiatric comorbidity.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38165295" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38165295" target="_blank">PMID:38165295</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Emerging evidence reveals that patients with IGE may go undiagnosed or misdiagnosed with focal epilepsy if EEG or semiology have asymmetric or focal features."</div>
+                <div class="evidence-snippet">"Patients that do not fulfill criteria for one of these syndromes, but that have one, or a combination, of the following generalized seizure types: absence, myoclonic, tonic-clonic and myoclonic-tonic-clonic seizures, with 2.5-5.5 Hz generalized spike-wave should be classified as having GGE."</div>
 
 
-                <div class="evidence-explanation">Supports the diagnostic importance of the expected normal, symmetric, non-focal picture by describing what happens when it is departed from. Graded INDIRECT because it evidences the diagnostic consequence rather than quantifying normal status, and evidence_source is OTHER because this is a review.</div>
+                <div class="evidence-explanation">Establishes that seizure-type combination is what partitions this syndrome group, and that patients falling outside the four defined syndromes go to the residual GGE category rather than into EGTCA. Evidence source is OTHER because this is a consensus position statement.</div>
 
 
 
@@ -6493,6 +6523,9 @@ This clinical feature is absent Myoclonic seizure (HP:0032794). HP:0032794 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6510,6 +6543,7 @@ This clinical feature is absent Myoclonic seizure (HP:0032794). HP:0032794 is a 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6518,6 +6552,101 @@ This clinical feature is absent Myoclonic seizure (HP:0032794). HP:0032794 is a 
 
 
                 <div class="evidence-explanation">Same partitioning rule as for the absence exclusion: myoclonic seizures move a patient out of EGTCA. Evidence source is OTHER because this is a consensus position statement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-normal-interictal-neurological-and-cognitive-status" data-dismech-node="Normal Interictal Neurological and Cognitive Status" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Normal Interictal Neurological and Cognitive Status
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No ontology term is bound here on purpose. HPO has no positive term for normal interictal status, and binding this to the syndrome&#39;s seizure term (as an earlier draft did) would export a false assertion. Omitting `term:` is the established pattern in this repository for a phenotype the ontology cannot express.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four patients (4.5%) were diagnosed with mild developmental delay and five patients (5.6%) had concomitant psychiatric comorbidity, predominantly depression and/or anxiety disorder."</div>
+
+
+                <div class="evidence-explanation">Quantifies the exception rather than the rule: 4.5% with developmental delay implies roughly 95% with normal development in an EGTCA cohort, which is the basis for the VERY_FREQUENT band. It also shows the claim is about development and cognition, not about freedom from psychiatric comorbidity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38165295" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38165295" target="_blank">PMID:38165295</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Emerging evidence reveals that patients with IGE may go undiagnosed or misdiagnosed with focal epilepsy if EEG or semiology have asymmetric or focal features."</div>
+
+
+                <div class="evidence-explanation">Supports the diagnostic importance of the expected normal, symmetric, non-focal picture by describing what happens when it is departed from. Graded INDIRECT because it evidences the diagnostic consequence rather than quantifying normal status, and evidence_source is OTHER because this is a review.</div>
 
 
 
@@ -6605,6 +6734,9 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6622,6 +6754,7 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6648,6 +6781,7 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6669,6 +6803,7 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6776,6 +6911,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6786,6 +6924,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -6827,6 +6968,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6851,6 +6993,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6896,6 +7039,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6920,6 +7064,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7007,6 +7152,9 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7017,6 +7165,9 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7056,6 +7207,7 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7101,6 +7253,7 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7188,6 +7341,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7198,6 +7354,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7257,6 +7416,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7267,6 +7429,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7303,6 +7468,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7400,6 +7566,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7424,6 +7591,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7474,6 +7642,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7531,6 +7700,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7579,6 +7749,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7655,6 +7826,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7676,6 +7848,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7733,6 +7906,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7802,6 +7976,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7826,6 +8001,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7847,6 +8023,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7904,6 +8081,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7928,6 +8106,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7949,6 +8128,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8006,6 +8186,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8027,6 +8208,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8098,6 +8280,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8151,6 +8334,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8235,6 +8419,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8290,6 +8475,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8342,6 +8528,7 @@ This environmental factor is sleep deprivation, annotated with sleep restriction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10191,6 +10378,33 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Epilepsy with Generalized Tonic-Clonic Seizures Alone</strong> · 2026-08-09T03:06:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone/2026-08-09T030655Z-claude-code-5d37b5.yaml">View source</a></p>
+                        <p class="research-review-text">New entry completing the ILAE idiopathic generalized epilepsy tetrad; childhood absence epilepsy, juvenile absence epilepsy, and juvenile myoclonic epilepsy were already present.
+
+Duplicate preflight: searched origin/main kb/disorders for MONDO:0005754 and the syndrome name and synonyms, plus GitHub PRs and issues in all states. No existing entry, PR, or issue.
+
+Deep research: just research-disorder claude_code, the provider requested by the user. Run recorded at research/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone-deep-research-claude_code.md with 15 web searches, 28 turns, 21 citations, about 5.6 minutes.
+
+NEC preflight: just preflight-dr returned SKIP because MONDO:0005754 records no causal gene for this polygenic disease, so the gene-identity check cannot discriminate. Fell back to the documented manual check. The report&#39;s ORPHA:698005 matches the MONDO Orphanet xref exactly, and the names it keys off - epilepsy with generalized tonic-clonic seizures alone, EGTCA, grand mal on awakening - are all MONDO EXACT synonyms of the intended entity. Report accepted.
+
+DR verification: every PMID cited in the deep-research report was independently resolved via the PubMed E-utilities API and confirmed real and correctly attributed before use. Two UBERON ids the report suggested were wrong - UBERON:0001890 is forebrain, not thalamus, and UBERON:0001872 is parietal lobe, not thalamic reticular nucleus - and were replaced with terms verified via OAK. Its CHEBI and HGNC suggestions were correct on check.
+
+GeneReviews: searched PubMed; no GeneReviews chapter exists for this syndrome, as expected for a polygenic IGE. No action needed.
+
+Curation choices worth flagging for review. First, the defining negative criteria - no absence or myoclonic seizures, and normal interictal status - are curated as explicit phenotypes, but HPO has no term for the absence of a phenotype, so those descriptors reuse HP:0002069 and carry the real claim in the description plus a notes field admitting the imperfect binding. Second, the sleep-wake gating node is modeled as a modulator with its own edge rather than as a step in the module&#39;s causal chain, because the circadian clustering is the syndrome&#39;s most distinctive feature. Third, the usual avoid-sodium-channel-blockers-in-IGE teaching is NOT repeated as fact; the aggravation evidence concerns myoclonic and absence seizures that EGTCA patients do not have, so it is recorded as an open KNOWLEDGE_GAP discussion. Fourth, CLCN2 is typed SUSCEPTIBILITY with two REFUTE evidence items attached rather than omitted or overstated. Fifth, there is no datasets block: dataset discovery returned 12 candidates and none survived relevance triage, since the CLCN2 hits were corn snake pigmentation, hyperaldosteronism, leukodystrophy, and retinal degeneration, while the grand mal epilepsy synonym matched an autism study. That decision is recorded in the entry notes.
+
+Validation: just validate passed for schema, terms, and references via the pre-edit hook; just count-verified-snippets reports 48/48 verified against cached references; just validate-terms passed; the conforms_to and foreign-key subset of tests/test_data.py passed with 5812 tests. One snippet was caught mid-curation stitching together two non-contiguous clauses of the PMID:21269293 abstract and was replaced with a genuine contiguous quote before commit.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

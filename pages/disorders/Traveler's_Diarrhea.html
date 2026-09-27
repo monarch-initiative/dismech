@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4173,6 +4241,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4194,6 +4263,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4271,6 +4341,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4292,6 +4363,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4376,6 +4448,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4397,6 +4470,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4434,6 +4508,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-etec-colonization-factor-adhesion-to-small-intestinal-enterocytes" data-dismech-node="ETEC colonization-factor adhesion to small-intestinal enterocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">ETEC colonization-factor adhesion to small-intestinal enterocytes</div>
+
 
                 <div class="item-desc">In the ETEC subset of traveler&#39;s diarrhea, bacterial colonization factors bind receptors on small-intestinal enterocytes and establish close epithelial colonization, positioning toxin-producing organisms at the mucosal surface.</div>
 
@@ -4584,6 +4659,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4606,6 +4682,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heat-stable-enterotoxin-activation-of-epithelial-gucy2c" data-dismech-node="Heat-stable enterotoxin activation of epithelial GUCY2C" data-dismech-type="pathophysiology">
                 <div class="item-name">Heat-stable enterotoxin activation of epithelial GUCY2C</div>
+
 
                 <div class="item-desc">ETEC heat-stable enterotoxin binds guanylyl cyclase C (GUCY2C) on intestinal epithelium and increases the receptor&#39;s guanylate-cyclase activity.</div>
 
@@ -4795,6 +4872,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4817,6 +4895,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heat-labile-enterotoxin-activation-of-epithelial-g-protein-adenylyl-cyclase" data-dismech-node="Heat-labile enterotoxin activation of epithelial G protein-adenylyl cyclase" data-dismech-type="pathophysiology">
                 <div class="item-name">Heat-labile enterotoxin activation of epithelial G protein-adenylyl cyclase</div>
+
 
                 <div class="item-desc">ETEC heat-labile enterotoxin binds an intestinal epithelial receptor and delivers an enzymatic subunit that modifies the G protein coupled to adenylyl cyclase, increasing cyclase activity.</div>
 
@@ -4963,6 +5042,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4985,6 +5065,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gucy2c-dependent-cgmp-production" data-dismech-node="GUCY2C-dependent cGMP production" data-dismech-type="pathophysiology">
                 <div class="item-name">GUCY2C-dependent cGMP production</div>
+
 
                 <div class="item-desc">Activated epithelial GUCY2C increases intracellular cGMP, initiating the secretory signaling branch.</div>
 
@@ -5199,6 +5280,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5221,6 +5303,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adenylyl-cyclase-dependent-camp-production" data-dismech-node="Adenylyl-cyclase-dependent cAMP production" data-dismech-type="pathophysiology">
                 <div class="item-name">Adenylyl-cyclase-dependent cAMP production</div>
+
 
                 <div class="item-desc">Toxin-activated epithelial adenylyl cyclase increases intracellular cAMP and drives the secretory signaling branch.</div>
 
@@ -5367,6 +5450,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5389,6 +5473,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cftr-mediated-epithelial-chloride-secretion" data-dismech-node="CFTR-mediated epithelial chloride secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">CFTR-mediated epithelial chloride secretion</div>
+
 
                 <div class="item-desc">cGMP/PKG and cAMP/PKA signaling increase opening of apical CFTR channels and chloride secretion into the intestinal lumen.</div>
 
@@ -5633,6 +5718,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5655,6 +5741,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inhibition-of-nhe3-mediated-epithelial-sodium-absorption" data-dismech-node="Inhibition of NHE3-mediated epithelial sodium absorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Inhibition of NHE3-mediated epithelial sodium absorption</div>
+
 
                 <div class="item-desc">GUCY2C/cGMP signaling inhibits the apical sodium-hydrogen exchanger, decreasing epithelial sodium absorption.</div>
 
@@ -5882,6 +5969,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5904,6 +5992,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-net-intestinal-electrolyte-and-water-secretion" data-dismech-node="Net intestinal electrolyte and water secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Net intestinal electrolyte and water secretion</div>
+
 
                 <div class="item-desc">Increased anion secretion together with reduced sodium absorption produces net electrolyte and water accumulation in the intestinal lumen.</div>
 
@@ -6003,6 +6092,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6025,6 +6115,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shigella-invasion-of-the-colonic-epithelium" data-dismech-node="Shigella invasion of the colonic epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Shigella invasion of the colonic epithelium</div>
+
 
                 <div class="item-desc">In the Shigella subset of traveler&#39;s diarrhea, organisms invade the colonic epithelium and deliver type III secretion-system effectors into host cells. This branch is pathogen-conditioned and is separate from the ETEC enterotoxin mechanism.</div>
 
@@ -6133,6 +6224,7 @@ This pathophysiological event occurs in colonic epithelium (UBERON:0000397). UBE
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6155,6 +6247,7 @@ This pathophysiological event occurs in colonic epithelium (UBERON:0000397). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-mediated-colonic-inflammation" data-dismech-node="Cytokine-mediated colonic inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-mediated colonic inflammation</div>
+
 
                 <div class="item-desc">In Shigella-associated disease, epithelial invasion triggers a cytokine-mediated inflammatory response in the colon. This inflammation is separated from the downstream epithelial necrosis and ulceration that it promotes.</div>
 
@@ -6275,6 +6368,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6297,6 +6391,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-colonic-epithelial-necrosis-and-mucosal-ulceration" data-dismech-node="Colonic epithelial necrosis and mucosal ulceration" data-dismech-type="pathophysiology">
                 <div class="item-name">Colonic epithelial necrosis and mucosal ulceration</div>
+
 
                 <div class="item-desc">In severe Shigella-associated colitis, inflammatory and cytotoxic injury produces necrosis of the colonic epithelium and ulceration of the mucosa.</div>
 
@@ -6405,6 +6500,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6427,6 +6523,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protozoal-infection-associated-with-persistent-traveler-s-diarrhea" data-dismech-node="Protozoal infection associated with persistent traveler&#39;s diarrhea" data-dismech-type="pathophysiology">
                 <div class="item-name">Protozoal infection associated with persistent traveler&#39;s diarrhea</div>
+
 
                 <div class="item-desc">Intestinal protozoa are a pathogen-conditioned cause of protracted diarrhea during or after travel. This syndrome-level node does not assign one parasite-specific epithelial mechanism to Giardia, Cryptosporidium, Cyclospora, and other protozoa.</div>
 
@@ -6480,6 +6577,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6502,6 +6600,7 @@ This pathophysiological event occurs in colonic mucosa (UBERON:0000317). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-gyrase-and-topoisomerase-iv-fluoroquinolone-target" data-dismech-node="DNA Gyrase and Topoisomerase IV (Fluoroquinolone Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA Gyrase and Topoisomerase IV (Fluoroquinolone Target)</div>
+
 
                 <div class="item-desc">Susceptible bacterial causes of traveler&#39;s diarrhea depend on DNA gyrase and topoisomerase IV; fluoroquinolones trap their DNA-enzyme complexes and block bacterial DNA replication. This is a therapeutic vulnerability rather than a syndrome-wide causal mechanism.</div>
 
@@ -6574,6 +6673,7 @@ This pathophysiological event involves DNA Topological Change (GO:0006265). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6596,6 +6696,7 @@ This pathophysiological event involves DNA Topological Change (GO:0006265). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-mrna-translation-by-the-ribosome" data-dismech-node="Bacterial mRNA Translation by the Ribosome" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial mRNA Translation by the Ribosome</div>
+
 
                 <div class="item-desc">Bacterial ribosomal translation is the conserved molecular target of macrolides such as azithromycin. This node represents an antibiotic vulnerability of susceptible bacterial etiologies, not a mechanism of viral or protozoal disease.</div>
 
@@ -6668,6 +6769,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6690,6 +6792,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-rna-polymerase-rifamycin-target" data-dismech-node="Bacterial RNA Polymerase (Rifamycin Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial RNA Polymerase (Rifamycin Target)</div>
+
 
                 <div class="item-desc">Bacterial DNA-dependent RNA polymerase is the molecular target of rifamycins, including the nonabsorbed derivative rifaximin used for selected noninvasive E. coli disease.</div>
 
@@ -6762,6 +6865,7 @@ This pathophysiological event involves DNA-templated transcription (GO:0006351).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6826,13 +6930,13 @@ This pathophysiological event involves DNA-templated transcription (GO:0006351).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6842,7 +6946,7 @@ This pathophysiological event involves DNA-templated transcription (GO:0006351).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-acute-watery-diarrhea" data-dismech-node="Acute watery diarrhea" data-dismech-type="phenotype">
@@ -6873,6 +6977,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6887,6 +6994,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6943,6 +7051,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6957,6 +7068,7 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7013,6 +7125,9 @@ This clinical feature is Bowel urgency (HP:0012701). HP:0012701 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7027,6 +7142,7 @@ This clinical feature is Bowel urgency (HP:0012701). HP:0012701 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7081,6 +7197,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7095,6 +7214,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7149,6 +7269,9 @@ This clinical feature is Bloody diarrhea (HP:0025085). HP:0025085 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7166,6 +7289,7 @@ This clinical feature is Bloody diarrhea (HP:0025085). HP:0025085 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7174,6 +7298,80 @@ This clinical feature is Bloody diarrhea (HP:0025085). HP:0025085 is a phenotype
 
 
                 <div class="evidence-explanation">Directly identifies bloody diarrhea within the observed clinical spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-persistent-diarrhea" data-dismech-node="Persistent diarrhea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Persistent diarrhea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Protracted diarrhea</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0004385</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Protracted diarrhea (HP:0004385). HP:0004385 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11389503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11389503" target="_blank">PMID:11389503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Intestinal protozoa account for a minority of cases of acute traveler&#39;s diarrhea, but they are common pathogens in travelers who experience protracted diarrhea during or after travel."</div>
+
+
+                <div class="evidence-explanation">Supports protracted diarrhea as a clinically important protozoal presentation during or after travel.</div>
 
 
 
@@ -7212,15 +7410,18 @@ This clinical feature is Bloody diarrhea (HP:0025085). HP:0025085 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7240,6 +7441,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7280,15 +7482,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001944</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7308,6 +7513,7 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7359,15 +7565,18 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7387,6 +7596,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7419,78 +7629,8 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-persistent-diarrhea" data-dismech-node="Persistent diarrhea" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Persistent diarrhea
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Protracted diarrhea</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0004385</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Protracted diarrhea (HP:0004385). HP:0004385 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11389503" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11389503" target="_blank">PMID:11389503</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Intestinal protozoa account for a minority of cases of acute traveler&#39;s diarrhea, but they are common pathogens in travelers who experience protracted diarrhea during or after travel."</div>
-
-
-                <div class="evidence-explanation">Supports protracted diarrhea as a clinically important protozoal presentation during or after travel.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-post-infectious-irritable-bowel-syndrome" data-dismech-node="Post-infectious irritable bowel syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7520,6 +7660,9 @@ This clinical feature is irritable bowel syndrome (MONDO:0005052). MONDO:0005052
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7534,6 +7677,7 @@ This clinical feature is irritable bowel syndrome (MONDO:0005052). MONDO:0005052
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7656,6 +7800,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Mild traveler&#39;s diarrhea is managed with hydration and symptom-directed care; routine antibiotics are not recommended when illness is tolerable and does not interfere with planned activities.</div>
 
 
@@ -7680,6 +7830,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7701,6 +7852,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7773,6 +7925,12 @@ This treatment is fluid replacement therapy, annotated with Hydration Therapy (N
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral replacement of water and electrolytes is first-line supportive treatment; intravenous rehydration is reserved for severe dehydration or sepsis.</div>
 
 
@@ -7803,6 +7961,7 @@ This treatment is fluid replacement therapy, annotated with Hydration Therapy (N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7846,6 +8005,7 @@ This treatment is fluid replacement therapy, annotated with Hydration Therapy (N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7934,6 +8094,9 @@ This treatment uses loperamide (CHEBI:6532). CHEBI:6532 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7944,6 +8107,9 @@ This treatment uses loperamide (CHEBI:6532). CHEBI:6532 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7974,6 +8140,7 @@ This treatment uses loperamide (CHEBI:6532). CHEBI:6532 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7995,6 +8162,7 @@ This treatment uses loperamide (CHEBI:6532). CHEBI:6532 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8083,6 +8251,9 @@ This treatment uses bismuth subsalicylate (CHEBI:261649). CHEBI:261649 is a ther
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8093,6 +8264,9 @@ This treatment uses bismuth subsalicylate (CHEBI:261649). CHEBI:261649 is a ther
 
 
     </div>
+
+
+
 
 
 
@@ -8123,6 +8297,7 @@ This treatment uses bismuth subsalicylate (CHEBI:261649). CHEBI:261649 is a ther
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8147,6 +8322,7 @@ This treatment uses bismuth subsalicylate (CHEBI:261649). CHEBI:261649 is a ther
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8168,6 +8344,7 @@ This treatment uses bismuth subsalicylate (CHEBI:261649). CHEBI:261649 is a ther
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8242,6 +8419,12 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Prophylactic antibiotics are not recommended for most travelers because adverse effects, C. difficile infection, microbiome disruption, and acquisition or carriage of antimicrobial-resistant bacteria generally outweigh benefit. They may be considered rarely for short-term travelers who are high-risk hosts.</div>
 
 
@@ -8263,6 +8446,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8290,6 +8474,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8311,6 +8496,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8418,6 +8604,9 @@ This treatment uses tinidazole (CHEBI:63627). CHEBI:63627 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8428,6 +8617,9 @@ This treatment uses tinidazole (CHEBI:63627). CHEBI:63627 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8464,6 +8656,7 @@ This treatment uses tinidazole (CHEBI:63627). CHEBI:63627 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8507,6 +8700,7 @@ This treatment uses tinidazole (CHEBI:63627). CHEBI:63627 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8596,6 +8790,9 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8606,6 +8803,9 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8642,6 +8842,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8688,6 +8889,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8712,6 +8914,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8733,6 +8936,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8824,6 +9028,9 @@ This treatment uses rifaximin (CHEBI:75246). CHEBI:75246 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8834,6 +9041,9 @@ This treatment uses rifaximin (CHEBI:75246). CHEBI:75246 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8870,6 +9080,7 @@ This treatment uses rifaximin (CHEBI:75246). CHEBI:75246 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8916,6 +9127,7 @@ This treatment uses rifaximin (CHEBI:75246). CHEBI:75246 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8940,6 +9152,7 @@ This treatment uses rifaximin (CHEBI:75246). CHEBI:75246 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8961,6 +9174,7 @@ This treatment uses rifaximin (CHEBI:75246). CHEBI:75246 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9052,6 +9266,9 @@ This treatment uses rifamycin SV (CHEBI:29673). CHEBI:29673 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9062,6 +9279,9 @@ This treatment uses rifamycin SV (CHEBI:29673). CHEBI:29673 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9098,6 +9318,7 @@ This treatment uses rifamycin SV (CHEBI:29673). CHEBI:29673 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9144,6 +9365,7 @@ This treatment uses rifamycin SV (CHEBI:29673). CHEBI:29673 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9168,6 +9390,7 @@ This treatment uses rifamycin SV (CHEBI:29673). CHEBI:29673 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9189,6 +9412,7 @@ This treatment uses rifamycin SV (CHEBI:29673). CHEBI:29673 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9278,6 +9502,9 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9288,6 +9515,9 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -9324,6 +9554,7 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9370,6 +9601,7 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9394,6 +9626,7 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9415,6 +9648,7 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9503,6 +9737,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9551,6 +9786,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9603,6 +9839,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9649,6 +9886,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9706,6 +9944,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9754,6 +9993,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9806,6 +10046,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9852,6 +10093,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9961,6 +10203,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10012,6 +10255,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10102,6 +10346,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10186,6 +10431,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10276,6 +10522,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10363,6 +10610,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10432,6 +10680,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10453,6 +10702,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10510,6 +10760,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10531,6 +10782,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10588,6 +10840,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10609,6 +10862,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10666,6 +10920,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10687,6 +10942,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10739,6 +10995,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10813,6 +11070,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10878,6 +11136,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10931,6 +11190,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10981,6 +11241,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11078,6 +11339,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11157,6 +11419,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11242,6 +11505,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11319,6 +11583,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11402,6 +11667,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11479,6 +11745,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11562,6 +11829,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11642,6 +11910,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11699,6 +11968,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11788,6 +12058,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11861,6 +12132,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11930,6 +12202,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12118,6 +12391,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12194,6 +12468,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12233,6 +12508,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12312,6 +12588,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12351,6 +12628,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12398,6 +12676,7 @@ This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14377,6 +14656,8 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

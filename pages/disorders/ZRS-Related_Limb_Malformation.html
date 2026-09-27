@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3801,7 +3869,7 @@
 
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=ZRS-Related%20Limb%20Malformation"
@@ -3834,7 +3902,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                ZRS-related limb malformation is the continuum of autosomal dominant congenital limb malformations produced by gain-of-function alterations of the zone of polarizing activity regulatory sequence (ZRS), a long-range limb-specific enhancer of SHH lying in intron 5 of LMBR1 roughly 1 Mb from its target gene. Every branch of the spectrum shares one pathograph: ectopic anterior SHH regulatory activity in the developing limb bud, disrupting anterior-posterior digit number and identity specification. What differs between branches is the molecular alteration and its dosage, not the mechanism. Point variants across the ZRS typically produce preaxial polydactyly with or without triphalangeal thumb; the specific position-404 variants produce the more severe Werner mesomelic phenotype that additionally involves the zeugopod; complete duplications produce Haas-type polysyndactyly and triphalangeal thumb-polysyndactyly syndrome, with smaller (&lt;80 kb) duplications producing Laurin-Sandrow syndrome; and rarer point variants in the adjacent pre-ZRS (pZRS) produce triphalangeal thumb-polysyndactyly syndrome. Wieczorek et al. proposed &#34;ZRS-associated syndromes&#34; as the cover term for this continuum (PMID:19847792), and a single ZRS allele can produce several of the named entities within one kindred (PMID:24777739). This entry is curated at the locus level for that reason; the historically named entities are retained as grounded subtypes. Acheiropodia (OMIM:200500) is curated separately: it arises from deletion at the same locus and is a loss-of-function, limb-reduction pathograph running in the opposite direction.
+                ZRS-related limb malformation is the continuum of autosomal dominant congenital limb malformations produced by gain-of-function alterations of the zone of polarizing activity regulatory sequence (ZRS), a long-range limb-specific enhancer of SHH lying in intron 5 of LMBR1 roughly 1 Mb from its target gene. Ectopic anterior SHH regulatory activity in the developing limb bud provides a mechanistic account of disrupted digit number and identity. Reporter evidence supports this route for point variants; for the duplications curated here, altered SHH expression remains inferred from enhancer involvement and the limb phenotype rather than measured in patient embryonic tissue. Point variants across the ZRS typically produce preaxial polydactyly with or without triphalangeal thumb; the specific position-404 variants produce the more severe Werner mesomelic phenotype that additionally involves the zeugopod; complete duplications produce Haas-type polysyndactyly and triphalangeal thumb-polysyndactyly syndrome, with smaller (&lt;80 kb) duplications producing Laurin-Sandrow syndrome; and rarer point variants in the adjacent pre-ZRS (pZRS) produce triphalangeal thumb-polysyndactyly syndrome. Wieczorek et al. proposed &#34;ZRS-associated syndromes&#34; as the cover term for this continuum (PMID:19847792), and a single ZRS allele can produce several of the named entities within one kindred (PMID:24777739). This entry is curated at the locus level for that reason; the historically named entities are retained as grounded subtypes. Acheiropodia (OMIM:200500) is curated separately: it arises from deletion at the same locus and is a loss-of-function, limb-reduction pathograph running in the opposite direction.
             </p>
 
         </header>
@@ -3962,7 +4030,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3991,7 +4059,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">24</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4009,7 +4077,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Variants</div>
             </div>
             </a>
@@ -4476,6 +4544,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4497,6 +4566,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4569,6 +4639,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4658,6 +4729,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LMBR1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:13243</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">The mildest branch: a three-phalanx thumb without polydactyly. OMIM splits this presentation across two entries, carrying opposable triphalangeal thumb as an included title of PPD2 (OMIM:174500) while OMIM:190600 covers the nonopposable form; MONDO:0008605 is the only MONDO class for isolated triphalangeal thumb as an entity, so it is used here with that caveat. Isolated triphalangeal thumb and PPD2 co-occur in single ZRS kindreds.</div>
@@ -4680,6 +4770,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4727,6 +4818,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LMBR1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:13243</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Preaxial polydactyly type 2 (PPD2; OMIM:174500; ORPHA:93336), duplication on the radial side of the hand with a usually opposable triphalangeal thumb. The classical ZRS point-variant phenotype. OMIM assigns PPD2 to the ZRS locus entry (OMIM:620738) rather than to LMBR1.</div>
@@ -4749,6 +4859,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4791,6 +4902,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LMBR1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:13243</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Triphalangeal thumb-polysyndactyly syndrome (TPT-PS; OMIM:190605), combining triphalangeal thumbs with pre- and postaxial polydactyly and variable syndactyly of hands and feet. Caused by complete ZRS duplications and, more rarely, by pre-ZRS point variants. OMIM assigns this entry to LMBR1 (OMIM:605522) because the causal duplications span the gene body as well as the enhancer. Orphanet no longer carries a standalone TPT-PS concept: ORPHA:2950 is deprecated and moved to ORPHA:988, the Werner mesomelic spectrum.</div>
@@ -4813,6 +4943,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4842,6 +4973,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4863,6 +4995,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4905,6 +5038,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LMBR1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:13243</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Haas-type polysyndactyly (syndactyly type IV; OMIM:186200; ORPHA:93405), complete syndactyly of all fingers giving a cup-shaped or rosebud hand, with polydactyly. Caused by larger (&gt;80 kb) ZRS duplications, and reported within the same families as TPT-PS.</div>
@@ -4927,6 +5079,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4969,6 +5122,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LMBR1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:13243</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Laurin-Sandrow syndrome (LSS; OMIM:135750; ORPHA:2378), polysyndactyly with mirror-image duplication of the feet, fibular duplication and nasal defects. Caused by smaller (&lt;80 kb) ZRS duplications, and distinguished from Haas-type polysyndactyly by the mirror-image foot phenotype.</div>
@@ -4991,6 +5163,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5033,6 +5206,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LMBR1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:13243</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Werner mesomelic syndrome, also curated by OMIM as tibial hypoplasia or aplasia with polydactyly (OMIM:188740, which absorbed the former OMIM:188770; ORPHA:988). The most severe branch: tibial hypo- or aplasia in addition to the hand and foot phenotype, i.e. zeugopod involvement rather than autopod only. Caused by point variants at ZRS position 404, and OMIM assigns it to the ZRS locus entry (OMIM:620738). Inheritance is dominant, but a homozygous ZRS 402C&gt;T individual showed the Werner phenotype while heterozygotes in the same kindred had only PPD2, establishing a dosage effect at this locus. ORPHA:988 absorbed the deprecated TPT-PS concept ORPHA:2950.</div>
@@ -5055,6 +5247,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5082,6 +5275,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5103,6 +5297,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5213,6 +5408,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5234,6 +5430,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5261,6 +5458,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5284,7 +5482,7 @@
             </div>
 
             <div class="item-box discussion-box anchor-target" id="zrs_regulatory_element_not_groundable">
-                <div class="item-name">How should a disease entry ground its causal entity when that entity is a cis-regulatory element rather than a gene?</div>
+                <div class="item-name">Should named regulatory regions also carry persistent locus identifiers, such as the existing NCBI Gene and OMIM identifiers for ZRS?</div>
                 <div class="item-meta">
 
                     <span class="tag tag-discussion-kind">CURATION TODO</span>
@@ -5311,7 +5509,14 @@
 
 
 
-    <a class="entity-ref-chip" href="#pathophysiology-zrs-or-pzrs-regulatory-gain-of-ectopic-expression">pathophysiology#ZRS or pZRS Regulatory Gain of Ectopic Expression</a>
+    <a class="entity-ref-chip" href="#pathophysiology-zrs-encompassing-duplication">pathophysiology#ZRS-Encompassing Duplication</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-pre-zrs-single-nucleotide-variant">pathophysiology#Pre-ZRS Single Nucleotide Variant</a>
 
 
 
@@ -5319,7 +5524,7 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">The causal entity for this spectrum is the ZRS enhancer. The LMBR1 protein is a bystander - no LMBR1 coding variant causes any branch - and OMIM records this by maintaining a separate locus entry for the enhancer (OMIM:620738, NCBI Gene 105804841, Homo sapiens chromosome 7). The schema cannot express that. The gene slot binds to the GeneTerm enum, which is HGNC-only, and HGNC has no entry for ZRS because HGNC names genes; a lookup by NCBI Gene ID returns nothing, and a search for the symbol returns LMBR1 as an alias. There is no regulatory-element or genomic-feature descriptor in the schema: regulatory_element_type records that an ENHANCER was disrupted but has no companion slot for which enhancer. The entry is therefore grounded on hgnc:13243 LMBR1, which reproduces the gene-centric conflation OMIM moved away from. A regulatory_element_term slot alongside gene_term, rangeable over NCBI Gene or OMIM locus entries, would fix this; ZRS is the canonical test case because here the element is the disease locus and the gene is incidental. Note also that the schema is internally inconsistent on this point: GeneDescriptor is documented as &#34;bindable to HGNC or other gene databases&#34;, while the gene_term slot is documented as &#34;The HGNC term for this gene&#34; and the enum admits HGNC alone.</div>
+                <div class="item-desc" style="margin-top: 10px;">The affected_regions representation now names ZRS and pZRS directly and records their location within LMBR1 without using the host gene as the causal entity of the regional genetic record. OMIM maintains a separate enhancer locus entry (OMIM:620738), and NCBI Gene identifies it as 105804841. Those identifiers remain in prose because GenomicRegion is deliberately a qualitative named region rather than an ontology-bound gene descriptor. Whether stable region identifiers would improve cross-resource matching is a narrower remaining question; it does not prevent naming the affected enhancer, locating it, or distinguishing the intact SHH regulatory target.</div>
 
 
 
@@ -5358,7 +5563,7 @@
 
 
 
-    <a class="entity-ref-chip" href="#pathophysiology-ectopic-limb-bud-shh-regulatory-activity">pathophysiology#Ectopic Limb-Bud SHH Regulatory Activity</a>
+    <a class="entity-ref-chip" href="#pathophysiology-proposed-shh-misregulation-after-zrs-duplication">pathophysiology#Proposed SHH Misregulation after ZRS Duplication</a>
 
 
 
@@ -5388,6 +5593,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5594,6 +5800,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5615,6 +5822,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5659,7 +5867,7 @@
 
 
 
-    <a class="entity-ref-chip" href="#pathophysiology-zrs-or-pzrs-regulatory-gain-of-ectopic-expression">pathophysiology#ZRS or pZRS Regulatory Gain of Ectopic Expression</a>
+    <a class="entity-ref-chip" href="#pathophysiology-pre-zrs-single-nucleotide-variant">pathophysiology#Pre-ZRS Single Nucleotide Variant</a>
 
 
 
@@ -5814,6 +6022,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5843,13 +6052,153 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-zrs-or-pzrs-regulatory-gain-of-ectopic-expression" data-dismech-node="ZRS or pZRS Regulatory Gain of Ectopic Expression" data-dismech-type="pathophysiology">
-                <div class="item-name">ZRS or pZRS Regulatory Gain of Ectopic Expression</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-zrs-encompassing-duplication" data-dismech-node="ZRS-Encompassing Duplication" data-dismech-type="pathophysiology">
+                <div class="item-name">ZRS-Encompassing Duplication</div>
 
-                <div class="item-desc">A heterozygous duplication encompassing ZRS or a pathogenic pZRS point variant changes the activity of the limb-specific SHH enhancer domain. This is a noncoding gain-of-ectopic-expression mechanism, not SHH protein loss of function and not a coding LMBR1 defect.</div>
+
+                <div class="item-desc">Duplications add a copy of the ZRS enhancer within LMBR1 intron 5. Some alleles also encompass LMBR1 coding sequence and adjacent genes; intronic overlap is the context shared across this duplication class. SHH is an intact, distant regulatory target. This physical trigger is separate from the pre-ZRS point variant and its reporter experiments.</div>
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: duplication</span>
+
+
+        <span class="tag tag-classification">Genomic context: intron</span>
+
+
+        <span class="tag tag-classification">allele_type: heterozygous duplications encompassing the ZRS enhancer</span>
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>ZRS limb enhancer</strong>
+
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">LMBR1 <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip" title="Open hgnc:13243">hgnc:13243</a></span>
+</div>
+
+
+
+        <div class="item-desc">The shared affected element is the ZRS enhancer in LMBR1 intron 5. Individual duplications may extend beyond the enhancer and its host gene; this relation does not constrain their full extent.</div>
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proposed SHH Misregulation after ZRS Duplication</span>
+
+	                            <span class="crosslink-desc">Duplicated enhancer sequence implicates altered SHH regulation, but the route from enhancer copy number or rearranged contacts to the expression pattern has not been established for these patient alleles.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24456159" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24456159" target="_blank">PMID:24456159</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we report on five unrelated families with overlapping microduplications encompassing the Sonic hedgehog (SHH) limb enhancer ZPA regulatory sequence (ZRS) on chromosome 7q36."</div>
+
+
+                <div class="evidence-explanation">Establishes the physical duplication and enhancer overlap in affected families; it is not an embryonic expression assay.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-proposed-shh-misregulation-after-zrs-duplication" data-dismech-node="Proposed SHH Misregulation after ZRS Duplication" data-dismech-type="pathophysiology">
+                <div class="item-name">Proposed SHH Misregulation after ZRS Duplication</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Regulatory category: GOE (Hypothetical)</span>
+
+                </div>
+
+
+                <div class="item-desc">Ectopic embryonic SHH expression is proposed to explain the limb phenotype of ZRS duplications by analogy with enhancer point variants. Lohan et al. explicitly leave the duplication mechanism unresolved, including possible expression-dosage or chromatin-architecture effects. This node does not assert measured ectopic expression, increased transcription, or enhancer adoption in family 1. The pZRS reporter and fibroblast contact assays below concern a different allele class and do not establish this step.</div>
 
 
 
@@ -5868,16 +6217,16 @@
 
     <span class="tag tag-gene">
 
-        LMBR1
+        SHH
 
 
-    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:13243</a>
+    <a href="https://bioregistry.io/hgnc:10848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:10848</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
-This pathophysiological event involves LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+This pathophysiological event involves SHH (hgnc:10848). hgnc:10848 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5915,9 +6264,150 @@ This pathophysiological event involves LMBR1 (hgnc:13243). hgnc:13243 is a gene 
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Disrupted Digit Number and Identity Specification</span>
+
+	                            <span class="crosslink-desc">If the duplication alters the spatial SHH signal, it could disturb digit patterning through the same developmental pathway implicated by point variants. The regulatory intermediate remains inferred for duplications.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pre-zrs-single-nucleotide-variant" data-dismech-node="Pre-ZRS Single Nucleotide Variant" data-dismech-type="pathophysiology">
+                <div class="item-name">Pre-ZRS Single Nucleotide Variant</div>
+
+
+                <div class="item-desc">The heterozygous pZRS point variant changes sequence adjacent to the limb-specific SHH enhancer in LMBR1 intron 5. LMBR1 is the intronic host; SHH is the distant regulatory target. This allele has direct transgenic reporter evidence for ectopic limb-bud regulatory activity.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        LMBR1
+
+
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:13243</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: single nucleotide variant</span>
+
+
+        <span class="tag tag-classification">Genomic context: intron</span>
+
+
+        <span class="tag tag-classification">allele_type: chr7:156585476G&gt;C on GRCh37/hg19</span>
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>pre-ZRS regulatory region</strong>
+
+
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">LMBR1 <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip" title="Open hgnc:13243">hgnc:13243</a></span>
+</div>
+
+
+
+        <div class="item-desc">The conserved pZRS sequence lies within LMBR1 intron 5 near ZRS. The point variant changes pZRS sequence without altering ZRS itself.</div>
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Ectopic Limb-Bud SHH Regulatory Activity</span>
 
-	                            <span class="crosslink-desc">Increased enhancer dosage or altered pZRS sequence directly changes the spatial activity of the limb-specific SHH regulatory domain.</span>
+	                            <span class="crosslink-desc">The pZRS sequence change alters the spatial activity of an enhancer reporter in the developing mouse limb.</span>
 
 
 	                        </div>
@@ -5937,33 +6427,9 @@ This pathophysiological event involves LMBR1 (hgnc:13243). hgnc:13243 is a gene 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18417549" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18417549" target="_blank">PMID:18417549</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Point mutations in the ZRS and duplications encompassing the ZRS cause distinctive limb phenotypes."</div>
-
-
-                <div class="evidence-explanation">Establishes regulatory alteration of ZRS as a limb-patterning lesion and distinguishes variant-class-specific phenotypes.</div>
-
-
-
-            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:29543231" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5973,6 +6439,7 @@ This pathophysiological event involves LMBR1 (hgnc:13243). hgnc:13243 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5999,11 +6466,61 @@ This pathophysiological event involves LMBR1 (hgnc:13243). hgnc:13243 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-limb-bud-shh-regulatory-activity" data-dismech-node="Ectopic Limb-Bud SHH Regulatory Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Limb-Bud SHH Regulatory Activity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Regulatory category: GOE</span>
+
+                </div>
+
+
                 <div class="item-desc">Mutant regulatory sequences activate a reporter outside the normal posterior zone of polarizing activity, extending activity across the limb bud. This establishes spatial gain of enhancer activity; it should not be overread as a measurement of endogenous human SHH protein abundance.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SHH
+
+
+    <a href="https://bioregistry.io/hgnc:10848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:10848</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SHH (hgnc:10848). hgnc:10848 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -6020,11 +6537,11 @@ This pathophysiological event involves LMBR1 (hgnc:13243). hgnc:13243 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007224</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6061,11 +6578,11 @@ This pathophysiological event involves abnormal Smoothened signaling pathway (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004347" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0004347</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004347" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0004347</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:0004347 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6111,7 +6628,7 @@ This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:000434
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Disrupted Zeugopod Element Specification</span>
 
-	                            <span class="crosslink-desc">Lesion class determines how far proximally the defect reaches. The ZRS position-404 point variants drive strong ectopic SHH expression and add zeugopod involvement, whereas complete ZRS duplications leave lower-limb development unaffected. This is the branch point that separates Werner mesomelic syndrome from the duplication phenotypes.</span>
+	                            <span class="crosslink-desc">ZRS position-404 point variants drive strong ectopic SHH expression and can add zeugopod involvement. The complete duplications in the 2009 comparison cohort did not affect lower-limb development. That observation is allele-specific: the smaller Laurin-Sandrow duplications reported subsequently do have tibia/fibula and lower-limb abnormalities.</span>
 
 
 	                        </div>
@@ -6138,6 +6655,7 @@ This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:000434
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6160,6 +6678,13 @@ This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:000434
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-shh-lmbr1-regulatory-domain-contacts" data-dismech-node="Altered SHH-LMBR1 Regulatory-Domain Contacts" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered SHH-LMBR1 Regulatory-Domain Contacts</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Circular chromatin-conformation capture in patient skin fibroblasts found increased contacts across the SHH-LMBR1 TAD. The observation is real, but its mechanistic relationship to ectopic embryonic limb expression is uncertain because fibroblasts are not limb-bud tissue and the authors did not resolve how the variant changes contacts.</div>
 
@@ -6215,6 +6740,7 @@ This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:000434
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6238,6 +6764,7 @@ This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:000434
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-digit-number-and-identity-specification" data-dismech-node="Disrupted Digit Number and Identity Specification" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Digit Number and Identity Specification</div>
 
+
                 <div class="item-desc">The abnormal spatial SHH signal perturbs anterior-posterior digit-number, digit-identity, and phalangeal-segmentation programs in the developing autopod.</div>
 
 
@@ -6252,11 +6779,11 @@ This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:000434
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6293,11 +6820,11 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009952" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0009952</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009952" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0009952</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Anterior/posterior pattern specification (GO:0009952). GO:0009952 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6327,11 +6854,11 @@ This pathophysiological event involves abnormal Anterior/posterior pattern speci
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030326</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030326</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO:0030326). GO:0030326 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6396,6 +6923,7 @@ This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6419,6 +6947,7 @@ This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serially-homologous-autopod-malformation" data-dismech-node="Serially Homologous Autopod Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Serially Homologous Autopod Malformation</div>
 
+
                 <div class="item-desc">Because homologous digit-patterning programs operate in the forelimb and hindlimb autopods, the single cis-regulatory lesion can produce a variable bundle of triphalangeal thumbs, preaxial and postaxial polydactyly, and finger or foot syndactyly rather than an isolated single-element defect.</div>
 
 
@@ -6433,11 +6962,11 @@ This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6474,11 +7003,11 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0035108</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0035108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Limb morphogenesis (GO:0035108). GO:0035108 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6583,6 +7112,7 @@ This pathophysiological event involves abnormal Limb morphogenesis (GO:0035108).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6606,6 +7136,7 @@ This pathophysiological event involves abnormal Limb morphogenesis (GO:0035108).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-zeugopod-element-specification" data-dismech-node="Disrupted Zeugopod Element Specification" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Zeugopod Element Specification</div>
 
+
                 <div class="item-desc">In the strong-ectopic-expression branch the patterning defect is not confined to the autopod: specification of the zeugopod elements is also disturbed, producing tibial hypoplasia or aplasia, abnormal or duplicated fibulae, and mesomelic shortening of the limb. This node is what distinguishes Werner mesomelic syndrome and the fibular phenotype of Laurin-Sandrow syndrome from the autopod-only branches of the spectrum, and it is engaged in a lesion-class-dependent way rather than by every ZRS alteration.</div>
 
 
@@ -6627,11 +7158,11 @@ This pathophysiological event involves abnormal Limb morphogenesis (GO:0035108).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030326</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030326</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO:0030326). GO:0030326 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6712,6 +7243,7 @@ This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6733,6 +7265,7 @@ This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6781,7 +7314,7 @@ This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of a recognisable thumb, giving a five-fingered hand in which digit 1 carries finger rather than thumb identity. In Haas-type polysyndactyly the five-fingered hand is additionally fused into a cup-shaped or rosebud configuration.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Werner Mesomelic Syndrome\", \"Haas-Type Polysyndactyly\"], \"term_id\": \"HP:0009777\"}}, {\"id\": \"Altered SHH-LMBR1 Regulatory-Domain Contacts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circular chromatin-conformation capture in patient skin fibroblasts found increased contacts across the SHH-LMBR1 TAD. The observation is real, but its mechanistic relationship to ectopic embryonic limb expression is uncertain because fibroblasts are not limb-bud tissue and the authors did not resolve how the variant changes contacts.\", \"meta\": {\"evidence_count\": 1, \"role\": \"modifier\", \"experimental_models\": [{\"name\": \"Patient-skin-fibroblast SHH-LMBR1 4C-seq model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The primary cells reproduce the patient-associated chromatin-contact phenotype measured in the study.\"}]}}, {\"id\": \"Disrupted Digit Number and Identity Specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The abnormal spatial SHH signal perturbs anterior-posterior digit-number, digit-identity, and phalangeal-segmentation programs in the developing autopod.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Anterior/posterior pattern specification\", \"Embryonic limb morphogenesis\"], \"role\": \"central_effector\"}}, {\"id\": \"Disrupted Zeugopod Element Specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the strong-ectopic-expression branch the patterning defect is not confined to the autopod: specification of the zeugopod elements is also disturbed, producing tibial hypoplasia or aplasia, abnormal or duplicated fibulae, and mesomelic shortening of the limb. This node is what distinguishes Werner mesomelic syndrome and the fibular phenotype of Laurin-Sandrow syndrome from the autopod-only branches of the spectrum, and it is engaged in a lesion-class-dependent way rather than by every ZRS alteration.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Embryonic limb morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant regulatory sequences activate a reporter outside the normal posterior zone of polarizing activity, extending activity across the limb bud. This establishes spatial gain of enhancer activity; it should not be overread as a measurement of endogenous human SHH protein abundance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Smoothened signaling pathway\"], \"role\": \"trigger\", \"locations\": [\"limb bud\"], \"animal_models\": [{\"name\": \"Human pZRS mutant transgenic mouse enhancer-reporter assay\", \"species\": \"Mus musculus\", \"genotype\": \"Transgenic reporter carrying the human TPT-PS-associated pZRS chr7:156585476G\u003eC allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The reporter assay directly reproduces the spatial gain of enhancer activity caused by the patient allele.\"}]}}, {\"id\": \"Fibular Duplication\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Duplication of the fibula, accompanying the mirror-image foot phenotype and reflecting duplicated posterior positional identity in the hindlimb zeugopod. Reported alongside loss of identity between fibula and tibia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Laurin-Sandrow Syndrome\"], \"term_id\": \"HP:0010503\"}}, {\"id\": \"Finger Syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous webbing can progress to complete syndactyly and may be accompanied by distal phalangeal synostosis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Triphalangeal Thumb-Polysyndactyly Syndrome\", \"Haas-Type Polysyndactyly\", \"Laurin-Sandrow Syndrome\"], \"term_id\": \"HP:0006101\"}}, {\"id\": \"Heterozygous genomic duplications encompassing ZRS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Copy-number gains spanning the limb-specific ZRS enhancer segregate with TPT-PS and/or syndactyly type IV; in six families, minimum duplications ranged from 131 kb to 398 kb.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMBR1\"], \"gene_terms\": [{\"label\": \"LMBR1\", \"id\": \"hgnc:13243\"}], \"variant_type\": \"copy-number gain\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"Heterozygous pre-ZRS point variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The recurrent pZRS variant chr7:156585476G\u003eC (GRCh37/hg19; NC_000007.14:g.156792782C\u003eG on GRCh38) segregates with TPT-PS and drives ectopic enhancer-reporter activity throughout the developing mouse limb bud.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMBR1\"], \"gene_terms\": [{\"label\": \"LMBR1\", \"id\": \"hgnc:13243\"}], \"variant_type\": \"single-nucleotide regulatory variant\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"Human pZRS mutant transgenic mouse enhancer-reporter assay\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A mouse transgenic enhancer assay tested the human patient pZRS allele at embryonic day 11.5 and showed extended ectopic reporter expression across the developing limb bud.\"}, {\"id\": \"Individualized triphalangeal-thumb and polydactyly reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hand surgery may remove an accessory/delta phalanx, reconstruct ligaments, perform osteotomy, or rebalance soft tissues according to the individual\u0027s anatomy and functional goals. It corrects established anatomy and does not reverse the embryonic SHH-patterning lesion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mesomelic Limb Shortening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the middle limb segment, involving the distal arm or leg bones. The feature the Werner eponym is named for, and the clearest marker that the patterning defect has extended proximally out of the autopod.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0003027\"}}, {\"id\": \"Mirror Image Foot Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Duplication of the foot about its anteroposterior axis, giving a symmetrical double-posterior appearance rather than a simple supernumerary digit. This is the feature that separates Laurin-Sandrow syndrome from Haas-type polysyndactyly, whose digital phenotype otherwise overlaps it.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Laurin-Sandrow Syndrome\"], \"term_id\": \"HP:0010691\"}}, {\"id\": \"Patellar Aplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of the patellae, reported together with tibial hypoplasia in the Werner branch and consistent with loss of the proximal tibial articulation that templates patellar formation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0006443\"}}, {\"id\": \"Patient-skin-fibroblast SHH-LMBR1 4C-seq model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Circular chromatin-conformation capture compared skin fibroblasts from one affected pZRS-variant carrier with controls and measured increased contacts across the SHH-LMBR1 TAD.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:35821352\"}}, {\"id\": \"Postaxial Foot Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digits may occur on the lateral side of the foot.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Triphalangeal Thumb-Polysyndactyly Syndrome\"], \"term_id\": \"HP:0001830\"}}, {\"id\": \"Postaxial Hand Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digit elements can also occur on the ulnar side of the hand, contributing to the variable complex polysyndactyly phenotype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Triphalangeal Thumb-Polysyndactyly Syndrome\"], \"term_id\": \"HP:0001162\"}}, {\"id\": \"Preaxial Foot Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digits may occur on the medial/hallux side of the foot.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Triphalangeal Thumb-Polysyndactyly Syndrome\", \"Werner Mesomelic Syndrome\", \"Laurin-Sandrow Syndrome\"], \"term_id\": \"HP:0001841\"}}, {\"id\": \"Preaxial Hand Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digit elements occur on the radial/thumb side of the hand as part of the polysyndactyly phenotype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Preaxial Polydactyly Type 2\", \"Triphalangeal Thumb-Polysyndactyly Syndrome\", \"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0001177\"}}, {\"id\": \"Serially Homologous Autopod Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because homologous digit-patterning programs operate in the forelimb and hindlimb autopods, the single cis-regulatory lesion can produce a variable bundle of triphalangeal thumbs, preaxial and postaxial polydactyly, and finger or foot syndactyly rather than an isolated single-element defect.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Limb morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Tibial Hypoplasia or Aplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or complete absence of the tibia, unilateral or bilateral. The defining zeugopod feature of the Werner branch and the phenotype that takes this spectrum beyond the hands and feet.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0005772\"}}, {\"id\": \"Triphalangeal Thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The thumb contains three phalanges rather than two. Shape, opposability, stiffness, and laterality vary among affected individuals.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Isolated Triphalangeal Thumb\", \"Preaxial Polydactyly Type 2\", \"Triphalangeal Thumb-Polysyndactyly Syndrome\", \"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0001199\"}}, {\"id\": \"ZRS or pZRS Regulatory Gain of Ectopic Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous duplication encompassing ZRS or a pathogenic pZRS point variant changes the activity of the limb-specific SHH enhancer domain. This is a noncoding gain-of-ectopic-expression mechanism, not SHH protein loss of function and not a coding LMBR1 defect.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"LMBR1\"], \"gene_terms\": [{\"label\": \"LMBR1\", \"id\": \"hgnc:13243\"}], \"role\": \"trigger\"}}, {\"id\": \"ZRS/pZRS cis-regulatory locus controlling limb-specific SHH expression\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZRS enhancer, within the LMBR1 locus (hgnc:13243)\"], \"gene_terms\": [{\"label\": \"ZRS enhancer, within the LMBR1 locus (hgnc:13243)\", \"id\": \"hgnc:13243\"}], \"association\": \"Causative noncoding regulatory variants in the ZRS enhancer and its flanking pre-ZRS, which lie within the LMBR1 locus, alter limb-specific SHH expression\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}], \"edges\": [{\"source\": \"ZRS or pZRS Regulatory Gain of Ectopic Expression\", \"target\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased enhancer dosage or altered pZRS sequence directly changes the spatial activity of the limb-specific SHH regulatory domain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ZRS or pZRS Regulatory Gain of Ectopic Expression\", \"target\": \"Altered SHH-LMBR1 Regulatory-Domain Contacts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carrying the pZRS variant show increased contacts across the SHH-LMBR1 TAD, but the causal path from the variant to this contact pattern is unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"target\": \"Disrupted Digit Number and Identity Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spatially deregulated SHH regulatory activity perturbs the anterior-posterior information used to specify digit number and identity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered SHH morphogen distribution and GLI3 repressor gradient\"]}, {\"source\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"target\": \"Disrupted Zeugopod Element Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lesion class determines how far proximally the defect reaches. The ZRS position-404 point variants drive strong ectopic SHH expression and add zeugopod involvement, whereas complete ZRS duplications leave lower-limb development unaffected. This is the branch point that separates Werner mesomelic syndrome from the duplication phenotypes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"strong ectopic SHH expression extending the patterning defect proximally from the autopod into the zeugopod\"]}, {\"source\": \"Disrupted Digit Number and Identity Specification\", \"target\": \"Serially Homologous Autopod Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered digit specification produces the coordinated triphalangism, polydactyly, and syndactyly phenotype across the hands and feet.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal digit condensation and phalangeal segmentation\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Triphalangeal Thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal thumb phalangeal segmentation\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Preaxial Hand Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"supernumerary preaxial digit specification\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Postaxial Hand Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"supernumerary postaxial digit specification\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Finger Syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"incomplete interdigital separation and phalangeal synostosis\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Preaxial Foot Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"supernumerary preaxial digit specification\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Postaxial Foot Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"supernumerary postaxial digit specification\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Mirror Image Foot Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"duplication of posterior positional identity across the anteroposterior axis of the hindlimb autopod\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Absent Thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of thumb positional identity with transformation of digit 1 towards a finger-like identity\"]}, {\"source\": \"Disrupted Zeugopod Element Specification\", \"target\": \"Tibial Hypoplasia or Aplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failure of anterior zeugopod element specification and outgrowth\"]}, {\"source\": \"Disrupted Zeugopod Element Specification\", \"target\": \"Fibular Duplication\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"duplication of posterior zeugopod positional identity\"]}, {\"source\": \"Disrupted Zeugopod Element Specification\", \"target\": \"Mesomelic Limb Shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced growth of the mispatterned zeugopod segment\"]}, {\"source\": \"Disrupted Zeugopod Element Specification\", \"target\": \"Patellar Aplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"absent or malformed proximal tibial articulation removing the template for patellar formation\"]}, {\"source\": \"Individualized triphalangeal-thumb and polydactyly reconstruction\", \"target\": \"Triphalangeal Thumb\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized triphalangeal-thumb and polydactyly reconstruction\", \"target\": \"Preaxial Hand Polydactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-skin-fibroblast SHH-LMBR1 4C-seq model\", \"target\": \"Altered SHH-LMBR1 Regulatory-Domain Contacts\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The primary cells reproduce the patient-associated chromatin-contact phenotype measured in the study.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"One affected donor was studied, the cells were skin fibroblasts rather than embryonic limb-bud mesenchyme, and the contact change was not linked experimentally to endogenous SHH expression.\"}, {\"source\": \"Human pZRS mutant transgenic mouse enhancer-reporter assay\", \"target\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The reporter assay directly reproduces the spatial gain of enhancer activity caused by the patient allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The assay uses an isolated human regulatory construct and reporter in a mouse embryo; it does not reproduce the full human SHH-LMBR1 locus, endogenous SHH transcription, or the mature hand-foot phenotype.\"}, {\"source\": \"ZRS/pZRS cis-regulatory locus controlling limb-specific SHH expression\", \"target\": \"ZRS or pZRS Regulatory Gain of Ectopic Expression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Heterozygous genomic duplications encompassing ZRS\", \"target\": \"ZRS/pZRS cis-regulatory locus controlling limb-specific SHH expression\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Heterozygous pre-ZRS point variant\", \"target\": \"ZRS/pZRS cis-regulatory locus controlling limb-specific SHH expression\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of a recognisable thumb, giving a five-fingered hand in which digit 1 carries finger rather than thumb identity. In Haas-type polysyndactyly the five-fingered hand is additionally fused into a cup-shaped or rosebud configuration.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Werner Mesomelic Syndrome\", \"Haas-Type Polysyndactyly\"], \"term_id\": \"HP:0009777\"}}, {\"id\": \"Altered SHH-LMBR1 Regulatory-Domain Contacts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circular chromatin-conformation capture in patient skin fibroblasts found increased contacts across the SHH-LMBR1 TAD. The observation is real, but its mechanistic relationship to ectopic embryonic limb expression is uncertain because fibroblasts are not limb-bud tissue and the authors did not resolve how the variant changes contacts.\", \"meta\": {\"evidence_count\": 1, \"role\": \"modifier\", \"mechanism_confidence\": \"HYPOTHETICAL\", \"experimental_models\": [{\"name\": \"Patient-skin-fibroblast SHH-LMBR1 4C-seq model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The primary cells reproduce the patient-associated chromatin-contact phenotype measured in the study.\"}]}}, {\"id\": \"Disrupted Digit Number and Identity Specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The abnormal spatial SHH signal perturbs anterior-posterior digit-number, digit-identity, and phalangeal-segmentation programs in the developing autopod.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Anterior/posterior pattern specification\", \"Embryonic limb morphogenesis\"], \"role\": \"central_effector\"}}, {\"id\": \"Disrupted Zeugopod Element Specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the strong-ectopic-expression branch the patterning defect is not confined to the autopod: specification of the zeugopod elements is also disturbed, producing tibial hypoplasia or aplasia, abnormal or duplicated fibulae, and mesomelic shortening of the limb. This node is what distinguishes Werner mesomelic syndrome and the fibular phenotype of Laurin-Sandrow syndrome from the autopod-only branches of the spectrum, and it is engaged in a lesion-class-dependent way rather than by every ZRS alteration.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Embryonic limb morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant regulatory sequences activate a reporter outside the normal posterior zone of polarizing activity, extending activity across the limb bud. This establishes spatial gain of enhancer activity; it should not be overread as a measurement of endogenous human SHH protein abundance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Smoothened signaling pathway\"], \"genes\": [\"SHH\"], \"gene_terms\": [{\"label\": \"SHH\", \"id\": \"hgnc:10848\"}], \"role\": \"trigger\", \"locations\": [\"limb bud\"], \"regulatory_category\": \"GOE\", \"animal_models\": [{\"name\": \"Human pZRS mutant transgenic mouse enhancer-reporter assay\", \"species\": \"Mus musculus\", \"genotype\": \"Transgenic reporter carrying the human TPT-PS-associated pZRS chr7:156585476G\u003eC allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The reporter assay directly reproduces the spatial gain of enhancer activity caused by the patient allele.\"}]}}, {\"id\": \"Family 1 ZRS-encompassing duplication reported by Lohan et al.\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The approximately 255 kb duplication reported in family 1 spans chr7:156437229-156692706 on hg19/GRCh37 and is POSTRE Table 1 patient Nr6. Lohan et al. Table 1 gives the same interval. These are array-defined bounds: junction sequencing established tandem orientation only for families 2 and 5, not family 1. The interval includes the complete LMBR1 gene, its intronic ZRS enhancer, and several RNF32 exons; SHH remains outside the duplication. The affected boy had complete hand syndactyly diagnosed as Haas-type polysyndactyly, with no other abnormalities recorded. This allele is distinct from the smaller Laurin-Sandrow duplications in that study and from the pZRS point variant below.\", \"meta\": {\"evidence_count\": 1, \"regulatory_target_gene\": {\"label\": \"SHH\", \"id\": \"hgnc:10848\"}, \"genes\": [\"LMBR1\", \"SHH\"], \"gene_terms\": [{\"label\": \"LMBR1\", \"id\": \"hgnc:13243\"}, {\"label\": \"SHH\", \"id\": \"hgnc:10848\"}], \"variant_type\": \"duplication\", \"genomic_contexts\": [\"coding sequence\", \"intron\", \"intergenic region\"], \"affected_regions\": [{\"name\": \"ZRS limb enhancer\", \"regulatory_element_type\": \"ENHANCER\", \"within_gene\": {\"preferred_term\": \"LMBR1\", \"term\": {\"id\": \"hgnc:13243\", \"label\": \"LMBR1\"}}, \"description\": \"The intronic ZRS enhancer is duplicated along with the complete LMBR1 gene and part of RNF32. The within-gene relation describes the enhancer, not the entire duplicated interval.\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Fibular Duplication\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Duplication of the fibula, accompanying the mirror-image foot phenotype and reflecting duplicated posterior positional identity in the hindlimb zeugopod. Reported alongside loss of identity between fibula and tibia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Laurin-Sandrow Syndrome\"], \"term_id\": \"HP:0010503\"}}, {\"id\": \"Finger Syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous webbing can progress to complete syndactyly and may be accompanied by distal phalangeal synostosis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Triphalangeal Thumb-Polysyndactyly Syndrome\", \"Haas-Type Polysyndactyly\", \"Laurin-Sandrow Syndrome\"], \"term_id\": \"HP:0006101\"}}, {\"id\": \"Heterozygous genomic duplications encompassing ZRS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Copy-number gains spanning the limb-specific ZRS enhancer segregate with TPT-PS and/or syndactyly type IV; in six families, minimum duplications ranged from 131 kb to 398 kb.\", \"meta\": {\"evidence_count\": 1, \"regulatory_target_gene\": {\"label\": \"SHH\", \"id\": \"hgnc:10848\"}, \"genes\": [\"LMBR1\", \"SHH\"], \"gene_terms\": [{\"label\": \"LMBR1\", \"id\": \"hgnc:13243\"}, {\"label\": \"SHH\", \"id\": \"hgnc:10848\"}], \"variant_type\": \"duplication\", \"variant_type_detail\": \"copy-number gain\", \"genomic_contexts\": [\"intron\"], \"affected_regions\": [{\"name\": \"ZRS limb enhancer\", \"regulatory_element_type\": \"ENHANCER\", \"within_gene\": {\"preferred_term\": \"LMBR1\", \"term\": {\"id\": \"hgnc:13243\", \"label\": \"LMBR1\"}}, \"description\": \"The duplicated enhancer lies in LMBR1 intron 5. This relation locates ZRS in the reference genome; the full duplication may extend beyond the intron or host gene.\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Heterozygous pre-ZRS point variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The recurrent pZRS variant chr7:156585476G\u003eC (GRCh37/hg19; NC_000007.14:g.156792782C\u003eG on GRCh38) segregates with TPT-PS and drives ectopic enhancer-reporter activity throughout the developing mouse limb bud.\", \"meta\": {\"evidence_count\": 1, \"regulatory_target_gene\": {\"label\": \"SHH\", \"id\": \"hgnc:10848\"}, \"genes\": [\"LMBR1\", \"SHH\"], \"gene_terms\": [{\"label\": \"LMBR1\", \"id\": \"hgnc:13243\"}, {\"label\": \"SHH\", \"id\": \"hgnc:10848\"}], \"variant_type\": \"single nucleotide variant\", \"variant_type_detail\": \"single-nucleotide regulatory variant\", \"genomic_contexts\": [\"intron\"], \"affected_regions\": [{\"name\": \"pre-ZRS regulatory region\", \"within_gene\": {\"preferred_term\": \"LMBR1\", \"term\": {\"id\": \"hgnc:13243\", \"label\": \"LMBR1\"}}, \"description\": \"The point variant lies in conserved pZRS sequence within LMBR1 intron 5, near the ZRS enhancer. The enhancer itself is unchanged.\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"Human pZRS mutant transgenic mouse enhancer-reporter assay\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A mouse transgenic enhancer assay tested the human patient pZRS allele at embryonic day 11.5 and showed extended ectopic reporter expression across the developing limb bud.\"}, {\"id\": \"Individualized triphalangeal-thumb and polydactyly reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hand surgery may remove an accessory/delta phalanx, reconstruct ligaments, perform osteotomy, or rebalance soft tissues according to the individual\u0027s anatomy and functional goals. It corrects established anatomy and does not reverse the embryonic SHH-patterning lesion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mesomelic Limb Shortening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the middle limb segment, involving the distal arm or leg bones. The feature the Werner eponym is named for, and the clearest marker that the patterning defect has extended proximally out of the autopod.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0003027\"}}, {\"id\": \"Mirror Image Foot Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Duplication of the foot about its anteroposterior axis, giving a symmetrical double-posterior appearance rather than a simple supernumerary digit. This is the feature that separates Laurin-Sandrow syndrome from Haas-type polysyndactyly, whose digital phenotype otherwise overlaps it.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Laurin-Sandrow Syndrome\"], \"term_id\": \"HP:0010691\"}}, {\"id\": \"Patellar Aplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of the patellae, reported together with tibial hypoplasia in the Werner branch and consistent with loss of the proximal tibial articulation that templates patellar formation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0006443\"}}, {\"id\": \"Patient-skin-fibroblast SHH-LMBR1 4C-seq model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Circular chromatin-conformation capture compared skin fibroblasts from one affected pZRS-variant carrier with controls and measured increased contacts across the SHH-LMBR1 TAD.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:35821352\"}}, {\"id\": \"Postaxial Foot Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digits may occur on the lateral side of the foot.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Triphalangeal Thumb-Polysyndactyly Syndrome\"], \"term_id\": \"HP:0001830\"}}, {\"id\": \"Postaxial Hand Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digit elements can also occur on the ulnar side of the hand, contributing to the variable complex polysyndactyly phenotype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Triphalangeal Thumb-Polysyndactyly Syndrome\"], \"term_id\": \"HP:0001162\"}}, {\"id\": \"Pre-ZRS Single Nucleotide Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The heterozygous pZRS point variant changes sequence adjacent to the limb-specific SHH enhancer in LMBR1 intron 5. LMBR1 is the intronic host; SHH is the distant regulatory target. This allele has direct transgenic reporter evidence for ectopic limb-bud regulatory activity.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMBR1\"], \"gene_terms\": [{\"label\": \"LMBR1\", \"id\": \"hgnc:13243\"}], \"genetic_context\": {\"allele_type\": \"chr7:156585476G\u003eC on GRCh37/hg19\", \"variant_type\": \"single nucleotide variant\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"genomic_contexts\": [\"intron\"], \"affected_regions\": [{\"name\": \"pre-ZRS regulatory region\", \"within_gene\": {\"preferred_term\": \"LMBR1\", \"term\": {\"id\": \"hgnc:13243\", \"label\": \"LMBR1\"}}, \"description\": \"The conserved pZRS sequence lies within LMBR1 intron 5 near ZRS. The point variant changes pZRS sequence without altering ZRS itself.\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Preaxial Foot Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digits may occur on the medial/hallux side of the foot.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Triphalangeal Thumb-Polysyndactyly Syndrome\", \"Werner Mesomelic Syndrome\", \"Laurin-Sandrow Syndrome\"], \"term_id\": \"HP:0001841\"}}, {\"id\": \"Preaxial Hand Polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extra digit elements occur on the radial/thumb side of the hand as part of the polysyndactyly phenotype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Preaxial Polydactyly Type 2\", \"Triphalangeal Thumb-Polysyndactyly Syndrome\", \"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0001177\"}}, {\"id\": \"Proposed SHH Misregulation after ZRS Duplication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic embryonic SHH expression is proposed to explain the limb phenotype of ZRS duplications by analogy with enhancer point variants. Lohan et al. explicitly leave the duplication mechanism unresolved, including possible expression-dosage or chromatin-architecture effects. This node does not assert measured ectopic expression, increased transcription, or enhancer adoption in family 1. The pZRS reporter and fibroblast contact assays below concern a different allele class and do not establish this step.\", \"meta\": {\"genes\": [\"SHH\"], \"gene_terms\": [{\"label\": \"SHH\", \"id\": \"hgnc:10848\"}], \"regulatory_category\": \"GOE\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Serially Homologous Autopod Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because homologous digit-patterning programs operate in the forelimb and hindlimb autopods, the single cis-regulatory lesion can produce a variable bundle of triphalangeal thumbs, preaxial and postaxial polydactyly, and finger or foot syndactyly rather than an isolated single-element defect.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Limb morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Tibial Hypoplasia or Aplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or complete absence of the tibia, unilateral or bilateral. The defining zeugopod feature of the Werner branch and the phenotype that takes this spectrum beyond the hands and feet.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0005772\"}}, {\"id\": \"Triphalangeal Thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The thumb contains three phalanges rather than two. Shape, opposability, stiffness, and laterality vary among affected individuals.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Isolated Triphalangeal Thumb\", \"Preaxial Polydactyly Type 2\", \"Triphalangeal Thumb-Polysyndactyly Syndrome\", \"Werner Mesomelic Syndrome\"], \"term_id\": \"HP:0001199\"}}, {\"id\": \"ZRS-Encompassing Duplication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Duplications add a copy of the ZRS enhancer within LMBR1 intron 5. Some alleles also encompass LMBR1 coding sequence and adjacent genes; intronic overlap is the context shared across this duplication class. SHH is an intact, distant regulatory target. This physical trigger is separate from the pre-ZRS point variant and its reporter experiments.\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"allele_type\": \"heterozygous duplications encompassing the ZRS enhancer\", \"variant_type\": \"duplication\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"genomic_contexts\": [\"intron\"], \"affected_regions\": [{\"name\": \"ZRS limb enhancer\", \"regulatory_element_type\": \"ENHANCER\", \"within_gene\": {\"preferred_term\": \"LMBR1\", \"term\": {\"id\": \"hgnc:13243\", \"label\": \"LMBR1\"}}, \"description\": \"The shared affected element is the ZRS enhancer in LMBR1 intron 5. Individual duplications may extend beyond the enhancer and its host gene; this relation does not constrain their full extent.\"}]}, \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"ZRS-Encompassing Duplication\", \"target\": \"Proposed SHH Misregulation after ZRS Duplication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Duplicated enhancer sequence implicates altered SHH regulation, but the route from enhancer copy number or rearranged contacts to the expression pattern has not been established for these patient alleles.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Proposed SHH Misregulation after ZRS Duplication\", \"target\": \"Disrupted Digit Number and Identity Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"If the duplication alters the spatial SHH signal, it could disturb digit patterning through the same developmental pathway implicated by point variants. The regulatory intermediate remains inferred for duplications.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Pre-ZRS Single Nucleotide Variant\", \"target\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The pZRS sequence change alters the spatial activity of an enhancer reporter in the developing mouse limb.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pre-ZRS Single Nucleotide Variant\", \"target\": \"Altered SHH-LMBR1 Regulatory-Domain Contacts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carrying the pZRS variant show increased contacts across the SHH-LMBR1 TAD, but the causal path from the variant to this contact pattern is unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"target\": \"Disrupted Digit Number and Identity Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spatially deregulated SHH regulatory activity perturbs the anterior-posterior information used to specify digit number and identity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered SHH morphogen distribution and GLI3 repressor gradient\"]}, {\"source\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"target\": \"Disrupted Zeugopod Element Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ZRS position-404 point variants drive strong ectopic SHH expression and can add zeugopod involvement. The complete duplications in the 2009 comparison cohort did not affect lower-limb development. That observation is allele-specific: the smaller Laurin-Sandrow duplications reported subsequently do have tibia/fibula and lower-limb abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"strong ectopic SHH expression extending the patterning defect proximally from the autopod into the zeugopod\"]}, {\"source\": \"Disrupted Digit Number and Identity Specification\", \"target\": \"Serially Homologous Autopod Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered digit specification produces the coordinated triphalangism, polydactyly, and syndactyly phenotype across the hands and feet.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal digit condensation and phalangeal segmentation\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Triphalangeal Thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal thumb phalangeal segmentation\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Preaxial Hand Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"supernumerary preaxial digit specification\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Postaxial Hand Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"supernumerary postaxial digit specification\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Finger Syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"incomplete interdigital separation and phalangeal synostosis\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Preaxial Foot Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"supernumerary preaxial digit specification\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Postaxial Foot Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"supernumerary postaxial digit specification\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Mirror Image Foot Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"duplication of posterior positional identity across the anteroposterior axis of the hindlimb autopod\"]}, {\"source\": \"Serially Homologous Autopod Malformation\", \"target\": \"Absent Thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of thumb positional identity with transformation of digit 1 towards a finger-like identity\"]}, {\"source\": \"Disrupted Zeugopod Element Specification\", \"target\": \"Tibial Hypoplasia or Aplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failure of anterior zeugopod element specification and outgrowth\"]}, {\"source\": \"Disrupted Zeugopod Element Specification\", \"target\": \"Fibular Duplication\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"duplication of posterior zeugopod positional identity\"]}, {\"source\": \"Disrupted Zeugopod Element Specification\", \"target\": \"Mesomelic Limb Shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced growth of the mispatterned zeugopod segment\"]}, {\"source\": \"Disrupted Zeugopod Element Specification\", \"target\": \"Patellar Aplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"absent or malformed proximal tibial articulation removing the template for patellar formation\"]}, {\"source\": \"Individualized triphalangeal-thumb and polydactyly reconstruction\", \"target\": \"Triphalangeal Thumb\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized triphalangeal-thumb and polydactyly reconstruction\", \"target\": \"Preaxial Hand Polydactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-skin-fibroblast SHH-LMBR1 4C-seq model\", \"target\": \"Altered SHH-LMBR1 Regulatory-Domain Contacts\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The primary cells reproduce the patient-associated chromatin-contact phenotype measured in the study.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"One affected donor was studied, the cells were skin fibroblasts rather than embryonic limb-bud mesenchyme, and the contact change was not linked experimentally to endogenous SHH expression.\"}, {\"source\": \"Human pZRS mutant transgenic mouse enhancer-reporter assay\", \"target\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The reporter assay directly reproduces the spatial gain of enhancer activity caused by the patient allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The assay uses an isolated human regulatory construct and reporter in a mouse embryo; it does not reproduce the full human SHH-LMBR1 locus, endogenous SHH transcription, or the mature hand-foot phenotype.\"}, {\"source\": \"Heterozygous genomic duplications encompassing ZRS\", \"target\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Heterozygous genomic duplications encompassing ZRS\", \"target\": \"Pre-ZRS Single Nucleotide Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Heterozygous genomic duplications encompassing ZRS\", \"target\": \"Proposed SHH Misregulation after ZRS Duplication\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Family 1 ZRS-encompassing duplication reported by Lohan et al.\", \"target\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Family 1 ZRS-encompassing duplication reported by Lohan et al.\", \"target\": \"Pre-ZRS Single Nucleotide Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Family 1 ZRS-encompassing duplication reported by Lohan et al.\", \"target\": \"Proposed SHH Misregulation after ZRS Duplication\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Heterozygous pre-ZRS point variant\", \"target\": \"Ectopic Limb-Bud SHH Regulatory Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Heterozygous pre-ZRS point variant\", \"target\": \"Pre-ZRS Single Nucleotide Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Heterozygous pre-ZRS point variant\", \"target\": \"Proposed SHH Misregulation after ZRS Duplication\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6798,28 +7331,13 @@ This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(5)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(7)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-triphalangeal-thumb" data-dismech-node="Triphalangeal Thumb" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Triphalangeal Thumb
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Limbs
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-triphalangeal-thumb" data-dismech-node="Triphalangeal Thumb" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Triphalangeal Thumb
-
-
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
@@ -6828,16 +7346,18 @@ This pathophysiological event involves abnormal Embryonic limb morphogenesis (GO
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001199</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001199</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6857,6 +7377,7 @@ This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6881,13 +7402,14 @@ This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-preaxial-hand-polydactyly" data-dismech-node="Preaxial Hand Polydactyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Preaxial Hand Polydactyly
+            <div class="item-box phenotype-box anchor-target" id="phenotype-preaxial-hand-polydactyly" data-dismech-node="Preaxial Hand Polydactyly" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Preaxial Hand Polydactyly
 
 
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
@@ -6896,16 +7418,18 @@ This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001177</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001177</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6925,6 +7449,7 @@ This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6949,13 +7474,14 @@ This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-postaxial-hand-polydactyly" data-dismech-node="Postaxial Hand Polydactyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Postaxial Hand Polydactyly
+            <div class="item-box phenotype-box anchor-target" id="phenotype-postaxial-hand-polydactyly" data-dismech-node="Postaxial Hand Polydactyly" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Postaxial Hand Polydactyly
 
 
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
@@ -6964,16 +7490,18 @@ This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001162</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001162</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6993,6 +7521,7 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7017,13 +7546,14 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-finger-syndactyly" data-dismech-node="Finger Syndactyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Finger Syndactyly
+            <div class="item-box phenotype-box anchor-target" id="phenotype-finger-syndactyly" data-dismech-node="Finger Syndactyly" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Finger Syndactyly
 
 
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
@@ -7032,16 +7562,18 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0006101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006101</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0006101</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7061,6 +7593,7 @@ This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7085,13 +7618,14 @@ This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenoty
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-thumb" data-dismech-node="Absent Thumb" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absent Thumb
+            <div class="item-box phenotype-box anchor-target" id="phenotype-preaxial-foot-polydactyly" data-dismech-node="Preaxial Foot Polydactyly" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Preaxial Foot Polydactyly
 
 
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
@@ -7100,16 +7634,234 @@ This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenoty
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001841</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0009777</a>
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Preaxial foot polydactyly (HP:0001841). HP:0001841 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10594878" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10594878" target="_blank">PMID:10594878</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The characteristic findings in this family are triphalangeal thumb, webbing between 3rd, 4th, and 5th fingers associated with bony synostosis in the distal phalanges of the same fingers, and pre- and postaxial polysyndactyly of feet."</div>
+
+
+                <div class="evidence-explanation">Directly supports preaxial foot polydactyly in TPT-PS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-postaxial-foot-polydactyly" data-dismech-node="Postaxial Foot Polydactyly" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Postaxial Foot Polydactyly
+
+
+                    <span class="phenotype-category">Musculoskeletal</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postaxial foot polydactyly (HP:0001830). HP:0001830 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10594878" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10594878" target="_blank">PMID:10594878</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The characteristic findings in this family are triphalangeal thumb, webbing between 3rd, 4th, and 5th fingers associated with bony synostosis in the distal phalanges of the same fingers, and pre- and postaxial polysyndactyly of feet."</div>
+
+
+                <div class="evidence-explanation">Directly supports postaxial foot polydactyly in TPT-PS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-mirror-image-foot-polydactyly" data-dismech-node="Mirror Image Foot Polydactyly" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Mirror Image Foot Polydactyly
+
+
+                    <span class="phenotype-category">Musculoskeletal</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0010691</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mirror image foot polydactyly (HP:0010691). HP:0010691 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24456159" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24456159" target="_blank">PMID:24456159</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Laurin-Sandrow syndrome (LSS) is a rare autosomal dominant disorder characterized by polysyndactyly of hands and/or feet, mirror image duplication of the feet, nasal defects, and loss of identity between fibula and tibia."</div>
+
+
+                <div class="evidence-explanation">Defines mirror-image foot duplication as a core Laurin-Sandrow feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-absent-thumb" data-dismech-node="Absent Thumb" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Absent Thumb
+
+
+                    <span class="phenotype-category">Musculoskeletal</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0009777</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent thumb (HP:0009777). HP:0009777 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7129,6 +7881,7 @@ This clinical feature is Absent thumb (HP:0009777). HP:0009777 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7156,6 +7909,7 @@ This clinical feature is Absent thumb (HP:0009777). HP:0009777 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7177,90 +7931,14 @@ This clinical feature is Absent thumb (HP:0009777). HP:0009777 is a phenotype fr
 
 
 
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-preaxial-foot-polydactyly" data-dismech-node="Preaxial Foot Polydactyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Preaxial Foot Polydactyly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001841</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Preaxial foot polydactyly (HP:0001841). HP:0001841 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10594878" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10594878" target="_blank">PMID:10594878</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The characteristic findings in this family are triphalangeal thumb, webbing between 3rd, 4th, and 5th fingers associated with bony synostosis in the distal phalanges of the same fingers, and pre- and postaxial polysyndactyly of feet."</div>
-
-
-                <div class="evidence-explanation">Directly supports preaxial foot polydactyly in TPT-PS.</div>
-
-
-
             </div>
 
-
-        </div>
-    </details>
-
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-tibial-hypoplasia-or-aplasia" data-dismech-node="Tibial Hypoplasia or Aplasia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Tibial Hypoplasia or Aplasia
 
 
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-postaxial-foot-polydactyly" data-dismech-node="Postaxial Foot Polydactyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Postaxial Foot Polydactyly
-
-
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
@@ -7269,154 +7947,18 @@ This clinical feature is Preaxial foot polydactyly (HP:0001841). HP:0001841 is a
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0005772" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005772</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001830</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Postaxial foot polydactyly (HP:0001830). HP:0001830 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10594878" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10594878" target="_blank">PMID:10594878</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The characteristic findings in this family are triphalangeal thumb, webbing between 3rd, 4th, and 5th fingers associated with bony synostosis in the distal phalanges of the same fingers, and pre- and postaxial polysyndactyly of feet."</div>
-
-
-                <div class="evidence-explanation">Directly supports postaxial foot polydactyly in TPT-PS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mirror-image-foot-polydactyly" data-dismech-node="Mirror Image Foot Polydactyly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mirror Image Foot Polydactyly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0010691</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mirror image foot polydactyly (HP:0010691). HP:0010691 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24456159" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24456159" target="_blank">PMID:24456159</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Laurin-Sandrow syndrome (LSS) is a rare autosomal dominant disorder characterized by polysyndactyly of hands and/or feet, mirror image duplication of the feet, nasal defects, and loss of identity between fibula and tibia."</div>
-
-
-                <div class="evidence-explanation">Defines mirror-image foot duplication as a core Laurin-Sandrow feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tibial-hypoplasia-or-aplasia" data-dismech-node="Tibial Hypoplasia or Aplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tibial Hypoplasia or Aplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Aplasia/Hypoplasia of the tibia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005772" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0005772</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia/Hypoplasia of the tibia (HP:0005772). HP:0005772 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7436,6 +7978,7 @@ This clinical feature is Aplasia/Hypoplasia of the tibia (HP:0005772). HP:000577
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7463,6 +8006,7 @@ This clinical feature is Aplasia/Hypoplasia of the tibia (HP:0005772). HP:000577
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7484,13 +8028,14 @@ This clinical feature is Aplasia/Hypoplasia of the tibia (HP:0005772). HP:000577
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fibular-duplication" data-dismech-node="Fibular Duplication" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fibular Duplication
+            <div class="item-box phenotype-box anchor-target" id="phenotype-fibular-duplication" data-dismech-node="Fibular Duplication" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Fibular Duplication
 
 
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
@@ -7499,16 +8044,18 @@ This clinical feature is Aplasia/Hypoplasia of the tibia (HP:0005772). HP:000577
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0010503" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010503</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010503" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0010503</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fibular duplication (HP:0010503). HP:0010503 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7528,6 +8075,7 @@ This clinical feature is Fibular duplication (HP:0010503). HP:0010503 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7552,33 +8100,34 @@ This clinical feature is Fibular duplication (HP:0010503). HP:0010503 is a pheno
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mesomelic-limb-shortening" data-dismech-node="Mesomelic Limb Shortening" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mesomelic Limb Shortening
+            <div class="item-box phenotype-box anchor-target" id="phenotype-mesomelic-limb-shortening" data-dismech-node="Mesomelic Limb Shortening" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Mesomelic Limb Shortening
 
 
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Mesomelia</span>
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0003027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003027</a>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003027</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mesomelia (HP:0003027). HP:0003027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7598,6 +8147,7 @@ This clinical feature is Mesomelia (HP:0003027). HP:0003027 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7622,13 +8172,14 @@ This clinical feature is Mesomelia (HP:0003027). HP:0003027 is a phenotype from 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-patellar-aplasia" data-dismech-node="Patellar Aplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Patellar Aplasia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-patellar-aplasia" data-dismech-node="Patellar Aplasia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Patellar Aplasia
 
 
+                    <span class="phenotype-category">Musculoskeletal</span>
 
 
 
@@ -7637,16 +8188,18 @@ This clinical feature is Mesomelia (HP:0003027). HP:0003027 is a phenotype from 
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0006443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0006443</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006443</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Patellar aplasia (HP:0006443). HP:0006443 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -7666,6 +8219,7 @@ This clinical feature is Patellar aplasia (HP:0006443). HP:0006443 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7690,34 +8244,8 @@ This clinical feature is Patellar aplasia (HP:0006443). HP:0006443 is a phenotyp
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -7742,22 +8270,6 @@ This clinical feature is Patellar aplasia (HP:0006443). HP:0006443 is a phenotyp
                 <div class="item-meta">
 
 
-
-
-
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
-                        Gene: ZRS enhancer, within the LMBR1 locus (hgnc:13243)
-
-
-    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:13243</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ZRS enhancer, within the LMBR1 locus (hgnc:13243), annotated with LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
-                    </span>
-
-
                     <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
 
 
@@ -7767,12 +8279,81 @@ This disease-associated gene is ZRS enhancer, within the LMBR1 locus (hgnc:13243
 
 
 
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>ZRS limb enhancer</strong>
+
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">LMBR1 <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip" title="Open hgnc:13243">hgnc:13243</a></span>
+</div>
+
+
+
+        <div class="item-desc">The ZPA regulatory sequence lies in LMBR1 intron 5 and regulates limb-specific expression of the distant SHH gene. LMBR1 is the host gene for the enhancer, not the regulatory target.</div>
+    </div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>pre-ZRS regulatory region</strong>
+
+
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">LMBR1 <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip" title="Open hgnc:13243">hgnc:13243</a></span>
+</div>
+
+
+
+        <div class="item-desc">The conserved pZRS sequence lies in LMBR1 intron 5 near the ZRS enhancer. It is represented separately because the curated pZRS point variant changes this flanking sequence rather than ZRS itself.</div>
+    </div>
+
+</div>
+
+
+
+
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12837695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837695" target="_blank">PMID:12837695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The regulator, designated ZRS, lies within intron 5 of the Lmbr1 gene 1 Mb from the target gene Shh."</div>
+
+
+                <div class="evidence-explanation">Locates the named enhancer within its host gene and distinguishes the distant regulatory target. This supports the region&#39;s placement, not the full extent of any duplication.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:18417549" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -7782,6 +8363,7 @@ This disease-associated gene is ZRS enhancer, within the LMBR1 locus (hgnc:13243
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7805,7 +8387,7 @@ This disease-associated gene is ZRS enhancer, within the LMBR1 locus (hgnc:13243
 
 
                 <details class="variant-list">
-                    <summary class="variant-list-toggle">Variants (2)</summary>
+                    <summary class="variant-list-toggle">Variants (3)</summary>
 
 
     <div class="item-box variant-box variant-box-nested anchor-target" id="variant-heterozygous-genomic-duplications-encompassing-zrs" data-dismech-node="Heterozygous genomic duplications encompassing ZRS" data-dismech-type="genetic">
@@ -7817,6 +8399,7 @@ This disease-associated gene is ZRS enhancer, within the LMBR1 locus (hgnc:13243
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7827,22 +8410,75 @@ This disease-associated gene is ZRS enhancer, within the LMBR1 locus (hgnc:13243
             Gene: LMBR1
 
 
-    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:13243</a>
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:13243</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
-        <span class="tag" style="background: #e0e7ff; color: #3730a3;">copy-number gain</span>
 
 
-        <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: SHH
+
+
+    <a href="https://bioregistry.io/hgnc:10848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:10848</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on SHH (hgnc:10848). hgnc:10848 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">duplication</span>
+
 
 
     </div>
+
+
+    <div class="item-desc"><strong>Variant detail:</strong> copy-number gain</div>
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intron</span>
+
+    </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>ZRS limb enhancer</strong>
+
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">LMBR1 <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip" title="Open hgnc:13243">hgnc:13243</a></span>
+</div>
+
+
+
+        <div class="item-desc">The duplicated enhancer lies in LMBR1 intron 5. This relation locates ZRS in the reference genome; the full duplication may extend beyond the intron or host gene.</div>
+    </div>
+
+</div>
+
 
 
     <div class="item-desc">Copy-number gains spanning the limb-specific ZRS enhancer segregate with TPT-PS and/or syndactyly type IV; in six families, minimum duplications ranged from 131 kb to 398 kb.</div>
@@ -7860,10 +8496,8 @@ This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene N
                 <span class="tag" style="background: #dcfce7; color: #166534;">limb-specific SHH expression</span>
 
 
-                <span class="tag" style="background: #e0e7ff; color: #3730a3;">gain of ectopic expression</span>
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">proposed spatial misregulation</span>
 
-
-                <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
 
 
                 <span class="tag" style="background: #fce7f3; color: #9d174d;">ENHANCER</span>
@@ -7871,10 +8505,10 @@ This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene N
             </div>
 
 
-            <div class="item-desc">Increased ZRS dosage produces gain of ectopic SHH regulatory activity during embryonic limb development.</div>
+            <div class="item-desc">ZRS-encompassing duplications are associated with limb malformation. Ectopic SHH expression is proposed, but the clinical segregation study does not directly measure embryonic expression from these alleles.</div>
 
 
-            <div class="item-desc"><strong>Mechanism:</strong> Duplication of the long-range limb-specific enhancer increases or spatially deregulates its activity in the limb bud.</div>
+            <div class="item-desc"><strong>Mechanism:</strong> Duplication changes the dosage and arrangement of the long-range enhancer; its exact effect on SHH expression is unresolved.</div>
 
 
 
@@ -7906,6 +8540,7 @@ This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7914,6 +8549,180 @@ This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene N
 
 
                 <div class="evidence-explanation">Segregation across six families establishes ZRS-encompassing duplications as a principal pathogenic variant class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-family-1-zrs-encompassing-duplication-reported-by-lohan-et-al" data-dismech-node="Family 1 ZRS-encompassing duplication reported by Lohan et al." data-dismech-type="genetic">
+
+    <div class="item-name">
+        Family 1 ZRS-encompassing duplication reported by Lohan et al.
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: LMBR1
+
+
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:13243</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: SHH
+
+
+    <a href="https://bioregistry.io/hgnc:10848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:10848</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on SHH (hgnc:10848). hgnc:10848 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">duplication</span>
+
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">coding sequence</span>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intron</span>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intergenic region</span>
+
+    </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>ZRS limb enhancer</strong>
+
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">LMBR1 <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip" title="Open hgnc:13243">hgnc:13243</a></span>
+</div>
+
+
+
+        <div class="item-desc">The intronic ZRS enhancer is duplicated along with the complete LMBR1 gene and part of RNF32. The within-gene relation describes the enhancer, not the entire duplicated interval.</div>
+    </div>
+
+</div>
+
+
+
+    <div class="item-desc">The approximately 255 kb duplication reported in family 1 spans chr7:156437229-156692706 on hg19/GRCh37 and is POSTRE Table 1 patient Nr6. Lohan et al. Table 1 gives the same interval. These are array-defined bounds: junction sequencing established tandem orientation only for families 2 and 5, not family 1. The interval includes the complete LMBR1 gene, its intronic ZRS enhancer, and several RNF32 exons; SHH remains outside the duplication. The affected boy had complete hand syndactyly diagnosed as Haas-type polysyndactyly, with no other abnormalities recorded. This allele is distinct from the smaller Laurin-Sandrow duplications in that study and from the pZRS point variant below.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">limb-specific SHH regulation</span>
+
+
+
+
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">ENHANCER</span>
+
+            </div>
+
+
+            <div class="item-desc">The duplicated enhancer implicates SHH regulation, although this patient&#39;s embryonic SHH expression was not measured. Coding overlap refers to LMBR1 and RNF32, not to SHH; it does not by itself establish a protein-dosage explanation for the limb phenotype.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Increased enhancer copy number and changed regulatory architecture are candidate mechanisms; ectopic expression and enhancer adoption were not demonstrated for this individual duplication.</div>
+
+
+
+            <div class="item-desc"><strong>Developmental stage:</strong> embryonic limb development</div>
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24456159" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24456159" target="_blank">PMID:24456159</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We show that larger duplications of the ZRS region (&gt;80 kb) are associated with HTS, whereas smaller duplications (&lt;80 kb) result in the LSS phenotype."</div>
+
+
+                <div class="evidence-explanation">Supports the clinical class. The family 1 interval, array resolution, gene overlap and clinical details were checked in the primary full text and Table 1; the cached abstract does not list those coordinates or provide an expression assay.</div>
 
 
 
@@ -7938,6 +8747,7 @@ This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7948,22 +8758,77 @@ This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene N
             Gene: LMBR1
 
 
-    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:13243</a>
+    <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:13243</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
-        <span class="tag" style="background: #e0e7ff; color: #3730a3;">single-nucleotide regulatory variant</span>
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: SHH
+
+
+    <a href="https://bioregistry.io/hgnc:10848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:10848</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on SHH (hgnc:10848). hgnc:10848 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">single nucleotide variant</span>
 
 
         <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
 
 
     </div>
+
+
+    <div class="item-desc"><strong>Variant detail:</strong> single-nucleotide regulatory variant</div>
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intron</span>
+
+    </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>pre-ZRS regulatory region</strong>
+
+
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">LMBR1 <a href="https://bioregistry.io/hgnc:13243" target="_blank" class="curie-chip" title="Open hgnc:13243">hgnc:13243</a></span>
+</div>
+
+
+
+        <div class="item-desc">The point variant lies in conserved pZRS sequence within LMBR1 intron 5, near the ZRS enhancer. The enhancer itself is unchanged.</div>
+    </div>
+
+</div>
+
 
 
     <div class="item-desc">The recurrent pZRS variant chr7:156585476G&gt;C (GRCh37/hg19; NC_000007.14:g.156792782C&gt;G on GRCh38) segregates with TPT-PS and drives ectopic enhancer-reporter activity throughout the developing mouse limb bud.</div>
@@ -8027,6 +8892,7 @@ This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8079,7 +8945,7 @@ This variant is in LMBR1 (hgnc:13243). hgnc:13243 is a gene from the HUGO Gene N
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">orthopedic hand surgery<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">orthopedic hand surgery<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is orthopedic hand surgery, annotated with Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8115,6 +8981,9 @@ This treatment is orthopedic hand surgery, annotated with Orthopedic Surgical Pr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8125,6 +8994,9 @@ This treatment is orthopedic hand surgery, annotated with Orthopedic Surgical Pr
 
 
     </div>
+
+
+
 
 
 
@@ -8146,11 +9018,11 @@ This treatment is orthopedic hand surgery, annotated with Orthopedic Surgical Pr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001199</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001199</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Triphalangeal thumb (HP:0001199). HP:0001199 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8163,11 +9035,11 @@ This treatment targets Triphalangeal thumb (HP:0001199). HP:0001199 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001177</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001177</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Preaxial hand polydactyly (HP:0001177). HP:0001177 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8194,6 +9066,7 @@ This treatment targets Preaxial hand polydactyly (HP:0001177). HP:0001177 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8215,6 +9088,7 @@ This treatment targets Preaxial hand polydactyly (HP:0001177). HP:0001177 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8278,11 +9152,11 @@ This treatment targets Preaxial hand polydactyly (HP:0001177). HP:0001177 is a p
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8323,6 +9197,7 @@ This treatment targets Preaxial hand polydactyly (HP:0001177). HP:0001177 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8344,6 +9219,7 @@ This treatment targets Preaxial hand polydactyly (HP:0001177). HP:0001177 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8466,11 +9342,11 @@ This treatment targets Preaxial hand polydactyly (HP:0001177). HP:0001177 is a p
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-29">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-40">NCBITaxon:9606</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-29">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-40">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -8566,6 +9442,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8605,6 +9482,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8652,6 +9530,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8792,6 +9671,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8831,6 +9711,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8878,6 +9759,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8922,10 +9804,11 @@ description: &gt;-
   limb malformations produced by gain-of-function alterations of the zone of
   polarizing activity regulatory sequence (ZRS), a long-range limb-specific
   enhancer of SHH lying in intron 5 of LMBR1 roughly 1 Mb from its target gene.
-  Every branch of the spectrum shares one pathograph: ectopic anterior SHH
-  regulatory activity in the developing limb bud, disrupting anterior-posterior
-  digit number and identity specification. What differs between branches is the
-  molecular alteration and its dosage, not the mechanism. Point variants across
+  Ectopic anterior SHH regulatory activity in the developing limb bud provides
+  a mechanistic account of disrupted digit number and identity. Reporter
+  evidence supports this route for point variants; for the duplications curated
+  here, altered SHH expression remains inferred from enhancer involvement and
+  the limb phenotype rather than measured in patient embryonic tissue. Point variants across
   the ZRS typically produce preaxial polydactyly with or without triphalangeal
   thumb; the specific position-404 variants produce the more severe Werner
   mesomelic phenotype that additionally involves the zeugopod; complete
@@ -9021,6 +9904,16 @@ has_subtypes:
     nonopposable form; MONDO:0008605 is the only MONDO class for isolated
     triphalangeal thumb as an entity, so it is used here with that caveat.
     Isolated triphalangeal thumb and PPD2 co-occur in single ZRS kindreds.
+  genes:
+  - preferred_term: LMBR1
+    description: &gt;-
+      LMBR1 hosts ZRS and pZRS in intron 5. This annotation records the host
+      locus overlapped by the regulatory lesion; it does not attribute the limb
+      phenotype to altered LMBR1 protein function.
+      The lesion here is a ZRS point variant.
+    term:
+      id: hgnc:13243
+      label: LMBR1
   evidence:
   - reference: PMID:24777739
     reference_title: &gt;-
@@ -9048,6 +9941,16 @@ has_subtypes:
     the radial side of the hand with a usually opposable triphalangeal thumb.
     The classical ZRS point-variant phenotype. OMIM assigns PPD2 to the ZRS locus
     entry (OMIM:620738) rather than to LMBR1.
+  genes:
+  - preferred_term: LMBR1
+    description: &gt;-
+      LMBR1 hosts ZRS and pZRS in intron 5. This annotation records the host
+      locus overlapped by the regulatory lesion; it does not attribute the limb
+      phenotype to altered LMBR1 protein function.
+      The lesion here is a ZRS point variant.
+    term:
+      id: hgnc:13243
+      label: LMBR1
   evidence:
   - reference: PMID:12837695
     reference_title: &gt;-
@@ -9078,6 +9981,17 @@ has_subtypes:
     the enhancer. Orphanet no longer carries a standalone TPT-PS concept:
     ORPHA:2950 is deprecated and moved to ORPHA:988, the Werner mesomelic
     spectrum.
+  genes:
+  - preferred_term: LMBR1
+    description: &gt;-
+      LMBR1 hosts ZRS and pZRS in intron 5. This annotation records the host
+      locus overlapped by the regulatory lesion; it does not attribute the limb
+      phenotype to altered LMBR1 protein function.
+      The lesion here is a complete ZRS duplication or, more rarely, a pZRS point
+      variant.
+    term:
+      id: hgnc:13243
+      label: LMBR1
   evidence:
   - reference: ORPHA:2950
     reference_title: &#34;Triphalangeal thumb-polysyndactyly syndrome&#34;
@@ -9128,6 +10042,16 @@ has_subtypes:
     complete syndactyly of all fingers giving a cup-shaped or rosebud hand, with
     polydactyly. Caused by larger (&gt;80 kb) ZRS duplications, and reported within
     the same families as TPT-PS.
+  genes:
+  - preferred_term: LMBR1
+    description: &gt;-
+      LMBR1 hosts ZRS and pZRS in intron 5. This annotation records the host
+      locus overlapped by the regulatory lesion; it does not attribute the limb
+      phenotype to altered LMBR1 protein function.
+      The lesion here is a ZRS duplication larger than 80 kb.
+    term:
+      id: hgnc:13243
+      label: LMBR1
   evidence:
   - reference: PMID:24456159
     reference_title: &gt;-
@@ -9154,6 +10078,16 @@ has_subtypes:
     mirror-image duplication of the feet, fibular duplication and nasal defects.
     Caused by smaller (&lt;80 kb) ZRS duplications, and distinguished from Haas-type
     polysyndactyly by the mirror-image foot phenotype.
+  genes:
+  - preferred_term: LMBR1
+    description: &gt;-
+      LMBR1 hosts ZRS and pZRS in intron 5. This annotation records the host
+      locus overlapped by the regulatory lesion; it does not attribute the limb
+      phenotype to altered LMBR1 protein function.
+      The lesion here is a ZRS duplication smaller than 80 kb.
+    term:
+      id: hgnc:13243
+      label: LMBR1
   evidence:
   - reference: PMID:24456159
     reference_title: &gt;-
@@ -9184,6 +10118,16 @@ has_subtypes:
     ZRS 402C&gt;T individual showed the Werner phenotype while heterozygotes in the
     same kindred had only PPD2, establishing a dosage effect at this locus.
     ORPHA:988 absorbed the deprecated TPT-PS concept ORPHA:2950.
+  genes:
+  - preferred_term: LMBR1
+    description: &gt;-
+      LMBR1 hosts ZRS and pZRS in intron 5. This annotation records the host
+      locus overlapped by the regulatory lesion; it does not attribute the limb
+      phenotype to altered LMBR1 protein function.
+      The lesion here is a ZRS point variant at position 404.
+    term:
+      id: hgnc:13243
+      label: LMBR1
   evidence:
   - reference: ORPHA:988
     reference_title: &#34;Tibial hemimelia-polysyndactyly-triphalangeal thumb syndrome&#34;
@@ -9316,11 +10260,28 @@ inheritance:
       phenotype.
 genetic:
 - name: ZRS/pZRS cis-regulatory locus controlling limb-specific SHH expression
-  gene_term:
-    preferred_term: ZRS enhancer, within the LMBR1 locus (hgnc:13243)
-    term:
-      id: hgnc:13243
-      label: LMBR1
+  affected_regions:
+  - name: ZRS limb enhancer
+    regulatory_element_type: ENHANCER
+    within_gene:
+      preferred_term: LMBR1
+      term:
+        id: hgnc:13243
+        label: LMBR1
+    description: &gt;-
+      The ZPA regulatory sequence lies in LMBR1 intron 5 and regulates
+      limb-specific expression of the distant SHH gene. LMBR1 is the host
+      gene for the enhancer, not the regulatory target.
+  - name: pre-ZRS regulatory region
+    within_gene:
+      preferred_term: LMBR1
+      term:
+        id: hgnc:13243
+        label: LMBR1
+    description: &gt;-
+      The conserved pZRS sequence lies in LMBR1 intron 5 near the ZRS
+      enhancer. It is represented separately because the curated pZRS point
+      variant changes this flanking sequence rather than ZRS itself.
   association: &gt;-
     Causative noncoding regulatory variants in the ZRS enhancer and its flanking
     pre-ZRS, which lie within the LMBR1 locus, alter limb-specific SHH expression
@@ -9340,9 +10301,10 @@ genetic:
     (OMIM:605522), because the causal duplications and deletions span the gene
     body as well as the enhancer: TPT-PS (OMIM:190605), syndactyly type IV
     (OMIM:186200), Laurin-Sandrow syndrome (OMIM:135750) and acheiropodia
-    (OMIM:200500). This entry is grounded on hgnc:13243 LMBR1 only because ZRS has
-    no HGNC identifier and the schema&#39;s gene slot accepts HGNC terms alone; see
-    the zrs_regulatory_element_not_groundable discussion.
+    (OMIM:200500). The affected regions identify the enhancer and its flanking
+    pZRS sequence directly; LMBR1 is their positional host rather than a
+    substitute causal-gene annotation. Region identifiers remain a separate
+    question; see the zrs_regulatory_element_not_groundable discussion.
     Lesion class does not map cleanly onto clinical entity in either direction:
     complete ZRS duplications underlie Haas-type polysyndactyly and preaxial
     polydactyly with or without triphalangeal thumb as well as TPT-PS
@@ -9363,20 +10325,39 @@ genetic:
         id: hgnc:13243
         label: LMBR1
     type: copy-number gain
+    variant_type: duplication
+    genomic_contexts:
+    - intron
+    affected_regions:
+    - name: ZRS limb enhancer
+      regulatory_element_type: ENHANCER
+      within_gene:
+        preferred_term: LMBR1
+        term:
+          id: hgnc:13243
+          label: LMBR1
+      description: &gt;-
+        The duplicated enhancer lies in LMBR1 intron 5. This relation locates
+        ZRS in the reference genome; the full duplication may extend beyond
+        the intron or host gene.
+    regulatory_target_gene:
+      preferred_term: SHH
+      term:
+        id: hgnc:10848
+        label: SHH
     clinical_significance: PATHOGENIC
-    regulatory_category: GOE
     functional_effects:
     - function: limb-specific SHH expression
       description: &gt;-
-        Increased ZRS dosage produces gain of ectopic SHH regulatory activity
-        during embryonic limb development.
-      type: gain of ectopic expression
-      regulatory_category: GOE
+        ZRS-encompassing duplications are associated with limb malformation.
+        Ectopic SHH expression is proposed, but the clinical segregation study
+        does not directly measure embryonic expression from these alleles.
+      type: proposed spatial misregulation
       regulatory_element_type: ENHANCER
       affected_developmental_stage: embryonic limb development
       regulatory_mechanism: &gt;-
-        Duplication of the long-range limb-specific enhancer increases or
-        spatially deregulates its activity in the limb bud.
+        Duplication changes the dosage and arrangement of the long-range
+        enhancer; its exact effect on SHH expression is unresolved.
     evidence:
     - reference: PMID:18417549
       reference_title: &gt;-
@@ -9394,6 +10375,73 @@ genetic:
       explanation: &gt;-
         Segregation across six families establishes ZRS-encompassing
         duplications as a principal pathogenic variant class.
+  - name: Family 1 ZRS-encompassing duplication reported by Lohan et al.
+    description: &gt;-
+      The approximately 255 kb duplication reported in family 1 spans
+      chr7:156437229-156692706 on hg19/GRCh37 and is POSTRE Table 1 patient
+      Nr6. Lohan et al. Table 1 gives the same interval. These are array-defined
+      bounds: junction sequencing established tandem orientation only for
+      families 2 and 5, not family 1. The interval includes the complete LMBR1
+      gene, its intronic ZRS enhancer, and several RNF32 exons; SHH remains
+      outside the duplication. The affected boy had complete hand syndactyly
+      diagnosed as Haas-type polysyndactyly, with no other abnormalities
+      recorded. This allele is distinct from the smaller Laurin-Sandrow
+      duplications in that study and from the pZRS point variant below.
+    gene:
+      preferred_term: LMBR1
+      term:
+        id: hgnc:13243
+        label: LMBR1
+    regulatory_target_gene:
+      preferred_term: SHH
+      term:
+        id: hgnc:10848
+        label: SHH
+    variant_type: duplication
+    genomic_contexts:
+    - coding sequence
+    - intron
+    - intergenic region
+    affected_regions:
+    - name: ZRS limb enhancer
+      regulatory_element_type: ENHANCER
+      within_gene:
+        preferred_term: LMBR1
+        term:
+          id: hgnc:13243
+          label: LMBR1
+      description: &gt;-
+        The intronic ZRS enhancer is duplicated along with the complete
+        LMBR1 gene and part of RNF32. The within-gene relation describes the
+        enhancer, not the entire duplicated interval.
+    clinical_significance: PATHOGENIC
+    functional_effects:
+    - function: limb-specific SHH regulation
+      description: &gt;-
+        The duplicated enhancer implicates SHH regulation, although this
+        patient&#39;s embryonic SHH expression was not measured. Coding overlap
+        refers to LMBR1 and RNF32, not to SHH; it does not by itself establish
+        a protein-dosage explanation for the limb phenotype.
+      regulatory_element_type: ENHANCER
+      affected_developmental_stage: embryonic limb development
+      regulatory_mechanism: &gt;-
+        Increased enhancer copy number and changed regulatory architecture
+        are candidate mechanisms; ectopic expression and enhancer adoption
+        were not demonstrated for this individual duplication.
+    evidence:
+    - reference: PMID:24456159
+      reference_title: &#34;Microduplications encompassing the Sonic hedgehog limb enhancer ZRS are associated with Haas-type polysyndactyly and Laurin-Sandrow syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        We show that larger duplications of the ZRS region (&gt;80 kb) are
+        associated with HTS, whereas smaller duplications (&lt;80 kb) result in
+        the LSS phenotype.
+      explanation: &gt;-
+        Supports the clinical class. The family 1 interval, array resolution,
+        gene overlap and clinical details were checked in the primary full
+        text and Table 1; the cached abstract does not list those coordinates
+        or provide an expression assay.
   - name: Heterozygous pre-ZRS point variant
     description: &gt;-
       The recurrent pZRS variant chr7:156585476G&gt;C (GRCh37/hg19;
@@ -9406,6 +10454,24 @@ genetic:
         id: hgnc:13243
         label: LMBR1
     type: single-nucleotide regulatory variant
+    variant_type: single nucleotide variant
+    genomic_contexts:
+    - intron
+    affected_regions:
+    - name: pre-ZRS regulatory region
+      within_gene:
+        preferred_term: LMBR1
+        term:
+          id: hgnc:13243
+          label: LMBR1
+      description: &gt;-
+        The point variant lies in conserved pZRS sequence within LMBR1
+        intron 5, near the ZRS enhancer. The enhancer itself is unchanged.
+    regulatory_target_gene:
+      preferred_term: SHH
+      term:
+        id: hgnc:10848
+        label: SHH
     clinical_significance: PATHOGENIC
     regulatory_category: GOE
     functional_effects:
@@ -9436,6 +10502,19 @@ genetic:
         Identifies the pZRS variant in every affected member of the studied
         TPT-PS family.
   evidence:
+  - reference: PMID:12837695
+    reference_title: &gt;-
+      A long-range Shh enhancer regulates expression in the developing limb and
+      fin and is associated with preaxial polydactyly.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The regulator, designated ZRS, lies within intron 5 of the Lmbr1 gene
+      1 Mb from the target gene Shh.
+    explanation: &gt;-
+      Locates the named enhancer within its host gene and distinguishes the
+      distant regulatory target. This supports the region&#39;s placement, not
+      the full extent of any duplication.
   - reference: PMID:18417549
     reference_title: &gt;-
       Triphalangeal thumb-polysyndactyly syndrome and syndactyly type IV are
@@ -9814,33 +10893,108 @@ phenotypes:
     explanation: &gt;-
       Directly documents absent patellae in the zeugopod-involving branch.
 pathophysiology:
-- name: ZRS or pZRS Regulatory Gain of Ectopic Expression
+- name: ZRS-Encompassing Duplication
   biological_scale: MOLECULAR
   role: trigger
+  genetic_context:
+    allele_type: heterozygous duplications encompassing the ZRS enhancer
+    variant_type: duplication
+    genomic_contexts:
+    - intron
+    affected_regions:
+    - name: ZRS limb enhancer
+      regulatory_element_type: ENHANCER
+      within_gene:
+        preferred_term: LMBR1
+        term:
+          id: hgnc:13243
+          label: LMBR1
+      description: &gt;-
+        The shared affected element is the ZRS enhancer in LMBR1 intron 5.
+        Individual duplications may extend beyond the enhancer and its host
+        gene; this relation does not constrain their full extent.
+    zygosity: HETEROZYGOUS
+    variant_origin: GERMLINE
   description: &gt;-
-    A heterozygous duplication encompassing ZRS or a pathogenic pZRS point
-    variant changes the activity of the limb-specific SHH enhancer domain.
-    This is a noncoding gain-of-ectopic-expression mechanism, not SHH protein
-    loss of function and not a coding LMBR1 defect.
+    Duplications add a copy of the ZRS enhancer within LMBR1 intron 5.
+    Some alleles also encompass LMBR1 coding sequence and adjacent genes;
+    intronic overlap is the context shared across this duplication class.
+    SHH is an intact, distant regulatory target. This physical trigger is
+    separate from the pre-ZRS point variant and its reporter experiments.
+  evidence:
+  - reference: PMID:24456159
+    reference_title: &#34;Microduplications encompassing the Sonic hedgehog limb enhancer ZRS are associated with Haas-type polysyndactyly and Laurin-Sandrow syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Here we report on five unrelated families with overlapping
+      microduplications encompassing the Sonic hedgehog (SHH) limb enhancer
+      ZPA regulatory sequence (ZRS) on chromosome 7q36.
+    explanation: &gt;-
+      Establishes the physical duplication and enhancer overlap in affected
+      families; it is not an embryonic expression assay.
+  downstream:
+  - target: Proposed SHH Misregulation after ZRS Duplication
+    causal_link_type: UNKNOWN
+    description: &gt;-
+      Duplicated enhancer sequence implicates altered SHH regulation, but the
+      route from enhancer copy number or rearranged contacts to the expression
+      pattern has not been established for these patient alleles.
+- name: Proposed SHH Misregulation after ZRS Duplication
+  biological_scale: MOLECULAR
+  mechanism_confidence: HYPOTHETICAL
+  regulatory_category: GOE
+  genes:
+  - preferred_term: SHH
+    term:
+      id: hgnc:10848
+      label: SHH
+  description: &gt;-
+    Ectopic embryonic SHH expression is proposed to explain the limb phenotype
+    of ZRS duplications by analogy with enhancer point variants. Lohan et al.
+    explicitly leave the duplication mechanism unresolved, including possible
+    expression-dosage or chromatin-architecture effects. This node does not
+    assert measured ectopic expression, increased transcription, or enhancer
+    adoption in family 1. The pZRS reporter and fibroblast contact assays below
+    concern a different allele class and do not establish this step.
+  downstream:
+  - target: Disrupted Digit Number and Identity Specification
+    causal_link_type: UNKNOWN
+    description: &gt;-
+      If the duplication alters the spatial SHH signal, it could disturb digit
+      patterning through the same developmental pathway implicated by point
+      variants. The regulatory intermediate remains inferred for duplications.
+- name: Pre-ZRS Single Nucleotide Variant
+  biological_scale: MOLECULAR
+  role: trigger
+  genetic_context:
+    allele_type: chr7:156585476G&gt;C on GRCh37/hg19
+    variant_type: single nucleotide variant
+    genomic_contexts:
+    - intron
+    affected_regions:
+    - name: pre-ZRS regulatory region
+      within_gene:
+        preferred_term: LMBR1
+        term:
+          id: hgnc:13243
+          label: LMBR1
+      description: &gt;-
+        The conserved pZRS sequence lies within LMBR1 intron 5 near ZRS.
+        The point variant changes pZRS sequence without altering ZRS itself.
+    zygosity: HETEROZYGOUS
+    variant_origin: GERMLINE
+  description: &gt;-
+    The heterozygous pZRS point variant changes sequence adjacent to the
+    limb-specific SHH enhancer in LMBR1 intron 5. LMBR1 is the intronic host;
+    SHH is the distant regulatory target. This allele has direct transgenic
+    reporter evidence for ectopic limb-bud regulatory activity.
   genes:
   - preferred_term: LMBR1
     term:
       id: hgnc:13243
       label: LMBR1
   evidence:
-  - reference: PMID:18417549
-    reference_title: &gt;-
-      Triphalangeal thumb-polysyndactyly syndrome and syndactyly type IV are
-      caused by genomic duplications involving the long range, limb-specific
-      SHH enhancer.
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      Point mutations in the ZRS and duplications encompassing the ZRS cause
-      distinctive limb phenotypes.
-    explanation: &gt;-
-      Establishes regulatory alteration of ZRS as a limb-patterning lesion and
-      distinguishes variant-class-specific phenotypes.
   - reference: PMID:29543231
     reference_title: &gt;-
       A point mutation in the pre-ZRS disrupts sonic hedgehog expression in
@@ -9857,8 +11011,8 @@ pathophysiology:
   - target: Ectopic Limb-Bud SHH Regulatory Activity
     causal_link_type: DIRECT
     description: &gt;-
-      Increased enhancer dosage or altered pZRS sequence directly changes the
-      spatial activity of the limb-specific SHH regulatory domain.
+      The pZRS sequence change alters the spatial activity of an enhancer
+      reporter in the developing mouse limb.
     evidence:
     - reference: PMID:29543231
       reference_title: &#34;A point mutation in the pre-ZRS disrupts sonic hedgehog expression in the limb bud and results in triphalangeal thumb-polysyndactyly syndrome.&#34;
@@ -9890,6 +11044,7 @@ pathophysiology:
         Supports the contact difference but not a complete causal mechanism or
         its fidelity to embryonic limb tissue.
 - name: Ectopic Limb-Bud SHH Regulatory Activity
+  regulatory_category: GOE
   conforms_to: &gt;-
     limb_digit_patterning_serial_homology#Limb Patterning Signal Perturbation
   biological_scale: MOLECULAR
@@ -9899,6 +11054,17 @@ pathophysiology:
     posterior zone of polarizing activity, extending activity across the limb
     bud. This establishes spatial gain of enhancer activity; it should not be
     overread as a measurement of endogenous human SHH protein abundance.
+  genes:
+  - preferred_term: SHH
+    description: &gt;-
+      The enhancer&#39;s distant target gene, bound here as the effector of the node
+      rather than as a disease gene of this entry: the lesions curated for this
+      spectrum are regulatory alterations of the ZRS element that drives SHH in
+      the limb bud, not SHH coding variants. The node records the spatial
+      activity of that element, not a measurement of SHH abundance.
+    term:
+      id: hgnc:10848
+      label: SHH
   biological_processes:
   - preferred_term: Smoothened signaling pathway
     term:
@@ -9948,11 +11114,11 @@ pathophysiology:
     intermediate_mechanisms:
     - strong ectopic SHH expression extending the patterning defect proximally from the autopod into the zeugopod
     description: &gt;-
-      Lesion class determines how far proximally the defect reaches. The ZRS
-      position-404 point variants drive strong ectopic SHH expression and add
-      zeugopod involvement, whereas complete ZRS duplications leave lower-limb
-      development unaffected. This is the branch point that separates Werner
-      mesomelic syndrome from the duplication phenotypes.
+      ZRS position-404 point variants drive strong ectopic SHH expression and
+      can add zeugopod involvement. The complete duplications in the 2009
+      comparison cohort did not affect lower-limb development. That observation
+      is allele-specific: the smaller Laurin-Sandrow duplications reported
+      subsequently do have tibia/fibula and lower-limb abnormalities.
     evidence:
     - reference: PMID:19847792
       reference_title: &#34;A specific mutation in the distant sonic hedgehog (SHH) cis-regulator (ZRS) causes Werner mesomelic syndrome (WMS) while complete ZRS duplications underlie Haas type polysyndactyly and preaxial polydactyly (PPD) with or without triphalangeal thumb.&#34;
@@ -9973,8 +11139,8 @@ pathophysiology:
         type Haas polysyndactyly or triphalangeal thumb-polysyndactyly syndrome,
         but do not affect lower limb development.
       explanation: &gt;-
-        The contrasting arm of the same study: duplications spare the zeugopod,
-        establishing this edge as lesion-class dependent rather than universal.
+        The duplications studied in this cohort spared the lower limbs;
+        this does not establish zeugopod sparing for every ZRS duplication.
 - name: Altered SHH-LMBR1 Regulatory-Domain Contacts
   biological_scale: MOLECULAR
   role: modifier
@@ -10495,32 +11661,25 @@ discussions:
       entities of this spectrum are not separable.
 - discussion_id: zrs_regulatory_element_not_groundable
   prompt: &gt;-
-    How should a disease entry ground its causal entity when that entity is a
-    cis-regulatory element rather than a gene?
+    Should named regulatory regions also carry persistent locus identifiers,
+    such as the existing NCBI Gene and OMIM identifiers for ZRS?
   kind: CURATION_TODO
   status: OPEN
   attaches_to:
   - genetic#ZRS/pZRS cis-regulatory locus controlling limb-specific SHH expression
-  - pathophysiology#ZRS or pZRS Regulatory Gain of Ectopic Expression
+  - pathophysiology#ZRS-Encompassing Duplication
+  - pathophysiology#Pre-ZRS Single Nucleotide Variant
   rationale: &gt;-
-    The causal entity for this spectrum is the ZRS enhancer. The LMBR1 protein is
-    a bystander - no LMBR1 coding variant causes any branch - and OMIM records
-    this by maintaining a separate locus entry for the enhancer (OMIM:620738,
-    NCBI Gene 105804841, Homo sapiens chromosome 7). The schema cannot express
-    that. The gene slot binds to the GeneTerm enum, which is HGNC-only, and HGNC
-    has no entry for ZRS because HGNC names genes; a lookup by NCBI Gene ID
-    returns nothing, and a search for the symbol returns LMBR1 as an alias. There
-    is no regulatory-element or genomic-feature descriptor in the schema:
-    regulatory_element_type records that an ENHANCER was disrupted but has no
-    companion slot for which enhancer. The entry is therefore grounded on
-    hgnc:13243 LMBR1, which reproduces the gene-centric conflation OMIM moved away
-    from. A regulatory_element_term slot alongside gene_term, rangeable over NCBI
-    Gene or OMIM locus entries, would fix this; ZRS is the canonical test case
-    because here the element is the disease locus and the gene is incidental.
-    Note also that the schema is internally inconsistent on this point:
-    GeneDescriptor is documented as &#34;bindable to HGNC or other gene databases&#34;,
-    while the gene_term slot is documented as &#34;The HGNC term for this gene&#34; and
-    the enum admits HGNC alone.
+    The affected_regions representation now names ZRS and pZRS directly and
+    records their location within LMBR1 without using the host gene as the
+    causal entity of the regional genetic record. OMIM maintains a separate
+    enhancer locus entry (OMIM:620738), and NCBI Gene identifies it as
+    105804841. Those identifiers remain in prose because GenomicRegion is
+    deliberately a qualitative named region rather than an ontology-bound
+    gene descriptor. Whether stable region identifiers would improve
+    cross-resource matching is a narrower remaining question; it does not
+    prevent naming the affected enhancer, locating it, or distinguishing the
+    intact SHH regulatory target.
 - discussion_id: lss_nasal_defects_outside_limb_enhancer_scope
   prompt: &gt;-
     How does a limb-specific enhancer produce the nasal defects reported in
@@ -10529,7 +11688,7 @@ discussions:
   status: OPEN
   attaches_to:
   - has_subtypes#Laurin-Sandrow Syndrome
-  - pathophysiology#Ectopic Limb-Bud SHH Regulatory Activity
+  - pathophysiology#Proposed SHH Misregulation after ZRS Duplication
   rationale: &gt;-
     Nasal defects are part of the clinical definition of Laurin-Sandrow syndrome,
     but every mechanism curated in this entry is limb-restricted. ZRS drives SHH
@@ -10631,7 +11790,7 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - pathophysiology#ZRS or pZRS Regulatory Gain of Ectopic Expression
+  - pathophysiology#Pre-ZRS Single Nucleotide Variant
   - pathophysiology#Altered SHH-LMBR1 Regulatory-Domain Contacts
   - pathophysiology#Ectopic Limb-Bud SHH Regulatory Activity
   rationale: &gt;-
@@ -10774,7 +11933,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ZRS-Related Limb Malformation", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ZRS-Related_Limb_Malformation", "yamlRevision": "8e266d3720f4"};
+        const OS_CONFIG = {"diseaseName": "ZRS-Related Limb Malformation", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ZRS-Related_Limb_Malformation", "yamlRevision": "518099a6d1fa"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

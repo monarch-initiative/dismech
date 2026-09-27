@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4259,6 +4327,7 @@ A second reason the entity is worth curating in its own right is the shape of it
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4280,6 +4349,7 @@ A second reason the entity is worth curating in its own right is the shape of it
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4533,6 +4603,7 @@ The node is marked accordingly, and the causal edge into it is supported by evid
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4554,6 +4625,7 @@ The node is marked accordingly, and the causal edge into it is supported by evid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4691,6 +4763,13 @@ Closing both gaps needs no new science - a follow-up report on the existing pati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ndufaf8-variant" data-dismech-node="Biallelic NDUFAF8 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NDUFAF8 Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion. Two allele classes have been reported and they are instructive in different ways.
 The first is a deep-intronic splicing variant, c.195+271C&gt;T, which the defining study found recurrently and which it explicitly flags as having been initially overlooked because of where it sits. That is a diagnostic warning with a general moral, drawn by the authors themselves: when a patient has one definitively pathogenic variant in a recessive gene and no second hit, the intronic sequence is where to look. The same allele is what links the Leigh and optic-atrophy cohorts.
 The second is c.44T&gt;G p.(L15R), which lies in the mitochondrial targeting sequence rather than in a functional domain, and is predicted to introduce a positive charge on the hydrophobic face of the amphipathic targeting helix. The consequence proposed for it is a failure of import rather than a failure of function, which is a different kind of loss-of-function claim and is modelled as its own node below.</div>
@@ -4753,6 +4832,8 @@ This pathophysiological event involves NDUFAF8 (hgnc:33551). hgnc:33551 is a gen
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4763,6 +4844,9 @@ This pathophysiological event involves NDUFAF8 (hgnc:33551). hgnc:33551 is a gen
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as loss of function on measured grounds rather than predicted ones: the deep-intronic allele was confirmed to induce transcript decay, and the cellular phenotype of the defining cohort was corrected by supplying wild-type NDUFAF8 cDNA. `zygosity` is deliberately unset at the disease level because it differs between reported families - compound heterozygous in the Leigh cohort, homozygous in the optic-atrophy families - and a single value would misdescribe one of them. Both are recorded in the `inheritance:` block instead.</div>
 
@@ -4810,6 +4894,7 @@ This pathophysiological event involves NDUFAF8 (hgnc:33551). hgnc:33551 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4831,6 +4916,7 @@ This pathophysiological event involves NDUFAF8 (hgnc:33551). hgnc:33551 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4858,6 +4944,7 @@ This pathophysiological event involves NDUFAF8 (hgnc:33551). hgnc:33551 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4880,6 +4967,13 @@ This pathophysiological event involves NDUFAF8 (hgnc:33551). hgnc:33551 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ndufaf8-abundance-in-mitochondria" data-dismech-node="Reduced NDUFAF8 Abundance in Mitochondria" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced NDUFAF8 Abundance in Mitochondria</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Whatever the allele class, the shared consequence is that less functional NDUFAF8 reaches the mitochondrial matrix. For the deep-intronic allele the route is transcript decay. For p.(L15R) the proposed route is import failure: the residue lies in the targeting sequence, and the 2026 study reports experimental support that the variant reduces NDUFAF8 abundance in mitochondria and impairs complex I assembly.
 The evidence for the abundance claim in that family is indirect and the entry should be read as saying so. Quantitative proteomics on the patient&#39;s fibroblasts did not detect NDUFAF8 at all in the batch, so the protein&#39;s own level was not measured; what was measured was a strong fall in NDUFAF5, which is the protein whose stability depends on NDUFAF8, and a moderate fall in complex I. That is a coherent read-out of NDUFAF8 loss through its obligate partner, and it is how the node is supported, but it is not a direct measurement of NDUFAF8.</div>
@@ -4970,6 +5064,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4991,6 +5086,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5018,6 +5114,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5042,6 +5139,13 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-ndufaf8-ndufaf5-early-assembly-module" data-dismech-node="Loss of the NDUFAF8-NDUFAF5 Early Assembly Module" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the NDUFAF8-NDUFAF5 Early Assembly Module</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">NDUFAF8 does not act alone, and this is the node that explains why an assembly-factor loss is not simply a slower assembly. NDUFAF8 was found in the first place as an interactor of NDUFAF5, and the dependency runs the other way too: NDUFAF5 requires NDUFAF8 for its stability, so NDUFAF8 loss removes both halves of the module. Together the two contribute to the early stabilisation of NDUFS7, a core subunit of the matrix Q module.
 The measured consequence in a patient is a NDUFAF5 level at 18 percent of control. That is the strongest quantitative statement available anywhere in this entity, and it is a measurement of the partner rather than of NDUFAF8.
@@ -5133,6 +5237,7 @@ This pathophysiological event involves decreased NDUFAF8-dependent stabilisation
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5154,6 +5259,7 @@ This pathophysiological event involves decreased NDUFAF8-dependent stabilisation
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5181,6 +5287,7 @@ This pathophysiological event involves decreased NDUFAF8-dependent stabilisation
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5203,6 +5310,13 @@ This pathophysiological event involves decreased NDUFAF8-dependent stabilisation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stalled-early-complex-i-assembly" data-dismech-node="Stalled Early Complex I Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Stalled Early Complex I Assembly</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Complex I is built stepwise from modular intermediates, and where a defect stalls that process is visible directly by complexome profiling. In NDUFAF8 patient fibroblasts the profile shows an assembly defect whose stalled intermediates place NDUFAF8&#39;s role early - consistent with the module&#39;s substrate being a core Q-module subunit rather than a late accessory addition.
 This is the node that separates MC1DN34 from a subunit deficiency. A missing subunit yields an enzyme that is assembled but incomplete or inactive; a missing early assembly factor yields an enzyme that never gets past an intermediate.</div>
@@ -5293,6 +5407,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5315,6 +5430,13 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isolated-complex-i-deficiency" data-dismech-node="Isolated Complex I Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Isolated Complex I Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The measured biochemical endpoint, and the phenotype the disease is named for. Patient fibroblasts express a complex I deficiency; the deficiency is isolated, meaning the other respiratory-chain complexes are spared, which is what an assembly factor dedicated to complex I predicts and what distinguishes this from the combined deficiencies caused by defects in mitochondrial gene expression. Lentiviral transduction with wild-type NDUFAF8 cDNA corrected both the assembly defect and the biochemical deficiency, which is the experiment that makes the gene causal rather than merely associated.
 Conformance note: the module node pairs decreased oxidative phosphorylation with increased reactive oxygen species. Only the first half is evidenced here - no reactive-oxygen measurement has been reported in an NDUFAF8 patient - and the ROS arm is not asserted. The module&#39;s upstream node, age-related mitochondrial damage and mtDNA mutation, does not apply to a primary nuclear-gene assembly defect, so conformance is declared at this node alone.</div>
@@ -5466,6 +5588,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5487,6 +5610,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5512,6 +5636,13 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-and-optic-nerve-degeneration" data-dismech-node="Retinal Ganglion Cell and Optic Nerve Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell and Optic Nerve Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The 2026 pole of the phenotype. Six patients with biallelic NDUFAF8 variants presented with optic atrophy, five of them with optic atrophy and nothing else; the sixth also had cerebellar ataxia and nystagmus. In six of the thirteen patients across the four assembly-factor genes in that cohort the vision loss was subacute, which is the pattern of Leber hereditary optic neuropathy, and NDUFAF8 was associated with the autosomal-recessive LHON phenotype for the first time.
 Marked PROVISIONAL rather than ESTABLISHED because the *cellular* claim in the node title is an inference. What was observed is optic atrophy in patients; retinal ganglion cell loss is the accepted substrate of optic atrophy in the mitochondrial optic neuropathies but was not measured in these patients, and no NDUFAF8 tissue has been examined.</div>
@@ -5606,6 +5737,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5627,6 +5759,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5652,6 +5785,13 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leigh-syndrome-encephalopathy" data-dismech-node="Leigh-Syndrome Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Leigh-Syndrome Encephalopathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The 2020 pole of the phenotype. All three subjects in the defining cohort carried a clinical diagnosis of Leigh syndrome - the commonest neurological presentation of paediatric mitochondrial disease, defined by symmetrical basal-ganglia, thalamic and brainstem lesions on neuroimaging together with loss of motor skills and delayed milestones.
 A scope note that matters for how this node should be read. The subjects&#39; Leigh diagnosis is directly stated in the source; the lesion distribution and developmental features are quoted from the source&#39;s definition of Leigh syndrome rather than from a description of these three children. The diagnosis entails those features, which is why they are recorded here, but no per-patient imaging or developmental description is available in the cached record. The `phenotypes:` block reflects that distinction: it curates the Leigh diagnosis, not a list of individually observed neurological signs.</div>
@@ -5691,6 +5831,7 @@ A scope note that matters for how this node should be read. The subjects&#39; Le
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5712,6 +5853,7 @@ A scope note that matters for how this node should be read. The subjects&#39; Le
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5760,7 +5902,7 @@ A scope note that matters for how this node should be read. The subjects&#39; Le
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic NDUFAF8 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Two allele classes have been reported and they are instructive in different ways.\\nThe first is a deep-intronic splicing variant, c.195+271C\u003eT, which the defining study found recurrently and which it explicitly flags as having been initially overlooked because of where it sits. That is a diagnostic warning with a general moral, drawn by the authors themselves: when a patient has one definitively pathogenic variant in a recessive gene and no second hit, the intronic sequence is where to look. The same allele is what links the Leigh and optic-atrophy cohorts.\\nThe second is c.44T\u003eG p.(L15R), which lies in the mitochondrial targeting sequence rather than in a functional domain, and is predicted to introduce a positive charge on the hydrophobic face of the amphipathic targeting helix. The consequence proposed for it is a failure of import rather than a failure of function, which is a different kind of loss-of-function claim and is modelled as its own node below.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFAF8\"], \"gene_terms\": [{\"label\": \"NDUFAF8\", \"id\": \"hgnc:33551\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as loss of function on measured grounds rather than predicted ones: the deep-intronic allele was confirmed to induce transcript decay, and the cellular phenotype of the defining cohort was corrected by supplying wild-type NDUFAF8 cDNA. `zygosity` is deliberately unset at the disease level because it differs between reported families - compound heterozygous in the Leigh cohort, homozygous in the optic-atrophy families - and a single value would misdescribe one of them. Both are recorded in the `inheritance:` block instead.\"}, \"role\": \"trigger\"}}, {\"id\": \"Idebenone for the Optic Neuropathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only treatment with any published relationship to this disease, and it is a recommendation rather than a result.\\nThe 2026 series that found the optic-atrophy pole of NDUFAF8 disease concludes that patients with nuclear complex I optic neuropathy may benefit from idebenone, dosed as it is for Leber hereditary optic neuropathy - where it is an approved therapy. The same paper reports what its cohort actually experienced, and the honest reading is discouraging: visual improvement was variable, with only three of thirteen patients showing some degree of response.\\nThree limits on how far this should be taken. The three-of-thirteen figure sits in a paragraph describing the whole thirty-one-patient series, directly after the sentence listing which drugs were used, so the thirteen are most plausibly the patients who received idebenone - the cache does not say. What it is emphatically not is thirteen NDUFAF8 patients, and it should not be read as the paper\u0027s thirteen assembly-factor patients either, even though that group happens to number thirteen too: taking the coincidence for a match would imply six of the treated thirteen carry NDUFAF8, a far tighter link than anything the paper states. No response rate can be attributed to this genotype from it. No NDUFAF8 patient\u0027s individual treatment or outcome is reported anywhere. And nothing has been reported at all for the Leigh-syndrome pole, where an optic-nerve-directed therapy would not address the encephalopathy. This block records a recommendation the literature makes for a class this disease belongs to; it is not evidence that idebenone helps MC1DN34.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"idebenone\"]}}, {\"id\": \"Isolated Complex I Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured biochemical endpoint, and the phenotype the disease is named for. Patient fibroblasts express a complex I deficiency; the deficiency is isolated, meaning the other respiratory-chain complexes are spared, which is what an assembly factor dedicated to complex I predicts and what distinguishes this from the combined deficiencies caused by defects in mitochondrial gene expression. Lentiviral transduction with wild-type NDUFAF8 cDNA corrected both the assembly defect and the biochemical deficiency, which is the experiment that makes the gene causal rather than merely associated.\\nConformance note: the module node pairs decreased oxidative phosphorylation with increased reactive oxygen species. Only the first half is evidenced here - no reactive-oxygen measurement has been reported in an NDUFAF8 patient - and the ROS arm is not asserted. The module\u0027s upstream node, age-related mitochondrial damage and mtDNA mutation, does not apply to a primary nuclear-gene assembly defect, so conformance is declared at this node alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"NDUFAF8 patient fibroblast complementation\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Supplying wild-type NDUFAF8 corrected both the assembly defect and the biochemical deficiency in the patients\u0027 own cells, which excludes a coincidental variant and localises the deficit to this gene.\"}]}}, {\"id\": \"Leigh-Syndrome Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 2020 pole of the phenotype. All three subjects in the defining cohort carried a clinical diagnosis of Leigh syndrome - the commonest neurological presentation of paediatric mitochondrial disease, defined by symmetrical basal-ganglia, thalamic and brainstem lesions on neuroimaging together with loss of motor skills and delayed milestones.\\nA scope note that matters for how this node should be read. The subjects\u0027 Leigh diagnosis is directly stated in the source; the lesion distribution and developmental features are quoted from the source\u0027s definition of Leigh syndrome rather than from a description of these three children. The diagnosis entails those features, which is why they are recorded here, but no per-patient imaging or developmental description is available in the cached record. The `phenotypes:` block reflects that distinction: it curates the Leigh diagnosis, not a list of individually observed neurological signs.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Loss of the NDUFAF8-NDUFAF5 Early Assembly Module\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDUFAF8 does not act alone, and this is the node that explains why an assembly-factor loss is not simply a slower assembly. NDUFAF8 was found in the first place as an interactor of NDUFAF5, and the dependency runs the other way too: NDUFAF5 requires NDUFAF8 for its stability, so NDUFAF8 loss removes both halves of the module. Together the two contribute to the early stabilisation of NDUFS7, a core subunit of the matrix Q module.\\nThe measured consequence in a patient is a NDUFAF5 level at 18 percent of control. That is the strongest quantitative statement available anywhere in this entity, and it is a measurement of the partner rather than of NDUFAF8.\\nThe GO binding here is deliberately not the complex I assembly term its neighbouring nodes carry. What this node asserts is narrower and prior to assembly: NDUFAF8 holding NDUFAF5 stable, measured as an 82 percent fall in NDUFAF5 when NDUFAF8 is lost. Protein stabilization is what that is, and using it keeps the three nodes in this stretch of the chain distinguishable rather than tagging all of them with the same process.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"NDUFAF8-dependent stabilisation of NDUFAF5\"], \"role\": \"central_effector\"}}, {\"id\": \"NDUFAF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFAF8\"], \"gene_terms\": [{\"label\": \"NDUFAF8\", \"id\": \"hgnc:33551\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NDUFAF8 patient fibroblast complementation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from the three Leigh-syndrome subjects, transduced with wild-type NDUFAF8 cDNA. This is the experiment that converted a candidate gene into a disease gene, and it is the only functional work reported in cells from a patient with this disorder. There is no NDUFAF8 animal model, no knockout cell line reported in a disease context, and no patient tissue.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in six patients from three families in the 2026 cohort, isolated in five of them, with subacute onset in a proportion of the assembly-factor patients - a Leber-like rather than an insidious dominant-optic-atrophy picture.\\nIt is not confined to that cohort. As an uncited lead from the deep-research report committed with this entry: the 2020 Leigh cohort\u0027s subject 1 had optic atrophy and visual impairment, and its subject 2 had small optic nerves and nystagmus. The evidence item below cites only the 2026 cohort because that is what is snippet-verifiable, but the phenotype should not be read as belonging to the mild pole alone.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Reduced NDUFAF8 Abundance in Mitochondria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whatever the allele class, the shared consequence is that less functional NDUFAF8 reaches the mitochondrial matrix. For the deep-intronic allele the route is transcript decay. For p.(L15R) the proposed route is import failure: the residue lies in the targeting sequence, and the 2026 study reports experimental support that the variant reduces NDUFAF8 abundance in mitochondria and impairs complex I assembly.\\nThe evidence for the abundance claim in that family is indirect and the entry should be read as saying so. Quantitative proteomics on the patient\u0027s fibroblasts did not detect NDUFAF8 at all in the batch, so the protein\u0027s own level was not measured; what was measured was a strong fall in NDUFAF5, which is the protein whose stability depends on NDUFAF8, and a moderate fall in complex I. That is a coherent read-out of NDUFAF8 loss through its obligate partner, and it is how the node is supported, but it is not a direct measurement of NDUFAF8.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"role\": \"central_effector\"}}, {\"id\": \"Retinal Ganglion Cell and Optic Nerve Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 2026 pole of the phenotype. Six patients with biallelic NDUFAF8 variants presented with optic atrophy, five of them with optic atrophy and nothing else; the sixth also had cerebellar ataxia and nystagmus. In six of the thirteen patients across the four assembly-factor genes in that cohort the vision loss was subacute, which is the pattern of Leber hereditary optic neuropathy, and NDUFAF8 was associated with the autosomal-recessive LHON phenotype for the first time.\\nMarked PROVISIONAL rather than ESTABLISHED because the *cellular* claim in the node title is an inference. What was observed is optic atrophy in patients; retinal ganglion cell loss is the accepted substrate of optic atrophy in the mitochondrial optic neuropathies but was not measured in these patients, and no NDUFAF8 tissue has been examined.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"], \"role\": \"effector\", \"locations\": [\"optic nerve\"]}}, {\"id\": \"Stalled Early Complex I Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I is built stepwise from modular intermediates, and where a defect stalls that process is visible directly by complexome profiling. In NDUFAF8 patient fibroblasts the profile shows an assembly defect whose stalled intermediates place NDUFAF8\u0027s role early - consistent with the module\u0027s substrate being a core Q-module subunit rather than a late accessory addition.\\nThis is the node that separates MC1DN34 from a subunit deficiency. A missing subunit yields an enzyme that is assembled but incomplete or inactive; a missing early assembly factor yields an enzyme that never gets past an intermediate.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Biallelic NDUFAF8 Variant\", \"target\": \"Reduced NDUFAF8 Abundance in Mitochondria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced NDUFAF8 Abundance in Mitochondria\", \"target\": \"Loss of the NDUFAF8-NDUFAF5 Early Assembly Module\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the NDUFAF8-NDUFAF5 Early Assembly Module\", \"target\": \"Stalled Early Complex I Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stalled Early Complex I Assembly\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Retinal Ganglion Cell and Optic Nerve Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Why complex I failure selects retinal ganglion cells is the central unsolved question of the inherited optic neuropathies generally, and no NDUFAF8-specific work addresses it. The edge is typed as having unknown intermediates for that reason.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Leigh-Syndrome Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from a generalised bioenergetic deficit to the specific symmetrical brainstem and basal-ganglia lesions of Leigh syndrome is not established for NDUFAF8 or for complex I deficiency as a class.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Idebenone for the Optic Neuropathy\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Idebenone for the Optic Neuropathy\", \"target\": \"Optic Atrophy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NDUFAF8 patient fibroblast complementation\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Supplying wild-type NDUFAF8 corrected both the assembly defect and the biochemical deficiency in the patients\u0027 own cells, which excludes a coincidental variant and localises the deficit to this gene.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are neither brain nor retinal ganglion cell, and neither affected tissue has been studied. The rescue establishes causality; it says nothing about why the basal ganglia or the optic nerve are the organs that fail, nor about why the same gene produces two such different clinical pictures.\"}, {\"source\": \"NDUFAF8\", \"target\": \"Biallelic NDUFAF8 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic NDUFAF8 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Two allele classes have been reported and they are instructive in different ways.\\nThe first is a deep-intronic splicing variant, c.195+271C\u003eT, which the defining study found recurrently and which it explicitly flags as having been initially overlooked because of where it sits. That is a diagnostic warning with a general moral, drawn by the authors themselves: when a patient has one definitively pathogenic variant in a recessive gene and no second hit, the intronic sequence is where to look. The same allele is what links the Leigh and optic-atrophy cohorts.\\nThe second is c.44T\u003eG p.(L15R), which lies in the mitochondrial targeting sequence rather than in a functional domain, and is predicted to introduce a positive charge on the hydrophobic face of the amphipathic targeting helix. The consequence proposed for it is a failure of import rather than a failure of function, which is a different kind of loss-of-function claim and is modelled as its own node below.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFAF8\"], \"gene_terms\": [{\"label\": \"NDUFAF8\", \"id\": \"hgnc:33551\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as loss of function on measured grounds rather than predicted ones: the deep-intronic allele was confirmed to induce transcript decay, and the cellular phenotype of the defining cohort was corrected by supplying wild-type NDUFAF8 cDNA. `zygosity` is deliberately unset at the disease level because it differs between reported families - compound heterozygous in the Leigh cohort, homozygous in the optic-atrophy families - and a single value would misdescribe one of them. Both are recorded in the `inheritance:` block instead.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Idebenone for the Optic Neuropathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only treatment with any published relationship to this disease, and it is a recommendation rather than a result.\\nThe 2026 series that found the optic-atrophy pole of NDUFAF8 disease concludes that patients with nuclear complex I optic neuropathy may benefit from idebenone, dosed as it is for Leber hereditary optic neuropathy - where it is an approved therapy. The same paper reports what its cohort actually experienced, and the honest reading is discouraging: visual improvement was variable, with only three of thirteen patients showing some degree of response.\\nThree limits on how far this should be taken. The three-of-thirteen figure sits in a paragraph describing the whole thirty-one-patient series, directly after the sentence listing which drugs were used, so the thirteen are most plausibly the patients who received idebenone - the cache does not say. What it is emphatically not is thirteen NDUFAF8 patients, and it should not be read as the paper\u0027s thirteen assembly-factor patients either, even though that group happens to number thirteen too: taking the coincidence for a match would imply six of the treated thirteen carry NDUFAF8, a far tighter link than anything the paper states. No response rate can be attributed to this genotype from it. No NDUFAF8 patient\u0027s individual treatment or outcome is reported anywhere. And nothing has been reported at all for the Leigh-syndrome pole, where an optic-nerve-directed therapy would not address the encephalopathy. This block records a recommendation the literature makes for a class this disease belongs to; it is not evidence that idebenone helps MC1DN34.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"idebenone\"]}}, {\"id\": \"Isolated Complex I Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured biochemical endpoint, and the phenotype the disease is named for. Patient fibroblasts express a complex I deficiency; the deficiency is isolated, meaning the other respiratory-chain complexes are spared, which is what an assembly factor dedicated to complex I predicts and what distinguishes this from the combined deficiencies caused by defects in mitochondrial gene expression. Lentiviral transduction with wild-type NDUFAF8 cDNA corrected both the assembly defect and the biochemical deficiency, which is the experiment that makes the gene causal rather than merely associated.\\nConformance note: the module node pairs decreased oxidative phosphorylation with increased reactive oxygen species. Only the first half is evidenced here - no reactive-oxygen measurement has been reported in an NDUFAF8 patient - and the ROS arm is not asserted. The module\u0027s upstream node, age-related mitochondrial damage and mtDNA mutation, does not apply to a primary nuclear-gene assembly defect, so conformance is declared at this node alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"NDUFAF8 patient fibroblast complementation\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Supplying wild-type NDUFAF8 corrected both the assembly defect and the biochemical deficiency in the patients\u0027 own cells, which excludes a coincidental variant and localises the deficit to this gene.\"}]}}, {\"id\": \"Leigh-Syndrome Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 2020 pole of the phenotype. All three subjects in the defining cohort carried a clinical diagnosis of Leigh syndrome - the commonest neurological presentation of paediatric mitochondrial disease, defined by symmetrical basal-ganglia, thalamic and brainstem lesions on neuroimaging together with loss of motor skills and delayed milestones.\\nA scope note that matters for how this node should be read. The subjects\u0027 Leigh diagnosis is directly stated in the source; the lesion distribution and developmental features are quoted from the source\u0027s definition of Leigh syndrome rather than from a description of these three children. The diagnosis entails those features, which is why they are recorded here, but no per-patient imaging or developmental description is available in the cached record. The `phenotypes:` block reflects that distinction: it curates the Leigh diagnosis, not a list of individually observed neurological signs.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of the NDUFAF8-NDUFAF5 Early Assembly Module\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDUFAF8 does not act alone, and this is the node that explains why an assembly-factor loss is not simply a slower assembly. NDUFAF8 was found in the first place as an interactor of NDUFAF5, and the dependency runs the other way too: NDUFAF5 requires NDUFAF8 for its stability, so NDUFAF8 loss removes both halves of the module. Together the two contribute to the early stabilisation of NDUFS7, a core subunit of the matrix Q module.\\nThe measured consequence in a patient is a NDUFAF5 level at 18 percent of control. That is the strongest quantitative statement available anywhere in this entity, and it is a measurement of the partner rather than of NDUFAF8.\\nThe GO binding here is deliberately not the complex I assembly term its neighbouring nodes carry. What this node asserts is narrower and prior to assembly: NDUFAF8 holding NDUFAF5 stable, measured as an 82 percent fall in NDUFAF5 when NDUFAF8 is lost. Protein stabilization is what that is, and using it keeps the three nodes in this stretch of the chain distinguishable rather than tagging all of them with the same process.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"NDUFAF8-dependent stabilisation of NDUFAF5\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"NDUFAF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFAF8\"], \"gene_terms\": [{\"label\": \"NDUFAF8\", \"id\": \"hgnc:33551\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NDUFAF8 patient fibroblast complementation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from the three Leigh-syndrome subjects, transduced with wild-type NDUFAF8 cDNA. This is the experiment that converted a candidate gene into a disease gene, and it is the only functional work reported in cells from a patient with this disorder. There is no NDUFAF8 animal model, no knockout cell line reported in a disease context, and no patient tissue.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in six patients from three families in the 2026 cohort, isolated in five of them, with subacute onset in a proportion of the assembly-factor patients - a Leber-like rather than an insidious dominant-optic-atrophy picture.\\nIt is not confined to that cohort. As an uncited lead from the deep-research report committed with this entry: the 2020 Leigh cohort\u0027s subject 1 had optic atrophy and visual impairment, and its subject 2 had small optic nerves and nystagmus. The evidence item below cites only the 2026 cohort because that is what is snippet-verifiable, but the phenotype should not be read as belonging to the mild pole alone.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Reduced NDUFAF8 Abundance in Mitochondria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whatever the allele class, the shared consequence is that less functional NDUFAF8 reaches the mitochondrial matrix. For the deep-intronic allele the route is transcript decay. For p.(L15R) the proposed route is import failure: the residue lies in the targeting sequence, and the 2026 study reports experimental support that the variant reduces NDUFAF8 abundance in mitochondria and impairs complex I assembly.\\nThe evidence for the abundance claim in that family is indirect and the entry should be read as saying so. Quantitative proteomics on the patient\u0027s fibroblasts did not detect NDUFAF8 at all in the batch, so the protein\u0027s own level was not measured; what was measured was a strong fall in NDUFAF5, which is the protein whose stability depends on NDUFAF8, and a moderate fall in complex I. That is a coherent read-out of NDUFAF8 loss through its obligate partner, and it is how the node is supported, but it is not a direct measurement of NDUFAF8.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Retinal Ganglion Cell and Optic Nerve Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 2026 pole of the phenotype. Six patients with biallelic NDUFAF8 variants presented with optic atrophy, five of them with optic atrophy and nothing else; the sixth also had cerebellar ataxia and nystagmus. In six of the thirteen patients across the four assembly-factor genes in that cohort the vision loss was subacute, which is the pattern of Leber hereditary optic neuropathy, and NDUFAF8 was associated with the autosomal-recessive LHON phenotype for the first time.\\nMarked PROVISIONAL rather than ESTABLISHED because the *cellular* claim in the node title is an inference. What was observed is optic atrophy in patients; retinal ganglion cell loss is the accepted substrate of optic atrophy in the mitochondrial optic neuropathies but was not measured in these patients, and no NDUFAF8 tissue has been examined.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"], \"role\": \"effector\", \"locations\": [\"optic nerve\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Stalled Early Complex I Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex I is built stepwise from modular intermediates, and where a defect stalls that process is visible directly by complexome profiling. In NDUFAF8 patient fibroblasts the profile shows an assembly defect whose stalled intermediates place NDUFAF8\u0027s role early - consistent with the module\u0027s substrate being a core Q-module subunit rather than a late accessory addition.\\nThis is the node that separates MC1DN34 from a subunit deficiency. A missing subunit yields an enzyme that is assembled but incomplete or inactive; a missing early assembly factor yields an enzyme that never gets past an intermediate.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Biallelic NDUFAF8 Variant\", \"target\": \"Reduced NDUFAF8 Abundance in Mitochondria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced NDUFAF8 Abundance in Mitochondria\", \"target\": \"Loss of the NDUFAF8-NDUFAF5 Early Assembly Module\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the NDUFAF8-NDUFAF5 Early Assembly Module\", \"target\": \"Stalled Early Complex I Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stalled Early Complex I Assembly\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Retinal Ganglion Cell and Optic Nerve Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Why complex I failure selects retinal ganglion cells is the central unsolved question of the inherited optic neuropathies generally, and no NDUFAF8-specific work addresses it. The edge is typed as having unknown intermediates for that reason.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Leigh-Syndrome Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from a generalised bioenergetic deficit to the specific symmetrical brainstem and basal-ganglia lesions of Leigh syndrome is not established for NDUFAF8 or for complex I deficiency as a class.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Idebenone for the Optic Neuropathy\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Idebenone for the Optic Neuropathy\", \"target\": \"Optic Atrophy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NDUFAF8 patient fibroblast complementation\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Supplying wild-type NDUFAF8 corrected both the assembly defect and the biochemical deficiency in the patients\u0027 own cells, which excludes a coincidental variant and localises the deficit to this gene.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are neither brain nor retinal ganglion cell, and neither affected tissue has been studied. The rescue establishes causality; it says nothing about why the basal ganglia or the optic nerve are the organs that fail, nor about why the same gene produces two such different clinical pictures.\"}, {\"source\": \"NDUFAF8\", \"target\": \"Biallelic NDUFAF8 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5783,7 +5925,9 @@ A scope note that matters for how this node should be read. The subjects&#39; Le
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Cellular<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5824,6 +5968,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5838,6 +5985,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5865,6 +6013,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5886,6 +6035,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5940,6 +6090,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5954,6 +6107,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6017,6 +6171,9 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6031,6 +6188,7 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6062,8 +6220,8 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    Cellular
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-activity-of-mitochondrial-complex-i" data-dismech-node="Decreased Activity of Mitochondrial Complex I" data-dismech-type="phenotype">
@@ -6094,6 +6252,9 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6108,6 +6269,7 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6134,12 +6296,24 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-leigh-syndrome" data-dismech-node="Leigh Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Leigh Syndrome
 
 
                     </div>
+
+
+
 
 
 
@@ -6159,6 +6333,7 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6259,6 +6434,9 @@ This disease-associated gene is NDUFAF8 (hgnc:33551). hgnc:33551 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6273,6 +6451,7 @@ This disease-associated gene is NDUFAF8 (hgnc:33551). hgnc:33551 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6300,6 +6479,7 @@ This disease-associated gene is NDUFAF8 (hgnc:33551). hgnc:33551 is a gene from 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6321,6 +6501,7 @@ This disease-associated gene is NDUFAF8 (hgnc:33551). hgnc:33551 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6428,6 +6609,9 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6438,6 +6622,9 @@ This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -6476,6 +6663,7 @@ Three limits on how far this should be taken. The three-of-thirteen figure sits 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6544,6 +6732,7 @@ This treatment targets Optic atrophy (HP:0000648). HP:0000648 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6565,6 +6754,7 @@ This treatment targets Optic atrophy (HP:0000648). HP:0000648 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6627,6 +6817,7 @@ This treatment targets Optic atrophy (HP:0000648). HP:0000648 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6698,6 +6889,7 @@ The second is that a patient with apparently isolated optic atrophy and no mitoc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6719,6 +6911,7 @@ The second is that a patient with apparently isolated optic atrophy and no mitoc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6797,6 +6990,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6821,6 +7015,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6842,6 +7037,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6929,6 +7125,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6950,6 +7147,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7008,6 +7206,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7029,6 +7228,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7147,6 +7347,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7186,6 +7387,7 @@ For context on the class rather than on this entity: complex I deficiency is the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8827,6 +9029,46 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">What this entry deliberately does not contain, and why.
+There is no `progression:` block. Age of onset and clinical course are reported in the defining paper and simply cannot be quoted, because that paper&#39;s cached record is abstract-only; the values are recorded as uncited leads in an open discussion instead, which is not the same as saying the course is unknown.
+The `treatments:` block holds one entry and it is deliberately narrow: a recommendation that patients with nuclear complex I optic neuropathy may benefit from idebenone, made by the 2026 series, with that series&#39; own three-in-thirteen response figure attached as a qualification. No NDUFAF8 patient&#39;s treatment or outcome is individually reported anywhere, and nothing is reported for the Leigh pole. The Leigh management literature and the LHON idebenone trial literature both offer ready-made content that would look right here; importing either would assert of these patients something recorded only of other people with other genotypes, and in the exported graph the borrowed annotation would be indistinguishable from an observed one.
+The `phenotypes:` block curates the Leigh diagnosis rather than a decomposition of it into HPO signs. The source states the diagnosis in all three subjects and separately defines the syndrome; it does not describe any individual child&#39;s imaging or development. Listing basal-ganglia lesions, developmental delay and loss of motor skills as separate observed phenotypes would convert a definitional statement into three clinical observations.
+On treating the two cohorts as one disease. The 2020 Leigh cohort and the 2026 optic-atrophy cohort could have been curated as two entities. They are curated as one here for two reasons. They share the recurrent allele c.195+271C&gt;T, which the 2026 paper explicitly identifies as previously reported in the Leigh families - a shared allele across two phenotypes is a range within one gene-defined entity, not two diseases. And they share the affected tissue: the deep-research report committed with this entry records optic atrophy, visual impairment, small optic nerves and nystagmus among the 2020 subjects, so the optic nerve is involved at both ends of the severity range rather than defining one end of it. The question that decision leaves open - what determines how far beyond the optic nerve the disease extends - is the entry&#39;s first discussion.
+On the treatment gap, stated the way it is actually true. There is no NDUFAF8-specific trial, and no per-patient treatment response is separable from the cohort data - the 2026 series&#39; three-in-thirteen figure sits in a whole-cohort paragraph with the per-patient breakdown in a supplementary table that is not in the reference cache. So this entry does not claim that any individual NDUFAF8 patient received idebenone, or responded to it. What it claims is that idebenone is recommended for the gene class these patients belong to, with a stated mechanistic rationale, which is what the `treatments:` block records.
+On GeneReviews. PMID:26425749 (&#34;Nuclear Gene-Encoded Leigh Syndrome Spectrum Overview&#34;) is the applicable chapter for the Leigh pole of this disease and is tagged in the top-level `references:` block, following the sibling entries MC1DN2 and MC1DN6. It is deliberately not cited as evidence anywhere: its cached record carries only the chapter&#39;s statement of purpose and no clinical content, so any snippet from it would attest to the chapter&#39;s aims rather than to a fact about NDUFAF8 disease.
+On the deep-research report. Several statements above are attributed to `research/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_34-deep-research-falcon.md`, which is committed with this entry and had full-text access to the 2020 paper that the reference cache holds only as an abstract. Everything taken from it is labelled an uncited lead and appears only in prose - never in an evidence `snippet:`, a structured slot, or a phenotype binding. Its Named Entity Confusion preflight passes on the gene (NDUFAF8 mentioned 61 times, the next gene being its partner NDUFAF5 at 10); the preflight&#39;s one warning is that the report cites OMIM 256000, which is Leigh syndrome, the parent phenotype, rather than 618776 for this entity - an imprecision about nomenclature, not a different disease.
+On the mechanism chain. Two links in it are inferences rather than measurements, and both are marked. The step from the p.(L15R) targeting-sequence variant to reduced mitochondrial NDUFAF8 is a structural prediction supported by an indirect proteomic observation, since NDUFAF8 itself was not detected in the assay. The elegant two-step import pathway that would explain that step was worked out in cell lines and has never been tested on a patient variant; it is cited for what it establishes about the protein, and its untested relation to this disease is an open HUMAN_MODEL_MISMATCH discussion rather than a curated causal claim.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Mitochondrial Complex I Deficiency, Nuclear Type 34 (NDUFAF8)</strong> · 2026-08-28T18:51:12Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_34/2026-08-28T185112Z-claude-code-20f041.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MC1DN34 (MONDO:0032910, NDUFAF8 / hgnc:33551) as a standalone kb/disorders Disease entry.
+
+entry_type decision: DISEASE. One causal gene, no MONDO descendants, a single conserved pathograph (assembly-factor loss -&gt; stalled early complex I assembly -&gt; isolated complex I deficiency), and five sibling &#34;mitochondrial complex I deficiency, nuclear type N&#34; entries already curated as standalone Disease entries. Curated to match the shape of Mitochondrial_Complex_I_Deficiency_Nuclear_Type_24, including its convention of recording full-text-only facts as explicitly labelled uncited leads rather than as evidence.
+
+Sources: PMID:31866046 (Alston 2020, defining Leigh-syndrome cohort; abstract_only in cache), PMID:41234160 (2026 Brain series associating NDUFAF8 with recessive optic atrophy / arLHON; full text), PMID:37159021 (Peker 2023, two-step NDUFAF8 import pathway; full text), PMID:27499296 (C17orf89 validated as a complex I assembly factor), PMID:22972949 (class-level context).
+
+Scope call: the 2020 Leigh cohort and the 2026 optic-atrophy cohort are curated as one gene-defined entity, not two. They share the recurrent deep-intronic allele c.195+271C&gt;T, and the deep-research report (which read the full text of the 2020 paper) records optic atrophy, visual impairment, small optic nerves and nystagmus among the 2020 subjects, so the optic nerve is involved at both ends of the severity range rather than defining one end of it.
+
+Deliberate omissions: no treatments block (none reported anywhere, including in full text) and no progression block (reported in the 2020 full text but not snippet-verifiable from the abstract-only cached record). The distinction between those two kinds of absence is recorded in an open KNOWLEDGE_GAP discussion together with the uncited outcome values.
+
+Discussions: OPEN_QUESTION on what determines how far beyond the optic nerve the disease extends; HUMAN_MODEL_MISMATCH on the untested relation between the cell-line two-step import pathway and the patient targeting-sequence allele p.(L15R); KNOWLEDGE_GAP on treatment and natural history.
+
+Deep research: falcon. NEC preflight WARN with the gene clearly dominant (NDUFAF8=61, next gene NDUFAF5=10); the sole warning is that the report cites OMIM 256000, Leigh syndrome, the parent phenotype, rather than 618776 for this entity. Report and citations sidecar committed under research/.
+
+Validation: just validate exit 0; just validate-terms exit 0; 37/37 snippets verified; check-entity-refs and check-duplicate-keys exit 0.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -61,3 +61,8 @@ only describes drinking-associated risk remains a behavioral exposure.
 Record the reason for an ambiguous binding in `notes`, not `description`. Do not
 migrate between a pair without checking that the entry name and mechanistic
 claim both support the destination.
+
+When that reason is "nothing more specific exists", write the query and what it
+returned rather than the conclusion — see step 3a of the skill (dismech#7835). A
+bare assertion that a search was run passes every check in the stack while
+telling the next reviewer not to re-run it.

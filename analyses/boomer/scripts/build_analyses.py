@@ -1,6 +1,6 @@
 """Generate one boomer analysis folder per grounded dismech disorder.
 
-For every `kb/disorders/` entry whose `disease_term` and at least one
+By default, for every `kb/disorders/` entry whose `disease_term` and at least one
 `has_subtypes[].subtype_term` are grounded in MONDO, this assembles a single
 knowledge base holding everything that bears on that entry's grounding:
 
@@ -13,6 +13,10 @@ knowledge base holding everything that bears on that entry's grounding:
 * **mappings** -- one identity claim per grounded term, as probabilistic facts,
   each with the competing `ProperSubClassOf` readings in both directions
 
+`--scope mendelian` includes grounded Mendelian entries even without subtypes;
+`--scope expanded` takes their union with the legacy subtype cohort. Selection
+uses the KB's explicit `category: Mendelian` designation. `--add-only --index ...` preserves existing results.
+
 One KB per *disorder* rather than per pair is deliberate: an entry's subtypes all
 share a parent, so solving them together lets a conflict in one subtype bear on
 the others. It also matches how a curator reads the result -- "what does boomer
@@ -21,17 +25,15 @@ say about this disease".
 Each folder gets:
 
     README.md      what was checked, per-subtype verdicts, what boomer did
+    proxy-merges.json  MONDO xref annotations, decisions, and source provenance
     kb.yaml        the boomer input, runnable as
-                   `pyboomer solve kb.yaml -t 60 -C 6`
+                   `pyboomer solve kb.yaml -t 60`
     solution.yaml  boomer's output, machine-readable
     solution.md    boomer's output, rendered
 
-`-C 6` is not optional in the reproduction command. The partitioning that makes
-these KBs tractable is a solver setting, not something serialised into kb.yaml, so
-a plain `pyboomer solve kb.yaml` runs at boomer's default and times out on
-anything past a handful of subtypes. The CLI has no flag for
-`partition_initial_threshold`, but `--max-pfacts-per-clique` triggers the same
-partitioning and reproduces these results exactly.
+Always set a timeout. `-C` limits hypotheses per clique and may remove interacting
+hypotheses; lowering it is not a semantics-preserving performance optimization.
+`--with-icd10` adds directional ICD mappings to Mendelian entries only.
 
 Usage:
     uv run --with networkx python analyses/boomer/scripts/build_analyses.py \
@@ -57,6 +59,9 @@ import yaml
 OAK_DIR = Path.home() / ".data/oaklib"
 MONDO_DB = OAK_DIR / "mondo.db"
 REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from dismech import kb_cache
 
 # External vocabularies reachable from MONDO by CONFIRMED equivalency, for which a
 # local semantic-sql build exists so their OWN hierarchy can be consulted. This is
@@ -120,6 +125,15 @@ class Mondo:
         self._label: dict[str, str] = {}
         self._anc: dict[str, set[str]] = {}
 
+    def versions(self):
+        return sorted(
+            obj or value
+            for obj, value in self.con.execute(
+                "SELECT object, value FROM statements WHERE predicate='owl:versionIRI'"
+            )
+            if obj or value
+        )
+
     def label(self, curie):
         if curie not in self._label:
             row = self.con.execute(
@@ -171,13 +185,42 @@ class Mondo:
 class External:
     """Cached reader over the external ontologies' own hierarchies."""
 
-    def __init__(self, oak_dir=OAK_DIR, dbs=EXTERNAL_DBS):
+    def __init__(self, oak_dir=OAK_DIR, dbs=None):
+        if dbs is None:
+            dbs = dict(EXTERNAL_DBS)
+            # Reuse configured local OAK source names. OLS-backed validators do
+            # not replace the local graph snapshots needed by this analysis.
+            adapters = yaml.safe_load((REPO / "conf/oak_config.yaml").read_text())[
+                "ontology_adapters"
+            ]
+            for vocab, adapter in adapters.items():
+                if vocab in dbs and adapter.startswith("sqlite:obo:"):
+                    dbs[vocab] = adapter.removeprefix("sqlite:obo:") + ".db"
         self.con = {}
         for vocab, filename in dbs.items():
             path = Path(oak_dir) / filename
             if path.exists():
                 self.con[vocab] = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         self._anc = {}
+        self._labels = {}
+
+    def label(self, vocab, curie):
+        """Read a label from the same OAK snapshot used for this term's edges."""
+        key = (vocab, curie)
+        if key not in self._labels:
+            con = self.con.get(vocab)
+            row = (
+                con.execute(
+                    "select value from statements where subject=? "
+                    "and predicate='rdfs:label' and value is not null "
+                    "order by value limit 1",
+                    (curie,),
+                ).fetchone()
+                if con is not None
+                else None
+            )
+            self._labels[key] = row[0] if row else None
+        return self._labels[key]
 
     def is_obsolete(self, vocab, curie):
         """True / False / None (term absent from the local build).
@@ -249,13 +292,31 @@ def verdict_for(mondo, child, parent):
     return "SILENT"
 
 
-def collect(kb_glob, mondo, external):
-    """Yield one record per disorder that has at least one grounded subtype pair."""
+def mendelian_reasons(data):
+    """Use the KB's explicit category for the first Mendelian expansion."""
+    return ["KB_CATEGORY_MENDELIAN"] if data.get("category") == "Mendelian" else []
+
+
+def collect(kb_glob, mondo, external, scope="subtypes", selection=None):
+    """Yield grounded subtype records and/or the explicitly selected Mendelian cohort."""
     for path in sorted(glob.glob(kb_glob)):
-        data = yaml.safe_load(open(path)) or {}
+        data = kb_cache.load_document(path) or {}
         if not isinstance(data, dict):
             continue
+        reasons = mendelian_reasons(data) if scope != "subtypes" else []
         parent_term = term_id(data.get("disease_term"))
+        grounded = bool(parent_term and parent_term.startswith("MONDO:"))
+        if reasons and selection is not None:
+            selection.append(
+                {
+                    "slug": Path(path).stem,
+                    "parent_term": parent_term or "",
+                    "status": "ELIGIBLE" if grounded else "NO_MONDO_GROUNDING",
+                    "selection_reason": ";".join(reasons),
+                }
+            )
+        if scope == "mendelian" and not reasons:
+            continue
         if not parent_term or not parent_term.startswith("MONDO:"):
             continue
         # a curated predicate on the entry's own disease_term, if stated
@@ -300,8 +361,8 @@ def collect(kb_glob, mondo, external):
                     ),
                 }
             )
-        if pairs:
-            yield {
+        if pairs or (scope != "subtypes" and reasons):
+            rec = {
                 "slug": Path(path).stem,
                 "name": data.get("name") or Path(path).stem,
                 "parent_term": parent_term,
@@ -310,11 +371,17 @@ def collect(kb_glob, mondo, external):
                     v: sorted(t) for v, t in sorted(parent_equivs.items())
                 },
                 "curated_predicate": curated_predicate,
+                "category": data.get("category"),
+                "direct_icd10cm": (data.get("mappings") or {}).get("icd10cm_mappings")
+                or [],
                 "pairs": pairs,
             }
+            if reasons:
+                rec["selection_reason"] = reasons
+            yield rec
 
 
-def build_kb_dict(mondo, external, rec):
+def build_kb_dict(mondo, external, rec, icd10=None, proxy_policy=None):
     d_parent = f"dismech:{rec['slug']}"
     terms = {rec["parent_term"], *(p["term"] for p in rec["pairs"])}
 
@@ -446,21 +513,80 @@ def build_kb_dict(mondo, external, rec):
         for a in sorted(curies):
             for b in sorted(curies):
                 if a != b and b in external.ancestors(vocab, a):
-                    add({"fact_type": "ProperSubClassOf", "sub": a, "sup": b})
+                    add({"fact_type": "SubClassOf", "sub": a, "sup": b})
 
     for s, o in mondo.disjoint_pairs(sorted(terms)):
         add({"fact_type": "DisjointWith", "sub": s, "sibling": o})
 
-    return {
+    kb_dict = {
         "name": f"dismech-{rec['slug']}",
         "description": (
             f"Grounding check for the dismech entry {rec['name']}: its "
             f"{len(rec['pairs'])} grounded subtype(s) against MONDO's hierarchy."
+            if rec["pairs"]
+            else f"Cross-source grounding check for the Mendelian dismech entry {rec['name']}; "
+            "no grounded subtype pairs."
         ),
         "facts": facts,
         "pfacts": pfacts,
         "labels": labels,
     }
+    for curie in add_external_labels(kb_dict, external):
+        print(f"No label in local OAK snapshot: {curie}", file=sys.stderr)
+    if icd10 is not None and rec.get("category") == "Mendelian":
+        icd10.enrich(kb_dict, rec["slug"], rec.get("direct_icd10cm", []))
+    from proxy_merges import default_policy
+
+    (proxy_policy or default_policy()).apply(kb_dict)
+    return kb_dict
+
+
+def add_external_labels(kb_dict, external):
+    """Add missing external labels without changing facts or existing labels.
+
+    Return unresolved identifiers rather than manufacturing a label from a CURIE.
+    Sorted additions keep repeated generation stable across hash seeds.
+    """
+    labels = kb_dict.setdefault("labels", {})
+    facts = list(kb_dict.get("facts", [])) + [
+        p["fact"] for p in kb_dict.get("pfacts", [])
+    ]
+    entities = {
+        fact[field]
+        for fact in facts
+        for field in ("sub", "sup", "equivalent", "sibling")
+        if field in fact and fact[field].split(":", 1)[0] in EXTERNAL_DBS
+    }
+    missing = []
+    for curie in sorted(entities - labels.keys()):
+        label = external.label(curie.split(":", 1)[0], curie)
+        if label:
+            labels[curie] = label
+        else:
+            missing.append(curie)
+    return missing
+
+
+def fill_labels(out_root, external, only=None):
+    """Enrich saved inputs only; never re-solve or regenerate the source KB."""
+    changed = added = 0
+    missing = set()
+    for path in sorted(Path(out_root).glob("*/kb.yaml")):
+        if only and path.parent.name != only:
+            continue
+        original = path.read_text()
+        kb_dict = yaml.safe_load(original)
+        before = len(kb_dict.get("labels", {}))
+        missing.update(add_external_labels(kb_dict, external))
+        count = len(kb_dict["labels"]) - before
+        if count:
+            path.write_text(yaml.safe_dump(kb_dict, sort_keys=False))
+            changed += 1
+            added += count
+    print(f"Added {added} labels in {changed} KB files; {len(missing)} unresolved IDs.")
+    for curie in sorted(missing):
+        print(f"No label in local OAK snapshot: {curie}", file=sys.stderr)
+    return missing
 
 
 # Posteriors accumulate in an order that depends on set/dict iteration, so repeated
@@ -518,7 +644,7 @@ VERDICT_NOTE = {
 }
 
 
-def write_readme(folder, rec, sol, retracted, timed_out):
+def write_readme(folder, rec, sol, retracted, timed_out, inputs_only=False):
     counts = Counter(p["verdict"] for p in rec["pairs"])
     lines = [
         f"# {rec['name']}",
@@ -534,13 +660,28 @@ def write_readme(folder, rec, sol, retracted, timed_out):
             f"{rec['parent_label']}"
         ),
         f"- **Grounded subtypes:** {len(rec['pairs'])}",
-        "- **Verdicts:** " + ", ".join(f"{v} {n}" for v, n in counts.most_common()),
-        "",
-        "## Subtypes",
-        "",
-        "| Subtype | MONDO term | Label | MONDO | Other sources |",
-        "|---|---|---|---|---|",
+        "- **Verdicts:** "
+        + (
+            ", ".join(f"{v} {n}" for v, n in counts.most_common())
+            or "Not applicable: no grounded subtype pairs"
+        ),
     ]
+    if rec.get("selection_reason"):
+        lines += ["- **Mendelian selection:** " + "; ".join(rec["selection_reason"])]
+    if rec["pairs"]:
+        lines += [
+            "",
+            "## Subtypes",
+            "",
+            "| Subtype | MONDO term | Label | MONDO | Other sources |",
+            "|---|---|---|---|---|",
+        ]
+    else:
+        lines += [
+            "",
+            "This input checks the disease's cross-source mappings. It makes no",
+            "subtype assertion, and agreement does not validate a subtype hierarchy.",
+        ]
     for pair in rec["pairs"]:
         if pair["contradicted_by"]:
             others = "⚠ contradicted by " + ", ".join(pair["contradicted_by"])
@@ -582,13 +723,19 @@ def write_readme(folder, rec, sol, retracted, timed_out):
             "budget rather than a settled result. Treat it as indicative only.",
             "",
         ]
-    if retracted:
+    if inputs_only:
         lines += [
-            "Boomer could **not** accept every mapping at once and retracted the following",
-            "identity claim(s) to restore consistency:",
+            "The solver has **not been run** for this input. No mapping acceptance,",
+            "retraction, posterior probability or global-consistency result is asserted.",
             "",
         ]
-        lines += [f"- `{sub}` ≡ `{obj}`" for sub, obj in retracted]
+    elif retracted:
+        lines += [
+            "Boomer could **not** accept every mapping at once and retracted the following",
+            "mapping claim(s) to restore consistency:",
+            "",
+        ]
+        lines += [f"- `{sub}` {relation} `{obj}`" for sub, relation, obj in retracted]
         lines += [
             "",
             "A retraction means these assertions are jointly unsatisfiable, not that the",
@@ -598,8 +745,8 @@ def write_readme(folder, rec, sol, retracted, timed_out):
         ]
     else:
         lines += [
-            "All identity mappings were accepted together - dismech's subtype hierarchy, the",
-            "mappings, and MONDO's hierarchy are jointly consistent for this entry.",
+            "All asserted high-prior mappings were accepted together.",
+            "The included mapping and ontology constraints are jointly consistent for this entry.",
             "",
         ]
     if counts.get("SILENT"):
@@ -611,21 +758,27 @@ def write_readme(folder, rec, sol, retracted, timed_out):
             "",
         ]
 
+    if counts:
+        lines += [
+            "## Verdict meanings",
+            "",
+            *[f"- **`{k}`** - {v}" for k, v in VERDICT_NOTE.items() if counts.get(k)],
+            "",
+        ]
     lines += [
-        "## Verdict meanings",
-        "",
-        *[f"- **`{k}`** - {v}" for k, v in VERDICT_NOTE.items() if counts.get(k)],
-        "",
         "## Files",
         "",
         "| File | What |",
         "|---|---|",
-        (
-            "| [`kb.yaml`](kb.yaml) | Boomer input. Run with "
-            "`pyboomer solve kb.yaml -t 60 -C 6`. |"
+        "| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60`. |",
+        *(
+            []
+            if inputs_only
+            else [
+                "| [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |",
+                "| [`solution.md`](solution.md) | Boomer output, rendered. |",
+            ]
         ),
-        "| [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |",
-        "| [`solution.md`](solution.md) | Boomer output, rendered. |",
         "",
         "Regenerate with [`../../scripts/build_analyses.py`](../../scripts/build_analyses.py).",
         "",
@@ -633,7 +786,25 @@ def write_readme(folder, rec, sol, retracted, timed_out):
     (folder / "README.md").write_text("\n".join(lines))
 
 
+def retracted_mappings(sol):
+    """Rejected high-prior identities and directions, excluding unassessed facts."""
+    if sol is None:
+        return []
+    return sorted(
+        (
+            f.sub,
+            "≡" if type(f).__name__ == "EquivalentTo" else "⊂",
+            f.equivalent if type(f).__name__ == "EquivalentTo" else f.sup,
+        )
+        for gp in (sol.solved_pfacts or [])
+        if type(f := gp.pfact.fact).__name__ in {"EquivalentTo", "ProperSubClassOf"}
+        and gp.truth_value is False
+        and gp.pfact.prob >= 0.5
+    )
+
+
 def main(argv=None):
+    kb_cache.default_off()
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--kb", default=str(REPO / "kb/disorders/*.yaml"))
     ap.add_argument("--out", required=True)
@@ -645,66 +816,188 @@ def main(argv=None):
         type=int,
         default=6,
         help=(
-            "Minimum pfacts before boomer partitions the KB into independent cliques. "
-            "boomer's own default is 200, which never triggers at this scale and makes "
-            "even a 12-pfact KB time out; the subtypes of one entry are largely "
-            "independent, so splitting them is both sound and orders of magnitude faster."
+            "Minimum pfacts before boomer attempts partitioning. This is not a cap "
+            "on clique size and does not guarantee that a solve finishes before timeout."
         ),
     )
     ap.add_argument("--only", help="restrict to one slug (for debugging)")
+    ap.add_argument(
+        "--with-icd10",
+        action="store_true",
+        help="Include directional ICD mappings for Mendelian entries (requires prepared WHO snapshot)",
+    )
     ap.add_argument("--index", help="TSV index to write")
+    ap.add_argument(
+        "--inputs-only",
+        action="store_true",
+        help="Generate KB inputs and reports marked NOT_RUN, without loading the solver",
+    )
+    ap.add_argument(
+        "--scope",
+        choices=("subtypes", "mendelian", "expanded"),
+        default="subtypes",
+        help="Legacy grounded subtype pairs, all selected Mendelian entries, or their union",
+    )
+    ap.add_argument(
+        "--add-only",
+        action="store_true",
+        help="Preserve indexed analysis folders and add only new entries (requires --index)",
+    )
+    ap.add_argument(
+        "--selection-report",
+        help="Write the Mendelian cohort and selection reasons as TSV",
+    )
+    ap.add_argument(
+        "--oak-dir", default=str(OAK_DIR), help="Local OAK ontology snapshots"
+    )
+    ap.add_argument(
+        "--labels-only",
+        action="store_true",
+        help="Fill missing external labels in saved kb.yaml files; do not solve or change reports",
+    )
+    from proxy_merges import DEFAULT_CATALOG, ProxyPolicy, provenance
+
+    ap.add_argument(
+        "--mapping-annotations",
+        type=Path,
+        default=DEFAULT_CATALOG,
+        help="Pinned MONDO xref annotation catalog for curated proxy-merge exceptions",
+    )
     args = ap.parse_args(argv)
 
-    KB, SearchConfig, solve, MarkdownRenderer, YAMLRenderer = load_boomer(
-        args.boomer_src
-    )
+    existing = {}
+    if args.add_only or (args.only and args.index):
+        if not args.index or not Path(args.index).is_file() or args.labels_only:
+            ap.error(
+                "Updating indexed analyses requires an existing --index and cannot accompany --labels-only"
+            )
+        with Path(args.index).open() as fh:
+            reader = csv.DictReader(fh, delimiter="\t")
+            if reader.fieldnames != list(INDEX_FIELDNAMES):
+                ap.error(
+                    "Existing index columns do not match the analysis index format"
+                )
+            existing = {r["slug"]: r for r in reader}
+        for slug in existing:
+            names = (
+                ("kb.yaml", "README.md")
+                if existing[slug]["status"] == "NOT_RUN"
+                else ("kb.yaml", "solution.yaml", "solution.md", "README.md")
+            )
+            for name in names:
+                if not (Path(args.out) / slug / name).is_file():
+                    ap.error(f"Indexed analysis is incomplete: {slug}/{name}")
+
+    external = External(oak_dir=args.oak_dir)
+    icd10 = None
+    if args.with_icd10:
+        from icd10_enrichment import ICD10Mappings
+
+        icd10 = ICD10Mappings(external, args.oak_dir)
+    if args.labels_only:
+        if args.index:
+            ap.error("--labels-only does not regenerate --index")
+        fill_labels(args.out, external, args.only)
+        return
+
+    if not args.inputs_only:
+        KB, SearchConfig, solve, MarkdownRenderer, YAMLRenderer = load_boomer(
+            args.boomer_src
+        )
+    proxy_policy = ProxyPolicy.load(args.mapping_annotations)
     mondo = Mondo(args.db)
-    external = External()
-    cfg = SearchConfig(
-        timeout_seconds=args.timeout,
-        partition_initial_threshold=args.partition_threshold,
+    graph_sources = {"mondo_version": mondo.versions()}
+    cfg = (
+        None
+        if args.inputs_only
+        else SearchConfig(
+            timeout_seconds=args.timeout,
+            partition_initial_threshold=args.partition_threshold,
+        )
     )
     out_root = Path(args.out)
     out_root.mkdir(parents=True, exist_ok=True)
 
-    index, tally = [], Counter()
+    index, tally, selection = [], Counter(), []
     records = [
         r
-        for r in collect(args.kb, mondo, external)
+        for r in collect(args.kb, mondo, external, args.scope, selection)
         if not args.only or r["slug"] == args.only
     ]
+    if args.add_only:
+        records = [r for r in records if r["slug"] not in existing]
+        for rec in records:
+            if (out_root / rec["slug"]).exists():
+                ap.error(f"Refusing to overwrite an unindexed folder: {rec['slug']}")
+    if args.selection_report:
+        with Path(args.selection_report).open("w", newline="") as fh:
+            writer = csv.DictWriter(
+                fh,
+                fieldnames=("slug", "parent_term", "status", "selection_reason"),
+                delimiter="\t",
+            )
+            writer.writeheader()
+            writer.writerows(selection)
+    print(
+        f"Selected {len(records)} analyses to generate; preserving {len(existing)} indexed analyses.",
+        flush=True,
+    )
     for i, rec in enumerate(records, 1):
-        kb_dict = build_kb_dict(mondo, external, rec)
-        kb = KB.model_validate(kb_dict)
-        with contextlib.redirect_stdout(io.StringIO()):
-            sol = solve(kb, cfg)
-        # the markdown renderer titles the solution from this; unset it renders "## None"
-        sol.name = kb_dict["name"]
-        stabilise_floats(sol)
+        kb_dict = build_kb_dict(mondo, external, rec, icd10, proxy_policy)
+        sol = None
+        if not args.inputs_only:
+            kb = KB.model_validate(kb_dict)
+            with contextlib.redirect_stdout(io.StringIO()):
+                sol = solve(kb, cfg)
+            # the markdown renderer titles the solution from this; unset it renders "## None"
+            sol.name = kb_dict["name"]
+            stabilise_floats(sol)
 
-        # A rejected identity claim only counts as a RETRACTION if we asserted it
-        # with confidence. Where a curator has recorded the mapping as
-        # narrow/broad/relatedMatch, the identity pfact is deliberately given a low
-        # prior and its rejection is the expected outcome, not a conflict.
-        retracted = sorted(
-            (f.sub, f.equivalent)
-            for gp in (sol.solved_pfacts or [])
-            if type(f := gp.pfact.fact).__name__ == "EquivalentTo"
-            and not gp.truth_value
-            and gp.pfact.prob >= 0.5
-        )
-        timed_out = bool(sol.timed_out)
+        # Include rejected high-prior directional mappings as well as identities.
+        # Low-prior alternatives and unassessed (None) facts are not retractions.
+        retracted = retracted_mappings(sol)
+        timed_out = bool(sol and sol.timed_out)
 
         folder = out_root / rec["slug"]
+        if args.inputs_only and any(
+            (folder / name).exists() for name in ("solution.yaml", "solution.md")
+        ):
+            raise ValueError(
+                f"Refusing to leave stale solutions beside new inputs: {folder}"
+            )
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "kb.yaml").write_text(yaml.safe_dump(kb_dict, sort_keys=False))
-        (folder / "solution.yaml").write_text(YAMLRenderer().render(sol, kb))
-        (folder / "solution.md").write_text(MarkdownRenderer().render(sol, kb))
-        write_readme(folder, rec, sol, retracted, timed_out)
+        (folder / "proxy-merges.json").write_text(
+            json.dumps(
+                provenance(
+                    kb_dict,
+                    proxy_policy,
+                    (folder / "kb.yaml").read_bytes(),
+                    graph_sources,
+                ),
+                indent=2,
+            )
+            + "\n"
+        )
+        if sol is not None:
+            (folder / "solution.yaml").write_text(YAMLRenderer().render(sol, kb))
+            (folder / "solution.md").write_text(MarkdownRenderer().render(sol, kb))
+        write_readme(folder, rec, sol, retracted, timed_out, args.inputs_only)
+
+        readme = folder / "README.md"
+        text = readme.read_text()
+        link = "MONDO xref annotations and proxy-merge decisions: [provenance](proxy-merges.json).\n\n"
+        if "## What boomer did" in text:
+            text = text.replace("## What boomer did", link + "## What boomer did", 1)
+        else:
+            text += "\n" + link
+        readme.write_text(text)
 
         counts = Counter(p["verdict"] for p in rec["pairs"])
         status = (
-            "TIMED_OUT"
+            "NOT_RUN"
+            if args.inputs_only
+            else "TIMED_OUT"
             if timed_out
             else ("RETRACTED" if retracted else "ALL_MAPPINGS_CONSISTENT")
         )
@@ -717,13 +1010,13 @@ def main(argv=None):
                 "name": rec["name"],
                 "parent_term": rec["parent_term"],
                 "n_subtypes": len(rec["pairs"]),
-                "n_pfacts": len(kb.pfacts),
+                "n_pfacts": len(kb_dict["pfacts"]),
                 "agrees": counts.get("AGREES", 0),
                 "silent": counts.get("SILENT", 0),
                 "reversed": counts.get("REVERSED", 0),
                 "same_term": counts.get("SAME_TERM", 0),
                 "status": status,
-                "n_retracted": len(retracted),
+                "n_retracted": "NA" if args.inputs_only else len(retracted),
             }
         )
         if i % 50 == 0:
@@ -736,7 +1029,8 @@ def main(argv=None):
         with Path(args.index).open("w", newline="") as fh:
             w = csv.DictWriter(fh, fieldnames=list(INDEX_FIELDNAMES), delimiter="\t")
             w.writeheader()
-            w.writerows(index)
+            merged = {**existing, **{row["slug"]: row for row in index}}
+            w.writerows(merged[slug] for slug in sorted(merged))
 
     print(f"wrote {len(index)} disorder folders -> {out_root}")
     for k, n in sorted(tally.items()):

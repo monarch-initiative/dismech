@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4115,6 +4183,7 @@ Everything downstream of that is curated as reported rather than as established:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4136,6 +4205,7 @@ Everything downstream of that is curated as reported rather than as established:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4242,6 +4312,7 @@ What would resolve it is not more mechanism but a second unrelated family, or a 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4276,6 +4347,7 @@ What would resolve it is not more mechanism but a second unrelated family, or a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homozygous-prkacg-p-ile74met-variant" data-dismech-node="Homozygous PRKACG p.Ile74Met Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Homozygous PRKACG p.Ile74Met Variant</div>
+
 
                 <div class="item-desc">Both PRKACG alleles carry the missense variant c.222C&gt;G, p.Ile74Met, identified by exome sequencing in a consanguineous family and segregating with the macrothrombocytopenia. PRKACG is the gamma catalytic subunit of cAMP-dependent protein kinase; unlike the alpha and beta subunits it is expressed in a restricted set of tissues, which is the usual explanation offered for why a defect in a ubiquitous signalling module presents as an isolated platelet disease. That tissue-restriction argument is an inference from expression rather than something tested here, and is not curated as a mechanism node.</div>
 
@@ -4329,6 +4401,8 @@ This genetic context concerns PRKACG (hgnc:9382). hgnc:9382 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4341,6 +4415,9 @@ This genetic context concerns PRKACG (hgnc:9382). hgnc:9382 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Typed LOSS_OF_FUNCTION on the strength of the rescue experiment rather than on the substitution alone: wild-type PRKACG restored proplatelet formation in patient megakaryocytes while the mutant construct did not, which is a loss of the wild-type activity rather than a new one.</div>
 
@@ -4390,6 +4467,7 @@ This genetic context concerns PRKACG (hgnc:9382). hgnc:9382 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4411,6 +4489,7 @@ This genetic context concerns PRKACG (hgnc:9382). hgnc:9382 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4436,6 +4515,7 @@ This genetic context concerns PRKACG (hgnc:9382). hgnc:9382 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pka-catalytic-activity" data-dismech-node="Impaired PKA Catalytic Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PKA Catalytic Activity</div>
+
 
                 <div class="item-desc">Reduced catalytic activity of cAMP-dependent protein kinase in the affected lineage. The direct measurement reported is not of kinase activity but of its substrate pool: patients had cAMP levels three to five times those of controls, which is read as compromised PKA activity. Recorded here as the inference it is.</div>
 
@@ -4527,6 +4607,7 @@ This pathophysiological event involves decreased cAMP-dependent protein kinase a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4549,6 +4630,7 @@ This pathophysiological event involves decreased cAMP-dependent protein kinase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-filamin-a-in-megakaryocytes-and-platelets" data-dismech-node="Reduced Filamin A in Megakaryocytes and Platelets" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Filamin A in Megakaryocytes and Platelets</div>
+
 
                 <div class="item-desc">Filamin A protein is markedly reduced in mature patient megakaryocytes and in their platelets. Filamin A crosslinks actin and anchors the membrane skeleton, including the GPIb-IX-V complex, so its loss is the link between a kinase defect and a cytoskeletal one.</div>
 
@@ -4712,6 +4794,7 @@ This pathophysiological event involves decreased actin cytoskeleton organization
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4733,6 +4816,7 @@ This pathophysiological event involves decreased actin cytoskeleton organization
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4758,6 +4842,7 @@ This pathophysiological event involves decreased actin cytoskeleton organization
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-proplatelet-formation" data-dismech-node="Defective Proplatelet Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Proplatelet Formation</div>
+
 
                 <div class="item-desc">Patient megakaryocytes fail to extend proplatelets, the branched cytoplasmic processes from which platelets are released. This is the quantitative arm of the disease and the step the rescue experiment acts on.</div>
 
@@ -4908,6 +4993,7 @@ This pathophysiological event involves decreased platelet formation (GO:0030220)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4930,6 +5016,7 @@ This pathophysiological event involves decreased platelet formation (GO:0030220)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-platelet-activation-and-cytoskeletal-reorganization" data-dismech-node="Impaired Platelet Activation and Cytoskeletal Reorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Platelet Activation and Cytoskeletal Reorganization</div>
+
 
                 <div class="item-desc">Circulating platelets from homozygous individuals activate and reorganize their cytoskeleton abnormally. This is the qualitative arm - the thrombocytopathy - and it is what makes the bleeding worse than the platelet count alone would predict.
 Deliberately not characterised further, and this is a limit of what can be verified rather than a limit of what was measured. The primary report is available to the reference cache only as an abstract, and that abstract states the defect at exactly this level - impaired activation and cytoskeletal reorganization - without resolving it into granule secretion, integrin inside-out signalling, or agonist-specific aggregation. Those finer claims cannot be snippet-verified, so they are not curated, and this node does not declare `conforms_to` against the primary_hemostatic_plug_failure module. See the entry `notes`.</div>
@@ -5098,6 +5185,7 @@ This pathophysiological event involves decreased actin cytoskeleton organization
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5160,28 +5248,13 @@ This pathophysiological event involves decreased actin cytoskeleton organization
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-macrothrombocytopenia" data-dismech-node="Macrothrombocytopenia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Macrothrombocytopenia
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Blood
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-bleeding" data-dismech-node="Abnormal bleeding" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal bleeding
-
-
+                    <span class="phenotype-category">Hematologic</span>
 
 
 
@@ -5190,102 +5263,27 @@ This pathophysiological event involves decreased actin cytoskeleton organization
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001892</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0040185</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25323684" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25323684" target="_blank">PMID:25323684</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Manchev et al describe a consanguineous family with severe macrothrombocytopenia and bleeding symptoms where exome sequencing revealed a homozygous missense mutation in the PRKACG gene (p.74Ile&gt;Met)"</div>
-
-
-                <div class="evidence-explanation">Records bleeding symptoms in the affected family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-macrothrombocytopenia" data-dismech-node="Macrothrombocytopenia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Macrothrombocytopenia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0040185</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Macrothrombocytopenia (HP:0040185). HP:0040185 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
-                    <div class="item-meta">
-                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Abnormal bleeding</span>
 
-                    </div>
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                    <span class="tag" style="background: #bbf7d0; color: #166534;">Abnormal bleeding</span>
+
+                </div>
 
 
 
@@ -5303,6 +5301,7 @@ This clinical feature is Macrothrombocytopenia (HP:0040185). HP:0040185 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5327,13 +5326,14 @@ This clinical feature is Macrothrombocytopenia (HP:0040185). HP:0040185 is a phe
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-giant-platelets" data-dismech-node="Giant platelets" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Giant platelets
+            <div class="item-box phenotype-box anchor-target" id="phenotype-giant-platelets" data-dismech-node="Giant platelets" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Giant platelets
 
 
+                    <span class="phenotype-category">Hematologic</span>
 
 
 
@@ -5342,16 +5342,18 @@ This clinical feature is Macrothrombocytopenia (HP:0040185). HP:0040185 is a phe
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001902</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001902</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5371,6 +5373,7 @@ This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5395,13 +5398,14 @@ This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-platelet-function" data-dismech-node="Abnormal platelet function" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal platelet function
+            <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-platelet-function" data-dismech-node="Abnormal platelet function" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Abnormal platelet function
 
 
+                    <span class="phenotype-category">Hematologic</span>
 
 
 
@@ -5410,16 +5414,18 @@ This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0011869" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011869</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011869" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011869</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal platelet function (HP:0011869). HP:0011869 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5439,6 +5445,7 @@ This clinical feature is Abnormal platelet function (HP:0011869). HP:0011869 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5463,34 +5470,80 @@ This clinical feature is Abnormal platelet function (HP:0011869). HP:0011869 is 
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-bleeding" data-dismech-node="Abnormal bleeding" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Abnormal bleeding
+
+
+                    <span class="phenotype-category">Hematologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001892</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25323684" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25323684" target="_blank">PMID:25323684</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Manchev et al describe a consanguineous family with severe macrothrombocytopenia and bleeding symptoms where exome sequencing revealed a homozygous missense mutation in the PRKACG gene (p.74Ile&gt;Met)"</div>
+
+
+                <div class="evidence-explanation">Records bleeding symptoms in the affected family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -5541,6 +5594,9 @@ This disease-associated gene is PRKACG (hgnc:9382). hgnc:9382 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5555,6 +5611,7 @@ This disease-associated gene is PRKACG (hgnc:9382). hgnc:9382 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5582,6 +5639,7 @@ This disease-associated gene is PRKACG (hgnc:9382). hgnc:9382 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5603,6 +5661,7 @@ This disease-associated gene is PRKACG (hgnc:9382). hgnc:9382 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5686,6 +5745,7 @@ This disease-associated gene is PRKACG (hgnc:9382). hgnc:9382 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5707,6 +5767,7 @@ This disease-associated gene is PRKACG (hgnc:9382). hgnc:9382 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5797,6 +5858,7 @@ This disease-associated gene is PRKACG (hgnc:9382). hgnc:9382 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5876,6 +5938,7 @@ This disease-associated gene is PRKACG (hgnc:9382). hgnc:9382 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6106,6 +6169,7 @@ This readout reports on platelet formation (GO:0030220). GO:0030220 is a biologi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6145,6 +6209,7 @@ This readout reports on platelet formation (GO:0030220). GO:0030220 is a biologi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6917,6 +6982,39 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Why this is not a member of the Inherited Platelet Function Disorders grouping, and does not declare `conforms_to`. That grouping&#39;s defining criterion is conformance to `primary_hemostatic_plug_failure`, and its scope note admits an inherited thrombocytopenia only when a qualitative functional defect is also curated. A functional defect is reported here - impaired platelet activation and cytoskeletal reorganization - but the primary report reaches the reference cache as an abstract only, and the abstract states the defect at exactly that level. The granule-secretion, integrin inside-out and agonist-specific claims that the module&#39;s arm node is built from cannot be snippet-verified, and asserting conformance would mean asserting them. The primary lesion is also platelet biogenesis, which is not one of the module&#39;s four arms. `Platelet-type Bleeding Disorder 20` (SLFN14) is curated the same way, and the grouping&#39;s own notes list both SLFN14 and PRKACG as known gaps rather than members.
+This one is worth revisiting rather than filing away. The deep-research report included in this PR reports, from the primary full text, that patient platelets showed absent P-selectin externalization, no rise in surface integrin alphaIIbbeta3 on stimulation, and reduced GPIb internalization - which is arm-level data of exactly the kind the module node wants. None of it is quotable from the cache, so none of it is curated. If the full text becomes retrievable, the conformance and the grouping membership should be added together, with the ClinGen DISPUTED classification stated at the point of membership so the grouping does not silently absorb a contested entity.
+What is deliberately absent. No frequency on any phenotype: a proportion computed from two siblings is not a disease frequency. No penetrance, no age of onset, no bleeding-score data, no treatment entries - the cached abstract and the ClinGen record say nothing about management, and platelet-transfusion or antifibrinolytic guidance copied from the inherited-thrombocytopenia literature generally would not be about this disease. No animal model: none has been reported for PRKACG in this context.
+Orphanet has a record for this concept (ORPHA:438207, &#34;Severe autosomal recessive macrothrombocytopenia&#34;, MONDO:0014518 exact match) whose definition enumerates the bleeding pattern. It is not cited here because the pinned Orphadata snapshot in `data/orphadata/MANIFEST.yaml` could not be reproduced - upstream now serves a different `en_product1.xml` behind the same URL - so a cache file built today would carry a provenance line naming a release it was not built from. Repinning is a separate change.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Platelet-type Bleeding Disorder 19 (PRKACG), curated with its ClinGen DISPUTED validity in front</strong> · 2026-09-03T21:56:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Platelet-type_Bleeding_Disorder_19/2026-09-03T215606Z-claude-code-92f9ab.yaml">View source</a></p>
+                        <p class="research-review-text">Claim #10791 (platelet-type bleeding disorder 19, MONDO:0014518, PRKACG). Recorded entry_type DISEASE and created kb/disorders/Platelet-type_Bleeding_Disorder_19.yaml.
+
+Why DISEASE. dismech already curates the neighbouring BDPLT series as standalone entries (BDPLT8, 18, 20, 21) alongside TUBB1-related macrothrombocytopenia and CYCS-related thrombocytopenia, and BDPLT19 has the same shape: its own OMIM/MONDO identity and a mechanism chain that is not a specialisation of any curated umbrella. There is no candidate parent disease to attach it to as a subtype.
+
+The finding that shaped the entry. ClinGen&#39;s Hemostasis/Thrombosis GCEP classified PRKACG - BDPLT19 as DISPUTED (SOP10, 2024-05-03), which was not visible from the stub or the issue. The record is not committed in references_cache; I built it with just clingen-rebuild --id CGGV:assertion_5d74cf9f-.... Reading ClinGen&#39;s narrative, the dispute is about the genetic evidence, not the experimental evidence: two siblings in one consanguineous pedigree, and an unevaluated GNE missense variant in the proband, discounted because GNE was not a thrombocytopenia gene in 2014. It is one now. The entry says all of this in the description, types the gene record relationship_type: DISPUTED, and carries a KNOWLEDGE_GAP discussion recording what would resolve it (a second family, or a re-analysis of the first).
+
+Deliberately not asserted. The GNE allele&#39;s identity and zygosity - ClinGen says only &#39;a missense variant&#39;, the Manchev abstract does not mention GNE, and the primary full text is not retrievable into the cache. No phenotype frequencies, no penetrance, no prevalence number, no treatments, no animal model.
+
+Grouping. Not added as a member of Inherited_Platelet_Function_Disorders and no conforms_to declared. The grouping&#39;s criterion is module conformance and it admits a thrombocytopenia only with a curated qualitative defect; the abstract states the defect but not at arm level (granule secretion / integrin inside-out / agonist-specific aggregation), so conformance cannot be snippet-verified. Same treatment as the already-curated BDPLT20. The included deep-research report indicates the primary full text does contain arm-level data (absent P-selectin externalization, no alphaIIbbeta3 rise, reduced GPIb internalization); that is recorded in notes as a revisit trigger rather than curated.
+
+Deep research: research/Platelet-type_Bleeding_Disorder_19-deep-research-falcon.md, falcon. just preflight-dr returns WARN, not FAIL - PRKACG 50 mentions against FLNA 17. FLNA is the PKA substrate at the centre of the mechanism, not a rival disease entity, and the report&#39;s OMIM matches MONDO&#39;s. No DR text was used as a snippet; every evidence item quotes a cached abstract or the ClinGen record.
+
+Tooling defect found: just refresh-orphadata aborts on a drifted checksum pin (upstream en_product1.xml is now sha256 df8d562... against the pinned fb2fbe8...), leaving a usable but newer file. A cache file built from it would carry a Source line naming the pinned 2025-12-09 release it was not built from, so ORPHA:438207 was not cited and the generated file was discarded rather than committed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
