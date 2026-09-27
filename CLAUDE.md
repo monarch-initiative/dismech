@@ -30,6 +30,9 @@ Claude Code skills are available in `.claude/skills/`:
   scope and alignment investigations, Boomer results, proxy merges, and source
   correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[evidence-claim-mismatch](.claude/skills/evidence-claim-mismatch/SKILL.md)**:
+  Use when reviewing an existing disease for mismatches between its claims and
+  supporting snippets, including issues from the evaluation queue.
 - **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
   Use when curating noncoding variant effects, including regulatory structural
   variants, expression changes, and target-gene relationships.
