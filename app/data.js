@@ -22361,6 +22361,82 @@ window.searchData = [
     "causal_graph_longest_path": "11"
   },
   {
+    "name": "Anaerobic Pneumonia",
+    "disease_id": "MONDO:0004649",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Pneumonia",
+      "Anaerobic Bacteria Infectious Disease"
+    ],
+    "creation_date": "2026-09-26T02:28:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Anaerobic pneumonia is a polymicrobial bacterial pneumonia in which oral or upper-airway anaerobes reach the lower respiratory tract, establish mixed anaerobic-aerobic infection, and can progress through necrotizing pneumonia to cavitary lung abscess and pleural empyema. The entry is scoped to MONDO's agent-defined term: it overlaps heavily with aspiration pneumonia, but aspiration pneumonia also includes chemical pneumonitis and aerobic Gram-negative infections in which anaerobes are not the dominant mechanism.",
+    "pathophysiology": [
+      "Oropharyngeal Anaerobe Aspiration",
+      "Polymicrobial Anaerobic-Aerobic Lung Infection",
+      "Prevotella-Enhanced Alveolar Adhesion",
+      "Anaerobe-Amplified Pneumonic Inflammation",
+      "Necrotizing Cavitary Lung Destruction",
+      "Pleural Extension of Infection"
+    ],
+    "cell_types": [
+      "epithelial cell of lower respiratory tract"
+    ],
+    "cell_type_ids": [
+      "CL:0002632"
+    ],
+    "biological_processes": [
+      "adhesion of symbiont to host",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Productive Cough",
+      "Hemoptysis",
+      "Chest pain",
+      "Lung Abscess",
+      "Pleural Empyema"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0031245",
+      "HP:0002105",
+      "HP:0100749",
+      "HP:0025044",
+      "HP:0011919"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Clindamycin and beta-lactam/beta-lactamase-inhibitor therapy",
+      "Moxifloxacin therapy for aspiration pneumonia and primary lung abscess",
+      "Abscess and empyema drainage",
+      "Thoracotomy and decortication for refractory empyema"
+    ],
+    "environmental": [
+      "Depressed consciousness and esophageal dysfunction",
+      "Swallowing dysfunction and impaired cough reflex",
+      "Oral frailty and poor oral health"
+    ],
+    "biochemical": [],
+    "source_file": "Anaerobic_Pneumonia.yaml",
+    "page_url": "../pages/disorders/Anaerobic_Pneumonia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Anal Canal Adenocarcinoma",
     "disease_id": "MONDO:0002735",
     "category": "",
@@ -44332,6 +44408,101 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Bacillary Angiomatosis",
+    "disease_id": "MONDO:0000758",
+    "category": "Infectious Disease",
+    "parents": [
+      "bartonellosis",
+      "angiomatosis",
+      "skin disease caused by bacterial infection"
+    ],
+    "creation_date": "2026-09-26T07:38:50Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bacillary angiomatosis is a Bartonella-driven vasoproliferative infection characterized by tumor-like capillary lesions of the skin, subcutaneous tissue, liver, spleen, bone, and other viscera, chiefly in immunocompromised hosts.",
+    "pathophysiology": [
+      "Bartonella Infection in Immunocompromised Host",
+      "Bartonella Angiogenic VEGFR2 Signaling",
+      "BadA-Mediated Endothelial Adhesion and VEGF Secretion",
+      "VirB/D4 Bep Endothelial Survival Signaling",
+      "Lobular Capillary Proliferation",
+      "Bartonella Intracellular Persistence",
+      "Bartonella Ribosomal Translation"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "biological process involved in interaction with host",
+      "vascular endothelial growth factor receptor signaling pathway",
+      "angiogenesis",
+      "cell adhesion",
+      "negative regulation of apoptotic process",
+      "inflammatory response",
+      "translation"
+    ],
+    "phenotypes": [
+      "Cutaneous Vascular Papules and Nodules",
+      "Papules",
+      "Subcutaneous Nodules",
+      "Hepatosplenic Involvement",
+      "Splenic Lesions",
+      "Lytic Bone Lesions",
+      "Peliosis Hepatis",
+      "Fever",
+      "Lymphadenopathy",
+      "Anemia"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Abdominal",
+      "Musculoskeletal",
+      "Constitutional",
+      "Immune",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011276",
+      "HP:0200034",
+      "HP:0200036",
+      "HP:0002797",
+      "HP:0001945",
+      "HP:0002716",
+      "HP:0001903"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Prolonged Macrolide or Tetracycline Therapy",
+      "IV Doxycycline With Gentamicin or Rifampin",
+      "Adjunctive Antiretroviral Therapy"
+    ],
+    "environmental": [
+      "Cat and flea exposure",
+      "Homelessness-associated body louse exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Bacillary_Angiomatosis.yaml",
+    "page_url": "../pages/disorders/Bacillary_Angiomatosis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Bacterial Vaginosis",
     "disease_id": "MONDO:0005316",
     "category": "Infectious Disease",
@@ -54981,6 +55152,92 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "47",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Bubonic Plague",
+    "disease_id": "MONDO:0001112",
+    "category": "Infectious Disease",
+    "parents": [
+      "Plague"
+    ],
+    "creation_date": "2026-09-25T15:25:20Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bubonic plague is the lymph-node form of plague: Yersinia pestis is usually inoculated into skin by an infected flea, evades early innate killing through its type III secretion system, disseminates to draining lymph nodes, and replicates there to produce the regional lymphadenopathy that defines the bubonic presentation.",
+    "pathophysiology": [
+      "Flea-Mediated Yersinia pestis Inoculation",
+      "Type III Secretion-Mediated Innate Immune Evasion",
+      "Pla-Mediated Hemostatic Remodeling",
+      "Draining Lymph Node Colonization",
+      "Hematogenous Dissemination"
+    ],
+    "cell_types": [
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "phagocytosis",
+      "innate immune response",
+      "fibrinolysis",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Bubo",
+      "Fever",
+      "Headache",
+      "Malaise",
+      "Hypotension",
+      "Sepsis",
+      "Disseminated Intravascular Coagulation",
+      "Gangrene",
+      "Chills"
+    ],
+    "phenotype_categories": [
+      "Immune",
+      "Constitutional",
+      "Neurological",
+      "Cardiovascular",
+      "Hematological",
+      "Integumentary"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002716",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0033834",
+      "HP:0002615",
+      "HP:0100806",
+      "HP:0005521",
+      "HP:0100758",
+      "HP:0025143"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Early antibiotic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bubonic_Plague.yaml",
+    "page_url": "../pages/disorders/Bubonic_Plague.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Budd-Chiari Syndrome",
@@ -179961,6 +180218,124 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Invasive Non-Typhoidal Salmonellosis",
+    "disease_id": "MONDO:0017944",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "salmonellosis"
+    ],
+    "creation_date": "2026-09-27T11:01:35Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Invasive non-typhoidal salmonellosis is extraintestinal infection, most often bacteremia and sometimes meningitis or focal sterile-site infection, caused by non-typhoidal serovars of Salmonella enterica. In sub-Saharan Africa, the disease is driven largely by invasive Salmonella Typhimurium ST313 and Salmonella Enteritidis pathovars in infants, young children, and immunocompromised adults; HIV infection, malaria, malnutrition, anemia, and sickle cell disease are major host contexts for invasion.",
+    "pathophysiology": [
+      "Salmonella Peptidoglycan Cross-Linking (Beta-Lactam Target)",
+      "Invasive NTS intestinal entry",
+      "ST313 macrophage survival and muted inflammasome signaling",
+      "Impaired IL-12 and interferon-gamma control of Salmonella",
+      "HIV-associated anti-LPS bactericidal blockade",
+      "Invasive NTS bacteremia",
+      "Antimicrobial-resistant invasive NTS"
+    ],
+    "cell_types": [
+      "intestinal epithelial cell",
+      "M cell of gut",
+      "macrophage",
+      "natural killer cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002563",
+      "CL:0000682",
+      "CL:0000235",
+      "CL:0000623"
+    ],
+    "biological_processes": [
+      "peptidoglycan-based cell wall biogenesis",
+      "symbiont entry into host cell",
+      "development of symbiont in host",
+      "symbiont-mediated perturbation of host innate immune response",
+      "regulation of type II interferon production",
+      "macrophage activation",
+      "complement activation",
+      "humoral immune response",
+      "response to bacterium",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Bacteremia",
+      "Meningitis",
+      "Sepsis",
+      "Anemia",
+      "Pneumonia",
+      "Splenomegaly",
+      "Shock"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Infectious",
+      "Neurological",
+      "Hematologic",
+      "Respiratory",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0031864",
+      "HP:0001287",
+      "HP:0100806",
+      "HP:0001903",
+      "HP:0002090",
+      "HP:0001744",
+      "HP:0031273"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "IL12B",
+      "IL12RB1",
+      "IFNGR1",
+      "IFNGR2",
+      "STAT1",
+      "STAT4",
+      "CYBB",
+      "NCF1",
+      "HBB"
+    ],
+    "treatments": [
+      "Susceptibility-guided antibiotic therapy",
+      "Antiretroviral therapy for HIV-associated susceptibility",
+      "Surgical source control for Salmonella mycotic aneurysm",
+      "Experimental iNTS vaccination"
+    ],
+    "environmental": [
+      "HIV infection host context",
+      "Malaria host context",
+      "Malnutrition host context",
+      "Sickle cell disease host context"
+    ],
+    "biochemical": [],
+    "source_file": "Invasive_Non-Typhoidal_Salmonellosis.yaml",
+    "page_url": "../pages/disorders/Invasive_Non-Typhoidal_Salmonellosis.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 9,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Iron Poisoning",
     "disease_id": "MONDO:0800385",
     "category": "Environmental",
@@ -188272,6 +188647,78 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Klebsiella Pneumonia",
+    "disease_id": "MONDO:0030602",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Pneumonia",
+      "Klebsiella Infectious Disease"
+    ],
+    "creation_date": "2026-09-25T22:18:26Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Klebsiella pneumonia is acute bacterial pneumonia caused by Klebsiella pneumoniae, an encapsulated Gram-negative ESKAPE pathogen that causes healthcare-associated pneumonia, bloodstream infection, and carbapenem-resistant invasive disease, and whose hypervirulent capsule and siderophore lineages can disseminate to liver and other organs.",
+    "pathophysiology": [
+      "Mucosal Reservoir and Sterile-Site Invasion",
+      "Capsule and Siderophore Immune Evasion",
+      "Carbapenemase-Mediated Antibiotic Resistance",
+      "Pulmonary Klebsiella Bacterial Burden",
+      "NLRC4-Dependent IL-1beta Production",
+      "Neutrophil-Mediated Lung Inflammation",
+      "Bacteremia and Sepsis",
+      "Hypervirulent Liver Abscess and Metastatic Infection"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "interleukin-1 production",
+      "inflammatory response",
+      "phagocytosis"
+    ],
+    "phenotypes": [
+      "Pneumonia",
+      "Sepsis",
+      "Liver abscess"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002090",
+      "HP:0100806",
+      "HP:0100523"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Susceptibility-Guided Antibiotic Therapy",
+      "Ceftazidime-avibactam for carbapenem-resistant Enterobacterales bacteremia",
+      "Intravenous fosfomycin-containing combination regimens"
+    ],
+    "environmental": [
+      "Prior broad-spectrum antibiotic and carbapenem exposure",
+      "Neonatal-unit nosocomial transmission"
+    ],
+    "biochemical": [],
+    "source_file": "Klebsiella_Pneumonia.yaml",
+    "page_url": "../pages/disorders/Klebsiella_Pneumonia.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Kleefstra Syndrome",
@@ -279673,6 +280120,84 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Rhinoscleroma",
+    "disease_id": "MONDO:0005945",
+    "category": "Infectious Disease",
+    "parents": [
+      "Klebsiella Infectious Disease"
+    ],
+    "creation_date": "2026-09-25T21:51:11Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rhinoscleroma is a chronic Klebsiella pneumoniae subsp. rhinoscleromatis infection of the upper respiratory tract in which K3-encapsulated bacteria persist in macrophages, induce IL-10-dependent Mikulicz-cell maturation and plasmacytic granulomatous inflammation, and ultimately produce fibrotic nasal and upper-airway stenosis.",
+    "pathophysiology": [
+      "K3-Encapsulated Klebsiella Upper-Airway Infection",
+      "Macrophage Intracellular Bacterial Persistence",
+      "IL-10-Dependent Mikulicz Cell Maturation",
+      "Plasmacytic Granulomatous Inflammation",
+      "Fibrotic Upper Airway Stenosis"
+    ],
+    "cell_types": [
+      "macrophage",
+      "plasma cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000786"
+    ],
+    "biological_processes": [
+      "interleukin-10 production",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Nasal Obstruction",
+      "Rhinorrhea",
+      "Epistaxis",
+      "Upper Airway Obstruction",
+      "Stridor",
+      "Dysphonia",
+      "Dysphagia"
+    ],
+    "phenotype_categories": [
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Head and Neck",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0001742",
+      "HP:0031417",
+      "HP:0000421",
+      "HP:0002781",
+      "HP:0010307",
+      "HP:0001609",
+      "HP:0002015"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Ciprofloxacin",
+      "Surgical Debridement"
+    ],
+    "environmental": [
+      "Rural poor socioeconomic endemic context"
+    ],
+    "biochemical": [],
+    "source_file": "Rhinoscleroma.yaml",
+    "page_url": "../pages/disorders/Rhinoscleroma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Rhinovirus Infection",
     "disease_id": "MONDO:0005709",
     "category": "Infectious Disease",
@@ -338477,19 +339002,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3200,
+  "total_disorder_pages": 3206,
   "total_subtypes": 4301,
-  "total_disorders_and_subtypes": 7501,
-  "total_unique_evidence_sources": 46700,
-  "total_unique_publications": 43837,
+  "total_disorders_and_subtypes": 7507,
+  "total_unique_evidence_sources": 46779,
+  "total_unique_publications": 43911,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
-  "total_pathographs": 3195,
-  "total_unique_pathological_events": 20291,
+  "total_pathographs": 3201,
+  "total_unique_pathological_events": 20325,
   "total_modules": 179,
-  "total_research_reports": 3315,
+  "total_research_reports": 3321,
   "total_classifications": 20,
-  "total_comorbidities": 47,
+  "total_comorbidities": 51,
   "total_groupings": 109
 };
 window.dispatchEvent(new Event('searchDataReady'));
