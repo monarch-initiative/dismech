@@ -13181,67 +13181,151 @@ window.searchData = [
     ],
     "creation_date": "2026-09-01T14:00:00Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Acute radiation syndrome is the constellation of organ failures produced by whole-body or substantial partial-body exposure to a high dose of penetrating ionizing radiation delivered over a short period. It is the clinical expression of a single physical exposure acting on several proliferating tissues at once, and its presentation is ordered by how fast those tissues turn over: the haematopoietic syndrome appears first and at the lowest doses, followed by the gastrointestinal syndrome, then the neurovascular syndrome at doses that are almost uniformly fatal. The haematopoietic arm is the dose-limiting and most treatable component, and it follows the same cytotoxic marrow-injury pathway as chemotherapy-induced myelosuppression, which is why growth-factor support developed for oncology is the mainstay of radiation casualty management.",
+    "subtypes": [
+      "Hematopoietic subsyndrome",
+      "Gastrointestinal subsyndrome",
+      "Neurovascular subsyndrome",
+      "Associated cutaneous radiation injury"
+    ],
+    "description": "Acute radiation syndrome follows whole-body or substantial partial-body exposure to a high dose of penetrating ionizing radiation over a short interval. Injury can involve hematopoietic, gastrointestinal, cutaneous and neurovascular tissues in combination. Dose thresholds do not determine chronological order: early lymphocyte loss and prodromal symptoms can precede marrow failure over subsequent weeks, whereas very-high-dose neurovascular injury can become fatal within days. Dose distribution, radiation quality, concurrent injuries and supportive care influence outcome. Growth factors and a thrombopoietin-receptor agonist target the hematopoietic component; gastrointestinal and other organ injuries require additional supportive care.",
     "pathophysiology": [
+      "Radiation-Induced DNA Double-Strand Breaks",
       "Hematopoietic Progenitor Injury",
       "Bone Marrow Hematopoietic Suppression",
       "Multilineage Peripheral Cytopenias",
-      "Cytopenia-Related Clinical Complications"
+      "Neutropenic Infection Susceptibility",
+      "Impaired Primary Hemostasis",
+      "Mature Lymphocyte Apoptosis",
+      "Intestinal Epithelial Injury",
+      "Intestinal Barrier Failure",
+      "Enteric Bacterial Translocation",
+      "Basal Epidermal Injury",
+      "Hair Follicle Injury",
+      "Neurovascular Injury",
+      "Radiation-Induced Chromosomal Aberrations"
     ],
     "cell_types": [
       "hematopoietic stem cell",
-      "hematopoietic progenitor cell"
+      "hematopoietic precursor cell",
+      "lymphocyte",
+      "intestinal epithelial cell"
     ],
     "cell_type_ids": [
       "CL:0000037",
-      "CL:0008001"
+      "CL:0008001",
+      "CL:0000542",
+      "CL:0002563"
     ],
     "biological_processes": [
-      "cellular response to ionizing radiation"
+      "DNA damage response",
+      "cellular response to ionizing radiation",
+      "apoptotic process"
     ],
     "phenotypes": [
       "Decreased total lymphocyte count",
       "Decreased total neutrophil count",
       "Thrombocytopenia",
       "Anemia",
-      "Recurrent infections",
-      "Petechiae"
+      "Pancytopenia",
+      "Bone marrow hypocellularity",
+      "Sepsis",
+      "Petechiae",
+      "Nausea",
+      "Vomiting",
+      "Anorexia",
+      "Diarrhea",
+      "Dehydration",
+      "Fever",
+      "Malaise",
+      "Weight loss",
+      "Stomatitis",
+      "Erythema",
+      "Abnormal blistering of the skin",
+      "Skin ulcer",
+      "Alopecia",
+      "Confusion",
+      "Ataxia",
+      "Seizure",
+      "Hypotension",
+      "Coma",
+      "Cerebral edema"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
       "Immune",
-      "Integument"
+      "Integument",
+      "Metabolism",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001888",
       "HP:0001875",
       "HP:0001873",
       "HP:0001903",
-      "HP:0002719",
-      "HP:0000967"
+      "HP:0001876",
+      "HP:0005528",
+      "HP:0100806",
+      "HP:0000967",
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0002039",
+      "HP:0002014",
+      "HP:0001944",
+      "HP:0001945",
+      "HP:0033834",
+      "HP:0001824",
+      "HP:0010280",
+      "HP:0010783",
+      "HP:0008066",
+      "HP:0200042",
+      "HP:0001596",
+      "HP:0001289",
+      "HP:0001251",
+      "HP:0001250",
+      "HP:0002615",
+      "HP:0001259",
+      "HP:0002181"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Granulocyte colony-stimulating factor (filgrastim)",
+      "Filgrastim",
+      "Pegfilgrastim",
       "Sargramostim",
-      "Romiplostim"
+      "Romiplostim",
+      "Erythropoiesis-stimulating agents for prolonged anemia",
+      "Antimicrobial prophylaxis and infection treatment",
+      "Fluid and electrolyte replacement",
+      "Antiemetic therapy",
+      "Antidiarrheal therapy",
+      "Nutritional support",
+      "Transfusion support",
+      "Selective hematopoietic stem-cell transplantation",
+      "Topical treatment of cutaneous radiation injury",
+      "Excision and grafting for severe skin injury",
+      "Neurovascular supportive and palliative care",
+      "Intensive care organ support",
+      "Psychological support",
+      "HemaMax (investigational recombinant human IL-12)"
     ],
     "environmental": [
-      "Acute whole-body ionizing radiation exposure"
+      "Acute whole-body or substantial partial-body ionizing radiation exposure"
     ],
     "biochemical": [],
     "source_file": "Acute_Radiation_Syndrome.yaml",
     "page_url": "../pages/disorders/Acute_Radiation_Syndrome.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 27,
+    "num_pathophysiology": 14,
     "num_genes": 0,
-    "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 18,
+    "causal_graph_edges": "54",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Acute Respiratory Distress Syndrome",
@@ -29982,7 +30066,15 @@ window.searchData = [
       "Ostium secundum",
       "Ostium primum",
       "Sinus venosus",
-      "Coronary sinus"
+      "Coronary sinus",
+      "ASD2",
+      "ASD3",
+      "ASD4",
+      "ASD5",
+      "ASD6",
+      "ASD7",
+      "ASD8",
+      "ASD9"
     ],
     "description": "Atrial septal defect is a congenital cardiovascular disorder in which a deficiency or interatrial communication permits abnormal flow between the left and right atria. The dominant physiology is usually left-to-right shunting with right-sided volume overload; untreated significant defects can lead to exercise intolerance, supraventricular arrhythmias, right ventricular dysfunction, and pulmonary arterial hypertension.",
     "pathophysiology": [
@@ -30045,7 +30137,12 @@ window.searchData = [
       "NKX2-5",
       "GATA4",
       "TBX5",
-      "MYH6"
+      "MYH6",
+      "TBX20",
+      "ACTC1",
+      "TLL1",
+      "CITED2",
+      "GATA6"
     ],
     "treatments": [
       "Conservative surveillance for a hemodynamically insignificant ASD",
@@ -30059,9 +30156,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Atrial_Septal_Defect.html",
     "num_phenotypes": 11,
     "num_pathophysiology": 4,
-    "num_genes": 4,
+    "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "4"
   },
   {
@@ -43950,7 +44047,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "8"
   },
   {
@@ -46889,14 +46986,16 @@ window.searchData = [
       "CGL1",
       "CGL2",
       "CGL3",
-      "CGL4"
+      "CGL4",
+      "CGL-PPARG"
     ],
-    "description": "Berardinelli-Seip congenital lipodystrophy is a rare autosomal recessive generalized lipodystrophy with near-total adipose tissue loss from birth or early infancy, muscular hypertrophy, severe insulin resistance, hypertriglyceridemia, hepatic steatosis, hepatomegaly, and early diabetes. The four established molecular subtypes are caused by biallelic pathogenic variants in AGPAT2, BSCL2, CAV1, and CAVIN1/PTRF. These genes converge on impaired triglyceride or phospholipid handling, lipid-droplet biology, adipocyte differentiation, and caveola formation in adipocytes. Failure to store triglycerides in adipose tissue diverts lipid to liver and skeletal muscle and combines with severe leptin deficiency to drive the metabolic phenotype. Treatment is supportive and metabolic, including dietary management, conventional diabetes and hyperlipidemia therapy, and metreleptin replacement for generalized lipodystrophy.\n",
+    "description": "Berardinelli-Seip congenital lipodystrophy is a rare autosomal recessive generalized lipodystrophy with near-total adipose tissue loss from birth or early infancy, muscular hypertrophy, severe insulin resistance, hypertriglyceridemia, hepatic steatosis, hepatomegaly, and early diabetes. The four numbered molecular subtypes are caused by biallelic pathogenic variants in AGPAT2, BSCL2, CAV1, and CAVIN1/PTRF; a further, much rarer form is caused by biallelic PPARG variants. These genes converge on impaired triglyceride or phospholipid handling, lipid-droplet biology, adipocyte differentiation, and caveola formation in adipocytes. Failure to store triglycerides in adipose tissue diverts lipid to liver and skeletal muscle and combines with severe leptin deficiency to drive the metabolic phenotype. Treatment is supportive and metabolic, including dietary management, conventional diabetes and hyperlipidemia therapy, and metreleptin replacement for generalized lipodystrophy.\n",
     "pathophysiology": [
       "AGPAT2 acylglycerol synthesis defect",
       "BSCL2 seipin lipid-droplet dysregulation",
       "CAV1 caveola and lipid-droplet defect",
       "CAVIN1 caveola biogenesis defect",
+      "PPARG adipogenic nuclear receptor deficiency",
       "Generalized adipose tissue loss",
       "Ectopic triglyceride accumulation",
       "Hypoleptinemia-driven metabolic dysregulation",
@@ -46917,6 +47016,7 @@ window.searchData = [
       "fat cell differentiation",
       "lipid droplet organization",
       "caveola assembly",
+      "preadipocyte differentiation into adipocytes",
       "insulin receptor signaling pathway"
     ],
     "phenotypes": [
@@ -46982,7 +47082,8 @@ window.searchData = [
       "AGPAT2 pathogenic variants",
       "BSCL2 pathogenic variants",
       "CAV1 pathogenic variants",
-      "CAVIN1 pathogenic variants"
+      "CAVIN1 pathogenic variants",
+      "PPARG pathogenic variants"
     ],
     "treatments": [
       "Metreleptin replacement therapy",
@@ -47000,10 +47101,10 @@ window.searchData = [
     "source_file": "Berardinelli_Seip_Congenital_Lipodystrophy.yaml",
     "page_url": "../pages/disorders/Berardinelli-Seip_Congenital_Lipodystrophy.html",
     "num_phenotypes": 20,
-    "num_pathophysiology": 8,
-    "num_genes": 4,
+    "num_pathophysiology": 9,
+    "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "49",
     "causal_graph_longest_path": "6"
   },
   {
@@ -64323,7 +64424,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "9"
   },
   {
@@ -67481,7 +67582,10 @@ window.searchData = [
       "Anti-inflammatory cytokine-associated immune evasion",
       "Reduced endothelial cell apoptosis",
       "BafA/BadA-associated endothelial proliferation",
-      "Atypical hepatosplenic dissemination"
+      "Atypical hepatosplenic dissemination",
+      "Atypical osseous dissemination",
+      "Ocular neuroretinal inflammation",
+      "Neurologic Bartonella encephalitis"
     ],
     "cell_types": [
       "neutrophil",
@@ -67551,11 +67655,11 @@ window.searchData = [
     "source_file": "Cat-Scratch_Disease.yaml",
     "page_url": "../pages/disorders/Cat-scratch_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 13,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Cataract 13 With Adult I Phenotype",
@@ -71983,7 +72087,21 @@ window.searchData = [
       "CMT2F",
       "CMT2Z",
       "CMT2K",
-      "CMT2CC"
+      "CMT2CC",
+      "CMT2L",
+      "CMT2N",
+      "CMT2Q",
+      "CMT2U",
+      "CMT2V",
+      "CMT2X",
+      "CMT2A1",
+      "CMT2B1",
+      "CMT2R",
+      "CMT2Y",
+      "CMT2EE",
+      "CMT2DD",
+      "DGAT2-CMT2",
+      "GAN2"
     ],
     "description": "Charcot-Marie-Tooth disease type 2 (CMT2) is a group of inherited peripheral neuropathies characterized by axonal degeneration of peripheral nerves without primary demyelination. Unlike CMT1, which involves Schwann cell dysfunction and demyelination, CMT2 is primarily an axonopathy with normal or near-normal nerve conduction velocities (>38 m/s) but reduced compound muscle action potential amplitudes. CMT2 is genetically heterogeneous, with over 20 subtypes identified. The most common subtype is CMT2A (MFN2 mutations); the remaining subtypes \u2014 including CMT2B (RAB7A), CMT2E (NEFL), CMT2F (HSPB1), CMT2K (GDAP1), and the recessive SORD-related form \u2014 are each individually rarer, and a large fraction of CMT2 remains genetically unsolved. Clinical features include progressive distal muscle weakness and atrophy, sensory loss, foot deformities, and areflexia, typically with onset in the first to second decade of life.\n",
     "pathophysiology": [
@@ -71993,6 +72111,14 @@ window.searchData = [
       "Impaired Endosomal Trafficking",
       "Impaired Neurotrophin Signaling Endosome Axonal Transport",
       "SORD Deficiency and Sorbitol Accumulation",
+      "Small Heat-Shock Protein Chaperone Dysfunction",
+      "Aminoacyl-tRNA Synthetase Loss of Function",
+      "Impaired Autophagy-Lysosome Function",
+      "Nuclear Lamina Disruption",
+      "Mitochondrial Energy Production Failure",
+      "Impaired Mitochondrial DNA Maintenance",
+      "Impaired Mitochondrial Fission",
+      "Axonal Sodium-Potassium ATPase Dysfunction",
       "Distal Axonal Degeneration"
     ],
     "cell_types": [
@@ -72010,6 +72136,14 @@ window.searchData = [
       "Endosome to lysosome transport",
       "Axonal transport",
       "Carbohydrate metabolic process",
+      "Protein folding",
+      "tRNA aminoacylation for protein translation",
+      "Autophagosome maturation",
+      "Lysosome organization",
+      "Nuclear envelope organization",
+      "ATP biosynthetic process",
+      "Mitochondrial DNA metabolic process",
+      "Mitochondrial fission",
       "Autophagy"
     ],
     "phenotypes": [
@@ -72058,7 +72192,21 @@ window.searchData = [
       "HSPB1",
       "MORC2",
       "GDAP1",
-      "NEFH"
+      "NEFH",
+      "HSPB8",
+      "AARS1",
+      "DHTKD1",
+      "MARS1",
+      "NAGLU",
+      "SPG11",
+      "KIF1B",
+      "LMNA",
+      "TRIM2",
+      "VCP",
+      "MPV17",
+      "ATP1A1",
+      "DGAT2",
+      "DCAF8"
     ],
     "treatments": [
       "Physical Therapy and Rehabilitation",
@@ -72076,10 +72224,10 @@ window.searchData = [
     "source_file": "Charcot-Marie-Tooth_Disease_Type_2.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_2.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 7,
-    "num_genes": 10,
+    "num_pathophysiology": 15,
+    "num_genes": 24,
     "num_treatments": 9,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "47",
     "causal_graph_longest_path": "4"
   },
   {
@@ -73672,8 +73820,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Chikungunya",
@@ -73756,7 +73904,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "7"
   },
   {
@@ -73918,6 +74066,98 @@ window.searchData = [
     "num_genes": 0,
     "num_treatments": 2,
     "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Chlamydia Pneumoniae Pneumonia",
+    "disease_id": null,
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Respiratory Infection"
+    ],
+    "creation_date": "2026-09-27T04:25:27Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chlamydia pneumoniae pneumonia is an atypical community-acquired pneumonia caused by the obligate intracellular bacterium Chlamydia pneumoniae. The infection spreads between people, replicates in epithelial cells inside a chlamydial inclusion, and requires cell-penetrant ribosome-active therapy such as a macrolide rather than a beta-lactam.\n",
+    "pathophysiology": [
+      "Droplet Exposure and Obligate Intracellular Infection",
+      "Respiratory Epithelial Cytadherence and IL-8 Signaling",
+      "Ciliated Bronchial Epithelial Ciliostasis",
+      "Epithelial Apoptosis Resistance",
+      "Apoptotic Neutrophil Macrophage Transfer",
+      "IFN-gamma-Induced Aberrant Body Persistence",
+      "Atypical Chlamydia pneumoniae Pneumonia",
+      "Requirement for Cell-Penetrant Antimicrobials",
+      "Chlamydial Ribosomal Translation (Macrolide Target)"
+    ],
+    "cell_types": [
+      "respiratory epithelial cell",
+      "bronchial epithelial cell",
+      "neutrophil",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0002632",
+      "CL:0002328",
+      "CL:0000775",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "positive regulation of interleukin-8 production",
+      "neutrophil chemotaxis",
+      "cilium movement",
+      "negative regulation of apoptotic process",
+      "response to type II interferon",
+      "inflammatory response",
+      "response to antibiotic",
+      "translation"
+    ],
+    "phenotypes": [
+      "Pneumonia",
+      "Cough",
+      "Fever",
+      "Chest Pain",
+      "Eosinophilia",
+      "Increased Circulating IgA"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Constitutional",
+      "Hematologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002090",
+      "HP:0012735",
+      "HP:0001945",
+      "HP:0100749",
+      "HP:0001880",
+      "HP:0003261"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Azithromycin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chlamydia_Pneumoniae_Pneumonia.yaml",
+    "page_url": "../pages/disorders/Chlamydia_Pneumoniae_Pneumonia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -95859,8 +96099,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cutaneous Melanoma",
@@ -96534,7 +96774,8 @@ window.searchData = [
       "Ingestion of sporulated Cyclospora oocysts",
       "Excystation and invasion of small-intestinal enterocytes",
       "Villous atrophy and mucosal inflammation",
-      "Malabsorption and diarrhea"
+      "Malabsorption and diarrhea",
+      "Biliary epithelial infection in immunocompromised host"
     ],
     "cell_types": [
       "enterocyte"
@@ -96601,10 +96842,10 @@ window.searchData = [
     "source_file": "Cyclosporiasis.yaml",
     "page_url": "../pages/disorders/Cyclosporiasis.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
   {
@@ -96620,7 +96861,9 @@ window.searchData = [
     "subtypes": [],
     "description": "Cystic echinococcosis is a helminthic disease caused by the larval stage of Echinococcus granulosus.",
     "pathophysiology": [
+      "Egg-derived larval cyst establishment",
       "Hepatic cyst formation",
+      "Pulmonary cyst formation",
       "Hepatic Cyst Rupture",
       "Secondary Hydatidosis"
     ],
@@ -96667,11 +96910,11 @@ window.searchData = [
     "source_file": "Cystic_Echinococcosis.yaml",
     "page_url": "../pages/disorders/Cystic_echinococcosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Cystic Fibrosis",
@@ -105963,8 +106206,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Diethylene Glycol Poisoning",
@@ -111288,6 +111531,7 @@ window.searchData = [
     "pathophysiology": [
       "Larval transmission by copepods",
       "Worm emergence and skin ulceration",
+      "Retained or calcified guinea worm remnants",
       "Disability and socioeconomic impact"
     ],
     "cell_types": [],
@@ -111333,11 +111577,11 @@ window.searchData = [
     "source_file": "Dracunculiasis.yaml",
     "page_url": "../pages/disorders/Dracunculiasis.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Dravet_syndrome",
@@ -133403,7 +133647,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "6"
   },
   {
@@ -139416,6 +139660,8 @@ window.searchData = [
     "description": "Glanders is a highly contagious zoonotic bacterial infection caused by Burkholderia mallei. It primarily affects equids but can infect humans, and disease is marked by pulmonary nodular lesions and ulcerative skin or mucous membrane involvement.",
     "pathophysiology": [
       "Intracellular macrophage survival and T6SS-1 actin-based spread",
+      "Pulmonary granulomatous lesions",
+      "Mucocutaneous ulcerative lesions",
       "Serodiagnostic antigen variation"
     ],
     "cell_types": [
@@ -139427,6 +139673,7 @@ window.searchData = [
     "biological_processes": [
       "defense response to Gram-negative bacterium",
       "symbiont-mediated actin polymerization-dependent cell-to-cell migration in host",
+      "inflammatory response",
       "immune response"
     ],
     "phenotypes": [
@@ -139454,11 +139701,11 @@ window.searchData = [
     "source_file": "Glanders.yaml",
     "page_url": "../pages/disorders/Glanders.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Glanzmann Thrombasthenia",
@@ -150690,6 +150937,8 @@ window.searchData = [
     "pathophysiology": [
       "Hepatocyte Infection and cccDNA Formation",
       "HBV DNA Integration",
+      "Immune-mediated acute hepatocellular injury",
+      "Immune-complex extrahepatic prodrome",
       "Chronic Inflammation",
       "Immune Evasion and T Cell Exhaustion",
       "Liver Fibrosis",
@@ -150713,6 +150962,7 @@ window.searchData = [
       "viral entry into host cell",
       "epigenetic regulation of gene expression",
       "DNA integration",
+      "inflammatory response",
       "negative regulation of T cell activation",
       "cGAS-STING signaling pathway"
     ],
@@ -150780,10 +151030,10 @@ window.searchData = [
     "source_file": "Hepatitis_B.yaml",
     "page_url": "../pages/disorders/Hepatitis_B.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "4"
   },
   {
@@ -151061,8 +151311,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Hepatoblastoma",
@@ -157500,8 +157750,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Human Granulocytic Anaplasmosis",
@@ -157671,8 +157921,119 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Human Monocytic Ehrlichiosis",
+    "disease_id": "MONDO:0000225",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tick-borne disease",
+      "Ehrlichiosis"
+    ],
+    "creation_date": "2026-09-25T10:29:22Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Human monocytic ehrlichiosis is an acute Lone Star tick-borne bacterial infection caused by the obligate intracellular bacterium Ehrlichia chaffeensis. The organism infects monocytes and macrophages, proliferates in cytoplasmic membrane-bound morulae, uses type IV secretion effectors to preserve its intracellular niche and acquire iron, and produces a febrile illness with thrombocytopenia, leukopenia, and elevated hepatic transaminases.",
+    "pathophysiology": [
+      "Amblyomma-Borne Ehrlichia Inoculation",
+      "Mononuclear Phagocyte Ehrlichia Entry",
+      "Ehrlichia Vacuolar Niche",
+      "Etf-2 RAB5 Vacuole Maturation Arrest",
+      "Etf-3 Ferritinophagy Iron Acquisition",
+      "Mononuclear Ehrlichia Persistence",
+      "TNF-Neutrophil Immunopathology",
+      "Acute Febrile Cytopenic HME",
+      "Ehrlichia Ribosomal Translation (Doxycycline Target)",
+      "Cell-Penetrant Antimicrobial Requirement"
+    ],
+    "cell_types": [
+      "monocyte",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "symbiont-mediated suppression of host phagosome maturation",
+      "ferritinophagy",
+      "tumor necrosis factor production",
+      "translation",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Thrombocytopenia",
+      "Leukopenia",
+      "Elevated Hepatic Transaminases",
+      "Acute Respiratory Distress Syndrome",
+      "Hemophagocytosis",
+      "Headache",
+      "Myalgia",
+      "Skin rash",
+      "Acute kidney injury",
+      "Multi-organ failure",
+      "Lymphopenia",
+      "Hyponatremia",
+      "Anemia",
+      "Vomiting",
+      "Diarrhea",
+      "Meningoencephalitis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0001873",
+      "HP:0001882",
+      "HP:0002910",
+      "HP:0033677",
+      "HP:0012156",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0000988",
+      "HP:0001919",
+      "HP:0001888",
+      "HP:0002902",
+      "HP:0001903",
+      "HP:0002013",
+      "HP:0002014",
+      "HP:0002383"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Human_Monocytic_Ehrlichiosis.yaml",
+    "page_url": "../pages/disorders/Human_Monocytic_Ehrlichiosis.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Human Papillomavirus Infection",
@@ -160684,9 +161045,11 @@ window.searchData = [
       "MT-TI",
       "MYL2",
       "MYL3",
+      "MYOZ2",
       "NEXN",
       "OBSCN",
       "PDLIM3",
+      "PLN",
       "RBM20",
       "RPS6KB1",
       "RYR2",
@@ -160716,9 +161079,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy.html",
     "num_phenotypes": 10,
     "num_pathophysiology": 6,
-    "num_genes": 26,
+    "num_genes": 28,
     "num_treatments": 8,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "1"
   },
   {
@@ -174315,7 +174678,10 @@ window.searchData = [
       "CBS deficiency",
       "MTHFR deficiency",
       "cblC disease",
-      "MAT I/III deficiency"
+      "MAT I/III deficiency",
+      "CTH deficiency",
+      "GNMT deficiency",
+      "SELENBP1 deficiency"
     ],
     "description": "Inborn disorder of methionine cycle and sulfur amino acid metabolism is a pathway-based group of rare inherited metabolic disorders that disrupt methionine-cycle flux, homocysteine remethylation, cobalamin-dependent one-carbon metabolism, or transsulfuration. Major supported branches include CBS-deficient classical homocystinuria, MTHFR-related remethylation disease, MMACHC-related cblC disease, and MAT1A-related methionine adenosyltransferase I/III deficiency. The group is unified by abnormal sulfur amino-acid biomarkers, including hyperhomocystinemia, hypermethioninemia, hypomethioninemia, and, in combined cobalamin-processing disorders, methylmalonic acidemia, with subtype-specific neurologic, vascular, ocular, skeletal, renal, and pulmonary manifestations.",
     "pathophysiology": [
@@ -174323,7 +174689,10 @@ window.searchData = [
       "CBS Transsulfuration Block",
       "Cobalamin-Dependent Remethylation and Mutase Cofactor Failure",
       "MTHFR Remethylation Deficiency",
-      "MAT1A S-Adenosylmethionine Synthesis Defect"
+      "MAT1A S-Adenosylmethionine Synthesis Defect",
+      "CTH Cystathionine Cleavage Block",
+      "GNMT S-Adenosylmethionine Disposal Block",
+      "SELENBP1 Methanethiol Oxidase Deficiency"
     ],
     "cell_types": [
       "hepatocyte",
@@ -174345,6 +174714,10 @@ window.searchData = [
       "S-adenosylmethionine metabolic process"
     ],
     "phenotypes": [
+      "Cystathioninuria",
+      "Halitosis",
+      "Hepatomegaly",
+      "Elevated circulating hepatic transaminase concentration",
       "Hyperhomocystinemia",
       "Hypermethioninemia",
       "Hypomethioninemia",
@@ -174364,6 +174737,8 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Laboratory abnormality",
+      "Oral",
+      "Hepatic",
       "Vascular",
       "Ophthalmologic",
       "Neurodevelopmental",
@@ -174377,14 +174752,21 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
+      "Constitutional",
+      "Digestive",
       "Eye",
       "Genitourinary",
+      "Head and Neck",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
+      "HP:0003153",
+      "HP:0100812",
+      "HP:0002240",
+      "HP:0002910",
       "HP:0002160",
       "HP:0003235",
       "HP:0003658",
@@ -174409,7 +174791,10 @@ window.searchData = [
       "CBS-related transsulfuration disorder",
       "MTHFR-related remethylation disorder",
       "MMACHC-related cobalamin-processing disorder",
-      "MAT1A-related methionine adenosyltransferase deficiency"
+      "MAT1A-related methionine adenosyltransferase deficiency",
+      "CTH-related cystathioninuria",
+      "GNMT-related hypermethioninemia",
+      "SELENBP1-related methanethiol oxidase deficiency"
     ],
     "treatments": [
       "Pyridoxine-responsive CBS therapy",
@@ -174430,11 +174815,11 @@ window.searchData = [
     ],
     "source_file": "Inborn_Disorder_of_Methionine_Cycle_and_Sulfur_Amino_Acid_Metabolism.yaml",
     "page_url": "../pages/disorders/Inborn_Disorder_of_Methionine_Cycle_and_Sulfur_Amino_Acid_Metabolism.html",
-    "num_phenotypes": 16,
-    "num_pathophysiology": 5,
-    "num_genes": 4,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
+    "num_genes": 7,
     "num_treatments": 8,
-    "causal_graph_edges": "45",
+    "causal_graph_edges": "56",
     "causal_graph_longest_path": "3"
   },
   {
@@ -179043,7 +179428,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
   {
@@ -180703,6 +181088,99 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Japanese Spotted Fever",
+    "disease_id": "MONDO:0000233",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-27T08:33:00Z",
+    "updated_date": "2026-09-27T08:33:00Z",
+    "subtypes": [],
+    "description": "Japanese spotted fever is an acute tick-borne spotted-fever-group rickettsiosis caused by the obligately intracellular bacterium Rickettsia japonica. Infected Haemaphysalis ticks inoculate the organism into skin, where local infection can produce an eschar before systemic endothelial infection and small-vessel vasculitis drive fever, rash, purpura, hepatic enzyme elevation, and occasionally disseminated intravascular coagulation or multiorgan failure.",
+    "pathophysiology": [
+      "Tick-Borne Rickettsia japonica Inoculation",
+      "Intracytosolic Rickettsia japonica Niche",
+      "Rickettsial Ribosomal Translation (Tetracycline Target)",
+      "Small-Vessel Vasculitis",
+      "Hypercytokinemic Shock Response",
+      "Severe Coagulation Activation",
+      "Vasculitic Multiorgan Injury"
+    ],
+    "cell_types": [
+      "vascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "biological process involved in interaction with host",
+      "Translation",
+      "response to antibiotic",
+      "inflammatory response",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Skin Rash",
+      "Inoculation Eschar",
+      "Purpura",
+      "Hyponatremia",
+      "Elevated Hepatic Transaminases",
+      "Disseminated Intravascular Coagulation",
+      "Thrombocytopenia",
+      "Neurological Manifestations",
+      "Purpura Fulminans"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Dermatologic",
+      "Metabolic",
+      "Digestive System",
+      "Blood",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0000988",
+      "HP:6000793",
+      "HP:0000979",
+      "HP:0002902",
+      "HP:0002910",
+      "HP:0005521",
+      "HP:0001873",
+      "HP:0000707"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Early minocycline therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Japanese_Spotted_Fever.yaml",
+    "page_url": "../pages/disorders/Japanese_Spotted_Fever.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Jeavons Syndrome",
@@ -193122,7 +193600,10 @@ window.searchData = [
     "pathophysiology": [
       "Intracellular amastigote replication in macrophages",
       "Th1-Polarized Cell-Mediated Response and Macrophage Activation",
-      "Th2-Polarized Response and Permissive Disease Progression"
+      "Th2-Polarized Response and Permissive Disease Progression",
+      "Cutaneous macrophage infection and ulcerative inflammation",
+      "Visceral reticuloendothelial infection and systemic inflammation",
+      "Mucosal destructive granulomatous inflammation"
     ],
     "cell_types": [
       "macrophage",
@@ -193136,7 +193617,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "T-helper 1 type immune response",
-      "T-helper 2 type immune response"
+      "T-helper 2 type immune response",
+      "granuloma formation"
     ],
     "phenotypes": [
       "Cutaneous ulcers",
@@ -193183,11 +193665,11 @@ window.searchData = [
     "source_file": "Leishmaniasis.yaml",
     "page_url": "../pages/disorders/Leishmaniasis.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Lemierre Syndrome",
@@ -196379,7 +196861,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "7"
   },
   {
@@ -214167,8 +214649,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Midface Hypoplasia, Hearing Impairment, Elliptocytosis, and Nephrocalcinosis",
@@ -219166,23 +219648,35 @@ window.searchData = [
     "subtypes": [
       "BUB1B-related MVA",
       "CEP57-related MVA",
-      "TRIP13-related MVA"
+      "TRIP13-related MVA",
+      "CENATAC-related MVA",
+      "SLF2-related Atelis syndrome 1",
+      "SMC5-related Atelis syndrome 2",
+      "MAD1L1-related MVA"
     ],
     "description": "Mosaic variegated aneuploidy syndrome is a rare chromosomal instability disorder in which pathogenic germline variants in mitotic checkpoint or centrosome-associated genes impair faithful chromosome segregation. The resulting constitutional mosaic aneuploidy causes antenatal or neonatal-onset growth and neurodevelopmental abnormalities, variable congenital anomalies, and cancer predisposition, especially Wilms tumor and rhabdomyosarcoma in spindle-assembly-checkpoint-defective forms.\n",
     "pathophysiology": [
       "Mitotic checkpoint gene disruption",
       "Spindle assembly checkpoint impairment",
       "CEP57 centrosomal kinetochore attachment defects",
+      "Minor spliceosome AT-AC intron splicing failure",
+      "SMC5/6 genome stability pathway failure",
       "Chromosome segregation errors and mosaic aneuploidy",
       "Growth and neurodevelopmental abnormalities",
-      "Cancer predisposition"
+      "Cancer predisposition",
+      "Aneuploidy-associated systemic inflammation"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "mitotic spindle assembly checkpoint signaling",
       "attachment of spindle microtubules to kinetochore",
-      "chromosome segregation"
+      "minor (U12-dependent) spliceosomal mRNA splicing",
+      "DNA replication under replication stress",
+      "sister chromatid cohesion",
+      "chromosome segregation",
+      "inflammatory response",
+      "interferon-mediated signaling pathway"
     ],
     "phenotypes": [
       "Epicanthus",
@@ -219272,7 +219766,11 @@ window.searchData = [
       "CEP57 germline pathogenic variants",
       "TRIP13 germline pathogenic variants",
       "BUB1 germline pathogenic variants",
-      "BUB3 germline pathogenic variants"
+      "BUB3 germline pathogenic variants",
+      "CENATAC germline pathogenic variants",
+      "MAD1L1 germline pathogenic variants",
+      "SLF2 germline pathogenic variants",
+      "SMC5 germline pathogenic variants"
     ],
     "treatments": [
       "Symptomatic supportive care",
@@ -219284,10 +219782,10 @@ window.searchData = [
     "source_file": "Mosaic_Variegated_Aneuploidy_Syndrome.yaml",
     "page_url": "../pages/disorders/Mosaic_Variegated_Aneuploidy_Syndrome.html",
     "num_phenotypes": 25,
-    "num_pathophysiology": 6,
-    "num_genes": 5,
+    "num_pathophysiology": 9,
+    "num_genes": 9,
     "num_treatments": 3,
-    "causal_graph_edges": "37",
+    "causal_graph_edges": "47",
     "causal_graph_longest_path": "5"
   },
   {
@@ -237979,12 +238477,12 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "2"
   },
   {
     "name": "Obesity Due to MC4R Pathway Disruption",
-    "disease_id": "MONDO:0011122",
+    "disease_id": null,
     "category": "Metabolic Disorder",
     "parents": [
       "Obesity",
@@ -238002,9 +238500,10 @@ window.searchData = [
       "PCSK1",
       "MC4R",
       "SH2B1",
-      "NCOA1"
+      "NCOA1",
+      "SIM1"
     ],
-    "description": "Obesity due to MC4R pathway disruption is a mechanism-based umbrella entry for obesity states that converge on impaired leptin-melanocortin signaling in the hypothalamus. The shared disease logic is failure of satiety-promoting and energy expenditure-promoting signaling through the leptin/POMC/MC4R axis, whether caused by acquired hypothalamic injury, congenital structural hypothalamic abnormalities, syndromic upstream pathway defects, or rare monogenic disorders involving LEP, LEPR, POMC, PCSK1, MC4R, SH2B1, or NCOA1.",
+    "description": "Obesity due to MC4R pathway disruption is a mechanism-based umbrella entry for obesity states that converge on impaired leptin-melanocortin signaling in the hypothalamus. The shared disease logic is failure of satiety-promoting and energy expenditure-promoting signaling through the leptin/POMC/MC4R axis, whether caused by acquired hypothalamic injury, congenital structural hypothalamic abnormalities, syndromic upstream pathway defects, or rare monogenic disorders involving LEP, LEPR, POMC, PCSK1, MC4R, SIM1, SH2B1, or NCOA1.",
     "pathophysiology": [
       "MC4R pathway signaling failure",
       "Hyperphagia and failed satiety",
@@ -238065,7 +238564,8 @@ window.searchData = [
       "PCSK1",
       "MC4R",
       "SH2B1",
-      "NCOA1"
+      "NCOA1",
+      "SIM1"
     ],
     "treatments": [
       "Dietary and lifestyle intervention",
@@ -238079,9 +238579,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Obesity_Due_to_MC4R_Pathway_Disruption.html",
     "num_phenotypes": 6,
     "num_pathophysiology": 3,
-    "num_genes": 7,
+    "num_genes": 8,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -253154,6 +253654,7 @@ window.searchData = [
     "pathophysiology": [
       "Defective corneodesmosome-mediated corneocyte cohesion",
       "Loss of corneodesmosin and epidermal barrier breakdown",
+      "Filaggrin-2 deficiency with secondary corneodesmosin reduction",
       "Protease-inhibitor imbalance and corneocyte over-desquamation",
       "Crosslinking-enzyme deficiency in acral PSS"
     ],
@@ -253167,6 +253668,7 @@ window.searchData = [
       "Cell-cell adhesion",
       "Keratinocyte differentiation",
       "Establishment of skin barrier",
+      "Keratinocyte cell-cell adhesion in the cornified layers",
       "Proteolysis of corneodesmosomal adhesion proteins",
       "Keratinization / cornified envelope formation"
     ],
@@ -253228,11 +253730,11 @@ window.searchData = [
     "source_file": "Peeling_Skin_Syndrome.yaml",
     "page_url": "../pages/disorders/Peeling_Skin_Syndrome.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 7,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Pelger-Huet-like Anomaly and Episodic Fever with Abdominal Pain",
@@ -306979,6 +307481,102 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Streptococcal Pharyngitis",
+    "disease_id": "MONDO:0021783",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial infection"
+    ],
+    "creation_date": "2026-09-27T06:23:39Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Streptococcal pharyngitis is an acute group A Streptococcus upper-airway infection in which Streptococcus pyogenes adheres to and colonizes the pharyngeal and tonsillar epithelium, causing abrupt pharyngeal inflammation with fever, throat pain, odynophagia, and tender anterior cervical lymphadenopathy. Untreated infection can spread contiguously or seed post-streptococcal immune sequelae, motivating throat-swab confirmation and prompt narrow-spectrum antibiotic treatment.",
+    "pathophysiology": [
+      "Streptococcal Pharyngeal Adhesion and Colonization",
+      "SpeA-Mediated Tonsillar Immune Dysregulation",
+      "Acute Pharyngotonsillar Inflammation",
+      "Contiguous Suppurative Spread",
+      "Post-Streptococcal Immune Sequelae",
+      "Streptococcal Peptidoglycan Cross-Linking",
+      "Streptococcal Ribosomal Translation"
+    ],
+    "cell_types": [
+      "pharyngeal and tonsillar epithelial cell",
+      "tonsillar T cell",
+      "tonsillar B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000084",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "adhesion of symbiont to host",
+      "response to bacterium",
+      "T cell activation",
+      "B-cell apoptotic process",
+      "inflammatory response",
+      "immune response",
+      "Peptidoglycan-Based Cell Wall Biogenesis",
+      "Translation"
+    ],
+    "phenotypes": [
+      "Pharyngitis",
+      "Pharyngalgia",
+      "Enlarged tonsils",
+      "Tonsillar exudate",
+      "Odynophagia",
+      "Fever",
+      "Cervical lymphadenopathy",
+      "Otitis media",
+      "Sinusitis",
+      "Peritonsillar abscess"
+    ],
+    "phenotype_categories": [
+      "Head and neck",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0025439",
+      "HP:0033050",
+      "HP:0030812",
+      "HP:0034035",
+      "HP:0032043",
+      "HP:0001945",
+      "HP:0025289",
+      "HP:0000388",
+      "HP:0000246"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Beta-lactam antibiotic therapy",
+      "Antipyretic and analgesic symptom relief",
+      "Alternative antibiotics for penicillin allergy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Streptococcal_Pharyngitis.yaml",
+    "page_url": "../pages/disorders/Streptococcal_Pharyngitis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Striate Palmoplantar Keratoderma Type 2",
     "disease_id": "MONDO:0013034",
     "category": "Genetic",
@@ -317259,13 +317857,17 @@ window.searchData = [
       "AXIN2-related",
       "PAX9-related",
       "MSX1-related",
-      "EDA-related"
+      "EDA-related",
+      "GREM2-related",
+      "TSPEAR-related"
     ],
-    "description": "Tooth agenesis is the congenital absence of one or more teeth resulting from disrupted odontogenesis, and is the most common developmental anomaly of human dentition. Severity is graded by the number of teeth that fail to develop (conventionally excluding third molars): hypodontia denotes absence of one to five teeth, oligodontia denotes absence of six or more teeth, and anodontia denotes complete absence of teeth. Nonsyndromic tooth agenesis is genetically heterogeneous; the great majority of identified mutations cluster in seven genes that converge on the signaling networks governing tooth-germ initiation and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD-NF-kappaB) pathway. Tooth agenesis arises from arrest of the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages, so the number and pattern of missing teeth are fixed during embryonic development and do not progress thereafter. AXIN2-associated oligodontia additionally confers increased colorectal cancer risk.",
+    "description": "Tooth agenesis is the congenital absence of one or more teeth resulting from disrupted odontogenesis, and is the most common developmental anomaly of human dentition. Severity is graded by the number of teeth that fail to develop (conventionally excluding third molars): hypodontia denotes absence of one to five teeth, oligodontia denotes absence of six or more teeth, and anodontia denotes complete absence of teeth. Nonsyndromic tooth agenesis is genetically heterogeneous; the identified mutations cluster in a small number of genes that converge on the signaling networks governing tooth-germ initiation and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD-NF-kappaB) pathway. Two further genes sit outside those three arms: GREM2, a BMP antagonist, places a subtype in the TGF-beta/BMP arm of odontogenic signaling, and TSPEAR is expressed in the enamel knot, the structure that coordinates patterning of the developing tooth cusps. Tooth agenesis arises from arrest of the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages, so the number and pattern of missing teeth are fixed during embryonic development and do not progress thereafter. AXIN2-associated oligodontia additionally confers increased colorectal cancer risk.",
     "pathophysiology": [
       "WNT/beta-catenin Signaling Deficiency",
       "EDA-EDAR-NF-kappaB Signaling Deficiency",
       "Dental Mesenchyme Transcription Factor Deficiency",
+      "BMP Antagonist Dysregulation",
+      "Enamel Knot Signaling Disruption",
       "Impaired Odontogenesis"
     ],
     "cell_types": [
@@ -317284,6 +317886,7 @@ window.searchData = [
       "Canonical Wnt signaling pathway",
       "Canonical NF-kappaB signal transduction",
       "Regulation of odontogenesis",
+      "Regulation of BMP signaling pathway",
       "Odontogenesis"
     ],
     "phenotypes": [
@@ -317318,7 +317921,9 @@ window.searchData = [
       "MSX1 Pathogenic Variants",
       "LRP6 Loss-of-Function Variants",
       "WNT10B Variants",
-      "EDA Variants"
+      "EDA Variants",
+      "GREM2 Variants",
+      "TSPEAR Biallelic Loss-of-Function Variants"
     ],
     "treatments": [
       "Prosthodontic Rehabilitation",
@@ -317330,10 +317935,10 @@ window.searchData = [
     "source_file": "Tooth_Agenesis.yaml",
     "page_url": "../pages/disorders/Tooth_Agenesis.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 4,
-    "num_genes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 9,
     "num_treatments": 3,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "4"
   },
   {
@@ -320745,12 +321350,18 @@ window.searchData = [
     ],
     "creation_date": "2026-06-22T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Glandular form"
+    ],
     "description": "Tularemia is a highly infectious zoonotic disease caused by the intracellular Gram-negative bacterium Francisella tularensis. Humans acquire infection through arthropod (tick or mosquito) bites, direct contact with infected animals (especially rabbits, hares, and rodents), ingestion of contaminated food or water, or inhalation of infectious aerosols; person-to-person transmission has not been reported. After uptake by macrophages, F. tularensis escapes the phagosome into the cytosol via the Francisella Pathogenicity Island-encoded type VI secretion system, where it replicates and triggers caspase-1 inflammasome activation and granulomatous inflammation. The route of inoculation determines the clinical form: ulceroglandular, glandular, oculoglandular, oropharyngeal, pneumonic, and typhoidal tularemia. F. tularensis requires as few as 10 organisms to cause disease and is classified as a Category A bioterrorism agent.\n",
     "pathophysiology": [
       "Arthropod-Borne and Zoonotic Acquisition",
       "Macrophage Phagosomal Escape and Cytosolic Replication",
-      "Inflammasome Activation and Granulomatous Inflammation"
+      "Lymphatic Francisella Spread to Regional Nodes",
+      "Necrotizing and Suppurative Granulomatous Lymphadenitis",
+      "Inflammasome Activation and Granulomatous Inflammation",
+      "Francisella Ribosomal Translation",
+      "Francisella DNA Gyrase and Topoisomerase IV"
     ],
     "cell_types": [
       "Macrophage"
@@ -320762,15 +321373,20 @@ window.searchData = [
       "Phagocytosis",
       "Suppression of host phagosome maturation",
       "Symbiont entry into host",
+      "inflammatory response",
       "Inflammasome-mediated signaling",
-      "Inflammatory response"
+      "Inflammatory response",
+      "translation",
+      "DNA topological change"
     ],
     "phenotypes": [
       "Fever",
       "Lymphadenopathy",
       "Skin Ulcer",
       "Pneumonia",
-      "Chills"
+      "Chills",
+      "Headache",
+      "Myalgia"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -320779,6 +321395,7 @@ window.searchData = [
       "Immune",
       "Integument",
       "Metabolism",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -320786,25 +321403,30 @@ window.searchData = [
       "HP:0002716",
       "HP:0200042",
       "HP:0002090",
-      "HP:0025143"
+      "HP:0025143",
+      "HP:0002315",
+      "HP:0003326"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
       "Streptomycin",
       "Ciprofloxacin",
-      "Doxycycline"
+      "Doxycycline",
+      "Fine-Needle Aspiration or Surgical Drainage"
     ],
-    "environmental": [],
+    "environmental": [
+      "Arthropod and infected-animal contact"
+    ],
     "biochemical": [],
     "source_file": "Tularemia.yaml",
     "page_url": "../pages/disorders/Tularemia.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
     "num_genes": 0,
-    "num_treatments": 3,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Turner Syndrome",
@@ -330953,6 +331575,8 @@ window.searchData = [
       "IGF2 Loss of Imprinting",
       "MicroRNA Processing Defect",
       "Nephron Progenitor Self-Renewal",
+      "REST Repressor Inactivation",
+      "TRIM28 Tumor Suppressor Loss",
       "Persistent Blastemal Progenitor State",
       "Wilms Tumor Outgrowth",
       "TP53-Deficient Anaplastic Progression"
@@ -331022,8 +331646,12 @@ window.searchData = [
       "Chromosome 1q Gain",
       "Combined LOH 1p/16q",
       "TP53 Mutations",
-      "DROSHA and DICER1 Mutations",
-      "SIX1/SIX2 Mutations"
+      "DROSHA Mutations",
+      "DICER1 Mutations",
+      "SIX1 Mutations",
+      "SIX2 Mutations",
+      "REST Germline Inactivating Variants",
+      "TRIM28 Germline Truncating Variants"
     ],
     "treatments": [
       "Surgical Resection",
@@ -331039,10 +331667,10 @@ window.searchData = [
     "source_file": "Wilms_Tumor.yaml",
     "page_url": "../pages/disorders/Wilms_Tumor.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 11,
-    "num_genes": 9,
+    "num_pathophysiology": 13,
+    "num_genes": 13,
     "num_treatments": 4,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "6"
   },
   {
@@ -337034,17 +337662,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3190,
-  "total_subtypes": 4253,
-  "total_disorders_and_subtypes": 7443,
-  "total_unique_evidence_sources": 46447,
-  "total_unique_publications": 43645,
+  "total_disorder_pages": 3194,
+  "total_subtypes": 4291,
+  "total_disorders_and_subtypes": 7485,
+  "total_unique_evidence_sources": 46567,
+  "total_unique_publications": 43749,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
-  "total_pathographs": 3185,
-  "total_unique_pathological_events": 20146,
+  "total_pathographs": 3189,
+  "total_unique_pathological_events": 20221,
   "total_modules": 179,
-  "total_research_reports": 3304,
+  "total_research_reports": 3309,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 106
