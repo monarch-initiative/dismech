@@ -1,0 +1,89 @@
+schema_version: "1.0"
+hypothesis_group_id: phyma_fibroblast_identity
+disease: Rosacea
+generated: "2026-09-06"
+status_flags:
+  fallback_used: false
+  analysis_ran: true
+  literature_only: false
+  primary_result: "seed hypothesis PARTIALLY REFUTED by exploratory single-sample scRNA-seq"
+
+inputs:
+  - id: E-MTAB-16629
+    repository: ArrayExpress / EBI BioStudies
+    uri: https://www.ebi.ac.uk/biostudies/studies/E-MTAB-16629
+    ftp_files_base: https://ftp.ebi.ac.uk/biostudies/fire/E-MTAB-/629/E-MTAB-16629/Files/
+    release_date: "2026-02-18"
+    retrieved: "2026-09-06"
+    resolved: true
+    relevant: true
+    organism: Homo sapiens
+    assay: 10x 3' v3 scRNA-seq
+    design: "one individual per condition (rhinophyma; hypertrophic scar S6/22M/chest; healthy skin) - NO biological replicates"
+    files:
+      - {name: ROSmatrix.mtx.gz,    bytes: 39721345, checksum: "not_computed_recover_from_accession"}
+      - {name: ROSfeatures.tsv.gz,  bytes: 297026,   checksum: "not_computed_recover_from_accession"}
+      - {name: ROSbarcodes.tsv.gz,  bytes: 34805,    checksum: "not_computed_recover_from_accession"}
+      - {name: HS-Hmatrix.mtx.gz,   bytes: 69178141, checksum: "not_computed_recover_from_accession"}
+      - {name: HS-Hfeatures.tsv.gz, bytes: 297026,   checksum: "not_computed_recover_from_accession"}
+      - {name: HS-Hbarcodes.tsv.gz, bytes: 44325,    checksum: "not_computed_recover_from_accession"}
+      - {name: Skin-Hmatrix.mtx.gz, bytes: 67645601, checksum: "not_computed_recover_from_accession"}
+      - {name: Skin-Hfeatures.tsv.gz, bytes: 297026, checksum: "not_computed_recover_from_accession"}
+      - {name: Skin-Hbarcodes.tsv.gz, bytes: 43165,  checksum: "not_computed_recover_from_accession"}
+    note: "Raw matrices NOT bundled (recoverable from accession). Byte sizes serve as integrity anchors."
+
+analyses:
+  - id: fibroblast_marker_comparison
+    outcome: succeeded
+    input: E-MTAB-16629
+    method: code/fibroblast_marker_analysis.py
+    environment: environment.txt
+    steps: "per-sample QC (min_genes=200, pct_mito<20) -> normalize_total(1e4)+log1p -> lineage by canonical-marker score-argmax -> subset Fibroblast -> per-gene mean & pct-positive + composite proinflam/myofib scores"
+    outputs:
+      - results/fibroblast_marker_table.csv
+      - results/lineage_composition.csv
+    key_result: "PTGDS+ fibroblast fraction Healthy 54.5% > HS 22.7% > Rhinophyma 5.0%; ACTA2+ elevated in Rhinophyma(38.9%) & HS(39.5%) vs Healthy(22.4%); scar matrix POSTN/CTHRC1 strong in HS, weak in Rhinophyma."
+    limitations:
+      - "n=1 per condition (pseudo-replication); no cross-individual statistics"
+      - "marker-argmax lineage assignment, no fibroblast subclustering"
+      - "cross-sample absolute expression confounded by depth/dropout; pct-positive more robust"
+      - "PTGDS 'signature' = single gene + proxy set, NOT Chen et al. exact papulopustular gene list (no public accession)"
+
+  - id: rhinophyma_ptgds_robustness
+    outcome: succeeded
+    input: E-MTAB-16629 (ROS sample only)
+    method: "clustering-free: rank all cells by PTGDS; profile lineage-marker means in top-5% PTGDS cells vs rest; PTGDS in a stringent fibroblast gate (COL1A1>1 & DCN>0.5 & PECAM1<0.5 & LYZ<0.5)"
+    outputs: [results/rhinophyma_ptgds_robustness.md]
+    key_result: "PTGDS detected in only 2.9% of rhinophyma cells; PTGDS-high cells are endothelial (endo score 1.24 vs 0.53); stringent fibroblasts (n=224) 4.0% PTGDS+ / 46.9% ACTA2+. No hidden PTGDS-high fibroblast subset."
+    limitations: ["single donor; sample-specific capture/batch effect on fibroblast PTGDS cannot be fully excluded"]
+    note: "Leiden-based clustering was attempted but exceeded the 60s executor limit (outcome: failed); replaced by the clustering-free test above."
+
+  - id: inflammatory_chemokine_comparison
+    outcome: succeeded
+    input: E-MTAB-16629
+    method: "compare fibroblast %positive for reticular/inflammatory chemokines between rhinophyma and hypertrophic scar"
+    outputs: [results/fibroblast_marker_barplot.png]
+    key_result: "Rhinophyma fibroblasts > scar fibroblasts for CCL19 (32.0% vs 10.2%, 3.14x), CXCL12 (60.2% vs 32.1%, 1.88x), CCL2 (43.0% vs 25.2%, 1.71x); PTGDS lower (5.0% vs 22.7%); POSTN/CTHRC1 much lower."
+    limitations: ["rhinophyma sample is immune/endothelial-rich; ambient-RNA spillover of immune chemokines into fibroblast barcodes may inflate fractions; single donor; proxy chemokine set"]
+
+artifact_notes:
+  - path: results/fibroblast_marker_barplot.png
+    status: local_only
+    reason: "Rendered in the execute_code sandbox (which cannot write to /agent). Captured in the run's auto-saved plot gallery, not copied into this bundle path. Underlying numbers are fully reproduced in results/fibroblast_marker_table.csv, so the figure is regenerable."
+
+literature:
+  logs: logs/pubmed_search_log.md
+  seed_support: [PMID:39384741]
+  competing_or_qualifying: [PMID:40478772, PMID:24563692, PMID:22076323, PMID:24856600]
+
+replay_verification:
+  reproducible: true
+  how: "Re-run code/fibroblast_marker_analysis.py against the listed FTP files; deterministic (seed=0). Expect the fibroblast_marker_table.csv values within scanpy score_genes stochastic tolerance."
+  output_checksums:
+    algo: sha256
+    note: "Computed 2026-09-06 on the small derived artifacts bundled here (raw inputs are NOT bundled; they are recoverable from accession E-MTAB-16629 and anchored by byte size above)."
+    files:
+      - {path: results/fibroblast_marker_table.csv,      sha256: "93f90eb051042a9fc4071ccfb5009b0c701d656560b084706cc8f361d9adf222"}
+      - {path: results/lineage_composition.csv,          sha256: "590966a1fb8ae867169bbf86ddd6bacd4300fd753d51454ec38a733e7618d198"}
+      - {path: results/rhinophyma_ptgds_robustness.md,   sha256: "3fb3a0e2781312dcfaf839eb560e0fa745e8fa9f11845b60981cea546423b29a"}
+      - {path: code/fibroblast_marker_analysis.py,       sha256: "29403fea9bbc380616f7a7f7556a13e9b6e512c44e283b8ad3bcb905e0d36d8c"}

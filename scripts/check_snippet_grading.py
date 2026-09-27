@@ -11,7 +11,7 @@ contradiction the file itself contains::
     - name: MR-1 Detoxification Failure
       evidence:
       - reference: PMID:15496428
-        supports: PARTIAL
+        supports: REFUTE
         evidence_source: COMPUTATIONAL
         snippet: "HAGH functions in a pathway to detoxify methylglyoxal"
     environmental:
@@ -73,8 +73,14 @@ divergences and **7,960** ``supports`` divergences, and the ``supports`` ones ar
 overwhelmingly *correct* curation. ``supports`` is claim-relative by design -- the
 issue body says so itself -- so "No beneficial effect was detected after 5 months
 with a low protein diet" legitimately reads ``SUPPORT`` for a discussion of
-treatment failure and ``PARTIAL`` for the treatment entry it partly bears on.
+treatment failure and ``REFUTE`` for the treatment entry it counts against.
 Gating that would be a 92%-noise ratchet whose baseline enshrines correct work.
+
+Those counts predate the issue #7439 narrowing, which retired ``PARTIAL`` and
+took ``supports`` divergences from 8,285 to 353 against 715 for
+``evidence_source``. Most of the "claim-relative" signal was the retired value's
+ambiguity rather than genuine claim-relativity, so the argument above for leaving
+``supports`` ungated is now much weaker and is worth revisiting.
 
 So ``supports`` is scanned on request (``--fields supports`` / ``--fields all``)
 as a triage view, and only ``evidence_source`` is gated. Whether the

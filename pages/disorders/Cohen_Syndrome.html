@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3782,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cohen%20Syndrome"
@@ -3954,7 +4047,7 @@ The disorder shows allelic range: a hypomorphic splice variant has been reported
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4103,6 +4196,24 @@ The disorder shows allelic range: a hypomorphic splice variant has been reported
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 1 (Congenital Neutropenias): row &#34;Cohen syndrome VPS13B AR 607817&#34;, affected cells N, affected function myeloid differentiation, associated features dysmorphism, mental retardation, obesity, deafness and neutropenia.
+Scope: iuis_category is single-valued, so this tag records that Cohen syndrome occupies a Table 5 row, not that it is primarily an inborn error of immunity. The mild-to-moderate neutropenia present in almost all affected individuals — curated here as the Neutropenia phenotype — is what puts it in the phagocyte table; the entry is otherwise curated as a Golgi-membrane intellectual-disability syndrome, and the mechanism linking VPS13B loss to the neutropenia is not established (see that phenotype&#39;s own notes).">phagocyte defect</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4171,6 +4282,8 @@ The disorder shows allelic range: a hypomorphic splice variant has been reported
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4217,6 +4330,7 @@ The disorder shows allelic range: a hypomorphic splice variant has been reported
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vps13b-loss-of-function" data-dismech-node="VPS13B Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">VPS13B Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function variation abolishes or severely reduces VPS13B, a member of a protein family implicated in bulk lipid transport between adjacent membranes.</div>
 
@@ -4305,6 +4419,8 @@ This pathophysiological event involves decreased lipid transport (GO:0006869). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4327,6 +4443,7 @@ This pathophysiological event involves decreased lipid transport (GO:0006869). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-golgi-membrane-expansion-and-integrity" data-dismech-node="Impaired Golgi Membrane Expansion and Integrity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Golgi Membrane Expansion and Integrity</div>
+
 
                 <div class="item-desc">VPS13B is concentrated at the interface between cis and trans Golgi sub-compartments, where its lipid-transport activity is thought to supply membrane for Golgi expansion. In VPS13B-null cells, re-formation of the Golgi complex after Brefeldin A-induced disruption is delayed - a direct functional demonstration that the organelle depends on VPS13B. The same delay follows loss of FAM177A1, a VPS13B interactor whose own mutations also cause a developmental disorder, and the two genes interact genetically in zebrafish.</div>
 
@@ -4404,6 +4521,8 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4425,6 +4544,8 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4449,6 +4570,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-glycosylation-and-secretory-output" data-dismech-node="Defective Glycosylation and Secretory Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Glycosylation and Secretory Output</div>
+
 
                 <div class="item-desc">Golgi dysfunction impairs the glycosylation and secretory processing that the organelle performs. Because every affected tissue depends on Golgi-dependent processing, this is the step that converts a single lipid-transport defect into a multisystem phenotype spanning brain, retina and marrow. No cell type is bound to this node: the sources cited here establish the glycosylation defect but not the mechanism linking it to any particular lineage, and in particular the route from Golgi dysfunction to the near-universal neutropenia is not established, so neutropenia is curated as a phenotype rather than as a mechanistic claim at this node.</div>
 
@@ -4499,6 +4621,8 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4521,6 +4645,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipocyte-insulin-response-dysregulation" data-dismech-node="Adipocyte Insulin-Response Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipocyte Insulin-Response Dysregulation</div>
+
 
                 <div class="item-desc">A tissue-specific branch explaining the syndrome&#39;s most counterintuitive feature - truncal obesity appearing in the early teens without any increase in appetite or intake. Loss of VPS13B in pre-adipocytes and in patient fibroblasts accelerates adipogenic differentiation through an increased response to insulin stimulation; the resulting fat cells then show reduced AKT2 phosphorylation after insulin, i.e. insulin resistance. This makes the obesity a cell-intrinsic adipocyte phenotype rather than a hypothalamic appetite phenotype, and grounds the increased type 2 diabetes risk.</div>
 
@@ -4571,6 +4696,8 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4592,6 +4719,8 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4617,6 +4746,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-developmental-and-haematologic-phenotype" data-dismech-node="Multisystem Developmental and Haematologic Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Developmental and Haematologic Phenotype</div>
 
+
                 <div class="item-desc">The clinical output: hypotonia with developmental delay and moderate-to-profound intellectual disability, the biphasic growth trajectory ending in truncal obesity with short stature, progressive myopia and retinal dystrophy, near-universal neutropenia with its infection risk, and joint laxity leading to kyphosis and scoliosis.</div>
 
 
@@ -4635,6 +4765,109 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+
+	                            <span class="crosslink-desc">A cardinal feature, present in essentially all patients.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+
+	                            <span class="crosslink-desc">The developmental trajectory of which the intellectual disability is the endpoint; curated separately because they are different claims.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Early-onset hypotonia</span>
+
+	                            <span class="crosslink-desc">Usually the first sign, in infancy, before the developmental picture is clear.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Progressive high myopia</span>
+
+	                            <span class="crosslink-desc">Part of the characteristic ocular pairing, typically established in childhood and progressive thereafter.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Retinal dystrophy</span>
+
+	                            <span class="crosslink-desc">The other half of that ocular pairing, and the one that determines long-term visual prognosis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neutropenia</span>
+
+	                            <span class="crosslink-desc">The haematologic feature this node names, and what places Cohen syndrome in the IUIS phagocyte table at all. Usually intermittent and rarely severe, but it is the immunological basis of the classification.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Truncal obesity</span>
+
+	                            <span class="crosslink-desc">Mid-childhood truncal adiposity, with the entry modelling the adipocyte insulin-response arm upstream of this node.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short stature</span>
+
+	                            <span class="crosslink-desc">Growth failure, alongside the other constitutional features.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Feeding difficulties</span>
+
+	                            <span class="crosslink-desc">Poor feeding in infancy, compounding the growth failure and commonly the presenting problem.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Joint hypermobility</span>
+
+	                            <span class="crosslink-desc">Connective tissue laxity, one of three musculoskeletal features that travel together here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Kyphosis</span>
+
+	                            <span class="crosslink-desc">Spinal deformity, plausibly following from the hypotonia and laxity above, though no cited source establishes that route.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Scoliosis</span>
+
+	                            <span class="crosslink-desc">The other spinal deformity, on the same basis.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4651,6 +4884,8 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4698,7 +4933,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adipocyte Insulin-Response Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A tissue-specific branch explaining the syndrome\u0027s most counterintuitive feature - truncal obesity appearing in the early teens without any increase in appetite or intake. Loss of VPS13B in pre-adipocytes and in patient fibroblasts accelerates adipogenic differentiation through an increased response to insulin stimulation; the resulting fat cells then show reduced AKT2 phosphorylation after insulin, i.e. insulin resistance. This makes the obesity a cell-intrinsic adipocyte phenotype rather than a hypothalamic appetite phenotype, and grounds the increased type 2 diabetes risk.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Defective Glycosylation and Secretory Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Golgi dysfunction impairs the glycosylation and secretory processing that the organelle performs. Because every affected tissue depends on Golgi-dependent processing, this is the step that converts a single lipid-transport defect into a multisystem phenotype spanning brain, retina and marrow. No cell type is bound to this node: the sources cited here establish the glycosylation defect but not the mechanism linking it to any particular lineage, and in particular the route from Golgi dysfunction to the near-universal neutropenia is not established, so neutropenia is curated as a phenotype rather than as a mechanistic claim at this node.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}, {\"id\": \"Impaired Golgi Membrane Expansion and Integrity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS13B is concentrated at the interface between cis and trans Golgi sub-compartments, where its lipid-transport activity is thought to supply membrane for Golgi expansion. In VPS13B-null cells, re-formation of the Golgi complex after Brefeldin A-induced disruption is delayed - a direct functional demonstration that the organelle depends on VPS13B. The same delay follows loss of FAM177A1, a VPS13B interactor whose own mutations also cause a developmental disorder, and the two genes interact genetically in zebrafish.\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\"}}, {\"id\": \"Multisystem Developmental and Haematologic Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical output: hypotonia with developmental delay and moderate-to-profound intellectual disability, the biphasic growth trajectory ending in truncal obesity with short stature, progressive myopia and retinal dystrophy, near-universal neutropenia with its infection risk, and joint laxity leading to kyphosis and scoliosis.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"VPS13B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variation abolishes or severely reduces VPS13B, a member of a protein family implicated in bulk lipid transport between adjacent membranes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lipid transport\"], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"VPS13B Loss of Function\", \"target\": \"Impaired Golgi Membrane Expansion and Integrity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Golgi Membrane Expansion and Integrity\", \"target\": \"Defective Glycosylation and Secretory Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Golgi Membrane Expansion and Integrity\", \"target\": \"Adipocyte Insulin-Response Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Glycosylation and Secretory Output\", \"target\": \"Multisystem Developmental and Haematologic Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adipocyte Insulin-Response Dysregulation\", \"target\": \"Multisystem Developmental and Haematologic Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adipocyte Insulin-Response Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A tissue-specific branch explaining the syndrome\u0027s most counterintuitive feature - truncal obesity appearing in the early teens without any increase in appetite or intake. Loss of VPS13B in pre-adipocytes and in patient fibroblasts accelerates adipogenic differentiation through an increased response to insulin stimulation; the resulting fat cells then show reduced AKT2 phosphorylation after insulin, i.e. insulin resistance. This makes the obesity a cell-intrinsic adipocyte phenotype rather than a hypothalamic appetite phenotype, and grounds the increased type 2 diabetes risk.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Defective Glycosylation and Secretory Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Golgi dysfunction impairs the glycosylation and secretory processing that the organelle performs. Because every affected tissue depends on Golgi-dependent processing, this is the step that converts a single lipid-transport defect into a multisystem phenotype spanning brain, retina and marrow. No cell type is bound to this node: the sources cited here establish the glycosylation defect but not the mechanism linking it to any particular lineage, and in particular the route from Golgi dysfunction to the near-universal neutropenia is not established, so neutropenia is curated as a phenotype rather than as a mechanistic claim at this node.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}, {\"id\": \"Early-onset hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In infancy and childhood, causing poor weight gain; the first phase of the biphasic growth trajectory.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Golgi Membrane Expansion and Integrity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS13B is concentrated at the interface between cis and trans Golgi sub-compartments, where its lipid-transport activity is thought to supply membrane for Golgi expansion. In VPS13B-null cells, re-formation of the Golgi complex after Brefeldin A-induced disruption is delayed - a direct functional demonstration that the organelle depends on VPS13B. The same delay follows loss of FAM177A1, a VPS13B interactor whose own mutations also cause a developmental disorder, and the two genes interact genetically in zebrafish.\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate to profound; at least 20% never communicate verbally.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Kyphosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002808\"}}, {\"id\": \"Multisystem Developmental and Haematologic Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical output: hypotonia with developmental delay and moderate-to-profound intellectual disability, the biphasic growth trajectory ending in truncal obesity with short stature, progressive myopia and retinal dystrophy, near-universal neutropenia with its infection risk, and joint laxity leading to kyphosis and scoliosis.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Neutropenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild to moderate, present in almost all affected individuals; may cause recurrent infections and aphthous ulcers.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001875\"}}, {\"id\": \"Progressive high myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onset in early childhood and progressive.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000545\"}}, {\"id\": \"Retinal dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Truncal obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Develops in the early teen years after a period of poor weight gain, and notably without any change in appetite, food intake or activity - the feature that distinguishes Cohen syndrome from Prader-Willi syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001956\"}}, {\"id\": \"VPS13B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variation abolishes or severely reduces VPS13B, a member of a protein family implicated in bulk lipid transport between adjacent membranes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lipid transport\"], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"VPS13B Loss of Function\", \"target\": \"Impaired Golgi Membrane Expansion and Integrity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Golgi Membrane Expansion and Integrity\", \"target\": \"Defective Glycosylation and Secretory Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Golgi Membrane Expansion and Integrity\", \"target\": \"Adipocyte Insulin-Response Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Glycosylation and Secretory Output\", \"target\": \"Multisystem Developmental and Haematologic Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adipocyte Insulin-Response Dysregulation\", \"target\": \"Multisystem Developmental and Haematologic Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cardinal feature, present in essentially all patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental trajectory of which the intellectual disability is the endpoint; curated separately because they are different claims.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Early-onset hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Usually the first sign, in infancy, before the developmental picture is clear.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Progressive high myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the characteristic ocular pairing, typically established in childhood and progressive thereafter.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Retinal dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The other half of that ocular pairing, and the one that determines long-term visual prognosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Neutropenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The haematologic feature this node names, and what places Cohen syndrome in the IUIS phagocyte table at all. Usually intermittent and rarely severe, but it is the immunological basis of the classification.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Truncal obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mid-childhood truncal adiposity, with the entry modelling the adipocyte insulin-response arm upstream of this node.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth failure, alongside the other constitutional features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poor feeding in infancy, compounding the growth failure and commonly the presenting problem.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Joint hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connective tissue laxity, one of three musculoskeletal features that travel together here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Kyphosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spinal deformity, plausibly following from the hypotonia and laxity above, though no cited source establishes that route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Developmental and Haematologic Phenotype\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The other spinal deformity, on the same basis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4790,6 +5025,9 @@ This clinical feature is Decreased total neutrophil count (HP:0001875), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4804,6 +5042,8 @@ This clinical feature is Decreased total neutrophil count (HP:0001875), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4866,6 +5106,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4880,6 +5123,8 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4960,6 +5205,9 @@ This clinical feature is Myopia (HP:0000545), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4974,6 +5222,8 @@ This clinical feature is Myopia (HP:0000545), qualified as course progressive. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5045,6 +5295,9 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5059,6 +5312,8 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5121,6 +5376,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5135,6 +5393,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5188,6 +5448,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5202,6 +5465,8 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5255,6 +5520,9 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5269,6 +5537,8 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5322,6 +5592,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5336,6 +5609,8 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5416,6 +5691,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as seve
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5430,6 +5708,8 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as seve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5483,6 +5763,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5497,6 +5780,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5559,6 +5844,9 @@ This clinical feature is Truncal obesity (HP:0001956). HP:0001956 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5573,6 +5861,8 @@ This clinical feature is Truncal obesity (HP:0001956). HP:0001956 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5628,6 +5918,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5642,6 +5935,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5739,6 +6034,9 @@ This disease-associated gene is VPS13B (hgnc:2183). hgnc:2183 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5753,6 +6051,8 @@ This disease-associated gene is VPS13B (hgnc:2183). hgnc:2183 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5776,6 +6076,8 @@ This disease-associated gene is VPS13B (hgnc:2183). hgnc:2183 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5857,6 +6159,31 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Early educational intervention plus physical, occupational and speech therapy directed at the developmental delay and hypotonia.</div>
 
 
@@ -5878,6 +6205,8 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5940,6 +6269,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Spectacle correction for refractive error, with low vision services once retinal dystrophy impairs vision.</div>
 
 
@@ -5961,6 +6315,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6023,6 +6379,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recurrent infections are treated per standard care, but with explicit caution about medications that could further lower the neutrophil count - a disorder-specific prescribing constraint rather than generic supportive care.</div>
 
 
@@ -6044,6 +6425,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6106,6 +6489,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recessive inheritance, 25% sibling recurrence risk, and the availability of carrier and prenatal/preimplantation testing once the familial variants are known.</div>
 
 
@@ -6127,6 +6535,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6156,6 +6566,97 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-vps13b-molecular-genetic-testing">
+                <div class="item-name">
+                    VPS13B molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Established by identifying biallelic pathogenic VPS13B variants in a proband with suggestive findings.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301655" target="_blank">PMID:20301655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of Cohen syndrome is established in a proband with suggestive findings and biallelic pathogenic variants in VPS13B identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">States the diagnostic criterion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6202,6 +6703,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6309,6 +6812,33 @@ parents:
 classifications:
   harrisons_chapter:
   - classification_value: NEUROLOGIC
+  iuis_category:
+    classification_value: phagocyte defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970),
+      Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 1
+      (Congenital Neutropenias): row &#34;Cohen syndrome VPS13B AR 607817&#34;,
+      affected cells N, affected function myeloid differentiation, associated
+      features dysmorphism, mental retardation, obesity, deafness and
+      neutropenia.
+
+      Scope: iuis_category is single-valued, so this tag records that Cohen
+      syndrome occupies a Table 5 row, not that it is primarily an inborn
+      error of immunity. The mild-to-moderate neutropenia present in almost
+      all affected individuals — curated here as the Neutropenia phenotype —
+      is what puts it in the phagocyte table; the entry is otherwise curated
+      as a Golgi-membrane intellectual-disability syndrome, and the mechanism
+      linking VPS13B loss to the neutropenia is not established (see that
+      phenotype&#39;s own notes).
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Cohen syndrome VPS13B AR 607817&#34;
+      explanation: &gt;-
+        The Cohen syndrome row of IUIS Table 5, quoted verbatim with its gene,
+        inheritance and OMIM number.
 references:
 - reference: PMID:20301655
   title: &#34;Cohen Syndrome.&#34;
@@ -6559,6 +7089,55 @@ pathophysiology:
     explanation: &gt;-
       States the neurodevelopmental output and quantifies the most severe
       communication outcome.
+  downstream:
+  - target: Intellectual disability
+    causal_link_type: DIRECT
+    description: &gt;-
+      A cardinal feature, present in essentially all patients.
+  - target: Global developmental delay
+    causal_link_type: DIRECT
+    description: &gt;-
+      The developmental trajectory of which the intellectual disability is the endpoint; curated separately because they are different claims.
+  - target: Early-onset hypotonia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Usually the first sign, in infancy, before the developmental picture is clear.
+  - target: Progressive high myopia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Part of the characteristic ocular pairing, typically established in childhood and progressive thereafter.
+  - target: Retinal dystrophy
+    causal_link_type: DIRECT
+    description: &gt;-
+      The other half of that ocular pairing, and the one that determines long-term visual prognosis.
+  - target: Neutropenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      The haematologic feature this node names, and what places Cohen syndrome in the IUIS phagocyte table at all. Usually intermittent and rarely severe, but it is the immunological basis of the classification.
+  - target: Truncal obesity
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Mid-childhood truncal adiposity, with the entry modelling the adipocyte insulin-response arm upstream of this node.
+  - target: Short stature
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Growth failure, alongside the other constitutional features.
+  - target: Feeding difficulties
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Poor feeding in infancy, compounding the growth failure and commonly the presenting problem.
+  - target: Joint hypermobility
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Connective tissue laxity, one of three musculoskeletal features that travel together here.
+  - target: Kyphosis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Spinal deformity, plausibly following from the hypotonia and laxity above, though no cited source establishes that route.
+  - target: Scoliosis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The other spinal deformity, on the same basis.
 phenotypes:
 - category: Neurologic
   name: Intellectual disability
@@ -7041,7 +7620,7 @@ differential_diagnoses:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cohen Syndrome", "mondoId": "MONDO:0008999", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cohen_Syndrome", "yamlRevision": "4793573213ae"};
+        const OS_CONFIG = {"diseaseName": "Cohen Syndrome", "mondoId": "MONDO:0008999", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cohen_Syndrome", "yamlRevision": "9cd6377f8412"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

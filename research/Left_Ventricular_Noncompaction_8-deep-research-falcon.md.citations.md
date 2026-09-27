@@ -4,7 +4,7 @@
 
 ## Target Disease
 - **Disease Name:** Left Ventricular Noncompaction 8
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0014152 (if available)
 - **Category:** Genetic
 
 ## Research Objectives
@@ -89,6 +89,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -447,28 +457,41 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-08-17T21:36:01.118017
+**Generated:** 2026-09-06T14:40:25.374206
 
-1. walsh2023thetroublewith pages 10-11
-2. arbustini2014leftventricularnoncompaction pages 7-8
-3. walsh2023thetroublewith pages 1-2
-4. micolonghi2024unveilingthespectrum pages 18-19
-5. theisen2024characterisationofthe pages 17-21
-6. arbustini2014leftventricularnoncompaction pages 8-9
-7. arbustini2014leftventricularnoncompaction pages 9-10
-8. theisen2024characterisationofthe pages 76-81
-9. https://doi.org/10.1007/s12265-023-10459-6
-10. https://doi.org/10.26508/lsa.202402719
-11. https://doi.org/10.1093/cvr/cvad154
-12. https://clinicaltrials.gov/study/NCT06024759
-13. https://clinicaltrials.gov/study/NCT04265040
-14. https://clinicaltrials.gov/study/NCT03572569
-15. https://clinicaltrials.gov/study/NCT01470014
-16. https://doi.org/10.1038/ncb3411
-17. https://doi.org/10.1161/circulationaha.121.056666,
-18. https://doi.org/10.1007/s12265-023-10459-6,
-19. https://doi.org/10.1016/j.jacc.2014.08.030,
-20. https://doi.org/10.26508/lsa.202402719,
-21. https://doi.org/10.1093/cvr/cvad154,
-22. https://doi.org/10.3390/ijms25189787,
-23. https://doi.org/10.17169/refubium-41680,
+1. nam2020cardiacspecificinactivationof pages 1-5
+2. mazzarotto2020thegeneticarchitecture pages 1-3
+3. arndt2013finemappingof pages 4-5
+4. piekutowskaabramczuk2022geneticprofileof pages 3-5
+5. llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2
+6. aung2020prognosticsignificanceof pages 1-2
+7. martineztittonel2025leftventricularnoncompaction pages 5-7
+8. umapathi2025araregenetic pages 1-2
+9. 10.1016/j.ajhg.2013.05.015
+10. 10.1161/CIRCHEARTFAILURE.122.010351
+11. 10.1161/CIRCGEN.122.003912
+12. 10.26508/lsa.202402719
+13. 10.1093/cvr/cvad154
+14. 10.14740/cr1673
+15. ClinicalTrials.gov
+16. https://doi.org/10.1016/j.ajhg.2013.05.015
+17. https://doi.org/10.1161/circheartfailure.122.010351
+18. https://doi.org/10.1161/CIRCGEN.122.003912
+19. https://doi.org/10.26508/lsa.202402719
+20. https://doi.org/10.1093/cvr/cvad154
+21. https://doi.org/10.14740/cr1673
+22. https://clinicaltrials.gov/study/NCT06024759
+23. https://clinicaltrials.gov/study/NCT04265040
+24. https://clinicaltrials.gov/study/NCT03572569
+25. https://doi.org/10.1016/j.ajhg.2013.05.015,
+26. https://doi.org/10.1101/2020.01.03.19015602,
+27. https://doi.org/10.1161/circgen.122.003912,
+28. https://doi.org/10.1161/circheartfailure.122.010351,
+29. https://doi.org/10.1152/ajpheart.00647.2019,
+30. https://doi.org/10.1161/circulationaha.121.056666,
+31. https://doi.org/10.26508/lsa.202402719,
+32. https://doi.org/10.1093/cvr/cvad154,
+33. https://doi.org/10.20944/preprints202507.1652.v1,
+34. https://doi.org/10.1161/circimaging.119.009712,
+35. https://doi.org/10.3390/genes13081334,
+36. https://doi.org/10.14740/cr1673,

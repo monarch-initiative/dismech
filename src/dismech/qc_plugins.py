@@ -157,7 +157,8 @@ def gene_mechanism_wiring_coverage(
     pathograph*: a top-level ``genetic`` node counts as wired when it is the
     source of at least one mechanism edge (predicate in ``predicates``) that
     reaches a pathophysiology node -- i.e. graph.py matched its gene key to a
-    pathophysiology node carrying the same ``gene``/``genes`` descriptor.
+    pathophysiology node carrying the same ``gene``/``genes`` descriptor, or
+    the same gene under ``genetic_context``.
 
     Only *mechanism-relevant* genetic items are counted in the denominator:
     items whose relationship/association marks them as BIOMARKER, PROTECTIVE,

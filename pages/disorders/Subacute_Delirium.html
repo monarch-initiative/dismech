@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4205,6 +4298,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4226,6 +4321,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4418,6 +4515,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4439,6 +4538,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4548,6 +4649,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4571,6 +4674,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4592,6 +4697,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4699,6 +4806,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4722,6 +4831,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4743,6 +4854,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4906,6 +5019,7 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cognitive-reserve" data-dismech-node="Reduced Cognitive Reserve" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cognitive Reserve</div>
 
+
                 <div class="item-desc">The predisposing half of the model. Advanced age, dementia or milder cognitive impairment, frailty, sensory impairment, and comorbidity burden lower the insult required to produce delirium. This node is a state of the patient before any precipitant arrives; it does not itself produce delirium, and it is the reason the same drug dose is inert in one patient and deliriogenic in another.</div>
 
 
@@ -4979,6 +5093,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5000,6 +5116,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5025,6 +5143,8 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5047,6 +5167,7 @@ Two facts discipline the entry. First, the causal-therapeutic translation of the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-inflammatory-insult" data-dismech-node="Systemic Inflammatory Insult" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Inflammatory Insult</div>
+
 
                 <div class="item-desc">The precipitating half. Infection and sepsis, major surgery, trauma, and critical illness raise circulating pro-inflammatory mediators — IL-6, IL-8, TNF-alpha — and this peripheral signal is measurably associated with subsequent delirium. In the subacute presentation the insult is typically indolent (an occult infection, a slowly accumulating drug effect, a gradually worsening metabolic derangement) rather than abrupt, which is why the onset is measured in days.</div>
 
@@ -5178,6 +5299,8 @@ This pathophysiological event involves increased cytokine-mediated signaling pat
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5200,6 +5323,7 @@ This pathophysiological event involves increased cytokine-mediated signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-permeability-increase" data-dismech-node="Blood-Brain Barrier Permeability Increase" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-Brain Barrier Permeability Increase</div>
+
 
                 <div class="item-desc">The permissive step: an inflamed cerebral endothelium lets peripheral inflammatory signalling into the CNS compartment. It is curated as its own node because it is separately measurable in patients — the CSF:plasma albumin ratio and plasma S100B correlate with the CSF soluble IL-6 receptor that indexes central trans-signalling — rather than being inferred from the peripheral cytokine level alone.</div>
 
@@ -5333,6 +5457,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5355,6 +5481,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microglial-activation-and-neuroinflammation" data-dismech-node="Microglial Activation and Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Microglial Activation and Neuroinflammation</div>
+
 
                 <div class="item-desc">Central amplification of the peripheral signal. Microglia switch from a surveillant to an activated phenotype and release IL-1beta, TNF-alpha, and other mediators locally; astrocytic activation accompanies it, and is reflected clinically in the S100B rise curated under biochemical. The conditional nature of this node is what distinguishes delirium from ordinary sickness behaviour: in animals, an identical systemic cytokine challenge leaves working memory intact on a normal background and impairs it acutely on a degenerating one.</div>
 
@@ -5657,6 +5784,8 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5679,6 +5808,7 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholinergic-dopaminergic-neurotransmitter-imbalance" data-dismech-node="Cholinergic-Dopaminergic Neurotransmitter Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cholinergic-Dopaminergic Neurotransmitter Imbalance</div>
+
 
                 <div class="item-desc">Relative cholinergic deficiency with dopaminergic excess is the classical proximate account, and it remains the best explanation for drug-precipitated delirium: anticholinergic and dopaminergic agents are among the most reliable precipitants, and their withdrawal is part of effective management. It is curated as a real node with a failed therapeutic corollary — neither cholinesterase inhibition nor dopamine-receptor blockade shortened delirium in randomized trials — so the imbalance should not be read as a validated drug target.</div>
 
@@ -5791,6 +5921,8 @@ This pathophysiological event involves decreased synaptic transmission, choliner
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5813,6 +5945,7 @@ This pathophysiological event involves decreased synaptic transmission, choliner
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-feedback-connectivity-loss" data-dismech-node="Cortical Feedback Connectivity Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Feedback Connectivity Loss</div>
+
 
                 <div class="item-desc">The circuit-level state of the delirious brain and the proximate substrate of its cardinal sign. Dynamic causal modelling of auditory evoked responses shows reduced top-down (feedback) connectivity during delirium, with increased intrinsic inhibitory tone in the same region; the reduction scales with delirium severity and with systemic inflammation. Framed predictively, the delirious cortex fails to impose top-down expectations on sensory input — which is what inattention, disorganized thinking, and perceptual disturbance look like from the inside.</div>
 
@@ -5908,6 +6041,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5930,6 +6065,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-and-astrocytic-injury" data-dismech-node="Neuronal and Astrocytic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal and Astrocytic Injury</div>
+
 
                 <div class="item-desc">The arm that makes delirium more than a transient state. Astrocytic (S100B) and axonal (neurofilament light) injury markers rise in association with delirium, and at the clinical level a longer duration of delirium predicts worse global cognition and executive function at 3 and 12 months, with delirium independently associated with long-term cognitive decline across studies. The direction of causation is not fully settled — delirium is at minimum a marker of a vulnerable brain — but the dose-response with delirium duration is what motivates curating injury as a distinct node.</div>
 
@@ -6001,6 +6137,8 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6024,6 +6162,8 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6045,6 +6185,8 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6071,6 +6213,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protracted-and-persistent-course" data-dismech-node="Protracted and Persistent Course" data-dismech-type="pathophysiology">
                 <div class="item-name">Protracted and Persistent Course</div>
+
 
                 <div class="item-desc">The node that gives this entry its name. Where a classical delirium declares itself in hours and resolves with its precipitant, the subacute presentation evolves over days and often does not resolve on the expected timescale: among older hospital patients who become delirious, nearly half are still delirious at discharge and a fifth remain so at six months. Because the presentation is gradual and the deficits — inattention, disorientation, impaired memory — are the ones dementia also produces, the subacute form is preferentially misread as an evolving dementia rather than as an acute brain state with a treatable cause.</div>
 
@@ -6145,6 +6288,8 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6166,6 +6311,8 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6230,28 +6377,13 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(7)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-inattention" data-dismech-node="Inattention" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Inattention
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delirium" data-dismech-node="Delirium" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delirium
-
-
+                    <span class="phenotype-category">Neurologic</span>
 
 
 
@@ -6260,519 +6392,21 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031258</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000736</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delirium (HP:0031258), qualified as temporality subacute. HP:0031258 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: SUBACUTE</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Delirium is an acute disorder of attention and cognition in elderly people (ie, those aged 65 years or older) that is common, serious, costly, under-recognised, and often fatal."</div>
-
-
-                <div class="evidence-explanation">Definitional statement of the syndrome this phenotype records.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-confusion-and-disorientation" data-dismech-node="Confusion and disorientation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Confusion and disorientation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001289</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Key diagnostic features include an acute onset and fluctuating course of symptoms, inattention, impaired level of consciousness, and disturbance of cognition (e.g., disorientation, memory impairment, alteration in language)."</div>
-
-
-                <div class="evidence-explanation">Names disorientation among the cognitive disturbances that define the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-memory-impairment" data-dismech-node="Memory impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Memory impairment
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002354</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Key diagnostic features include an acute onset and fluctuating course of symptoms, inattention, impaired level of consciousness, and disturbance of cognition (e.g., disorientation, memory impairment, alteration in language)."</div>
-
-
-                <div class="evidence-explanation">Lists memory impairment among the defining cognitive disturbances.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-perceptual-disturbance-and-hallucinations" data-dismech-node="Perceptual disturbance and hallucinations" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Perceptual disturbance and hallucinations
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000738</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Supportive features include disturbance in sleep-wake cycle, perceptual disturbances (hallucinations or illusions), delusions, psychomotor disturbance (hypo- or hyper-activity), inappropriate behavior, and emotional lability."</div>
-
-
-                <div class="evidence-explanation">Names perceptual disturbance and hallucinations as recognized supportive features of delirium.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-psychomotor-agitation" data-dismech-node="Psychomotor agitation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Psychomotor agitation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000713</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Agitation (HP:0000713). HP:0000713 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30346242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30346242" target="_blank">PMID:30346242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Delirium developed in 566 patients (48%), of whom 89% had hypoactive delirium and 11% had hyperactive delirium."</div>
-
-
-                <div class="evidence-explanation">Ascertains both motor presentations in a defined cohort and gives their relative frequency in critical illness.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoactive-presentation-with-apathy-and-lethargy" data-dismech-node="Hypoactive presentation with apathy and lethargy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoactive presentation with apathy and lethargy
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000741" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000741</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Apathy (HP:0000741). HP:0000741 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30346242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30346242" target="_blank">PMID:30346242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Delirium developed in 566 patients (48%), of whom 89% had hypoactive delirium and 11% had hyperactive delirium."</div>
-
-
-                <div class="evidence-explanation">Supports both the predominance of the hypoactive presentation and the VERY_FREQUENT band assigned here, within an ICU population.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-wake-cycle-disturbance" data-dismech-node="Sleep-wake cycle disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep-wake cycle disturbance
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006979</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sleep-wake cycle disturbance (HP:0006979). HP:0006979 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29278283" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29278283" target="_blank">PMID:29278283</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Delirium is the most common neuropsychiatric syndrome encountered by clinicians dealing with older adults and the medically ill and is best characterized by 5 core domains: cognitive deficits, attentional deficits, circadian rhythm dysregulation, emotional dysregulation, and alteration in..."</div>
-
-
-                <div class="evidence-explanation">Establishes circadian rhythm dysregulation as one of the five core domains of the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inattention" data-dismech-node="Inattention" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Inattention
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Short attention span</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000736</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Inattention, annotated with Short attention span (HP:0000736). HP:0000736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
-                    <div class="item-desc">HPO has no term for the fluctuating, acquired inattention of delirium; `Short attention span` is the closest available concept and is used with a `preferred_term` of Inattention rather than manufacturing a narrower match.</div>
+
+
+
+                <div class="item-desc">HPO has no term for the fluctuating, acquired inattention of delirium; `Short attention span` is the closest available concept and is used with a `preferred_term` of Inattention rather than manufacturing a narrower match.</div>
 
 
 
@@ -6791,6 +6425,8 @@ This clinical feature is Inattention, annotated with Short attention span (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6814,34 +6450,532 @@ This clinical feature is Inattention, annotated with Short attention span (HP:00
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-delirium" data-dismech-node="Delirium" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Delirium
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0031258</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delirium (HP:0031258), qualified as temporality subacute. HP:0031258 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
+                <div class="item-meta">
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: SUBACUTE</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Delirium is an acute disorder of attention and cognition in elderly people (ie, those aged 65 years or older) that is common, serious, costly, under-recognised, and often fatal."</div>
+
+
+                <div class="evidence-explanation">Definitional statement of the syndrome this phenotype records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-confusion-and-disorientation" data-dismech-node="Confusion and disorientation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Confusion and disorientation
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001289</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Key diagnostic features include an acute onset and fluctuating course of symptoms, inattention, impaired level of consciousness, and disturbance of cognition (e.g., disorientation, memory impairment, alteration in language)."</div>
+
+
+                <div class="evidence-explanation">Names disorientation among the cognitive disturbances that define the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-memory-impairment" data-dismech-node="Memory impairment" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Memory impairment
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002354</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Key diagnostic features include an acute onset and fluctuating course of symptoms, inattention, impaired level of consciousness, and disturbance of cognition (e.g., disorientation, memory impairment, alteration in language)."</div>
+
+
+                <div class="evidence-explanation">Lists memory impairment among the defining cognitive disturbances.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-perceptual-disturbance-and-hallucinations" data-dismech-node="Perceptual disturbance and hallucinations" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Perceptual disturbance and hallucinations
+
+
+                    <span class="phenotype-category">Behavioral</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000738</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Supportive features include disturbance in sleep-wake cycle, perceptual disturbances (hallucinations or illusions), delusions, psychomotor disturbance (hypo- or hyper-activity), inappropriate behavior, and emotional lability."</div>
+
+
+                <div class="evidence-explanation">Names perceptual disturbance and hallucinations as recognized supportive features of delirium.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-psychomotor-agitation" data-dismech-node="Psychomotor agitation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Psychomotor agitation
+
+
+                    <span class="phenotype-category">Behavioral</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000713</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Agitation (HP:0000713). HP:0000713 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30346242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30346242" target="_blank">PMID:30346242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Delirium developed in 566 patients (48%), of whom 89% had hypoactive delirium and 11% had hyperactive delirium."</div>
+
+
+                <div class="evidence-explanation">Ascertains both motor presentations in a defined cohort and gives their relative frequency in critical illness.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-hypoactive-presentation-with-apathy-and-lethargy" data-dismech-node="Hypoactive presentation with apathy and lethargy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Hypoactive presentation with apathy and lethargy
+
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    <span class="phenotype-category">Behavioral</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000741" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000741</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Apathy (HP:0000741). HP:0000741 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30346242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30346242" target="_blank">PMID:30346242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Delirium developed in 566 patients (48%), of whom 89% had hypoactive delirium and 11% had hyperactive delirium."</div>
+
+
+                <div class="evidence-explanation">Supports both the predominance of the hypoactive presentation and the VERY_FREQUENT band assigned here, within an ICU population.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-wake-cycle-disturbance" data-dismech-node="Sleep-wake cycle disturbance" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sleep-wake cycle disturbance
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006979</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep-wake cycle disturbance (HP:0006979). HP:0006979 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29278283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29278283" target="_blank">PMID:29278283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Delirium is the most common neuropsychiatric syndrome encountered by clinicians dealing with older adults and the medically ill and is best characterized by 5 core domains: cognitive deficits, attentional deficits, circadian rhythm dysregulation, emotional dysregulation, and alteration in..."</div>
+
+
+                <div class="evidence-explanation">Establishes circadian rhythm dysregulation as one of the five core domains of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6888,6 +7022,9 @@ This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6902,6 +7039,8 @@ This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6925,6 +7064,8 @@ This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7007,6 +7148,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The Hospital Elder Life Program and its descendants apply standardized protocols to six modifiable risk factors — cognitive impairment, sleep deprivation, immobility, visual impairment, hearing impairment, and dehydration. In the original controlled study delirium developed in 9.9% of the intervention group versus 15.0% of usual care, and pooled across subsequent studies the odds of incident delirium fall by roughly half. It is the only intervention with a consistent effect on incidence, and it is mechanistically a treatment of the predisposing node rather than of any molecular target — which is exactly what the multifactorial model predicts would work.</div>
 
 
@@ -7037,6 +7203,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7081,6 +7249,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7104,6 +7274,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7117,14 +7289,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10053175" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:10053175" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10053175" target="_blank">PMID:10053175</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7188,6 +7362,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The mainstay of management of established delirium. No agent has been shown to shorten delirium in an unselected critically ill population — the antipsychotic and cholinesterase-inhibitor trials curated here are both negative — so treatment consists of identifying and correcting the precipitant, reducing sedative and analgesic burden, and applying the same non-pharmacological measures used in prevention. Dexmedetomidine is the exception that defines the rule: it benefited the specific population of non-intubated patients with hyperactive delirium, and is curated separately below.</div>
 
 
@@ -7218,6 +7417,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7260,6 +7461,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7344,6 +7547,31 @@ This treatment uses haloperidol (CHEBI:5613). CHEBI:5613 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Haloperidol and atypical antipsychotics remain in use for the behavioural control of severe agitation that threatens patient or staff safety. They are curated here with the evidence that constrains them: in a placebo-controlled trial of 566 delirious critically ill patients, neither haloperidol nor ziprasidone altered the number of days alive without delirium or coma. They are symptomatic agents, not disease-modifying ones, and the entry deliberately does not link them to a mechanism node.</div>
 
 
@@ -7367,6 +7595,8 @@ This treatment uses haloperidol (CHEBI:5613). CHEBI:5613 is a therapeutic agent 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7388,6 +7618,8 @@ This treatment uses haloperidol (CHEBI:5613). CHEBI:5613 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7472,6 +7704,31 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An alpha-2 adrenergic agonist, and the one pharmacological agent in this entry with a positive randomized result. In a multicentre, double-blind, placebo-controlled trial across nine ICUs, non-intubated critically ill adults with hyperactive delirium randomized to dexmedetomidine did better than placebo on a joint model of agitation duration, delirium duration, and the need for intubation and deep sedation; the trial was stopped for efficacy at the preplanned interim analysis. The effect is real but should not be overread: the median reduction in agitation was about an hour, the other key secondary outcomes were similar between groups, and the population is a specific one — non-intubated patients with the hyperactive presentation, which is the minority form in critical illness.</div>
 
 
@@ -7495,6 +7752,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7508,14 +7767,16 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41160116" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41160116" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41160116" target="_blank">PMID:41160116</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7579,6 +7840,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7627,6 +7890,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7682,6 +7947,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7730,6 +7997,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7794,6 +8063,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7817,6 +8088,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7830,14 +8103,16 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40889075" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40889075" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40889075" target="_blank">PMID:40889075</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7886,6 +8161,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7899,14 +8176,16 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34218905" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34218905" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34218905" target="_blank">PMID:34218905</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7929,6 +8208,436 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
             </div>
 
+        </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-confusion-assessment-method-cam">
+                <div class="item-name">
+                    Confusion Assessment Method (CAM)
+
+                </div>
+
+                <div class="item-desc">The standard bedside instrument, structured around acute onset with a fluctuating course plus inattention, and either disorganized thinking or an altered level of consciousness. Its ICU adaptation, the CAM-ICU, is what ascertains delirium in ventilated patients who cannot be interviewed, and is the instrument used in the major critical-care trials curated here.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"validated in high quality studies including over 1000 patients with sensitivity of 94%, specificity of 89%, and high inter-rater reliability."</div>
+
+
+                <div class="evidence-explanation">Reports the CAM&#39;s validated operating characteristics in the sentence that names it the most widely used instrument for identifying delirium.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30346242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30346242" target="_blank">PMID:30346242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"delirium was detected with the use of the Confusion Assessment Method for the ICU (CAM-ICU),23,24 a validated tool that identifies delirium on the basis of an acute change or fluctuating course of mental status plus inattention and either altered level of consciousness or disorganized thinking"</div>
+
+
+                <div class="evidence-explanation">Describes the ICU adaptation and its operational criteria as applied in a definitive trial.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-search-for-the-precipitating-cause">
+                <div class="item-name">
+                    Search for the precipitating cause
+
+                </div>
+
+                <div class="item-desc">There is no diagnostic test for delirium itself; the diagnostic work is identifying what precipitated it. Because delirium can be the presenting feature of a medical emergency, screening for acute physiological disturbance — hypoxaemia, hypoglycaemia, hypercapnia — precedes any elaborate work-up, and testing is targeted by history and examination rather than run as a battery.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"First, because delirium can be the harbinger of a medical emergency, every patient presenting with delirium should be screened for acute physiologic disturbance such as hypoxemia, low blood glucose, and high arterial carbon dioxide."</div>
+
+
+                <div class="evidence-explanation">States the priority and the specific targets of the initial diagnostic screen.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-persistence-at-hospital-discharge">
+                <div class="item-name">Persistence at hospital discharge</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">44.7% of older hospital patients with delirium were still delirious at discharge (95% CI 26.8%-63.7%).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19017678" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19017678" target="_blank">PMID:19017678</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the combined proportions with PerD at discharge, 1, 3 and 6 months were 44.7% (95% CI 26.8%, 63.7%), 32.8% (95% CI 18.4%, 47.2%), 25.6% (95% CI 7.9%, 43.4%) and 21% (95% CI 1.4%, 40.6%), respectively."</div>
+
+
+                <div class="evidence-explanation">Reports the discharge-time persistence proportion recorded in this phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-persistence-at-six-months">
+                <div class="item-name">Persistence at six months</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">21% remained delirious at six months (95% CI 1.4%-40.6%); the wide interval reflects heterogeneity across the 18 pooled reports.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19017678" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19017678" target="_blank">PMID:19017678</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the combined proportions with PerD at discharge, 1, 3 and 6 months were 44.7% (95% CI 26.8%, 63.7%), 32.8% (95% CI 18.4%, 47.2%), 25.6% (95% CI 7.9%, 43.4%) and 21% (95% CI 1.4%, 40.6%), respectively."</div>
+
+
+                <div class="evidence-explanation">Reports the six-month persistence proportion recorded in this phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-medically-hospitalized-older-patients">
+                <div class="item-name">Medically hospitalized older patients</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        23600.0 per 100,000
+                        (19000.0&ndash;29000.0)
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Pooled prevalence 23.6% (95% CI 19%-29%) across 35 studies and 12,097 participants. Reported alongside a pooled incidence of 13.5%, which is a different measure and is not combined with it here.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39602991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39602991" target="_blank">PMID:39602991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A total of 35 studies encompassing 12,097 participants met the inclusion criteria, yielding a 23.6 % pooled prevalence of delirium (95 % confidence interval = 19 % to 29 %) and a 13.5 % pooled incidence of delirium (n = 32, 95 % confidence interval = 11 % to 17 %) among medically hospitalized..."</div>
+
+
+                <div class="evidence-explanation">Source of both the pooled prevalence recorded here and the incidence noted for contrast.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">High</div>
+
+
+                <div class="item-desc">Delirium is common in hospitalized older adults, is independently associated with mortality, and — in the protracted form this entry centres on — persists in a substantial minority for months and carries consistently worse mortality, institutionalization, function, and cognition than a delirium that resolves. It is additionally associated with long-term cognitive decline of moderate effect size.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23992774" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992774" target="_blank">PMID:23992774</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Delirium is an acute disorder of attention and cognition in elderly people (ie, those aged 65 years or older) that is common, serious, costly, under-recognised, and often fatal."</div>
+
+
+                <div class="evidence-explanation">Summary statement of the burden this assessment records.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32658246" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658246" target="_blank">PMID:32658246</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this meta-analysis, delirium was significantly associated with long-term cognitive decline in both surgical and nonsurgical patients."</div>
+
+
+                <div class="evidence-explanation">Supports the long-term component of the burden assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
         </div>
 
 
@@ -7987,6 +8696,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8052,6 +8763,8 @@ This treatment uses dexmedetomidine (CHEBI:4466). CHEBI:4466 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8160,6 +8873,8 @@ This clinical trial targets Delirium (HP:0031258). HP:0031258 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8181,6 +8896,8 @@ This clinical trial targets Delirium (HP:0031258). HP:0031258 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8322,6 +9039,8 @@ This clinical trial targets Delirium (HP:0031258). HP:0031258 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8361,6 +9080,8 @@ This clinical trial targets Delirium (HP:0031258). HP:0031258 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8404,6 +9125,8 @@ This clinical trial targets Delirium (HP:0031258). HP:0031258 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8529,6 +9252,8 @@ This clinical trial targets Delirium (HP:0031258). HP:0031258 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8587,6 +9312,8 @@ This clinical trial targets Delirium (HP:0031258). HP:0031258 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8636,6 +9363,8 @@ This clinical trial targets Delirium (HP:0031258). HP:0031258 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9523,7 +10252,7 @@ biochemical:
       across the critical-illness literature.
   - reference: PMID:40889075
     reference_title: &#39;Serum biomarkers of delirium in critical illness: a systematic review of mechanistic and diagnostic evidence.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Despite early promise, serum biomarkers for ICU delirium remain
@@ -9555,7 +10284,7 @@ biochemical:
       The pooled estimate that supports IL-6 as a pre-insult risk marker.
   - reference: PMID:34218905
     reference_title: &#39;Preoperative inflammatory mediators and postoperative delirium: systematic review and meta-analysis.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The association of preoperative blood levels of inflammatory mediators with
@@ -9893,7 +10622,7 @@ treatments:
       generalizes.
   - reference: PMID:10053175
     reference_title: A multicomponent intervention to prevent delirium in hospitalized older patients.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The intervention had no significant effect on the severity of delirium or on
@@ -10029,7 +10758,7 @@ treatments:
       on the specified composite endpoint.
   - reference: PMID:41160116
     reference_title: &#39;Dexmedetomidine for treatment of hyperactive delirium in non-intubated ICU patients: the 4D randomized clinical trial.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Agitation duration was shorter in the dexmedetomidine group (1.0 (1.0-2.0)
@@ -10416,6 +11145,48 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. MONDO:0004629 is a course-qualified synonym of delirium rather than a separate disease, so this entry curates the delirium pathograph and treats &#34;subacute&#34; as a temporal qualifier on it, with a dedicated `Protracted and Persistent Course` node and an explicit knowledge-gap discussion. If dismech later curates delirium as a top-level entry, this entry should be reconciled with it rather than duplicated.
+Deliberate omissions, corrected. An earlier revision of this entry asserted that four claims could not be curated because their sources resolved only to journal or PMC URLs. That was wrong for three of them: the deep-research run&#39;s own reference validation had already cached the APOE GWAS (PMID:41286463), the S100B/NfL systematic review (PMID:40889075), and the 4D dexmedetomidine trial (PMID:41160116), and all three are now curated. The lesson is worth recording: check `references_cache/` before concluding a deep-research citation is unresolvable, because the validator fetches more than the report cites by identifier.
+What genuinely remains uncurated is the thalamic and caudate functional-connectivity finding, whose only cached record (DOI:10.1176/appi.ajp.2012.11060976) has `content_type: unavailable` and so offers no quotable text. It is a real lead and is not curated as evidenced content here.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: Subacute Delirium (PR #9455)</strong> · 2026-08-25T05:51:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Subacute_Delirium/2026-08-25T055104Z-claude-code-8bf54c.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #9455.
+
+The review found a factual error in the entry&#39;s own provenance prose, and it was right. Three claims were said to be uncurable for lack of a resolvable identifier; the deep-research run&#39;s reference validation had already cached all three, and they are now curated: the APOE multi-ancestry GWAS (PMID:41286463), the S100B/NfL systematic review (PMID:40889075), and the 4D dexmedetomidine trial (PMID:41160116). Only the thalamic/caudate connectivity record genuinely lacks quotable text (content_type: unavailable) and remains uncurated. The corrected notes block records the mistake and its lesson rather than silently deleting the claim.
+
+Changes: genetic#APOE now carries two evidence items and no longer claims the GWAS was unresolvable; the CURATION_TODO discussion was replaced with an OPEN_QUESTION about how APOE confers risk, since the citation task is done and the mechanistic question is what actually remains. Added a dexmedetomidine treatment and a clinical_trials entry for NCT03317067, with both the positive composite result and the bounding secondary outcomes curated, and narrowed the therapeutic-nihilism prose in the description and in the supportive-care treatment so it no longer overstates. Added S100B/NfL evidence to the Neuronal and Astrocytic Injury node and to the S100B biochemical entry, including the review&#39;s own &#34;remain investigational&#34; qualifier. Added the graded MMSE dose-response (PMID:25239680) to Reduced Cognitive Reserve, converting a categorical risk factor into a quantified one. Added the LPS mouse model (PMID:30962497) with two readouts including the TLR4-blockade rescue arm that makes it causal rather than descriptive.
+
+A duplicate `notes:` key was introduced and caught during revalidation while merging the APOE blocks; it was fixed by folding both into one block rather than dropping either.
+
+Validation after changes: just validate (71/71 snippets verified, up from 57), validate-terms, validate-disorders, check-duplicate-keys, check-snippet-length, check-title-snippets, compliance 89.8% global (up from 88.1%), and the entity-reference/foreign-key/clinical-trial pytest selection.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Subacute Delirium (MONDO:0004629)</strong> · 2026-08-25T05:01:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Subacute_Delirium/2026-08-25T050155Z-claude-code-69aef9.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MONDO:0004629. &#34;Subacute&#34; is curated as a temporal qualifier on the delirium pathograph rather than as a distinct mechanism, because ICD-10 F05 bundles &#34;acute or subacute confusional state&#34; under one code and no study found during curation stratifies mechanism by onset tempo; the scope decision is stated in the entry description, in notes, and as a KNOWLEDGE_GAP discussion attached to the Protracted and Persistent Course node.
+
+Deep research: claude_code provider (research/Subacute_Delirium-deep-research-claude_code.md), 36 references, reference_validation needs_review=true with one unresolved identifier (a malformed DOI string), which was not cited. just preflight-dr returned SKIP because MONDO records no causal gene for this term, so disease identity was checked manually against the MONDO/MedGen/ICD-10 synonym set.
+
+Content: eight pathophysiology nodes (reduced cognitive reserve; systemic inflammatory insult; blood-brain barrier permeability increase; microglial activation and neuroinflammation; cholinergic-dopaminergic imbalance; cortical feedback connectivity loss; neuronal and astrocytic injury; protracted and persistent course) organized by four mechanistic hypothesis groups. The cholinergic/dopaminergic model is recorded as ALTERNATIVE with both of its failed therapeutic predictions curated as REFUTE evidence (rivastigmine, PMID:21056464; MIND-USA haloperidol/ziprasidone, PMID:30346242). Also curated: eight phenotypes, two biochemical markers, APOE as SUSCEPTIBILITY, two environmental exposures with influences_mechanisms links, prevalence, two progression phases, clinical burden, two diagnosis entries, three treatments, one animal model (ME7 prion mouse + systemic TNF-alpha) with modeled_mechanisms and a readout, two differential diagnoses, and three discussions.
+
+Deliberate omissions: claims whose deep-research sources resolved only to journal or PMC URLs — the APOE GWAS effect estimate, thalamic/caudate functional-connectivity findings, the S100B/NfL biomarker systematic review, and recent dexmedetomidine strategy trials — were left uncurated and are listed in the entry notes plus a CURATION_TODO discussion.
+
+Validation: just validate (schema + 57/57 snippets verified against cached references), just validate-terms, just validate-disorders, just compliance (88.1% global), and the offline gates check-duplicate-keys, check-snippet-length, check-folded-hyphens, check-title-snippets, check-environmental-evidence. The entity-reference and foreign-key pytest selection (14063 tests) passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10862,7 +11633,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Subacute Delirium", "mondoId": "MONDO:0004629", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Subacute_Delirium", "yamlRevision": "41c062a36a31"};
+        const OS_CONFIG = {"diseaseName": "Subacute Delirium", "mondoId": "MONDO:0004629", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Subacute_Delirium", "yamlRevision": "ca4b04f85838"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3744,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3786,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Dengue"
@@ -3927,7 +4016,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3937,7 +4026,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3956,13 +4045,21 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
 
 
 
+
+            <a class="stat-link" href="#treatments">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Medical Actions</div>
+            </div>
+            </a>
 
 
 
@@ -4346,6 +4443,8 @@ This experiment is of type single-cell multi-omic profiling with ex vivo functio
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4375,16 +4474,14 @@ This experiment is of type single-cell multi-omic profiling with ex vivo functio
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">8</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-leakage-leading-to-shock-in-severe-dengue" data-dismech-node="Plasma leakage leading to shock in severe dengue" data-dismech-type="pathophysiology">
-                <div class="item-name">Plasma leakage leading to shock in severe dengue</div>
-
-                <div class="item-desc">Severe dengue involves plasma leakage that can progress to hypovolemic shock.</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-antibody-dependent-enhancement-in-secondary-heterotypic-infection" data-dismech-node="Antibody-Dependent Enhancement in Secondary Heterotypic Infection" data-dismech-type="pathophysiology">
+                <div class="item-name">Antibody-Dependent Enhancement in Secondary Heterotypic Infection</div>
 
 
-
+                <div class="item-desc">Secondary infection with a heterotypic dengue virus serotype can enhance disease severity through antibody-dependent enhancement, in which non-neutralizing antibodies from the primary infection promote increased viral uptake and immune dysregulation.</div>
 
 
 
@@ -4398,6 +4495,262 @@ This experiment is of type single-cell multi-omic profiling with ex vivo functio
 
 
 
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Plasma Leakage</span>
+
+	                            <span class="crosslink-desc">ADE-driven immune activation and cytokine dysregulation contribute to the vascular permeability underlying severe-dengue plasma leakage.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34171205" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34171205" target="_blank">PMID:34171205</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the severity of the disease is enhanced via heterotypic infection by various serotypes as well as antibody-dependent enhancement (ADE)"</div>
+
+
+                <div class="evidence-explanation">Review states heterotypic serotype infection and ADE enhance dengue disease severity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32265181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32265181" target="_blank">PMID:32265181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"antibody-dependent enhancement, cytokine dysregulation and variation of lipid profiles are correlated with DHF occurrence"</div>
+
+
+                <div class="evidence-explanation">Review correlates antibody-dependent enhancement with DHF occurrence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ns1-induced-endothelial-glycocalyx-degradation" data-dismech-node="NS1-Induced Endothelial Glycocalyx Degradation" data-dismech-type="pathophysiology">
+                <div class="item-name">NS1-Induced Endothelial Glycocalyx Degradation</div>
+
+
+                <div class="item-desc">Secreted dengue NS1 acts directly on vascular endothelium: it induces sialidase and heparanase expression and activates cathepsin L, which together strip sialic acid and shed heparan sulfate proteoglycans from the endothelial glycocalyx layer. Loss of that layer is an endothelial cell-intrinsic route to hyperpermeability, separate from the antibody- and cytokine-mediated arm above.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        endothelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000115</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Plasma Leakage</span>
+
+	                            <span class="crosslink-desc">Stripping the endothelial glycocalyx removes a principal regulator of endothelial barrier function, and the resulting hyperpermeability is the cell-intrinsic mechanism of plasma leakage.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27416066" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27416066" target="_blank">PMID:27416066</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we demonstrate that DENV NS1 disrupts the EGL on human pulmonary microvascular endothelial cells, inducing degradation of sialic acid and shedding of heparan sulfate proteoglycans."</div>
+
+
+                <div class="evidence-explanation">Demonstrates the glycocalyx degradation this node asserts, on human endothelial cells.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27416066" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27416066" target="_blank">PMID:27416066</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This effect is mediated by NS1-induced expression of sialidases and heparanase, respectively."</div>
+
+
+                <div class="evidence-explanation">Identifies the sialidase and heparanase route named in this node&#39;s description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-leakage" data-dismech-node="Plasma Leakage" data-dismech-type="pathophysiology">
+                <div class="item-name">Plasma Leakage</div>
+
+
+                <div class="item-desc">Increased vascular permeability allows plasma to escape the intravascular compartment into the pleural and peritoneal spaces, with hemoconcentration. This is the pathophysiological hallmark that separates dengue hemorrhagic fever from uncomplicated dengue fever.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypovolemic Shock</span>
+
+	                            <span class="crosslink-desc">When leakage is severe enough, the loss of circulating volume produces hypovolemic shock. Splitting this from the leakage node matters therapeutically: fluid resuscitation acts on the volume loss, not on the permeability that caused it.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4417,12 +4770,212 @@ This experiment is of type single-cell multi-omic profiling with ex vivo functio
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
-                <div class="evidence-snippet">"Plasma leakages is the main pathophysiological hallmark that distinguishes DHF from DF. Severe plasma leakage can result in hypovolemic shock."</div>
+                <div class="evidence-snippet">"Plasma leakages is the main pathophysiological hallmark that distinguishes DHF from DF."</div>
 
 
-                <div class="evidence-explanation">The review highlights plasma leakage and shock in severe dengue.</div>
+                <div class="evidence-explanation">Identifies plasma leakage as the defining mechanism of the severe form.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypovolemic-shock" data-dismech-node="Hypovolemic Shock" data-dismech-type="pathophysiology">
+                <div class="item-name">Hypovolemic Shock</div>
+
+
+                <div class="item-desc">Loss of intravascular volume to the extravascular space produces circulatory failure. This is the node fluid resuscitation acts on, and the mechanism behind the dengue shock syndrome presentation.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dengue Shock Syndrome</span>
+
+	                            <span class="crosslink-desc">Hypovolemic shock arising from dengue plasma leakage is the clinical presentation named dengue shock syndrome.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16135832" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16135832" target="_blank">PMID:16135832</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dengue shock syndrome is characterized by severe vascular leakage and disordered hemostasis and progresses to death in 1 to 5 percent of cases."</div>
+
+
+                <div class="evidence-explanation">Characterizes the shock state and its mortality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-platelet-activation-and-accelerated-platelet-clearance" data-dismech-node="Platelet Activation and Accelerated Platelet Clearance" data-dismech-type="pathophysiology">
+                <div class="item-name">Platelet Activation and Accelerated Platelet Clearance</div>
+
+
+                <div class="item-desc">Circulating platelets carry DENV genome and become activated, acquiring surface complement C3 and IgG and being phagocytosed by monocytes. Platelet counts fall around day 4 of fever and recover from day 6 to day 10, tracking the activation markers.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        platelet
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000233</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Thrombocytopenia</span>
+
+	                            <span class="crosslink-desc">Activated platelets are cleared faster than they are replaced, which is what the falling platelet count measures.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hemorrhagic Manifestations</span>
+
+	                            <span class="crosslink-desc">Platelet depletion contributes to the bleeding tendency, alongside the disordered hemostasis reported in severe dengue. The intermediates are not resolved here, so the link is not typed as direct.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28139770" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139770" target="_blank">PMID:28139770</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we described a direct correlation between activation and depletion of platelets in patients"</div>
+
+
+                <div class="evidence-explanation">Establishes the activation-to-depletion relationship in dengue patients.</div>
 
 
 
@@ -4437,6 +4990,7 @@ This experiment is of type single-cell multi-omic profiling with ex vivo functio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-cascade-dysregulation" data-dismech-node="Complement Cascade Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement Cascade Dysregulation</div>
+
 
                 <div class="item-desc">Transcriptional signature of complement dysregulation in pediatric dengue: classical and lectin pathway components are upregulated during primary infection with concurrent downregulation of several complement regulators (FDR-significant). The primary-versus-secondary comparison shows a nominal trend toward the reciprocal pattern (C1QA/C1QC/C2/C4b down, CFI/C4BP/MBL2/CFP up), which the authors interpret as a transition from activation to regulation in secondary infection, though this comparison did not reach FDR significance.</div>
 
@@ -4459,11 +5013,11 @@ This experiment is of type single-cell multi-omic profiling with ex vivo functio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4499,7 +5053,7 @@ This pathophysiological event involves increased complement activation (GO:00069
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Plasma leakage leading to shock in severe dengue</span>
+	                            <span class="crosslink-meta">Plasma Leakage</span>
 
 	                            <span class="crosslink-desc">Excessive or unbalanced complement activation is proposed to increase vascular permeability and drive the plasma leakage that defines severe dengue. The intermediates linking complement activation products to endothelial barrier failure are not established in this cohort.</span>
 
@@ -4527,6 +5081,8 @@ This pathophysiological event involves increased complement activation (GO:00069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4540,14 +5096,16 @@ This pathophysiological event involves increased complement activation (GO:00069
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42603814" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42603814" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42603814" target="_blank">PMID:42603814</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4573,6 +5131,7 @@ This pathophysiological event involves increased complement activation (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-mediated-innate-immune-activation" data-dismech-node="Macrophage-Mediated Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage-Mediated Innate Immune Activation</div>
 
+
                 <div class="item-desc">Transcriptional signature of macrophage activation in both primary and secondary pediatric dengue, marked by elevated expression of macrophage-associated markers (ITGB2, SPP1, KLF6) and tissue-remodelling genes, with concurrent downregulation of the pro-inflammatory mediators S100A8 and BATF that the authors read as feedback restraint.</div>
 
 
@@ -4587,11 +5146,11 @@ This pathophysiological event involves increased complement activation (GO:00069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4628,11 +5187,11 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042116</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042116</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased macrophage activation (GO:0042116). GO:0042116 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4681,6 +5240,8 @@ This pathophysiological event involves increased macrophage activation (GO:00421
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4704,6 +5265,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-checkpoint-mediated-t-cell-exhaustion-in-secondary-dengue" data-dismech-node="Immune Checkpoint-Mediated T Cell Exhaustion in Secondary Dengue" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Checkpoint-Mediated T Cell Exhaustion in Secondary Dengue</div>
 
+
                 <div class="item-desc">Transcriptional signature of immune-checkpoint upregulation (PDCD1/PD-1, LAG3, TIGIT, CD96, VSIG4) in pediatric dengue, markedly higher in secondary than in primary infection, which the authors interpret as immune exhaustion of NK, MAIT and T cells restricting antiviral effector function.</div>
 
 
@@ -4718,11 +5280,11 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000084</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4748,11 +5310,11 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000623</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4778,11 +5340,11 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000940" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000940</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000940" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000940</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves mucosal-associated invariant T (MAIT) cell, annotated with mucosal-associated invariant T cell (CL:0000940). CL:0000940 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4819,11 +5381,11 @@ This pathophysiological event involves mucosal-associated invariant T (MAIT) cel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050868" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0050868</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050868" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0050868</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased checkpoint-mediated restraint of T cell activation, annotated with negative regulation of T cell activation (GO:0050868). GO:0050868 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4872,6 +5434,8 @@ This pathophysiological event involves increased checkpoint-mediated restraint o
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4917,7 +5481,7 @@ This pathophysiological event involves increased checkpoint-mediated restraint o
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Complement Cascade Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transcriptional signature of complement dysregulation in pediatric dengue: classical and lectin pathway components are upregulated during primary infection with concurrent downregulation of several complement regulators (FDR-significant). The primary-versus-secondary comparison shows a nominal trend toward the reciprocal pattern (C1QA/C1QC/C2/C4b down, CFI/C4BP/MBL2/CFP up), which the authors interpret as a transition from activation to regulation in secondary infection, though this comparison did not reach FDR significance.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"complement activation\"]}}, {\"id\": \"Plasma leakage leading to shock in severe dengue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe dengue involves plasma leakage that can progress to hypovolemic shock.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Complement Cascade Dysregulation\", \"target\": \"Plasma leakage leading to shock in severe dengue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive or unbalanced complement activation is proposed to increase vascular permeability and drive the plasma leakage that defines severe dengue. The intermediates linking complement activation products to endothelial barrier failure are not established in this cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antibody-Dependent Enhancement in Secondary Heterotypic Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Secondary infection with a heterotypic dengue virus serotype can enhance disease severity through antibody-dependent enhancement, in which non-neutralizing antibodies from the primary infection promote increased viral uptake and immune dysregulation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Complement Cascade Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transcriptional signature of complement dysregulation in pediatric dengue: classical and lectin pathway components are upregulated during primary infection with concurrent downregulation of several complement regulators (FDR-significant). The primary-versus-secondary comparison shows a nominal trend toward the reciprocal pattern (C1QA/C1QC/C2/C4b down, CFI/C4BP/MBL2/CFP up), which the authors interpret as a transition from activation to regulation in secondary infection, though this comparison did not reach FDR significance.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"complement activation\"]}}, {\"id\": \"Dengue Shock Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The most severe presentation of dengue, characterized by critical plasma leakage progressing to hypovolemic shock.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031274\"}}, {\"id\": \"Hemorrhagic Manifestations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bleeding in dengue ranges from petechiae and other hemorrhagic skin lesions to mucosal and gastrointestinal bleeding, and is the manifestation the name dengue hemorrhagic fever refers to.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001892\"}}, {\"id\": \"Hypovolemic Shock\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of intravascular volume to the extravascular space produces circulatory failure. This is the node fluid resuscitation acts on, and the mechanism behind the dengue shock syndrome presentation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intravenous Fluid Resuscitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Timely intravenous fluid resuscitation is the critical supportive intervention for dengue shock syndrome; WHO management guidelines for fluid choice remain largely empirical.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NS1-Induced Endothelial Glycocalyx Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Secreted dengue NS1 acts directly on vascular endothelium: it induces sialidase and heparanase expression and activates cathepsin L, which together strip sialic acid and shed heparan sulfate proteoglycans from the endothelial glycocalyx layer. Loss of that layer is an endothelial cell-intrinsic route to hyperpermeability, separate from the antibody- and cytokine-mediated arm above.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"]}}, {\"id\": \"Plasma Leakage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased vascular permeability allows plasma to escape the intravascular compartment into the pleural and peritoneal spaces, with hemoconcentration. This is the pathophysiological hallmark that separates dengue hemorrhagic fever from uncomplicated dengue fever.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Platelet Activation and Accelerated Platelet Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating platelets carry DENV genome and become activated, acquiring surface complement C3 and IgG and being phagocytosed by monocytes. Platelet counts fall around day 4 of fever and recover from day 6 to day 10, tracking the activation markers.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}], \"edges\": [{\"source\": \"Antibody-Dependent Enhancement in Secondary Heterotypic Infection\", \"target\": \"Plasma Leakage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADE-driven immune activation and cytokine dysregulation contribute to the vascular permeability underlying severe-dengue plasma leakage.\"}, {\"source\": \"NS1-Induced Endothelial Glycocalyx Degradation\", \"target\": \"Plasma Leakage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stripping the endothelial glycocalyx removes a principal regulator of endothelial barrier function, and the resulting hyperpermeability is the cell-intrinsic mechanism of plasma leakage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Plasma Leakage\", \"target\": \"Hypovolemic Shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When leakage is severe enough, the loss of circulating volume produces hypovolemic shock. Splitting this from the leakage node matters therapeutically: fluid resuscitation acts on the volume loss, not on the permeability that caused it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypovolemic Shock\", \"target\": \"Dengue Shock Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypovolemic shock arising from dengue plasma leakage is the clinical presentation named dengue shock syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Platelet Activation and Accelerated Platelet Clearance\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated platelets are cleared faster than they are replaced, which is what the falling platelet count measures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Platelet Activation and Accelerated Platelet Clearance\", \"target\": \"Hemorrhagic Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Platelet depletion contributes to the bleeding tendency, alongside the disordered hemostasis reported in severe dengue. The intermediates are not resolved here, so the link is not typed as direct.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Complement Cascade Dysregulation\", \"target\": \"Plasma Leakage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive or unbalanced complement activation is proposed to increase vascular permeability and drive the plasma leakage that defines severe dengue. The intermediates linking complement activation products to endothelial barrier failure are not established in this cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intravenous Fluid Resuscitation\", \"target\": \"Hypovolemic Shock\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4930,21 +5494,288 @@ This pathophysiological event involves increased checkpoint-mediated restraint o
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">5</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thrombocytopenia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001873</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34171205" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34171205" target="_blank">PMID:34171205</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical symptoms of dengue range from mild fever to severe dengue hemorrhagic fever (DHF) or dengue shock syndrome (DSS), with thrombocytopenia, leucopenia, and increased vascular permeability."</div>
+
+
+                <div class="evidence-explanation">The review lists thrombocytopenia as part of the clinical symptom spectrum of dengue, including severe forms (DHF/DSS).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemorrhagic-manifestations" data-dismech-node="Hemorrhagic Manifestations" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hemorrhagic Manifestations
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal bleeding</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001892</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemorrhagic manifestations, annotated with Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39773842" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39773842" target="_blank">PMID:39773842</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In Dengue, distinctive rashes like the &#39;islands of white in a sea of red&#39; and hemorrhagic skin manifestations have been key diagnostic features."</div>
+
+
+                <div class="evidence-explanation">Names hemorrhagic skin manifestations as a diagnostic feature of dengue.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16135832" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16135832" target="_blank">PMID:16135832</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dengue shock syndrome is characterized by severe vascular leakage and disordered hemostasis and progresses to death in 1 to 5 percent of cases."</div>
+
+
+                <div class="evidence-explanation">Documents disordered hemostasis as a defining feature of the severe form.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dengue-shock-syndrome" data-dismech-node="Dengue Shock Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dengue Shock Syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypovolemic shock</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0031274</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dengue shock syndrome, annotated with Hypovolemic shock (HP:0031274). HP:0031274 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16135832" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16135832" target="_blank">PMID:16135832</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dengue shock syndrome is characterized by severe vascular leakage and disordered hemostasis and progresses to death in 1 to 5 percent of cases."</div>
+
+
+                <div class="evidence-explanation">Randomized-trial report characterizing dengue shock syndrome as severe vascular leakage with substantial mortality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
@@ -4967,15 +5798,18 @@ This pathophysiological event involves increased checkpoint-mediated restraint o
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000988</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000988</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4995,6 +5829,8 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5022,7 +5858,7 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -5045,15 +5881,18 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5073,6 +5912,8 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5139,6 +5980,179 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
         <!-- Medical actions -->
 
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Medical Actions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-intravenous-fluid-resuscitation" data-dismech-node="Intravenous Fluid Resuscitation" data-dismech-type="treatment">
+                <div class="item-name">
+                    Intravenous Fluid Resuscitation
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">fluid therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fluid therapy (NCIT:C116537). NCIT:C116537 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Fluid Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C116537" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C116537">NCIT:C116537</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Timely intravenous fluid resuscitation is the critical supportive intervention for dengue shock syndrome; WHO management guidelines for fluid choice remain largely empirical.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Hypovolemic Shock</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Fluid resuscitation restores the intravascular volume lost to vascular leakage. It acts on the shock consequence, not on the permeability that produced it, which is why it targets this node rather than Plasma Leakage.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16135832" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16135832" target="_blank">PMID:16135832</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although volume replacement is recognized as the critical therapeutic intervention, World Health Organization management guidelines remain empirical rather than evidence-based."</div>
+
+
+                <div class="evidence-explanation">Randomized trial identifies volume replacement as the critical intervention for dengue shock syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16135832" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16135832" target="_blank">PMID:16135832</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although volume replacement is recognized as the critical therapeutic intervention, World Health Organization management guidelines remain empirical rather than evidence-based."</div>
+
+
+                <div class="evidence-explanation">Randomized trial identifies volume replacement as the critical intervention for dengue shock syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Environmental Factors -->
 
@@ -5176,6 +6190,8 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
             <div class="item-box anchor-target" id="infectious-agent-dengue-virus">
                 <div class="item-name">Dengue virus</div>
 
+                <div class="item-desc">Dengue virus comprises four antigenically distinct serotypes (DENV-1 through DENV-4); infection with one serotype confers lifelong homotypic immunity but only short-term cross-protection against the others.</div>
+
 
 
 
@@ -5190,11 +6206,11 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
         Dengue virus
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_12637" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-12">NCBITaxon:12637</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_12637" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-18">NCBITaxon:12637</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-12">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -5218,7 +6234,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5232,12 +6248,64 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Dengue is a vector-borne viral disease caused by the flavivirus dengue virus (DENV)."</div>
 
 
                 <div class="evidence-explanation">The review identifies dengue virus as the causative flavivirus.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34171205" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34171205" target="_blank">PMID:34171205</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It has four antigenically distinct serotypes, DENV-1 to DENV-4, with different genotypes"</div>
+
+
+                <div class="evidence-explanation">Establishes the four antigenically distinct DENV serotypes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23817881" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23817881" target="_blank">PMID:23817881</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Infection with any one of the viruses is thought to provide lifetime immunity to future infections from the same virus but only short-term cross-immunity to the other types, leading to the possibility of secondary infections."</div>
+
+
+                <div class="evidence-explanation">Documents lifelong homotypic immunity versus short-term heterotypic cross-immunity across the four serotypes.</div>
 
 
 
@@ -5285,6 +6353,8 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5665,6 +6735,7 @@ parents:
 - Neglected tropical disease
 infectious_agent:
 - name: Dengue virus
+  description: Dengue virus comprises four antigenically distinct serotypes (DENV-1 through DENV-4); infection with one serotype confers lifelong homotypic immunity but only short-term cross-protection against the others.
   infectious_agent_term:
     preferred_term: Dengue virus
     term:
@@ -5676,6 +6747,18 @@ infectious_agent:
     supports: SUPPORT
     snippet: Dengue is a vector-borne viral disease caused by the flavivirus dengue virus (DENV).
     explanation: The review identifies dengue virus as the causative flavivirus.
+  - reference: PMID:34171205
+    reference_title: &#34;Dengue virus: epidemiology, biology, and disease aetiology.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;It has four antigenically distinct serotypes, DENV-1 to DENV-4, with different genotypes&#34;
+    explanation: Establishes the four antigenically distinct DENV serotypes.
+  - reference: PMID:23817881
+    reference_title: &#34;Dengue infections.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Infection with any one of the viruses is thought to provide lifetime immunity to future infections from the same virus but only short-term cross-immunity to the other types, leading to the possibility of secondary infections.&#34;
+    explanation: Documents lifelong homotypic immunity versus short-term heterotypic cross-immunity across the four serotypes.
 agent_life_cycle:
   description: Dengue virus cycles between humans and Aedes mosquito vectors.
   hosts:
@@ -5704,14 +6787,178 @@ transmission:
     snippet: It is usually transmitted to humans through the bite of an infected Aedes aegypti or Aedes albopictus mosquito.
     explanation: The abstract specifies Aedes aegypti and Aedes albopictus as vectors.
 pathophysiology:
-- name: Plasma leakage leading to shock in severe dengue
-  description: Severe dengue involves plasma leakage that can progress to hypovolemic shock.
+- name: Antibody-Dependent Enhancement in Secondary Heterotypic Infection
+  description: Secondary infection with a heterotypic dengue virus serotype can enhance disease severity through antibody-dependent enhancement, in which non-neutralizing antibodies from the primary infection promote increased viral uptake and immune dysregulation.
+  evidence:
+  - reference: PMID:34171205
+    reference_title: &#34;Dengue virus: epidemiology, biology, and disease aetiology.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;the severity of the disease is enhanced via heterotypic infection by various serotypes as well as antibody-dependent enhancement (ADE)&#34;
+    explanation: Review states heterotypic serotype infection and ADE enhance dengue disease severity.
+  - reference: PMID:32265181
+    reference_title: &#34;Dengue hemorrhagic fever - A systemic literature review of current perspectives on pathogenesis, prevention and control.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;antibody-dependent enhancement, cytokine dysregulation and variation of lipid profiles are correlated with DHF occurrence&#34;
+    explanation: Review correlates antibody-dependent enhancement with DHF occurrence.
+  downstream:
+  - target: Plasma Leakage
+    description: ADE-driven immune activation and cytokine dysregulation contribute to the vascular permeability underlying severe-dengue plasma leakage.
+- name: NS1-Induced Endothelial Glycocalyx Degradation
+  description: &gt;-
+    Secreted dengue NS1 acts directly on vascular endothelium: it induces
+    sialidase and heparanase expression and activates cathepsin L, which
+    together strip sialic acid and shed heparan sulfate proteoglycans from the
+    endothelial glycocalyx layer. Loss of that layer is an endothelial
+    cell-intrinsic route to hyperpermeability, separate from the antibody- and
+    cytokine-mediated arm above.
+  cell_types:
+  - preferred_term: endothelial cell
+    term:
+      id: CL:0000115
+      label: endothelial cell
+  evidence:
+  - reference: PMID:27416066
+    reference_title: &#34;Dengue Virus NS1 Disrupts the Endothelial Glycocalyx, Leading to Hyperpermeability.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Here, we demonstrate that DENV NS1 disrupts the EGL on human pulmonary
+      microvascular endothelial cells, inducing degradation of sialic acid and
+      shedding of heparan sulfate proteoglycans.
+    explanation: Demonstrates the glycocalyx degradation this node asserts, on human endothelial cells.
+  - reference: PMID:27416066
+    reference_title: &#34;Dengue Virus NS1 Disrupts the Endothelial Glycocalyx, Leading to Hyperpermeability.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      This effect is mediated by NS1-induced expression of sialidases and
+      heparanase, respectively.
+    explanation: Identifies the sialidase and heparanase route named in this node&#39;s description.
+  downstream:
+  - target: Plasma Leakage
+    causal_link_type: DIRECT
+    description: &gt;-
+      Stripping the endothelial glycocalyx removes a principal regulator of
+      endothelial barrier function, and the resulting hyperpermeability is the
+      cell-intrinsic mechanism of plasma leakage.
+    evidence:
+    - reference: PMID:27416066
+      reference_title: &#34;Dengue Virus NS1 Disrupts the Endothelial Glycocalyx, Leading to Hyperpermeability.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Specific inhibitors of sialidases, heparanase, and cathepsin L prevent
+        DENV NS1-induced EGL disruption and endothelial hyperpermeability.
+      explanation: &gt;-
+        Blocking the degradation blocks the hyperpermeability, which is the
+        interventional form of the causal claim this edge makes.
+- name: Plasma Leakage
+  description: &gt;-
+    Increased vascular permeability allows plasma to escape the intravascular
+    compartment into the pleural and peritoneal spaces, with hemoconcentration.
+    This is the pathophysiological hallmark that separates dengue hemorrhagic
+    fever from uncomplicated dengue fever.
   evidence:
   - reference: PMID:32265181
     reference_title: &#34;Dengue hemorrhagic fever - A systemic literature review of current perspectives on pathogenesis, prevention and control.&#34;
     supports: SUPPORT
-    snippet: Plasma leakages is the main pathophysiological hallmark that distinguishes DHF from DF. Severe plasma leakage can result in hypovolemic shock.
-    explanation: The review highlights plasma leakage and shock in severe dengue.
+    evidence_source: OTHER
+    snippet: Plasma leakages is the main pathophysiological hallmark that distinguishes DHF from DF.
+    explanation: Identifies plasma leakage as the defining mechanism of the severe form.
+  downstream:
+  - target: Hypovolemic Shock
+    causal_link_type: DIRECT
+    description: &gt;-
+      When leakage is severe enough, the loss of circulating volume produces
+      hypovolemic shock. Splitting this from the leakage node matters
+      therapeutically: fluid resuscitation acts on the volume loss, not on the
+      permeability that caused it.
+    evidence:
+    - reference: PMID:32265181
+      reference_title: &#34;Dengue hemorrhagic fever - A systemic literature review of current perspectives on pathogenesis, prevention and control.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Severe plasma leakage can result in hypovolemic shock.
+      explanation: States the leakage-to-shock progression this edge asserts.
+- name: Hypovolemic Shock
+  description: &gt;-
+    Loss of intravascular volume to the extravascular space produces circulatory
+    failure. This is the node fluid resuscitation acts on, and the mechanism
+    behind the dengue shock syndrome presentation.
+  evidence:
+  - reference: PMID:16135832
+    reference_title: Comparison of three fluid solutions for resuscitation in dengue shock syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Dengue shock syndrome is characterized by severe vascular leakage and disordered hemostasis and progresses to death in 1 to 5 percent of cases.
+    explanation: Characterizes the shock state and its mortality.
+  downstream:
+  - target: Dengue Shock Syndrome
+    causal_link_type: DIRECT
+    description: &gt;-
+      Hypovolemic shock arising from dengue plasma leakage is the clinical
+      presentation named dengue shock syndrome.
+    evidence:
+    - reference: PMID:16135832
+      reference_title: Comparison of three fluid solutions for resuscitation in dengue shock syndrome.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Dengue shock syndrome is characterized by severe vascular leakage and disordered hemostasis and progresses to death in 1 to 5 percent of cases.
+      explanation: Equates the syndrome with the severe vascular-leakage shock state.
+- name: Platelet Activation and Accelerated Platelet Clearance
+  description: &gt;-
+    Circulating platelets carry DENV genome and become activated, acquiring
+    surface complement C3 and IgG and being phagocytosed by monocytes. Platelet
+    counts fall around day 4 of fever and recover from day 6 to day 10, tracking
+    the activation markers.
+  cell_types:
+  - preferred_term: platelet
+    term:
+      id: CL:0000233
+      label: platelet
+  evidence:
+  - reference: PMID:28139770
+    reference_title: Platelet activation determines the severity of thrombocytopenia in dengue infection.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      we described a direct correlation between activation and depletion of
+      platelets in patients
+    explanation: Establishes the activation-to-depletion relationship in dengue patients.
+  downstream:
+  - target: Thrombocytopenia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Activated platelets are cleared faster than they are replaced, which is
+      what the falling platelet count measures.
+    evidence:
+    - reference: PMID:28139770
+      reference_title: Platelet activation determines the severity of thrombocytopenia in dengue infection.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        These observations collectively suggest that platelet activation status
+        is an important determinant of thrombocytopenia in dengue infections.
+      explanation: States platelet activation as a determinant of the thrombocytopenia this edge targets.
+  - target: Hemorrhagic Manifestations
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Platelet depletion contributes to the bleeding tendency, alongside the
+      disordered hemostasis reported in severe dengue. The intermediates are not
+      resolved here, so the link is not typed as direct.
+    evidence:
+    - reference: PMID:28139770
+      reference_title: Platelet activation determines the severity of thrombocytopenia in dengue infection.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Studies suggest that the low platelet count is one of the major causes of bleeding in these patients.
+      explanation: &gt;-
+        Names the low platelet count as a major cause of bleeding, which is the
+        specific claim this edge makes. The source says &#34;studies suggest&#34; and
+        does not resolve the intermediates, so the edge stays typed as having
+        unknown intermediates.
 - name: Complement Cascade Dysregulation
   description: &gt;-
     Transcriptional signature of complement dysregulation in pediatric dengue:
@@ -5745,12 +6992,12 @@ pathophysiology:
     explanation: PBMC transcriptomics from a WHO-classified pediatric dengue cohort shows coordinated upregulation of classical and lectin pathway transcripts with downregulation of regulator transcripts in primary infection.
   - reference: PMID:42603814
     reference_title: &#34;Bulk transcriptomics of peripheral blood mononuclear cells delineates systems-level immune dysregulation in pediatric dengue infection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Further analysis of the primary vs secondary dengue cohort data revealed a widespread downregulation of C1QA, C1QC, C2, and C4b accompanied by upregulation of CFI, C4BP, MBL2, and CFP, which suggests a transition from activation to regulation&#34;
     explanation: PARTIAL rather than SUPPORT - the authors explicitly note that this primary-versus-secondary comparison is based on nominal expression trends rather than FDR-significant differential expression, as none of the complement genes met the FDR &lt; 0.05 threshold in the direct comparison.
   downstream:
-  - target: Plasma leakage leading to shock in severe dengue
+  - target: Plasma Leakage
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     description: &gt;-
       Excessive or unbalanced complement activation is proposed to increase
@@ -5760,7 +7007,7 @@ pathophysiology:
     evidence:
     - reference: PMID:42603814
       reference_title: &#34;Bulk transcriptomics of peripheral blood mononuclear cells delineates systems-level immune dysregulation in pediatric dengue infection.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Complement activation in dengue is reportedly a double-edged sword, as even though it aids in viral neutralization, inasmuch as excessive or unbalanced activation can contribute to vascular permeability, plasma leakage, which are pathognomonic hallmarks of severe dengue&#34;
       explanation: PARTIAL rather than SUPPORT - this is the discussion-section synthesis of prior human dengue literature by the same authors, not a result of their own transcriptomic study, which did not measure vascular permeability.
@@ -5877,6 +7124,91 @@ phenotypes:
     evidence_source: OTHER
     snippet: &#34;In Dengue, distinctive rashes like the &#39;islands of white in a sea of red&#39; and hemorrhagic skin manifestations have been key diagnostic features.&#34;
     explanation: The dermatology review identifies the characteristic dengue rash (&#34;islands of white in a sea of red&#34;) as a key diagnostic feature.
+- name: Thrombocytopenia
+  category: Hematologic
+  phenotype_term:
+    preferred_term: Thrombocytopenia
+    term:
+      id: HP:0001873
+      label: Thrombocytopenia
+  evidence:
+  - reference: PMID:34171205
+    reference_title: &#34;Dengue virus: epidemiology, biology, and disease aetiology.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Clinical symptoms of dengue range from mild fever to severe dengue hemorrhagic fever (DHF) or dengue shock syndrome (DSS), with thrombocytopenia, leucopenia, and increased vascular permeability.&#34;
+    explanation: The review lists thrombocytopenia as part of the clinical symptom spectrum of dengue, including severe forms (DHF/DSS).
+- name: Hemorrhagic Manifestations
+  category: Hematologic
+  description: &gt;-
+    Bleeding in dengue ranges from petechiae and other hemorrhagic skin lesions
+    to mucosal and gastrointestinal bleeding, and is the manifestation the name
+    dengue hemorrhagic fever refers to.
+  phenotype_term:
+    preferred_term: Hemorrhagic manifestations
+    term:
+      id: HP:0001892
+      label: Abnormal bleeding
+  evidence:
+  - reference: PMID:39773842
+    reference_title: &#34;Dermatological manifestations during Dengue, Chikungunya, and Zika infections.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In Dengue, distinctive rashes like the &#39;islands of white in a sea of red&#39;
+      and hemorrhagic skin manifestations have been key diagnostic features.
+    explanation: Names hemorrhagic skin manifestations as a diagnostic feature of dengue.
+  - reference: PMID:16135832
+    reference_title: Comparison of three fluid solutions for resuscitation in dengue shock syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Dengue shock syndrome is characterized by severe vascular leakage and disordered hemostasis and progresses to death in 1 to 5 percent of cases.
+    explanation: Documents disordered hemostasis as a defining feature of the severe form.
+- name: Dengue Shock Syndrome
+  category: Systemic
+  description: The most severe presentation of dengue, characterized by critical plasma leakage progressing to hypovolemic shock.
+  phenotype_term:
+    preferred_term: Dengue shock syndrome
+    term:
+      id: HP:0031274
+      label: Hypovolemic shock
+  evidence:
+  - reference: PMID:16135832
+    reference_title: &#34;Comparison of three fluid solutions for resuscitation in dengue shock syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Dengue shock syndrome is characterized by severe vascular leakage and disordered hemostasis and progresses to death in 1 to 5 percent of cases.&#34;
+    explanation: Randomized-trial report characterizing dengue shock syndrome as severe vascular leakage with substantial mortality.
+treatments:
+- name: Intravenous Fluid Resuscitation
+  description: Timely intravenous fluid resuscitation is the critical supportive intervention for dengue shock syndrome; WHO management guidelines for fluid choice remain largely empirical.
+  therapeutic_modality: OTHER
+  treatment_term:
+    preferred_term: fluid therapy
+    term:
+      id: NCIT:C116537
+      label: Fluid Therapy
+  target_mechanisms:
+  - target: Hypovolemic Shock
+    treatment_effect: RESTORES
+    description: &gt;-
+      Fluid resuscitation restores the intravascular volume lost to vascular
+      leakage. It acts on the shock consequence, not on the permeability that
+      produced it, which is why it targets this node rather than Plasma Leakage.
+    evidence:
+    - reference: PMID:16135832
+      reference_title: &#34;Comparison of three fluid solutions for resuscitation in dengue shock syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Although volume replacement is recognized as the critical therapeutic intervention, World Health Organization management guidelines remain empirical rather than evidence-based.&#34;
+      explanation: Randomized trial identifies volume replacement as the critical intervention for dengue shock syndrome.
+  evidence:
+  - reference: PMID:16135832
+    reference_title: &#34;Comparison of three fluid solutions for resuscitation in dengue shock syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Although volume replacement is recognized as the critical therapeutic intervention, World Health Organization management guidelines remain empirical rather than evidence-based.&#34;
+    explanation: Randomized trial identifies volume replacement as the critical intervention for dengue shock syndrome.
 datasets:
 - accession: geo:GSE178240
   title: A population of CD4+CD8+ double-positive T cells associated with risk of plasma leakage in dengue viral infection
@@ -6076,6 +7408,8 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6424,7 +7758,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dengue", "mondoId": "MONDO:0005502", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dengue", "yamlRevision": "85f8916c6bcf"};
+        const OS_CONFIG = {"diseaseName": "Dengue", "mondoId": "MONDO:0005502", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dengue", "yamlRevision": "921fbe32634b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

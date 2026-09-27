@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4298,6 +4391,8 @@ The lesion then becomes clinically dangerous by two partly separable routes, bot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4321,6 +4416,8 @@ The lesion then becomes clinically dangerous by two partly separable routes, bot
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4334,14 +4431,16 @@ The lesion then becomes clinically dangerous by two partly separable routes, bot
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41231469" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41231469" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41231469" target="_blank">PMID:41231469</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4518,6 +4617,8 @@ The lesion then becomes clinically dangerous by two partly separable routes, bot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4531,14 +4632,16 @@ The lesion then becomes clinically dangerous by two partly separable routes, bot
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41999461" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41999461" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41999461" target="_blank">PMID:41999461</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4575,6 +4678,7 @@ The lesion then becomes clinically dangerous by two partly separable routes, bot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-activating-kras-or-braf-mutation-in-brain-endothelium" data-dismech-node="Somatic Activating KRAS or BRAF Mutation in Brain Endothelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Activating KRAS or BRAF Mutation in Brain Endothelium</div>
+
 
                 <div class="item-desc">A post-zygotic activating mutation in KRAS, or less often BRAF, arises in a brain endothelial progenitor during development and is confined to the descendants of that cell. Because the mutation is mosaic and lesion-restricted - detectable in AVM tissue and in endothelial-enriched cultures derived from it, undetectable in the same patient&#39;s blood - the disease is focal and sporadic rather than inherited, and the lesion has a definite clonal boundary. This is the initiating event of sporadic brain AVM.</div>
 
@@ -4681,6 +4785,8 @@ This pathophysiological event involves brain microvascular endothelial cell (CL:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4703,6 +4809,7 @@ This pathophysiological event involves brain microvascular endothelial cell (CL:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-ras-mapk-erk-signalling-in-brain-endothelial-cells" data-dismech-node="Constitutive RAS-MAPK-ERK Signalling in Brain Endothelial Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive RAS-MAPK-ERK Signalling in Brain Endothelial Cells</div>
+
 
                 <div class="item-desc">Mutant KRAS raises ERK activity in brain endothelial cells and holds the MAPK-ERK cascade active independently of upstream growth-factor input. This is the rate-limiting node of the disease: it is common to the KRAS and BRAF genotypes, it is what endothelial-specific expression of either mutant reproduces in animal models, and pharmacological inhibition of MAPK-ERK reverses the downstream cellular phenotype. That reversibility is what makes the node causal rather than a bystander correlate, and it is the rationale for MEK-directed therapy.</div>
 
@@ -4877,6 +4984,8 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4898,6 +5007,8 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4922,6 +5033,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-glycolytic-reprogramming-via-glut1-and-hexokinase-2" data-dismech-node="Endothelial Glycolytic Reprogramming via GLUT1 and Hexokinase-2" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Glycolytic Reprogramming via GLUT1 and Hexokinase-2</div>
+
 
                 <div class="item-desc">Mutant KRAS raises endothelial glucose uptake and glycolytic flux by increasing membrane localisation of glucose transporters such as GLUT1 and inducing hexokinase-2. Notably, HK2 appears to be the only glycolytic enzyme elevated, so this is a targeted metabolic rewiring rather than a generalised upregulation, and HK2 is elevated in human as well as mouse AVM tissue. The reprogramming is required for the angiogenic phenotype: inhibiting glycolytic flux or knocking down HK2 suppresses sprouting angiogenesis in mutant endothelial cells, and glycolysis inhibition potentiates MEK inhibition.</div>
 
@@ -5012,6 +5124,8 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5033,6 +5147,8 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5057,6 +5173,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-angiogenic-and-notch-programme-with-loss-of-arteriovenous-identity" data-dismech-node="Aberrant Angiogenic and Notch Programme with Loss of Arteriovenous Identity" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Angiogenic and Notch Programme with Loss of Arteriovenous Identity</div>
+
 
                 <div class="item-desc">Mutant endothelium upregulates genes of angiogenesis and Notch signalling and becomes abnormally migratory. Single-cell transcriptomic profiling of human AVM endothelium additionally shows endothelial-to-mesenchymal-transition-like features and loss of the normal arterial-versus-venous identity programme. Losing arteriovenous identity is the specific cellular failure that matters here: it is why the malformed vessels cannot resolve into a properly specified arterial-capillary-venous sequence and instead form a direct shunt.</div>
 
@@ -5223,6 +5340,8 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5244,6 +5363,8 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5269,6 +5390,8 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5291,6 +5414,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nidus-formation-with-direct-arteriovenous-shunting" data-dismech-node="Nidus Formation with Direct Arteriovenous Shunting" data-dismech-type="pathophysiology">
                 <div class="item-name">Nidus Formation with Direct Arteriovenous Shunting</div>
+
 
                 <div class="item-desc">The defining anatomical lesion: a focal tangle of dilated, tortuous vessels in which feeding arteries connect directly to draining veins with no intervening capillary bed. The absent capillary bed is the mechanistically important feature, because it is the capillary bed that normally drops arterial pressure before blood reaches the venous side. Without it, arterial pressure is transmitted directly into thin-walled venous structures, and the lesion behaves as a low-resistance high-flow shunt.</div>
 
@@ -5415,6 +5539,8 @@ This pathophysiological event involves vein endothelial cell (CL:0002543). CL:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5437,6 +5563,7 @@ This pathophysiological event involves vein endothelial cell (CL:0002543). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-flow-shunt-haemodynamics-and-venous-hypertension" data-dismech-node="High-Flow Shunt Haemodynamics and Venous Hypertension" data-dismech-type="pathophysiology">
                 <div class="item-name">High-Flow Shunt Haemodynamics and Venous Hypertension</div>
+
 
                 <div class="item-desc">Arterial pressure delivered into the venous side produces venous hypertension, progressive dilation of draining veins, and mechanical loading of vessel walls that were never built to withstand it. The haemodynamic burden also perturbs perinidal cortex. This is the mechanical arm of rupture risk, and it is separable from - and additive to - the inflammatory arm. Deep venous drainage is among the anatomical features associated with higher haemorrhage risk in natural-history cohorts, which is consistent with an outflow-restriction mechanism.</div>
 
@@ -5487,14 +5614,16 @@ This pathophysiological event involves vein endothelial cell (CL:0002543). CL:00
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25015366" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25015366" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25015366" target="_blank">PMID:25015366</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5519,6 +5648,7 @@ This pathophysiological event involves vein endothelial cell (CL:0002543). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-inflammation-and-blood-brain-barrier-junction-loss" data-dismech-node="Vascular Inflammation and Blood-Brain Barrier Junction Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Inflammation and Blood-Brain Barrier Junction Loss</div>
+
 
                 <div class="item-desc">Mutant endothelium is not merely misshapen, it is inflammatory. KRASG12V-expressing endothelial cells increase expression of pro-inflammatory mediators and reduce expression of blood-brain-barrier junction constituents, forming a leaky barrier in vitro. Their conditioned medium activates microglia, and medium from those primed microglia in turn degrades junction proteins in wild-type endothelial cells - a feed-forward loop in which the mutant clone recruits normal neighbouring tissue into the lesion. Blood-derived macrophages worsen the barrier defect further. This is the inflammatory arm of vascular instability, distinct from the haemodynamic arm.</div>
 
@@ -5665,6 +5795,8 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5686,6 +5818,8 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5711,6 +5845,8 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5733,6 +5869,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perinidal-cortical-irritation-and-seizure-generation" data-dismech-node="Perinidal Cortical Irritation and Seizure Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Perinidal Cortical Irritation and Seizure Generation</div>
+
 
                 <div class="item-desc">Cortex adjacent to the nidus becomes epileptogenic through venous hypertension, gliosis, and haemosiderin deposition from prior microhaemorrhage. Seizure is the second commonest presentation of brain AVM after haemorrhage, and in surgical series of unruptured lesions it is the dominant presenting symptom.</div>
 
@@ -5770,6 +5907,8 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5792,6 +5931,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nidus-rupture-and-intracranial-haemorrhage" data-dismech-node="Nidus Rupture and Intracranial Haemorrhage" data-dismech-type="pathophysiology">
                 <div class="item-name">Nidus Rupture and Intracranial Haemorrhage</div>
+
 
                 <div class="item-desc">Rupture of malformed nidus or draining vessels produces intracerebral, intraventricular or subarachnoid haemorrhage - the presentation that makes brain AVM a leading cause of haemorrhagic stroke in the young. In an individual-patient meta-analysis of four untreated cohorts spanning 6,074 patient-years, the annual haemorrhage rate was 2.3% overall, and this figure is strongly conditioned on presentation: 4.8% per year in lesions that had already ruptured versus 1.3% per year in those that had not. Prior haemorrhage and increasing age were the independent predictors.</div>
 
@@ -5829,6 +5969,8 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5850,6 +5992,8 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5874,6 +6018,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-erk-pathway-inhibition-as-therapeutic-vulnerability" data-dismech-node="MAPK-ERK Pathway Inhibition as Therapeutic Vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">MAPK-ERK Pathway Inhibition as Therapeutic Vulnerability</div>
+
 
                 <div class="item-desc">Because the disease runs through a single constitutively active kinase cascade, inhibiting that cascade is a candidate disease-modifying therapy - the first such prospect for a lesion otherwise treated only by destroying or removing it. Inhibition of MAPK-ERK reverses the angiogenic, Notch and migratory phenotype of mutant endothelium in vitro; MEK and BRAF inhibitors show promise in preclinical models; and combined glycolysis and MEK inhibition suppresses angiogenesis in patient-derived AVM endothelial cells. This is explicitly a preclinical vulnerability: no MEK inhibitor is established therapy for brain AVM, and the `bavm-mek-inhibition-translation` discussion records what stands between the model data and clinical use. The clinical motivation is the haemorrhage risk documented on the rupture node: absent a medical option, the only alternative is a destructive intervention on an often asymptomatic lesion. That is a rationale for pursuing the target, not a causal relationship, so it is recorded here rather than encoded as a pathograph edge.</div>
 
@@ -5965,6 +6110,8 @@ This pathophysiological event involves ERK1 and ERK2 cascade (GO:0070371). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5978,14 +6125,16 @@ This pathophysiological event involves ERK1 and ERK2 cascade (GO:0070371). GO:00
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41999461" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41999461" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41999461" target="_blank">PMID:41999461</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6011,6 +6160,8 @@ This pathophysiological event involves ERK1 and ERK2 cascade (GO:0070371). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6033,6 +6184,7 @@ This pathophysiological event involves ERK1 and ERK2 cascade (GO:0070371). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-mural-cell-coverage-and-vessel-wall-instability" data-dismech-node="Deficient Mural Cell Coverage and Vessel Wall Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Mural Cell Coverage and Vessel Wall Instability</div>
+
 
                 <div class="item-desc">Nidus vessels are structurally defective, and a specific component of that defect is inadequate mural cell coverage. Pericytes and smooth muscle cells are what give a vessel wall its integrity, and changes in their number and coverage are implicated in bAVM; their recruitment during vascular remodelling is governed by PDGF-B/PDGFR-beta, EphrinB2/EphB4 and angiopoietin/Tie2 signalling. This sits between the malformed nidus and rupture as the structural reason those vessels are fragile - complementing, not duplicating, the inflammatory arm, which degrades endothelial junctions rather than mural coverage. Human bulk RNA-seq of bAVM tissue is consistent with it: extracellular-matrix and angiopoietin-TIE genes are among the downregulated set.</div>
 
@@ -6169,6 +6321,8 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6190,6 +6344,8 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6256,11 +6412,13 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6269,269 +6427,9 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
+                    Blood
                     <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stroke" data-dismech-node="Stroke" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stroke
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001297</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Stroke (HP:0001297), qualified as temporality acute. HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: ACUTE</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24268105" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24268105" target="_blank">PMID:24268105</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The primary outcome is time to the composite endpoint of death or symptomatic stroke"</div>
-
-
-                <div class="evidence-explanation">Stroke is the primary clinical outcome of brain AVM against which management strategies are judged.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40428814" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40428814" target="_blank">PMID:40428814</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Seizures are a common clinical manifestation in patients with brain AVMs, ranking as the second most frequent presentation."</div>
-
-
-                <div class="evidence-explanation">Establishes seizure as the second commonest presentation of brain AVM.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41303829" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41303829" target="_blank">PMID:41303829</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Epileptic seizure was the most common presenting symptom (80.4%)."</div>
-
-
-                <div class="evidence-explanation">Quantifies seizure as the dominant presentation in a surgical series of unruptured lesions. Not mapped to a frequency band because the cohort is restricted to unruptured, surgically treated AVMs.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-arteriovenous-malformation" data-dismech-node="Cerebral arteriovenous malformation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebral arteriovenous malformation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002408" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002408</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral arteriovenous malformation (HP:0002408). HP:0002408 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41999461" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41999461" target="_blank">PMID:41999461</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brain arteriovenous malformations (bAVMs) are high-flow vascular lesions characterized by direct arteriovenous shunting without an intervening capillary bed."</div>
-
-
-                <div class="evidence-explanation">Defines the structural lesion. Evidence source is OTHER as this is a review article.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intracranial-haemorrhage" data-dismech-node="Intracranial haemorrhage" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6549,10 +6447,10 @@ This clinical feature is Cerebral arteriovenous malformation (HP:0002408). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002170</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002170</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as temporality acute. HP:0002170 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6581,6 +6479,9 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as temp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6595,6 +6496,8 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as temp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6620,6 +6523,8 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as temp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6643,12 +6548,301 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as temp
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-arteriovenous-malformation" data-dismech-node="Cerebral arteriovenous malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral arteriovenous malformation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002408" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002408</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral arteriovenous malformation (HP:0002408). HP:0002408 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41999461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41999461" target="_blank">PMID:41999461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain arteriovenous malformations (bAVMs) are high-flow vascular lesions characterized by direct arteriovenous shunting without an intervening capillary bed."</div>
+
+
+                <div class="evidence-explanation">Defines the structural lesion. Evidence source is OTHER as this is a review article.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stroke" data-dismech-node="Stroke" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stroke
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001297</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stroke (HP:0001297), qualified as temporality acute. HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: ACUTE</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24268105" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24268105" target="_blank">PMID:24268105</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The primary outcome is time to the composite endpoint of death or symptomatic stroke"</div>
+
+
+                <div class="evidence-explanation">Stroke is the primary clinical outcome of brain AVM against which management strategies are judged.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40428814" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40428814" target="_blank">PMID:40428814</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seizures are a common clinical manifestation in patients with brain AVMs, ranking as the second most frequent presentation."</div>
+
+
+                <div class="evidence-explanation">Establishes seizure as the second commonest presentation of brain AVM.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41303829" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41303829" target="_blank">PMID:41303829</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epileptic seizure was the most common presenting symptom (80.4%)."</div>
+
+
+                <div class="evidence-explanation">Quantifies seizure as the dominant presentation in a surgical series of unruptured lesions. Not mapped to a frequency band because the cohort is restricted to unruptured, surgically treated AVMs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-focal-neurological-deficit" data-dismech-node="Focal neurological deficit" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal neurological deficit
 
 
                     </div>
+
+
+
 
 
 
@@ -6668,6 +6862,8 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as temp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6691,6 +6887,8 @@ This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as temp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6792,6 +6990,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6806,6 +7007,8 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6829,6 +7032,8 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6889,6 +7094,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6903,6 +7111,8 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6926,6 +7136,8 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7007,6 +7219,31 @@ This treatment is Neurosurgical Procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Open surgical excision of the nidus, the only modality that removes the lesion immediately and completely and the only one consistently associated with reduced haemorrhage risk in sensitivity analyses of large registry data. Outcome depends steeply on lesion grade: in a 12-year single-centre series of unruptured lesions stratified by supplementary Spetzler-Martin grade, poor outcomes were rare in the low-risk group but common in the high-risk group.</div>
 
 
@@ -7038,14 +7275,16 @@ This treatment is Neurosurgical Procedure (NCIT:C15656). NCIT:C15656 is a clinic
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41303829" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41303829" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41303829" target="_blank">PMID:41303829</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7069,6 +7308,8 @@ This treatment is Neurosurgical Procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7131,6 +7372,31 @@ This treatment is Stereotactic Radiosurgery (NCIT:C15358). NCIT:C15358 is a clin
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Focused radiation inducing progressive endothelial proliferation and luminal closure of nidus vessels over two to three years. Obliteration is delayed and incomplete, so the patient remains at haemorrhage risk during the latency period, and radiation-induced change is an additional hazard - in a paediatric unruptured cohort, obliteration reached 64% at 5 years and 82% at 10 years while permanent radiation-induced change occurred in 8%.</div>
 
 
@@ -7162,14 +7428,16 @@ This treatment is Stereotactic Radiosurgery (NCIT:C15358). NCIT:C15358 is a clin
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31942635" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31942635" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31942635" target="_blank">PMID:31942635</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7193,6 +7461,8 @@ This treatment is Stereotactic Radiosurgery (NCIT:C15358). NCIT:C15358 is a clin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7255,6 +7525,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Observation with symptomatic treatment - antiepileptic drugs for seizures, analgesia - without attempting to eradicate the lesion. For unruptured lesions this is a genuinely competitive strategy rather than a default: the ARUBA randomised trial was halted early for superiority of medical management, with the composite of death or symptomatic stroke reached by 10.1% on medical management versus 30.7% with intervention. The advantage did not decay with longer observation: at a mean 50.4 months the incidence of death or symptomatic stroke remained lower with medical management alone (3.39 vs 12.32 per 100 patient-years; hazard ratio 0.31, 95% CI 0.17 to 0.56), with fewer adverse events. What remains contested is whether that generalises beyond the trial&#39;s enrolled population - see the `bavm-unruptured-management-controversy` discussion.</div>
 
 
@@ -7296,6 +7591,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7319,6 +7616,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7340,6 +7639,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7402,6 +7703,31 @@ This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Catheter-delivered occlusion of the nidus or its feeding arteries, usually with a liquid embolic (EVOH/Onyx or n-BCA). In practice it is most often adjunctive - devascularising a lesion before resection or radiosurgery - rather than curative on its own, and it was one of the three interventional modalities randomised in ARUBA. Notably, in a 1,770-patient registry emulation only microsurgical resection carried a consistent haemorrhage benefit in sensitivity analyses, so embolization should not be assumed to inherit resection&#39;s result.</div>
 
 
@@ -7443,6 +7769,8 @@ This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7456,14 +7784,16 @@ This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41231469" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41231469" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41231469" target="_blank">PMID:41231469</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7493,6 +7823,606 @@ This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-digital-subtraction-angiography">
+                <div class="item-name">
+                    Digital subtraction angiography
+
+                </div>
+
+                <div class="item-desc">Catheter DSA is the reference standard for brain AVM, defining the feeding arteries, nidus architecture and venous drainage pattern in the temporal resolution that lower-tech modalities cannot match. It is what the angioarchitectural grading schemes are scored against, and what determines whether a lesion is treatable.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        digital subtraction angiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190556" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C190556</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Demonstration of a nidus with arteriovenous shunting, with feeding-artery and draining-vein anatomy sufficient to assign a Spetzler-Martin grade.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39125532" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39125532" target="_blank">PMID:39125532</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"using digital subtraction angiography (DSA) as the reference standard"</div>
+
+
+                <div class="evidence-explanation">Confirms DSA as the reference standard against which other modalities are measured.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-non-contrast-enhanced-time-resolved-mr-angiography">
+                <div class="item-name">
+                    Non-contrast-enhanced time-resolved MR angiography
+
+                </div>
+
+                <div class="item-desc">Non-contrast 4D MR angiography detects the shunt and characterises angioarchitecture with accuracy comparable to contrast-enhanced 4D-MRA, and grades concordantly with DSA on the Spetzler-Martin and Buffalo scales. Its value is specific to this disease: brain AVM is a lifelong lesion requiring repeated imaging, so avoiding cumulative gadolinium exposure over decades of follow-up matters more here than for a one-off diagnostic question.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance angiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190557" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C190557</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Detection of arteriovenous shunting and grading concordant with DSA, without gadolinium-based contrast.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39125532" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39125532" target="_blank">PMID:39125532</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our results demonstrated that NCE-4D-MRA had a higher accuracy and specificity compared to CE-4D-MRA (0.85 vs. 0.83 and 95% vs. 85%, respectively) and similar agreement, with DSA detecting shunts in bAVMs or residuals."</div>
+
+
+                <div class="evidence-explanation">Quantifies non-contrast 4D-MRA accuracy against the contrast-enhanced comparator and DSA.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39125532" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39125532" target="_blank">PMID:39125532</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The safety profile of imaging techniques is a significant concern in the long-term follow up of bAVMs"</div>
+
+
+                <div class="evidence-explanation">States the contrast-avoidance rationale that makes this modality specifically valuable in a lifelong lesion requiring repeated imaging.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-angioarchitectural-grading-spetzler-martin-and-related-scales">
+                <div class="item-name">
+                    Angioarchitectural grading (Spetzler-Martin and related scales)
+
+                </div>
+
+                <div class="item-desc">Grading by nidus size, eloquence of adjacent brain and venous drainage pattern is not a descriptive exercise but the operative determinant of whether intervention helps or harms: in a microsurgical series stratified by supplementary Spetzler-Martin grade, low-risk patients had rare poor outcomes while high-risk patients had poor outcomes in the majority. Grading is therefore curated here as a diagnostic step rather than buried in treatment prose.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        disease grading
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A Spetzler-Martin or supplementary Spetzler-Martin grade that stratifies operative risk.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41303829" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41303829" target="_blank">PMID:41303829</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All patients were classified according to the supplementary Spetzler-Martin (suppl-SM) grading system and stratified into low-risk (suppl-SM 6) and high-risk (suppl-SM &gt; 6) groups."</div>
+
+
+                <div class="evidence-explanation">Documents the grading system in operational use to stratify surgical risk.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39125532" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39125532" target="_blank">PMID:39125532</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Concordance in grading bAVMs was substantial between NCE-4D-MRA and DSA, particularly for the Spetzler-Martin and Buffalo scales"</div>
+
+
+                <div class="evidence-explanation">Shows the grading scales can be applied on non-invasive imaging with substantial concordance against DSA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-somatic-genotyping-from-lesion-tissue-or-cell-free-dna">
+                <div class="item-name">
+                    Somatic genotyping from lesion tissue or cell-free DNA
+
+                </div>
+
+                <div class="item-desc">This is the diagnostic consequence of the entry&#39;s central mechanistic claim, and it is counterintuitive enough to be worth stating plainly: because the causative KRAS or BRAF mutation is a post-zygotic mosaic event confined to lesional endothelium, it is undetectable in blood. A conventional germline blood panel will be negative in a patient whose disease is entirely genetically explained. Genotyping therefore requires resected or endovascularly biopsied lesion tissue, or ultra-sensitive cell-free DNA methods, and the low variant allele fraction is the main obstacle to genotype-guided therapy.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Detection of a somatic activating KRAS or BRAF variant in lesional tissue; a negative blood test does not exclude the diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29298116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29298116" target="_blank">PMID:29298116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We detected somatic activating KRAS mutations in tissue samples from 45 of the 72 patients and in none of the 21 paired blood samples."</div>
+
+
+                <div class="evidence-explanation">The tissue-positive, blood-negative contrast that makes lesional sampling necessary and a germline blood panel uninformative.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41999461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41999461" target="_blank">PMID:41999461</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Future approaches combining minimally invasive sampling methods, such as endovascular biopsy and peripheral blood cell-free DNA analysis, with ultra-sensitive detection technologies are expected to help overcome these limitations."</div>
+
+
+                <div class="evidence-explanation">Names the emerging sampling routes that address the tissue-access problem. Evidence source is OTHER as this is a review article.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-new-york-islands-united-states-prospective-population-based-surveillance">
+                <div class="item-name">New York islands, United States (prospective population-based surveillance)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.34 per 100,000
+                        (1.18&ndash;1.49)
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Average annual detection rate of brain AVM, from 284 prospectively ascertained patients over 21,216,467 person-years in a defined population of 9.4 million. This is a detection rate for a congenital lesion rather than a true incidence of lesion formation, since the malformation predates its discovery.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12690217" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12690217" target="_blank">PMID:12690217</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"leading to an average annual AVM detection rate of 1.34 per 100,000 person-years (95% CI, 1.18 to 1.49)"</div>
+
+
+                <div class="evidence-explanation">Prospective population-based detection rate, the basis for the normalised rate recorded here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-scotland-adults-aged-16-and-over-prospective-population-based-study">
+                <div class="item-name">Scotland, adults aged 16 and over (prospective population-based study)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.12 per 100,000
+                        (0.9&ndash;1.37)
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Crude first-ever-diagnosis detection rate for brain AVM among Scottish adults, from the Scottish Intracranial Vascular Malformation Study. Independently reproduces the New York figure in a different health system, which is why both are recorded.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12702837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12702837" target="_blank">PMID:12702837</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1.12 (95% CI, 0.90 to 1.37) for brain AVMs"</div>
+
+
+                <div class="evidence-explanation">Crude annual detection rate per 100,000 adults for brain AVM in a prospective population-based study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7535,11 +8465,11 @@ This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001297</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7552,11 +8482,11 @@ This clinical trial targets Stroke (HP:0001297). HP:0001297 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002170</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002170</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7579,6 +8509,8 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7626,11 +8558,11 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001297</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7643,11 +8575,11 @@ This clinical trial targets Stroke (HP:0001297). HP:0001297 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002170</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002170</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7670,6 +8602,8 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7811,6 +8745,8 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7850,6 +8786,8 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7927,6 +8865,8 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7966,6 +8906,8 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8033,14 +8975,16 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38700584" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38700584" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38700584" target="_blank">PMID:38700584</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8074,14 +9018,16 @@ This clinical trial targets Intracranial hemorrhage (HP:0002170). HP:0002170 is 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38700584" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38700584" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38700584" target="_blank">PMID:38700584</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8565,7 +9511,7 @@ pathophysiology:
     reference_title: &gt;-
       Untreated brain arteriovenous malformation: patient-level meta-analysis of hemorrhage
       predictors.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Female sex (1.49, 95% CI 0.96-2.30) and exclusively deep venous drainage (1.60,
@@ -8742,7 +9688,7 @@ pathophysiology:
       basis for treating this pathway as a therapeutic target.
   - reference: PMID:41999461
     reference_title: Advances in the Genetics and Molecular Biology of Brain Arteriovenous Malformations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       MEK and BRAF inhibitors targeting the RAS/MAPK pathway have shown promising results in
@@ -9206,7 +10152,7 @@ treatments:
     reference_title: &gt;-
       Microsurgical Resection of Unruptured Brain Arteriovenous Malformations: A 12-Year
       Single-Center Experience.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In the low-risk group, there were no deaths, and poor outcomes were rare (6.8% at
@@ -9251,8 +10197,8 @@ treatments:
       shunt over a period of years rather than immediately.
   evidence:
   - reference: PMID:31942635
-    reference_title: Radiosurgery for Unruptured Intervention-Naive Pediatric Brain Arteriovenous Malformations.
-    supports: PARTIAL
+    reference_title: &#34;Radiosurgery for Unruptured Intervention-Naïve Pediatric Brain Arteriovenous Malformations.&#34;
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Estimated probabilities of AVM obliteration at 5 and 10 yr were 64% and 82%,
@@ -9261,7 +10207,7 @@ treatments:
       Quantifies delayed and incomplete obliteration. Recorded as PARTIAL because the same
       cohort shows the treatment leaves a substantial fraction unobliterated for years.
   - reference: PMID:31942635
-    reference_title: Radiosurgery for Unruptured Intervention-Naive Pediatric Brain Arteriovenous Malformations.
+    reference_title: &#34;Radiosurgery for Unruptured Intervention-Naïve Pediatric Brain Arteriovenous Malformations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9376,7 +10322,7 @@ treatments:
     reference_title: &gt;-
       Interventional Treatment vs Conservative Management of Unruptured Brain Arteriovenous
       Malformations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Only microsurgical resection was consistently associated with reduced hemorrhage risk in
@@ -9558,7 +10504,7 @@ animal_models:
       evidence:
       - reference: PMID:38700584
         reference_title: &#34;Somatic Braf(V600E) mutation in the cerebral endothelium induces brain arteriovenous malformations.&#34;
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: MODEL_ORGANISM
         snippet: &gt;-
           Early administration of Dabrafenib was found to be effective in slowing the progression
@@ -9569,7 +10515,7 @@ animal_models:
     evidence:
     - reference: PMID:38700584
       reference_title: &#34;Somatic Braf(V600E) mutation in the cerebral endothelium induces brain arteriovenous malformations.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         Early administration of Dabrafenib was found to be effective in slowing the progression
@@ -9635,7 +10581,7 @@ discussions:
     reference_title: &gt;-
       Interventional Treatment vs Conservative Management of Unruptured Brain Arteriovenous
       Malformations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Subgroup analyses indicated that the benefit of the intervention was not observed in
@@ -9696,7 +10642,7 @@ discussions:
       the model-to-human gap this discussion is about. Evidence source is MODEL_ORGANISM.
   - reference: PMID:41999461
     reference_title: Advances in the Genetics and Molecular Biology of Brain Arteriovenous Malformations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       However, clinical translation remains challenging because of low variant allele
@@ -9783,6 +10729,198 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope: this entry covers the sporadic, somatic-mosaic brain AVM keyed to MONDO:0007154. The germline syndromic causes of brain AVM are curated separately (`Hereditary_Hemorrhagic_Telangiectasia`, `Capillary_Malformation-Arteriovenous_Malformation_Syndrome`), as is the distinct entity `Cerebral_Proliferative_Angiopathy`. MONDO carries this term under `hereditary disease`, which is misleading for the sporadic somatic disease the term actually denotes; the mutations are post-zygotic and absent from blood, and the entry is curated accordingly.
+Module conformance: none declared. The obvious candidate, `sustaining_proliferative_signaling`, is explicitly scoped as the first hallmark of cancer, running from an &#34;Oncogenic Growth-Signal Lesion&#34; to &#34;Growth-Factor-Independent Proliferation&#34;. Brain AVM shares the constitutive RAS-MAPK node but is not a neoplasm: there is no uncontrolled proliferative expansion and no tumour, and the pathological output is a malformed vascular architecture. Declaring conformance would import a neoplastic frame the disease does not have. If a non-neoplastic RASopathy or mosaic-vascular-malformation module is created later, this entry is a natural conformer and the RAS-MAPK node is the attachment point.
+Reference scoping. The `DOI_*.md` files committed with this entry were written by the deep research run&#39;s own reference-validation pass, not deliberately fetched by a curator - `just research-disorder` resolves the report&#39;s citations as a side effect - so an uncited one reflects what the report cited, not a curatorial judgement of relevance. Five of them are metadata stubs with `content_type: unavailable` and zero body text, including the ARUBA final follow-up, so they cannot be quoted at all. Where such a stub carried content worth having, the DOI was resolved to its PMID and the real abstract fetched and cited instead: ARUBA final follow-up (PMID:32562682), mural cell review (PMID:34541474), human bAVM RNA-seq (PMID:31795902), non-contrast 4D-MRA accuracy (PMID:39125532), and the endothelial BrafV600E mouse (PMID:38700584). Deliberately not consumed: the single-cell atlases beyond PMID:35084939 (they report findings shared across several vascular-dependent CNS diseases rather than bAVM-specific ones), the endothelial methylome, the CasRx knockdown study, and the VALE risk score - the last because a prognostic score is not a mechanism and this entry already carries natural-history risk from a four-cohort individual-patient meta-analysis.
+Modifier genes deliberately omitted. Candidate haemorrhage-risk modifiers (IL6 -174G&gt;C, TNF-alpha -238G&gt;A, APOE e2) are surfaced by the deep-research report, but the cache file for the source it cites is a metadata stub with no body text, and the PMID that DOI resolves to is a natural-history review whose abstract does not mention modifiers at all. There is no quotable evidence, so they are not curated. Recorded here so the omission is auditable rather than reading as under-consumption: this is an evidence gap, not a scoping decision, and the genes should be added if a source with a quotable abstract is found.
+Frequency discipline: no phenotype carries a `frequency:` band. Haemorrhage is an incident event with an annual rate rather than a cross-sectional proportion; the 80.4% seizure figure comes from a surgical series restricted to unruptured lesions and is not a disease-wide frequency. Both numbers are quoted in the relevant descriptions with their cohort context instead.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address review on PR #9007: diagnosis section, embolization, ARUBA final follow-up, mural cells, animal model</strong> · 2026-08-20T00:08:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Brain_Arteriovenous_Malformation/2026-08-20T000806Z-claude-code-3f495f.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the ai4c-reviewer CHANGES_REQUESTED review on PR #9007. All five blocking
+findings addressed plus all five suggestions.
+
+FINDING 1 - claim/evidence mismatch on &#34;Focal neurological deficit&#34;. Correct call, and
+the fix went further than swapping the citation. The phenotype was bound to HP:0001269
+Hemiparesis while the name and evidence were about focal deficits generally. I first
+drafted a narrowing to &#34;Hemiparesis&#34; with a snippet I believed came from PMID:29298116 -
+then my own verification step showed that text is from the MONDO/Orphanet definition, NOT
+from the paper, and it does not appear in the cached abstract. Discarded it. The final
+version keeps the broad name, DROPS the term entirely (HPO has no general
+&#34;focal neurological deficit&#34; concept and HP:0012638 is far too coarse), keeps a free-text
+preferred_term with the reasoning recorded in the description, and cites two sources that
+actually name focal neurological deficits: PMID:41303829 and PMID:42138076.
+
+FINDING 2 - 13 of 29 fetched references uncited. Addressed, but the premise needs
+correcting on one point of fact. Those DOI_*.md files were written by the DR run&#39;s own
+reference-validation pass, not deliberately fetched by a curator - `just research-disorder`
+resolves the report&#39;s citations as a side effect - so an uncited one reflects what the
+report cited, not a curatorial relevance judgement. More importantly, an audit shows FIVE
+of the eleven named files are metadata stubs with `content_type: unavailable` and zero
+body text, so they cannot be quoted at all. That specifically includes the ARUBA final
+follow-up the review called &#34;the direct answer&#34; - its cache file has 0 bytes of content.
+The right fix was to resolve those DOIs to PMIDs and fetch real abstracts, which I did:
+PMID:32562682 (ARUBA final), PMID:34541474 (mural cells), PMID:31795902 (human RNA-seq),
+PMID:39125532 (4D-MRA), PMID:38700584 (BrafV600E mouse), all now cited. A `notes:` block
+records the scoping rationale for what remains unconsumed and why.
+
+FINDING 3 - embolization missing. Added, with NCIT:C15230 Embolization Therapy,
+therapeutic_modality DEVICE, target_mechanisms on the nidus node. Deliberately curated with
+a PARTIAL evidence item recording that only microsurgical resection showed a consistent
+haemorrhage benefit in the registry emulation, so embolization does not inherit resection&#39;s
+result.
+
+FINDING 4 - ARUBA final follow-up. Now cited (PMID:32562682). Both the conservative
+management treatment description and the surrounding framing were rewritten: the entry no
+longer rests on the 33-month interim horizon but reports the mean 50.4-month result (3.39
+vs 12.32 per 100 patient-years, HR 0.31, 95% CI 0.17-0.56) and states that what remains
+contested is generalisability beyond the enrolled population rather than durability. Also
+added TOBAS (NCT02098252), noting it enrols ruptured as well as unruptured lesions and so
+is structured against the generalisability criticism.
+
+FINDING 5 - no diagnosis section. Added, 4 entries: DSA as reference standard;
+non-contrast 4D-MRA with its accuracy figures and the contrast-avoidance rationale that is
+specifically important in a lifelong lesion needing repeated imaging; angioarchitectural
+grading, promoted out of treatment prose because grade is the operative determinant of
+whether intervention helps or harms; and somatic genotyping from lesion tissue or cfDNA,
+which is the diagnostic consequence of the entry&#39;s central mechanistic claim - a germline
+blood panel is negative in a patient whose disease is entirely genetically explained.
+
+SUGGESTIONS - all addressed:
+  - NCIT specificity: NCIT:C15656 Neurosurgical Procedure and NCIT:C15358 Stereotactic
+    Radiosurgery replace the generic parents.
+  - therapeutic_modality BEHAVIORAL -&gt; OTHER on conservative management, with the reason
+    recorded inline.
+  - Missing treatment_effect added to that treatment&#39;s target_mechanisms entry.
+  - Animal model added: the endothelial BrafV600E mouse with THREE modeled_mechanisms
+    links, each with limitations, readouts and evidence. The third link is the important
+    one - PARTIALLY_RECAPITULATES against the MEK-inhibition node, because dabrafenib
+    slowed progression when given early while efficacy against established lesions
+    &#34;remained uncertain&#34;. That is exactly the prevention-versus-reversal distinction the
+    bavm-mek-inhibition-translation discussion argues in prose, now carried as a structured
+    model claim.
+  - Pathophysiology depth: added a &#34;Deficient Mural Cell Coverage and Vessel Wall
+    Instability&#34; TISSUE node between the nidus and rupture, evidenced from the mural cell
+    review and corroborated by human RNA-seq showing downregulated ECM and angiopoietin-TIE
+    programmes. Graph is now 11 nodes / 13 edges, still one connected component, no
+    orphans.
+
+NOT DONE: modifier genes (IL6/TNF/APOE). The review cited
+DOI:10.1007/s12975-014-0351-0 for these, but that cache file is a 687-byte metadata stub
+with no body text, and the PMID it resolves to (24930128) is a natural-history review whose
+abstract does not mention modifier genes at all. There is no verified snippet available, so
+curating them would be an unsupported claim.
+
+Validation actually run and read:
+  just validate                -&gt; All validations passed
+  just validate-terms          -&gt; Validation passed
+  just count-verified-snippets -&gt; 65/65 verified
+  just check-duplicate-keys    -&gt; OK
+  just check-title-snippets    -&gt; OK
+  check_snippet_length --against-ref origin/main -&gt; OK
+  pytest -k &#34;model_readout_targets_match_link or failure_to_recapitulate&#34; -&gt; 4405 passed
+  just validate-disorders      -&gt; passed
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Brain arteriovenous malformation (MONDO:0007154)</strong> · 2026-08-19T23:11:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Brain_Arteriovenous_Malformation/2026-08-19T231121Z-claude-code-6e5e64.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for sporadic brain arteriovenous malformation (MONDO:0007154).
+Claimed via issue #9000 off the priority dashboard (CURATE_ROOT, score 71.5, no NEC
+risk badge).
+
+Deep research: `just research-disorder falcon Brain_Arteriovenous_Malformation`
+(Edison/Falcon, research/Brain_Arteriovenous_Malformation-deep-research-falcon.md).
+Three gates:
+  Gate 1 - report reference_validation: 13 references, 12 resolved, 0 unresolved,
+    0 off-topic, 1 unverifiable (not curated).
+  Gate 2 - `just preflight-dr ... MONDO:0007154` returned SKIP because MONDO records no
+    causal gene (correct: this is a somatic mosaic disease). Manual fallback was run and
+    is notably informative here: the report&#39;s OMIM (108010) matches the MONDO xref
+    exactly, and although the gene histogram showed rival genes (KRAS=13, ENG=9,
+    EPHB4=9, ACVRL1=8, BRAF=7), inspection showed ENG/ACVRL1/EPHB4 appear only where the
+    report discusses the HHT and CM-AVM syndromic differential and the genetic-testing
+    panel. Disease-name counts confirm the centre of mass: bAVM=31 and &#34;brain
+    arteriovenous malformation&#34;=29 versus &#34;hereditary hemorrhagic telangiectasia&#34;=1.
+    Not NEC.
+  Gate 3 - the entry was built from independently sourced and fetched references before
+    the report landed; the report was then used as a structural cross-check. Its causal
+    chain independently reproduced the curated pathograph.
+
+DR DEFECT FOUND AND AVOIDED. The report quoted the Winkler 2022 Science atlas abstract
+as &#34;We illustrated an interplay between vascular and immune cells contributory to brain
+hemorrhage.&#34; The real abstract (PMID:35084939, verified against the fetched cache) reads
+&#34;We illustrate the interplay between vascular and immune cells that contributes to brain
+hemorrhage.&#34; The DR string does not occur anywhere in the cached article - a
+category-2 (misquoted snippet) hallucination. The verified wording was curated instead.
+This is a concrete demonstration that the report&#39;s own reference_validation block passing
+does NOT imply its quoted snippets are accurate.
+
+Pathograph: 10 atomic nodes, 12 edges, single connected component, no orphans, all four
+biological_scale values (4 MOLECULAR). Chain: somatic KRAS/BRAF mutation in brain
+endothelium -&gt; constitutive RAS-MAPK-ERK -&gt; {aberrant angiogenic/Notch programme with
+loss of arteriovenous identity, glycolytic reprogramming via GLUT1/HK2, MEK-inhibition
+vulnerability} -&gt; nidus with direct AV shunting -&gt; {high-flow haemodynamics and venous
+hypertension, vascular inflammation and BBB junction loss} -&gt; {seizure generation,
+rupture and haemorrhage}. The two routes to instability - haemodynamic and inflammatory
+- are modelled as separate parallel arms because the literature separates them.
+
+Module conformance: none declared, deliberately. The obvious candidate
+`sustaining_proliferative_signaling` is explicitly scoped as the first hallmark of
+cancer (Oncogenic Growth-Signal Lesion -&gt; Growth-Factor-Independent Proliferation).
+Brain AVM shares the constitutive RAS-MAPK node but is not a neoplasm and produces a
+malformed vascular architecture rather than proliferative expansion, so conformance
+would import a neoplastic frame the disease does not have. Recorded in the entry notes
+with the attachment point a future non-neoplastic RASopathy / mosaic vascular
+malformation module would use.
+
+Scope: MONDO files this term under `hereditary disease`, which is misleading - the
+mutations are post-zygotic and absent from paired blood. Curated as the sporadic somatic
+disease and explicitly delimited from Hereditary_Hemorrhagic_Telangiectasia,
+Capillary_Malformation-Arteriovenous_Malformation_Syndrome and
+Cerebral_Proliferative_Angiopathy, all already in the KB.
+
+Frequency discipline: no phenotype carries a frequency band. Haemorrhage is an incident
+event with an annual rate (2.3%/yr overall; 4.8% ruptured vs 1.3% unruptured) not a
+cross-sectional proportion; the 80.4% seizure figure is from a surgical series of
+unruptured lesions only. Both are quoted in descriptions with their cohort context. A
+headache phenotype was drafted and then REMOVED because the only snippet available did
+not actually support the claim - the #8352 pattern.
+
+Two prevalence records are curated as ANNUAL_INCIDENCE with normalised rates: New York
+Islands 1.34/100,000/yr and Scotland 1.12/100,000/yr, deliberately both, because they
+independently reproduce each other in different health systems. Notes record that these
+are detection rates for a congenital lesion, not incidence of lesion formation.
+
+Discussions: `bavm-unruptured-management-controversy` (KNOWLEDGE_GAP) records the ARUBA
+trial versus the 2025 MATCH target-trial-emulation disagreement, with the registry
+result curated as REFUTE against the conservative-management position rather than
+smoothed over; and `bavm-mek-inhibition-translation` (HUMAN_MODEL_MISMATCH) records that
+the shunt-reversal evidence for MEK inhibition is zebrafish and that model systems test
+prevention while patients present with established lesions.
+
+Validation actually run and read:
+  just validate                    -&gt; All validations passed
+  just validate-terms              -&gt; Validation passed
+  just count-verified-snippets     -&gt; 45/45 verified
+  just check-duplicate-keys        -&gt; OK
+  just check-title-snippets        -&gt; OK
+  check_snippet_length --against-ref origin/main -&gt; OK
+  just check-term-cache-integrity / check-cache-order -&gt; OK
+  just validate-disorders          -&gt; passed
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10818,7 +11956,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Brain arteriovenous malformation", "mondoId": "MONDO:0007154", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brain_arteriovenous_malformation", "yamlRevision": "9db8b658cb31"};
+        const OS_CONFIG = {"diseaseName": "Brain arteriovenous malformation", "mondoId": "MONDO:0007154", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brain_arteriovenous_malformation", "yamlRevision": "d7d853c20783"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

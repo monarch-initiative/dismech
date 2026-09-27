@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,9 +1626,14 @@
         <header class="page-header">
             <h1>Peroxisomal Metabolic Failure Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes."
+                      style="background: hsl(258, 68%, 96%); border-color: hsl(258, 52%, 78%); color: hsl(258, 62%, 26%);">Metabolism</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">peroxisomal_metabolic_failure</span>
-                <span class="badge badge-count">5 disorders</span>
+                <span class="badge badge-count">8 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1928,11 +1993,13 @@ NEURONAL MIGRATION IS A BIOGENESIS-ARM FEATURE ONLY. The severe biogenesis disor
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">8</span>
             </div>
             
             <div class="crosslink-list">
@@ -1983,7 +2050,42 @@ NEURONAL MIGRATION IS A BIOGENESIS-ARM FEATURE ONLY. The severe biogenesis disor
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Congenital_Bile_Acid_Synthesis_Defect_5.html">Congenital Bile Acid Synthesis Defect 5</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        ABCD3 Loss of Function → Peroxisomal Biogenesis or Enzyme Defect
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Rhizomelic_Chondrodysplasia_Punctata_Type_1.html">Rhizomelic Chondrodysplasia Punctata Type 1</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Selective PTS2 Import Failure → Peroxisomal Biogenesis or Enzyme Defect
+                        
+                        
+                        , 
+                        
+                        Plasmalogen (Ether Lipid) Deficiency → Toxic Fatty-Acid Accumulation with Ether-Lipid Deficiency
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Rhizomelic_Chondrodysplasia_Punctata_Type_5.html">Rhizomelic Chondrodysplasia Punctata Type 5</a>
                     
                     <span class="crosslink-desc">
                         via
@@ -2011,6 +2113,21 @@ NEURONAL MIGRATION IS A BIOGENESIS-ARM FEATURE ONLY. The severe biogenesis disor
                         
                         
                         Plasmalogen-Synthesis Enzyme Deficiency → Peroxisomal Biogenesis or Enzyme Defect
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Sterol_Carrier_Protein_2_Deficiency.html">Sterol Carrier Protein 2 Deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        SCPx Loss of Function → Peroxisomal Biogenesis or Enzyme Defect
                         
                         
                     </span>
@@ -2081,11 +2198,13 @@ NEURONAL MIGRATION IS A BIOGENESIS-ARM FEATURE ONLY. The severe biogenesis disor
             
             <div class="item-box anchor-target" id="module-pathophysiology-peroxisomal-biogenesis-or-enzyme-defect" data-dismech-node="Peroxisomal Biogenesis or Enzyme Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Peroxisomal Biogenesis or Enzyme Defect</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A heritable lesion disables peroxisomal function, by one of two routes. In the peroxisome biogenesis disorders, mutation of a PEX gene impairs membrane assembly, import of peroxisomal matrix proteins, or division of the organelle, so that peroxisomal enzymes are not delivered to a functional compartment. In the single-enzyme and single-transporter defects the organelle is assembled normally but one pathway within it - a transporter such as ABCD1, an alpha-oxidation enzyme such as PHYH, or an ether-lipid synthase such as GNPAT or AGPS - is lost. Which route the lesion takes determines how much of the downstream biochemistry is affected, and conforming entries must specialize this node accordingly.</div>
                 
@@ -2197,7 +2316,21 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Congenital_Bile_Acid_Synthesis_Defect_5.html">Congenital Bile Acid Synthesis Defect 5</a>
+                            
+                            <span class="crosslink-desc">as ABCD3 Loss of Function</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Rhizomelic_Chondrodysplasia_Punctata_Type_1.html">Rhizomelic Chondrodysplasia Punctata Type 1</a>
+                            
+                            <span class="crosslink-desc">as Selective PTS2 Import Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Rhizomelic_Chondrodysplasia_Punctata_Type_5.html">Rhizomelic Chondrodysplasia Punctata Type 5</a>
                             
                             <span class="crosslink-desc">as Selective PTS2 Import Failure</span>
                             
@@ -2207,6 +2340,13 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
                             <a href="../disorders/Rhizomelic_Chondrodysplasia_Punctata,_Plasmalogen-Synthesis_Defect.html">Rhizomelic Chondrodysplasia Punctata, Plasmalogen-Synthesis Defect</a>
                             
                             <span class="crosslink-desc">as Plasmalogen-Synthesis Enzyme Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Sterol_Carrier_Protein_2_Deficiency.html">Sterol Carrier Protein 2 Deficiency</a>
+                            
+                            <span class="crosslink-desc">as SCPx Loss of Function</span>
                             
                         </div>
                         
@@ -2240,11 +2380,13 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
             
             <div class="item-box anchor-target" id="module-pathophysiology-failure-of-peroxisomal-fatty-acid-oxidation-and-ether-lipid-synthesis" data-dismech-node="Failure of Peroxisomal Fatty-Acid Oxidation and Ether-Lipid Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Peroxisomal Fatty-Acid Oxidation and Ether-Lipid Synthesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The two metabolic functions peroxisomes uniquely perform fail. On the catabolic side, beta-oxidation of very-long-chain and branched-chain fatty acids and alpha-oxidation of phytanic acid can no longer proceed; on the anabolic side, the first committed steps of ether-linked glycerophospholipid synthesis, which are peroxisomal, can no longer produce plasmalogens. In the biogenesis disorders both sides fail together. In the selective disorders only one does, and which one is the biochemical signature that distinguishes them.</div>
                 
@@ -2399,11 +2541,13 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
             
             <div class="item-box anchor-target" id="module-pathophysiology-toxic-fatty-acid-accumulation-with-ether-lipid-deficiency" data-dismech-node="Toxic Fatty-Acid Accumulation with Ether-Lipid Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxic Fatty-Acid Accumulation with Ether-Lipid Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic convergence point of the module and its key conformance target. The metabolic block produces a characteristic two-sided lesion: substrates that cannot be degraded accumulate in plasma and tissue (very-long-chain fatty acids in the biogenesis disorders and in X-linked adrenoleukodystrophy, phytanic acid in Refsum disease and in the PTS2-import disorders), while plasmalogens that cannot be synthesized fall. In cerebral adrenoleukodystrophy both sides are measurable in the same brain white matter, and the plasmalogen loss there tracks with oxidative stress rather than being independent of it. Conforming entries must specialize this node to the analytes their own disorder actually perturbs, and must not assert accumulation of a substrate their disorder leaves in the normal range.</div>
                 
@@ -2501,6 +2645,13 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Rhizomelic_Chondrodysplasia_Punctata_Type_5.html">Rhizomelic Chondrodysplasia Punctata Type 5</a>
+                            
+                            <span class="crosslink-desc">as Plasmalogen (Ether Lipid) Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Zellweger_Spectrum_Disorders.html">Zellweger Spectrum Disorders</a>
                             
                             <span class="crosslink-desc">as VLCFA and Branched-Chain Fatty Acid Accumulation</span>
@@ -2530,11 +2681,13 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
             
             <div class="item-box anchor-target" id="module-pathophysiology-neural-membrane-and-redox-dysfunction" data-dismech-node="Neural Membrane and Redox Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Membrane and Redox Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The biochemical lesion becomes a cellular one in the tissues whose function depends most on membrane lipid composition. Plasmalogens are the most abundant form of ether phospholipids in myelin, and oligodendrocytes require them intrinsically in order to ensheath an axon and initiate membrane wrapping; their loss produces generalized CNS hypomyelination that evolves into progressive demyelination with astrocytosis and white-matter-selective microgliosis. In parallel, accumulated very-long-chain fatty acids drive reactive oxygen species production and lipid peroxidation, with reactive lipid aldehydes and oxidized proteins detectable throughout the affected brain rather than only within plaques. Retina, peripheral nerve, adrenal cortex, liver, and kidney are affected alongside white matter.</div>
                 
@@ -2682,11 +2835,13 @@ This pathophysiological event involves decreased central nervous system myelinat
             
             <div class="item-box anchor-target" id="module-pathophysiology-multisystem-peroxisomal-disease" data-dismech-node="Multisystem Peroxisomal Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Peroxisomal Disease</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint of the module: a phenotypic continuum, not a single syndrome. At the severe end, affected newborns are hypotonic, feed poorly, and carry congenital malformations - neuronal migration defects with neonatal-onset seizures, renal cysts, and chondrodysplasia punctata - with severe liver disease and death usually within the first year. At the milder end there are no congenital malformations at all, and the disease is instead a progressive peroxisomal dysfunction expressed as retinal dystrophy and sensorineural hearing loss, ataxia, polyneuropathy and leukodystrophy, liver dysfunction, adrenal insufficiency, and renal oxalate stones, with intellect that can be normal. The single-enzyme disorders occupy their own narrower slices of this range. Conforming entries specialize this node to their own position on the spectrum; the module deliberately asserts no uniform severity or age of onset.</div>
                 
@@ -2749,6 +2904,9 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

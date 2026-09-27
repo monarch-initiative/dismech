@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4145,6 +4238,33 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
 
         <!-- Comorbidities -->
 
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Complex_Regional_Pain_Syndrome_Type_1.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Complex Regional Pain Syndrome Type 1</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
 
         <!-- Mechanistic Hypotheses -->
 
@@ -4291,6 +4411,8 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4312,6 +4434,8 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4453,6 +4577,8 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4476,6 +4602,8 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4497,6 +4625,8 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4589,6 +4719,8 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4612,6 +4744,8 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4633,6 +4767,8 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4836,6 +4972,7 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-tissue-trauma" data-dismech-node="Peripheral Tissue Trauma" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Tissue Trauma</div>
 
+
                 <div class="item-desc">The initiating event, and almost always a common one — distal limb fracture above all, with sprain, crush, surgery, and immobilization also recognized. In the Olmsted County population study every identified case reported an antecedent event and fracture was the trigger in 46%. Because the trigger is ubiquitous and the syndrome is rare, this node is necessary but far from sufficient, which is the premise of the whole entry.</div>
 
 
@@ -4930,6 +5067,8 @@ This pathophysiological event occurs in manus (UBERON:0002398). UBERON:0002398 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4952,6 +5091,7 @@ This pathophysiological event occurs in manus (UBERON:0002398). UBERON:0002398 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurogenic-inflammation" data-dismech-node="Neurogenic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurogenic Inflammation</div>
+
 
                 <div class="item-desc">Activated C-fibre nociceptors release substance P and CGRP into the injured limb, producing vasodilation, plasma extravasation, oedema, erythema, and increased sweating, and recruiting local immune cells. This node is the direct substrate of three of the four Budapest domains — vasomotor, sudomotor/oedema, and part of the trophic — and it is what makes early CRPS a warm, swollen limb rather than a purely sensory complaint.</div>
 
@@ -5216,6 +5356,8 @@ This pathophysiological event involves increased positive regulation of vascular
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5238,6 +5380,7 @@ This pathophysiological event involves increased positive regulation of vascular
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-production-against-autonomic-receptors" data-dismech-node="Autoantibody Production Against Autonomic Receptors" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody Production Against Autonomic Receptors</div>
+
 
                 <div class="item-desc">Functionally active IgG directed at the second extracellular loop of the beta-2 adrenergic and muscarinic-2 receptors, with agonist-like properties in a cardiomyocyte bioassay. These are not bystander antibodies: they act on the receptors, they are found in a defined subset of patients, and their transfer into injured mice reproduces the syndrome. The node is the hinge of the entry — it converts a post-traumatic inflammatory response into a self-sustaining one.</div>
 
@@ -5385,6 +5528,8 @@ This pathophysiological event involves sympathetic neuron (CL:0011103). CL:00111
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5408,6 +5553,8 @@ This pathophysiological event involves sympathetic neuron (CL:0011103). CL:00111
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5421,14 +5568,16 @@ This pathophysiological event involves sympathetic neuron (CL:0011103). CL:00111
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25741131" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25741131" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25741131" target="_blank">PMID:25741131</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5453,6 +5602,7 @@ This pathophysiological event involves sympathetic neuron (CL:0011103). CL:00111
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spinal-glial-activation" data-dismech-node="Spinal Glial Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Spinal Glial Activation</div>
+
 
                 <div class="item-desc">Microglia and astrocytes in the dorsal horn and in pain-related brain regions become and remain activated. The passive transfer experiment shows this state persisting long after the peripheral inflammatory response has resolved, and identifies microglia-derived IL-1beta as the mediator — with IL-1 receptor blockade both preventing it and reversing an already established phenotype. It is curated separately from the sensitization it produces because the two have different drug targets: IL-1 blockade acts here, NMDA antagonism acts downstream.</div>
 
@@ -5731,6 +5881,8 @@ This pathophysiological event occurs in dorsal horn of spinal cord (UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5752,6 +5904,8 @@ This pathophysiological event occurs in dorsal horn of spinal cord (UBERON:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5776,6 +5930,7 @@ This pathophysiological event occurs in dorsal horn of spinal cord (UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-sensitization" data-dismech-node="Central Sensitization" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Sensitization</div>
+
 
                 <div class="item-desc">An NMDA-receptor-dependent lowering of the threshold for nociceptive transmission, so that innocuous input is experienced as painful and painful input as more so, over a territory well beyond the original injury. It is the state that allodynia and hyperalgesia report, and the node ketamine targets: the NMDA receptor is the reason a dissociative anaesthetic has an analgesic role in this disease at all.</div>
 
@@ -5871,6 +6026,8 @@ This pathophysiological event occurs in dorsal horn of spinal cord (UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5892,6 +6049,8 @@ This pathophysiological event occurs in dorsal horn of spinal cord (UBERON:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5916,6 +6075,7 @@ This pathophysiological event occurs in dorsal horn of spinal cord (UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sympathetic-vasomotor-dysregulation" data-dismech-node="Sympathetic Vasomotor Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sympathetic Vasomotor Dysregulation</div>
+
 
                 <div class="item-desc">Disturbed sympathetic vasomotor control of the affected limb, producing the temperature and colour asymmetry of the vasomotor Budapest domain: an early warm, vasodilated phase and a later cold, cyanotic one. Importantly, not all CRPS pain is sympathetically maintained — a subset is sympathetically independent — which is the clearest explanation for why sympathetic blockade helps some patients and not others, and why this entry does not curate sympathetic block as a general treatment.</div>
 
@@ -5987,6 +6147,8 @@ This pathophysiological event involves sympathetic neuron (CL:0011103). CL:00111
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6009,6 +6171,7 @@ This pathophysiological event involves sympathetic neuron (CL:0011103). CL:00111
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-somatosensory-reorganization" data-dismech-node="Cortical Somatosensory Reorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Somatosensory Reorganization</div>
+
 
                 <div class="item-desc">The cortical representation of the affected hand in primary somatosensory cortex shrinks and its centre shifts toward the lip representation, while tactile-evoked S1 responses on the affected side are increased. The extent of reorganization correlates with pain and, more strongly, with mechanical hyperalgesia, and mechanical hyperalgesia is its best single predictor. This node is the target of the rehabilitative treatments — graded motor imagery and mirror therapy — that work by restoring coherent sensorimotor representation rather than by any pharmacological action.</div>
 
@@ -6067,6 +6230,8 @@ This pathophysiological event occurs in primary somatosensory cortex (UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6088,6 +6253,8 @@ This pathophysiological event occurs in primary somatosensory cortex (UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6112,6 +6279,7 @@ This pathophysiological event occurs in primary somatosensory cortex (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-bone-loss" data-dismech-node="Regional Bone Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Bone Loss</div>
+
 
                 <div class="item-desc">Patchy periarticular demineralization of the affected region — the finding Sudeck originally described as acute inflammatory bone atrophy, and the structural correlate of the intense periarticular uptake on the delayed phase of three-phase bone scintigraphy. It is curated as a distinct node because it is the target of the treatment with the strongest randomized evidence in this disease: intravenous bisphosphonate.</div>
 
@@ -6221,6 +6389,8 @@ This pathophysiological event involves increased positive regulation of osteocla
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6287,15 +6457,13 @@ This pathophysiological event involves increased positive regulation of osteocla
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6338,6 +6506,9 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6352,6 +6523,8 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6383,8 +6556,84 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vasomotor-asymmetry" data-dismech-node="Vasomotor asymmetry" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Vasomotor asymmetry
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of temperature regulation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004370" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004370</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of temperature regulation (HP:0004370). HP:0004370 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">HP:0004370 is broader than the claim — it also covers fever and hypothermia — but HPO has no term for limb temperature or colour asymmetry, and no term beats a bad one. The `preferred_term` and description carry the specificity.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Excellent concordance was found between symptoms and signs and vasomotor symptoms were the most commonly present."</div>
+
+
+                <div class="evidence-explanation">Population-based ascertainment of vasomotor features as the most frequently present domain.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-limb-oedema" data-dismech-node="Limb oedema" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6400,15 +6649,18 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000969</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000969</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6428,6 +6680,8 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6459,7 +6713,7 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-range-of-motion" data-dismech-node="Reduced range of motion" data-dismech-type="phenotype">
@@ -6478,15 +6732,18 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6508,6 +6765,8 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6516,6 +6775,80 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
 
 
                 <div class="evidence-explanation">Establishes motor abnormality as a defining component of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-regional-osteoporosis" data-dismech-node="Regional osteoporosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Regional osteoporosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Localized osteoporosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040161" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0040161</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Localized osteoporosis (HP:0040161). HP:0040161 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three phase bone scan and autonomic testing diagnosed the condition in &gt;80% of cases."</div>
+
+
+                <div class="evidence-explanation">Supports the diagnostic yield of the bone scan whose delayed-phase periarticular uptake is the imaging correlate of this phenotype.</div>
 
 
 
@@ -6554,15 +6887,18 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6582,6 +6918,8 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6613,7 +6951,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-continuing-pain-disproportionate-to-the-inciting-event" data-dismech-node="Continuing pain disproportionate to the inciting event" data-dismech-type="phenotype">
@@ -6632,10 +6970,10 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012532</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic pain (HP:0012532), qualified as temporality chronic. HP:0012532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6664,6 +7002,9 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6678,6 +7019,8 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6703,15 +7046,6 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-allodynia" data-dismech-node="Allodynia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Allodynia
@@ -6726,15 +7060,18 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012533</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012533</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Allodynia (HP:0012533). HP:0012533 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6756,6 +7093,8 @@ This clinical feature is Allodynia (HP:0012533). HP:0012533 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6764,146 +7103,6 @@ This clinical feature is Allodynia (HP:0012533). HP:0012533 is a phenotype from 
 
 
                 <div class="evidence-explanation">Names allodynia as a primary pathological feature of the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-vasomotor-asymmetry" data-dismech-node="Vasomotor asymmetry" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Vasomotor asymmetry
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of temperature regulation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004370" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004370</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of temperature regulation (HP:0004370). HP:0004370 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">HP:0004370 is broader than the claim — it also covers fever and hypothermia — but HPO has no term for limb temperature or colour asymmetry, and no term beats a bad one. The `preferred_term` and description carry the specificity.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Excellent concordance was found between symptoms and signs and vasomotor symptoms were the most commonly present."</div>
-
-
-                <div class="evidence-explanation">Population-based ascertainment of vasomotor features as the most frequently present domain.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-regional-osteoporosis" data-dismech-node="Regional osteoporosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Regional osteoporosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Localized osteoporosis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040161" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0040161</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Localized osteoporosis (HP:0040161). HP:0040161 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Three phase bone scan and autonomic testing diagnosed the condition in &gt;80% of cases."</div>
-
-
-                <div class="evidence-explanation">Supports the diagnostic yield of the bone scan whose delayed-phase periarticular uptake is the imaging correlate of this phenotype.</div>
 
 
 
@@ -6993,6 +7192,9 @@ This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from t
 
 
 
+
+
+
             </div>
 
         </div>
@@ -7075,6 +7277,31 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An amino-bisphosphonate, and the intervention with the strongest randomized evidence in CRPS-I. In a multicentre double-blind placebo-controlled trial of 82 patients, four 100 mg infusions over ten days produced a substantially greater fall in visual analogue pain score than placebo, with the effect sustained, replicated in the open-label crossover of the former placebo group, and with no patient reporting CRPS-related symptoms a year later.</div>
 
 
@@ -7105,6 +7332,8 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7149,6 +7378,8 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7170,6 +7401,8 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7254,6 +7487,31 @@ This treatment uses ketamine (CHEBI:6121). CHEBI:6121 is a therapeutic agent fro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An NMDA-receptor antagonist, and the treatment that targets the central sensitization node directly. In a randomized double-blind placebo-controlled trial, four-hour daily outpatient infusions for ten days produced statistically significant reductions in many pain parameters, with the placebo group showing no treatment effect in any parameter. The trial is small and its authors call explicitly for a larger one with higher doses and longer follow-up, and a 2025 systematic review characterizes the analgesia as strong but short-term with no long-term data — so this is curated as an evidenced treatment with an explicitly bounded claim.</div>
 
 
@@ -7284,6 +7542,8 @@ This treatment uses ketamine (CHEBI:6121). CHEBI:6121 is a therapeutic agent fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7328,6 +7588,8 @@ This treatment uses ketamine (CHEBI:6121). CHEBI:6121 is a therapeutic agent fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7341,14 +7603,16 @@ This treatment uses ketamine (CHEBI:6121). CHEBI:6121 is a therapeutic agent fro
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40917914" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40917914" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40917914" target="_blank">PMID:40917914</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7412,6 +7676,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A sequenced rehabilitative program — limb laterality recognition, then explicit motor imagery, then mirror therapy — aimed at the cortical representation rather than at any peripheral target. It is curated with its evidence caveat: a systematic review supports an effect on pain and function, but the trial base is small and heterogeneous.</div>
 
 
@@ -7442,6 +7731,8 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7484,6 +7775,8 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7568,6 +7861,31 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The prevention arm, and the reason CRPS is unusual among chronic pain syndromes: a cheap supplement given after the commonest inciting injury lowers incidence. In a randomized multicentre dose-response trial of 416 patients with 427 wrist fractures, vitamin C reduced CRPS-I compared with placebo (2.4% vs 10.1%), with no further benefit at 1500 mg.</div>
 
 
@@ -7598,6 +7916,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7640,6 +7960,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7703,6 +8025,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7753,6 +8077,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7781,6 +8107,594 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-budapest-criteria">
+                <div class="item-name">
+                    Budapest criteria
+
+                </div>
+
+                <div class="item-desc">The IASP-adopted clinical criteria: continuing disproportionate pain, at least one reported symptom in three of the four domains (sensory, vasomotor, sudomotor/oedema, motor/trophic), at least one observed sign in two domains, and no better explanation. Their point is specificity: the earlier IASP criteria had sensitivity 1.00 with specificity 0.41, meaning they diagnosed CRPS in most patients who did not have it, and the four-domain structure is what recovered specificity without losing sensitivity.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20493633" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20493633" target="_blank">PMID:20493633</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In comparison, the Budapest clinical criteria retained the exceptional sensitivity of the IASP criteria (0.99), but greatly improved upon the specificity (0.68)."</div>
+
+
+                <div class="evidence-explanation">The validation result that establishes the criteria&#39;s operating characteristics.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20493633" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20493633" target="_blank">PMID:20493633</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Analyses indicated that inclusion of four distinct CRPS components in the Budapest Criteria contributed to enhanced specificity."</div>
+
+
+                <div class="evidence-explanation">Attributes the improvement to the four-domain structure, which is the feature the entry&#39;s phenotype categories mirror.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-three-phase-bone-scintigraphy">
+                <div class="item-name">
+                    Three-phase bone scintigraphy
+
+                </div>
+
+                <div class="item-desc">Increased flow and blood-pool activity with intense periarticular uptake on the delayed phase in the affected region. Together with autonomic testing it identified over 80% of cases in the population-based series, making it the most useful objective adjunct — though it is supportive, not definitional, since the diagnosis remains clinical.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three phase bone scan and autonomic testing diagnosed the condition in &gt;80% of cases."</div>
+
+
+                <div class="evidence-explanation">Quantifies the diagnostic yield of the combination in an unselected population.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24900016" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24900016" target="_blank">PMID:24900016</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Given the modified image criteria, the sensitivity and specificity of TPBS for diagnosing CRPS-1 were 80% and 72%, respectively."</div>
+
+
+                <div class="evidence-explanation">Gives the diagnostic accuracy of scintigraphy alone against Budapest-criteria diagnosis, which is the figure the Olmsted combined-yield line does not supply.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24900016" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24900016" target="_blank">PMID:24900016</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both increased and decreased periarticular DU were significant image findings for CRPS-1 (CRPS-1 positive-rate = 73% in the increased DU group, 75% in the decreased DU group)."</div>
+
+
+                <div class="evidence-explanation">Qualifies the classical teaching: decreased periarticular delayed uptake is as informative as increased uptake, so the &#34;intense uptake&#34; pattern is not the only positive finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-resolution">
+                <div class="item-name">Resolution</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Seventy-four percent of the population-based Olmsted County cohort underwent resolution, often spontaneously — a substantially more favourable course than tertiary referral series suggest, and the basis of the authors&#39; caution against invasive treatment in most cases.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seventy-four percent of patients underwent resolution, often spontaneously."</div>
+
+
+                <div class="evidence-explanation">The population-based resolution rate recorded in this phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-paediatric-course">
+                <div class="item-name">Paediatric course</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">CRPS in children and adolescents — more common in adolescent girls — carries a favourable prognosis with multidisciplinary care centred on intensive physiotherapy, which is a materially different outlook from the adult tertiary-referral picture.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27130211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130211" target="_blank">PMID:27130211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prognosis in pediatric CRPS is favorable."</div>
+
+
+                <div class="evidence-explanation">States the paediatric prognosis this phase records.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27130211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27130211" target="_blank">PMID:27130211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Standard care consists of a multidisciplinary approach with the implementation of intensive physical therapy in conjunction with psychological counseling."</div>
+
+
+                <div class="evidence-explanation">Names the management that the favourable paediatric outcome is attributed to.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-olmsted-county-minnesota-population-based-1989-1999">
+                <div class="item-name">Olmsted County, Minnesota (population-based, 1989-1999)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        20.57 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Period prevalence 20.57 per 100,000 for CRPS-I, from the Rochester Epidemiology Project using IASP criteria.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seventy-four cases of CRPS I were identified, resulting in an incidence rate of 5.46 per 100,000 person years at risk, and a period prevalence of 20.57 per 100,000."</div>
+
+
+                <div class="evidence-explanation">Source of both the prevalence recorded here and the incidence recorded separately below.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-olmsted-county-minnesota-population-based-1989-1999-2">
+                <div class="item-name">Olmsted County, Minnesota (population-based, 1989-1999)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        5.46 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Incidence 5.46 per 100,000 person-years at risk. Recorded separately from the period prevalence above because the two are different measures.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seventy-four cases of CRPS I were identified, resulting in an incidence rate of 5.46 per 100,000 person years at risk, and a period prevalence of 20.57 per 100,000."</div>
+
+
+                <div class="evidence-explanation">Source of the incidence rate recorded here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">Variable</div>
+
+
+                <div class="item-desc">The burden is genuinely bimodal and the entry records that rather than averaging it. In a population-based cohort three of four patients resolved, often without intervention; but the patients who do not resolve develop chronic, disabling limb pain with functional loss and psychological comorbidity persisting for years. Ascertainment explains much of the apparent disagreement between community and referral series.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12749974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749974" target="_blank">PMID:12749974</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CRPS I is of low prevalence, more commonly affects women than men, the upper more than the lower extremity, and three out of four cases undergo resolution."</div>
+
+
+                <div class="evidence-explanation">The favourable end of the range, from an unselected population.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21683929" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21683929" target="_blank">PMID:21683929</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A complex regional pain syndrome (CRPS)--multiple system dysfunction, severe and often chronic pain, and disability--can be triggered by a minor injury, a fact that has fascinated scientists and perplexed clinicians for decades."</div>
+
+
+                <div class="evidence-explanation">The severe end of the range, and the disproportion between trigger and outcome that defines the disorder.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39315115" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39315115" target="_blank">PMID:39315115</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only 9% of individuals with CRPS reported no residual pain or discomfort. Approximately 60% had problems in daily activities, 49% had sleeping problems, and 90% experienced moderate-extreme pain with 23% still on sick leave."</div>
+
+
+                <div class="evidence-explanation">Quantifies the residual burden a median of five years after diagnosis in those who remain in follow-up, which is the severe end this VARIABLE assessment spans.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
 
 
         <!-- Differential Diagnoses -->
@@ -7842,6 +8756,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7855,14 +8771,16 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21683929" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21683929" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21683929" target="_blank">PMID:21683929</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8010,6 +8928,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8093,6 +9013,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8142,6 +9064,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8267,6 +9191,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8350,6 +9276,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8399,6 +9327,8 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8776,7 +9706,7 @@ pathophysiology:
       incidental autoreactivity.
   - reference: PMID:25741131
     reference_title: The prevalence of autoantibodies in complex regional pain syndrome type I.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Twenty seven (33%) of the 82 CRPS patients of whom serum was available
@@ -9448,7 +10378,7 @@ diagnosis:
       supply.
   - reference: PMID:24900016
     reference_title: Diagnostic performance of three-phase bone scan for complex regional pain syndrome type 1 with optimally modified image criteria.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Both increased and decreased periarticular DU were significant image
@@ -9573,7 +10503,7 @@ treatments:
       this more than an open-label impression.
   - reference: PMID:40917914
     reference_title: &#39;The Analgesic Efficacy of Therapies Used for Complex Regional Pain Syndrome: A Systematic Review.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Intravenous ketamine demonstrated strong short-term analgesia, though
@@ -9882,7 +10812,7 @@ differential_diagnoses:
       States the defining distinction between the two types.
   - reference: PMID:21683929
     reference_title: Clinical features and pathophysiology of complex regional pain syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       This distinction is not without criticism however, because bone fracture or
@@ -10044,6 +10974,58 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Ontology-binding correction worth recording. The deep-research report proposed several ontology IDs that resolve to unrelated terms in the current releases — UBERON:0006459 for primary somatosensory cortex (it is a thoracic spinal cord segment), CL:0000636 for sympathetic neuron (Mueller cell), and CL:0000850 for C-fibre neuron (serotonergic neuron). Every binding in this entry was resolved with OAK against the local release instead, and the report&#39;s suggested IDs were not used. This is exactly the failure mode the term validator exists to catch.
+Deliberate omissions, corrected. An earlier revision of this entry said that several claims were uncurated because their deep-research sources resolved only to journal or PMC URLs. That was wrong: the deep-research run&#39;s own reference validation had already cached citable records for most of them, and they are now curated — the negative MR spectroscopy result (PMID:31980452), the tibia fracture rodent model (PMID:29684510), the paediatric prognosis (PMID:27130211), the RCT systematic review covering sympathetic blocks and neuromodulation (PMID:40917914), the autoantibody prevalence (PMID:25741131), the scintigraphy accuracy study (PMID:24900016), and the long-term disability survey (PMID:39315115). Check `references_cache/` before concluding a deep-research citation is unresolvable.
+What remains genuinely uncurated: the HLA-DQ8 and candidate-SNP genetic associations, for which no cached record states the association in quotable form (see the CURATION_TODO discussion); the sex-ratio and age-distribution figures; the S1 functional-connectivity and motor-cortex disinhibition findings; and the CPIP ischaemia-reperfusion model, whose sources were protocol videos and preprints rather than citable papers.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: CRPS Type 1 (PR #9458)</strong> · 2026-08-25T06:03:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Complex_Regional_Pain_Syndrome_Type_1/2026-08-25T060359Z-claude-code-c66424.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #9458.
+
+The review&#39;s central finding was correct and matched the same error found on PR #9455: the entry&#39;s notes justified several omissions on the grounds that no citable source existed, while the deep-research run&#39;s reference validation had already cached those sources in the same commit. Seven are now curated and the notes record the mistake.
+
+Split the bundled node. `Central Sensitization and Spinal Glial Activation` is now two nodes — `Spinal Glial Activation` (CELLULAR, keeps the microglia/astrocyte cell types and the GO terms) feeding `Central Sensitization` (ORGANISM, NMDA-dependent). The split is what makes the treatment links precise: IL-1 blockade acts on the glial node, ketamine on the sensitization node. All downstream targets, modeled_mechanisms targets, readout targets, and discussion attaches_to references were retargeted.
+
+Added intravenous ketamine as a treatment (PMID:19783371, randomized double-blind placebo-controlled, placebo arm showed no effect in any parameter), linked to the new Central Sensitization node, and bounded with the 2025 RCT systematic review&#39;s &#34;strong short-term analgesia ... lack of long-term data&#34; (PMID:40917914).
+
+Added the negative MR spectroscopy result (PMID:31980452) to the maladaptive-neuroplasticity hypothesis as REFUTE evidence: it refutes the cortical-disinhibition-through-reduced-GABA account specifically, while the same study independently replicates the tactile acuity deficit, which is curated as SUPPORT. The hypothesis stays CANONICAL for the map change and explicitly not for a GABA mechanism.
+
+Added the rodent tibia fracture model (PMID:29684510) with two modeled_mechanisms links and readouts, plus a HUMAN_MODEL_MISMATCH discussion for the point the review flagged: the model reproduces early CRPS but most post-fracture changes resolve within five months, so it may not contain the mechanism that makes human CRPS chronic.
+
+Also added: autoantibody prevalence quantifying the subset the entry hedges about (PMID:25741131, 33% ANA-positive of 82 patients); three-phase bone scan diagnostic accuracy against Budapest-criteria diagnosis (PMID:24900016, 80%/72%), including the point that decreased periarticular uptake is as informative as increased; long-term residual disability for the clinical_burden rationale (PMID:39315115); and a paediatric progression phase (PMID:27130211). Applied the reviewer&#39;s two smaller suggestions: the cortical reorganization node is now biological_scale TISSUE, and HP:0004370 carries a notes line explaining that it is broader than the claim but that HPO has no better term.
+
+Validation after changes: just validate (63/63 snippets verified, up from 47), validate-terms, validate-disorders, duplicate-key/snippet-length/title-snippet gates, compliance 87.4%, and the entity-reference/foreign-key/model-readout pytest selection (16283 tests).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Complex Regional Pain Syndrome Type 1 (MONDO:0011441)</strong> · 2026-08-25T05:20:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Complex_Regional_Pain_Syndrome_Type_1/2026-08-25T052059Z-claude-code-36ba19.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MONDO:0011441 (complex regional pain syndrome type 1).
+
+Deep research: claude_code provider (research/Complex_Regional_Pain_Syndrome_Type_1-deep-research-claude_code.md), 31 references, all resolved (confabulation_rate 0.0), needs_review=true for two off-topic PMC references which were not used. just preflight-dr returned SKIP because MONDO records no causal gene; disease identity was checked manually against the MONDO/ORPHA:83452/OMIM 604335 record and the type-1 vs type-2 distinction.
+
+Content: seven pathophysiology nodes (peripheral tissue trauma; neurogenic inflammation; autoantibody production against autonomic receptors; central sensitization and spinal glial activation; sympathetic vasomotor dysregulation; cortical somatosensory reorganization; regional bone loss) under three mechanistic hypothesis groups (aberrant host response, autoimmune, maladaptive neuroplasticity). Eight phenotypes across the four Budapest domains, one susceptibility gene entry (HLA-DQB1, no evidence item, see below), one environmental exposure with an influences_mechanisms link, prevalence and incidence recorded as separate measures from the Olmsted County population study, progression, clinical burden VARIABLE, two diagnosis entries, three treatments (neridronate, graded motor imagery/mirror therapy, vitamin C prophylaxis), the CRPS IgG passive-transfer mouse model with two modeled_mechanisms links and readouts, one differential diagnosis (CRPS type 2), and three discussions.
+
+Ontology-binding note: the deep-research report proposed several IDs that resolve to unrelated terms in the current releases (UBERON:0006459 for primary somatosensory cortex, CL:0000636 for sympathetic neuron, CL:0000850 for C-fibre neuron). Every binding was re-resolved with OAK against the local release; the report&#39;s suggested IDs were not used. Recorded in the entry notes.
+
+Deliberate omissions: claims whose sources resolved only to journal/PMC URLs were left uncurated — HLA-DQ8 and the ANO10/P2RX7/PRKAG1/SLC12A9 candidate SNPs (HLA-DQB1 curated as SUSCEPTIBILITY with a note plus a CURATION_TODO discussion; the SNPs not curated at all), sex-ratio and age-distribution figures, S1 functional-connectivity and M1 disinhibition findings, the CPIP and tibia-fracture rodent models, the pediatric prognosis series, and the sympathetic-block/spinal-cord-stimulation evidence.
+
+Two snippets initially drafted from the deep-research narrative failed verification against the cached abstracts and were replaced with exact quotes (graded motor imagery review PMID:27858687; vitamin C trial PMID:17606778), and the entry prose was corrected to the trial&#39;s actual figures.
+
+Validation: just validate (47/47 snippets verified), just validate-terms, just validate-disorders, just compliance (87.6% global), the offline gates (duplicate keys, snippet length, folded hyphens, title snippets, environmental evidence), and the entity-reference/foreign-key/environmental-target pytest selection (16285 tests).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10631,7 +11613,7 @@ Resolving is not the same as being relevant, though - see the references listed 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Complex Regional Pain Syndrome Type 1", "mondoId": "MONDO:0011441", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Complex_Regional_Pain_Syndrome_Type_1", "yamlRevision": "42edcbf7e87b"};
+        const OS_CONFIG = {"diseaseName": "Complex Regional Pain Syndrome Type 1", "mondoId": "MONDO:0011441", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Complex_Regional_Pain_Syndrome_Type_1", "yamlRevision": "780e452eb87c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

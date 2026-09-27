@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4654,6 +4747,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4736,6 +4831,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4822,6 +4919,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4906,6 +5005,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4972,6 +5073,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4993,6 +5096,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5110,6 +5215,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5293,6 +5400,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wt1-inactivation" data-dismech-node="WT1 Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">WT1 Inactivation</div>
+
 
                 <div class="item-desc">WT1 is a transcription factor essential for normal kidney and gonad development. Biallelic WT1 inactivation occurs in 10-15% of Wilms tumors. Germline WT1 mutations cause WAGR syndrome (Wilms tumor, aniridia, genitourinary anomalies, intellectual disability) and Denys-Drash syndrome. WT1 functions at multiple stages of kidney development, including the transition from resting stem cells to committed nephron progenitor cells.</div>
 
@@ -5517,6 +5625,8 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5538,6 +5648,8 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5563,6 +5675,8 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5585,6 +5699,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wtx-amer1-inactivation" data-dismech-node="WTX (AMER1) Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">WTX (AMER1) Inactivation</div>
+
 
                 <div class="item-desc">WTX (AMER1) is a component of the beta-catenin destruction complex and a negative regulator of Wnt signaling. WTX inactivation occurs in approximately 15-20% of Wilms tumors and leads to constitutive Wnt pathway activation.</div>
 
@@ -5720,6 +5835,8 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5742,6 +5859,7 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctnnb1-activating-mutation" data-dismech-node="CTNNB1 Activating Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">CTNNB1 Activating Mutation</div>
+
 
                 <div class="item-desc">Activating mutations in CTNNB1 (beta-catenin) occur in approximately 15% of Wilms tumors, affecting exon 3 to stabilize beta-catenin and activate canonical Wnt signaling. CTNNB1 mutations are strongly associated with WT1 mutations, promoting proliferation and blocking differentiation.</div>
 
@@ -5830,6 +5948,31 @@ This pathophysiological event involves increased CTNNB1 (hgnc:2514). hgnc:2514 i
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -5911,6 +6054,8 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5933,6 +6078,7 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-canonical-wnt-signaling-hyperactivation" data-dismech-node="Canonical Wnt Signaling Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Canonical Wnt Signaling Hyperactivation</div>
+
 
                 <div class="item-desc">Aberrant beta-catenin signaling downstream of AMER1 loss or CTNNB1 activation sustains nephrogenic progenitors in a developmental state and cooperates with WT1 loss in Wilms tumor initiation.</div>
 
@@ -6099,6 +6245,8 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6121,6 +6269,7 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-nephron-differentiation" data-dismech-node="Blocked Nephron Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked Nephron Differentiation</div>
+
 
                 <div class="item-desc">Wilms tumor arises from nephrogenic rests - foci of embryonic blastemal cells that persist beyond the normal period of nephrogenesis. These cells retain proliferative capacity but fail to undergo terminal differentiation into mature nephrons. Loss of WT1 in nephrogenic rests may leave these premalignant clones vulnerable to malignant transformation.</div>
 
@@ -6279,6 +6428,8 @@ This pathophysiological event involves abnormal nephron development (GO:0072006)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6300,6 +6451,8 @@ This pathophysiological event involves abnormal nephron development (GO:0072006)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6324,6 +6477,7 @@ This pathophysiological event involves abnormal nephron development (GO:0072006)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-igf2-loss-of-imprinting" data-dismech-node="IGF2 Loss of Imprinting" data-dismech-type="pathophysiology">
                 <div class="item-name">IGF2 Loss of Imprinting</div>
+
 
                 <div class="item-desc">Loss of imprinting at 11p15, leading to biallelic IGF2 expression, occurs in approximately 70% of Wilms tumors. IGF2 is a major fetal growth factor and its overexpression promotes proliferation of embryonic renal cells. This epigenetic alteration is also the mechanism underlying Beckwith-Wiedemann syndrome, which confers increased Wilms tumor risk.</div>
 
@@ -6459,6 +6613,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6480,6 +6636,8 @@ This pathophysiological event involves increased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6504,6 +6662,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microrna-processing-defect" data-dismech-node="MicroRNA Processing Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">MicroRNA Processing Defect</div>
+
 
                 <div class="item-desc">DROSHA and DICER1 lesions derepress microRNA target genes controlling differentiation and proliferation, reinforcing a self-renewing mesenchymal state in Wilms tumor.</div>
 
@@ -6744,6 +6903,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6766,6 +6927,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephron-progenitor-self-renewal" data-dismech-node="Nephron Progenitor Self-Renewal" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephron Progenitor Self-Renewal</div>
+
 
                 <div class="item-desc">SIX1 and SIX2 hotspot mutations reinforce the embryonal nephron progenitor transcriptional program in high-risk blastemal Wilms tumors, preserving proliferative potential and chemotherapy resistance.</div>
 
@@ -7006,6 +7168,8 @@ This pathophysiological event involves abnormal metanephros development (GO:0001
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7028,6 +7192,7 @@ This pathophysiological event involves abnormal metanephros development (GO:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-blastemal-progenitor-state" data-dismech-node="Persistent Blastemal Progenitor State" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Blastemal Progenitor State</div>
+
 
                 <div class="item-desc">Multiple Wilms tumor drivers converge on persistence of embryonal renal blastemal cells with high proliferative capacity and failed terminal differentiation.</div>
 
@@ -7216,6 +7381,8 @@ This pathophysiological event involves abnormal nephron development (GO:0072006)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7238,6 +7405,7 @@ This pathophysiological event involves abnormal nephron development (GO:0072006)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wilms-tumor-outgrowth" data-dismech-node="Wilms Tumor Outgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Wilms Tumor Outgrowth</div>
+
 
                 <div class="item-desc">Persisting embryonal renal progenitors expand into nephroblastoma, an embryonal kidney malignancy with blastemal, epithelial, and stromal elements.</div>
 
@@ -7349,6 +7517,8 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7371,6 +7541,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-deficient-anaplastic-progression" data-dismech-node="TP53-Deficient Anaplastic Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53-Deficient Anaplastic Progression</div>
+
 
                 <div class="item-desc">In anaplastic Wilms tumor, TP53 dysfunction promotes progression toward an aggressive, treatment-resistant state with impaired genome surveillance.</div>
 
@@ -7525,6 +7696,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7585,6 +7758,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7631,6 +7806,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7652,6 +7829,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7700,6 +7879,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7721,6 +7902,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7769,6 +7952,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7790,6 +7975,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7838,6 +8025,8 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7880,7 +8069,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blocked Nephron Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wilms tumor arises from nephrogenic rests - foci of embryonic blastemal cells that persist beyond the normal period of nephrogenesis. These cells retain proliferative capacity but fail to undergo terminal differentiation into mature nephrons. Loss of WT1 in nephrogenic rests may leave these premalignant clones vulnerable to malignant transformation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell population proliferation\", \"nephron development\"]}}, {\"id\": \"CTNNB1 Activating Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) occur in approximately 15% of Wilms tumors, affecting exon 3 to stabilize beta-catenin and activate canonical Wnt signaling. CTNNB1 mutations are strongly associated with WT1 mutations, promoting proliferation and blocking differentiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"Wnt signaling pathway\"], \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"CTNNB1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"association\": \"Oncogenic Driver Mutations\"}}, {\"id\": \"Canonical Wnt Signaling Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant beta-catenin signaling downstream of AMER1 loss or CTNNB1 activation sustains nephrogenic progenitors in a developmental state and cooperates with WT1 loss in Wilms tumor initiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"Wnt signaling pathway\", \"cell differentiation\"]}}, {\"id\": \"Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Actinomycin D and vincristine form the backbone of treatment for favorable histology tumors. Doxorubicin and other agents are added for higher-stage or anaplastic tumors. Cyclophosphamide and etoposide are added for the highest-risk patients.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dactinomycin\", \"vincristine\", \"doxorubicin\"]}}, {\"id\": \"IGF2 Loss of Imprinting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of imprinting at 11p15, leading to biallelic IGF2 expression, occurs in approximately 70% of Wilms tumors. IGF2 is a major fetal growth factor and its overexpression promotes proliferation of embryonic renal cells. This epigenetic alteration is also the mechanism underlying Beckwith-Wiedemann syndrome, which confers increased Wilms tumor risk.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"IGF2\"], \"gene_terms\": [{\"label\": \"IGF2\", \"id\": \"hgnc:5466\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"Loss of 11p15 Imprinting\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGF2\"], \"gene_terms\": [{\"label\": \"IGF2\", \"id\": \"hgnc:5466\"}], \"association\": \"Epigenetic Alteration\"}}, {\"id\": \"MicroRNA Processing Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DROSHA and DICER1 lesions derepress microRNA target genes controlling differentiation and proliferation, reinforcing a self-renewing mesenchymal state in Wilms tumor.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell differentiation\", \"cell population proliferation\"], \"genes\": [\"DROSHA\", \"DICER1\"], \"gene_terms\": [{\"label\": \"DROSHA\", \"id\": \"hgnc:17904\"}, {\"label\": \"DICER1\", \"id\": \"hgnc:17098\"}]}}, {\"id\": \"Nephron Progenitor Self-Renewal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SIX1 and SIX2 hotspot mutations reinforce the embryonal nephron progenitor transcriptional program in high-risk blastemal Wilms tumors, preserving proliferative potential and chemotherapy resistance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"cell population proliferation\", \"metanephros development\"], \"genes\": [\"SIX1\", \"SIX2\"], \"gene_terms\": [{\"label\": \"SIX1\", \"id\": \"hgnc:10887\"}, {\"label\": \"SIX2\", \"id\": \"hgnc:10888\"}]}}, {\"id\": \"Persistent Blastemal Progenitor State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple Wilms tumor drivers converge on persistence of embryonal renal blastemal cells with high proliferative capacity and failed terminal differentiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"metanephric mesenchyme stem cell\", \"nephrogenic zone cell\"], \"biological_processes\": [\"cell population proliferation\", \"nephron development\"]}}, {\"id\": \"Radiation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Flank radiation is used for stage III tumors and higher. Whole abdominal radiation is used for tumor rupture or diffuse peritoneal contamination. Whole lung irradiation is used for pulmonary metastases that fail to respond completely to chemotherapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Selinexor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selinexor is an oral XPO1 inhibitor under clinical evaluation for recurrent or refractory Wilms tumor and other pediatric solid tumors.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"selinexor\"]}}, {\"id\": \"Surgical Resection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nephrectomy is the primary treatment for unilateral Wilms tumor. In North America (COG), upfront nephrectomy provides staging information and allows for immediate histologic diagnosis and molecular analysis. In Europe (SIOP), preoperative chemotherapy is given first. Both approaches achieve similar survival rates.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TP53 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"subtypes\": [\"Anaplastic\"], \"association\": \"Anaplasia Driver\"}}, {\"id\": \"TP53-Deficient Anaplastic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In anaplastic Wilms tumor, TP53 dysfunction promotes progression toward an aggressive, treatment-resistant state with impaired genome surveillance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"DNA repair\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"WT1 Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WT1 is a transcription factor essential for normal kidney and gonad development. Biallelic WT1 inactivation occurs in 10-15% of Wilms tumors. Germline WT1 mutations cause WAGR syndrome (Wilms tumor, aniridia, genitourinary anomalies, intellectual disability) and Denys-Drash syndrome. WT1 functions at multiple stages of kidney development, including the transition from resting stem cells to committed nephron progenitor cells.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell differentiation\", \"metanephros development\"], \"genes\": [\"WT1\"], \"gene_terms\": [{\"label\": \"WT1\", \"id\": \"hgnc:12796\", \"modifier\": \"DECREASED\"}], \"locations\": [\"kidney\"]}}, {\"id\": \"WT1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WT1\"], \"gene_terms\": [{\"label\": \"WT1\", \"id\": \"hgnc:12796\"}], \"association\": \"Tumor Suppressor Loss\"}}, {\"id\": \"WTX (AMER1) Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WTX (AMER1) is a component of the beta-catenin destruction complex and a negative regulator of Wnt signaling. WTX inactivation occurs in approximately 15-20% of Wilms tumors and leads to constitutive Wnt pathway activation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\"], \"genes\": [\"AMER1\"], \"gene_terms\": [{\"label\": \"AMER1\", \"id\": \"hgnc:26837\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"WTX (AMER1) Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AMER1\"], \"gene_terms\": [{\"label\": \"AMER1\", \"id\": \"hgnc:26837\"}], \"association\": \"Tumor Suppressor Loss\"}}, {\"id\": \"Wilms Tumor Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persisting embryonal renal progenitors expand into nephroblastoma, an embryonal kidney malignancy with blastemal, epithelial, and stromal elements.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"WT1 Inactivation\", \"target\": \"Blocked Nephron Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WT1 loss prevents normal renal blastemal differentiation\"}, {\"source\": \"WTX (AMER1) Inactivation\", \"target\": \"Canonical Wnt Signaling Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of WTX stabilizes beta-catenin signaling in nephrogenic progenitors\"}, {\"source\": \"CTNNB1 Activating Mutation\", \"target\": \"Canonical Wnt Signaling Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exon 3 mutations stabilize beta-catenin and drive constitutive Wnt output\"}, {\"source\": \"Canonical Wnt Signaling Hyperactivation\", \"target\": \"Blocked Nephron Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive beta-catenin signaling prevents normal nephron maturation\"}, {\"source\": \"Canonical Wnt Signaling Hyperactivation\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wnt output maintains embryonal renal progenitors in a self-renewing compartment\"}, {\"source\": \"Blocked Nephron Differentiation\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental arrest preserves proliferative embryonal renal cells\"}, {\"source\": \"IGF2 Loss of Imprinting\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic IGF2 expression expands fetal renal progenitors\"}, {\"source\": \"MicroRNA Processing Defect\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"miRNA dysregulation reinforces the undifferentiated proliferative compartment\"}, {\"source\": \"Nephron Progenitor Self-Renewal\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIX1/SIX2-mutant progenitors retain a proliferative embryonal identity\"}, {\"source\": \"Persistent Blastemal Progenitor State\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persisting blastemal clones expand into overt nephroblastoma\"}, {\"source\": \"Wilms Tumor Outgrowth\", \"target\": \"TP53-Deficient Anaplastic Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acquisition of TP53 dysfunction drives aggressive anaplastic evolution in a subset of tumors\"}, {\"source\": \"Surgical Resection\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Chemotherapy\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Chemotherapy\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Radiation Therapy\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Selinexor\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"WT1 Mutations\", \"target\": \"WT1 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CTNNB1 Mutations\", \"target\": \"CTNNB1 Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WTX (AMER1) Mutations\", \"target\": \"WTX (AMER1) Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Loss of 11p15 Imprinting\", \"target\": \"IGF2 Loss of Imprinting\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53 Mutations\", \"target\": \"TP53-Deficient Anaplastic Progression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blocked Nephron Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wilms tumor arises from nephrogenic rests - foci of embryonic blastemal cells that persist beyond the normal period of nephrogenesis. These cells retain proliferative capacity but fail to undergo terminal differentiation into mature nephrons. Loss of WT1 in nephrogenic rests may leave these premalignant clones vulnerable to malignant transformation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell population proliferation\", \"nephron development\"]}}, {\"id\": \"CTNNB1 Activating Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) occur in approximately 15% of Wilms tumors, affecting exon 3 to stabilize beta-catenin and activate canonical Wnt signaling. CTNNB1 mutations are strongly associated with WT1 mutations, promoting proliferation and blocking differentiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"Wnt signaling pathway\"], \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\", \"modifier\": \"INCREASED\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"CTNNB1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"association\": \"Oncogenic Driver Mutations\"}}, {\"id\": \"Canonical Wnt Signaling Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant beta-catenin signaling downstream of AMER1 loss or CTNNB1 activation sustains nephrogenic progenitors in a developmental state and cooperates with WT1 loss in Wilms tumor initiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"Wnt signaling pathway\", \"cell differentiation\"]}}, {\"id\": \"Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Actinomycin D and vincristine form the backbone of treatment for favorable histology tumors. Doxorubicin and other agents are added for higher-stage or anaplastic tumors. Cyclophosphamide and etoposide are added for the highest-risk patients.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dactinomycin\", \"vincristine\", \"doxorubicin\"]}}, {\"id\": \"IGF2 Loss of Imprinting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of imprinting at 11p15, leading to biallelic IGF2 expression, occurs in approximately 70% of Wilms tumors. IGF2 is a major fetal growth factor and its overexpression promotes proliferation of embryonic renal cells. This epigenetic alteration is also the mechanism underlying Beckwith-Wiedemann syndrome, which confers increased Wilms tumor risk.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"IGF2\"], \"gene_terms\": [{\"label\": \"IGF2\", \"id\": \"hgnc:5466\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"Loss of 11p15 Imprinting\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGF2\"], \"gene_terms\": [{\"label\": \"IGF2\", \"id\": \"hgnc:5466\"}], \"association\": \"Epigenetic Alteration\"}}, {\"id\": \"MicroRNA Processing Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DROSHA and DICER1 lesions derepress microRNA target genes controlling differentiation and proliferation, reinforcing a self-renewing mesenchymal state in Wilms tumor.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell differentiation\", \"cell population proliferation\"], \"genes\": [\"DROSHA\", \"DICER1\"], \"gene_terms\": [{\"label\": \"DROSHA\", \"id\": \"hgnc:17904\"}, {\"label\": \"DICER1\", \"id\": \"hgnc:17098\"}]}}, {\"id\": \"Nephron Progenitor Self-Renewal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SIX1 and SIX2 hotspot mutations reinforce the embryonal nephron progenitor transcriptional program in high-risk blastemal Wilms tumors, preserving proliferative potential and chemotherapy resistance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"cell population proliferation\", \"metanephros development\"], \"genes\": [\"SIX1\", \"SIX2\"], \"gene_terms\": [{\"label\": \"SIX1\", \"id\": \"hgnc:10887\"}, {\"label\": \"SIX2\", \"id\": \"hgnc:10888\"}]}}, {\"id\": \"Persistent Blastemal Progenitor State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple Wilms tumor drivers converge on persistence of embryonal renal blastemal cells with high proliferative capacity and failed terminal differentiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"metanephric mesenchyme stem cell\", \"nephrogenic zone cell\"], \"biological_processes\": [\"cell population proliferation\", \"nephron development\"]}}, {\"id\": \"Radiation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Flank radiation is used for stage III tumors and higher. Whole abdominal radiation is used for tumor rupture or diffuse peritoneal contamination. Whole lung irradiation is used for pulmonary metastases that fail to respond completely to chemotherapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Selinexor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selinexor is an oral XPO1 inhibitor under clinical evaluation for recurrent or refractory Wilms tumor and other pediatric solid tumors.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"selinexor\"]}}, {\"id\": \"Surgical Resection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nephrectomy is the primary treatment for unilateral Wilms tumor. In North America (COG), upfront nephrectomy provides staging information and allows for immediate histologic diagnosis and molecular analysis. In Europe (SIOP), preoperative chemotherapy is given first. Both approaches achieve similar survival rates.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TP53 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"subtypes\": [\"Anaplastic\"], \"association\": \"Anaplasia Driver\"}}, {\"id\": \"TP53-Deficient Anaplastic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In anaplastic Wilms tumor, TP53 dysfunction promotes progression toward an aggressive, treatment-resistant state with impaired genome surveillance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"DNA repair\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"WT1 Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WT1 is a transcription factor essential for normal kidney and gonad development. Biallelic WT1 inactivation occurs in 10-15% of Wilms tumors. Germline WT1 mutations cause WAGR syndrome (Wilms tumor, aniridia, genitourinary anomalies, intellectual disability) and Denys-Drash syndrome. WT1 functions at multiple stages of kidney development, including the transition from resting stem cells to committed nephron progenitor cells.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell differentiation\", \"metanephros development\"], \"genes\": [\"WT1\"], \"gene_terms\": [{\"label\": \"WT1\", \"id\": \"hgnc:12796\", \"modifier\": \"DECREASED\"}], \"locations\": [\"kidney\"]}}, {\"id\": \"WT1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WT1\"], \"gene_terms\": [{\"label\": \"WT1\", \"id\": \"hgnc:12796\"}], \"association\": \"Tumor Suppressor Loss\"}}, {\"id\": \"WTX (AMER1) Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WTX (AMER1) is a component of the beta-catenin destruction complex and a negative regulator of Wnt signaling. WTX inactivation occurs in approximately 15-20% of Wilms tumors and leads to constitutive Wnt pathway activation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\"], \"genes\": [\"AMER1\"], \"gene_terms\": [{\"label\": \"AMER1\", \"id\": \"hgnc:26837\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"WTX (AMER1) Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AMER1\"], \"gene_terms\": [{\"label\": \"AMER1\", \"id\": \"hgnc:26837\"}], \"association\": \"Tumor Suppressor Loss\"}}, {\"id\": \"Wilms Tumor Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persisting embryonal renal progenitors expand into nephroblastoma, an embryonal kidney malignancy with blastemal, epithelial, and stromal elements.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"WT1 Inactivation\", \"target\": \"Blocked Nephron Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WT1 loss prevents normal renal blastemal differentiation\"}, {\"source\": \"WTX (AMER1) Inactivation\", \"target\": \"Canonical Wnt Signaling Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of WTX stabilizes beta-catenin signaling in nephrogenic progenitors\"}, {\"source\": \"CTNNB1 Activating Mutation\", \"target\": \"Canonical Wnt Signaling Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exon 3 mutations stabilize beta-catenin and drive constitutive Wnt output\"}, {\"source\": \"Canonical Wnt Signaling Hyperactivation\", \"target\": \"Blocked Nephron Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive beta-catenin signaling prevents normal nephron maturation\"}, {\"source\": \"Canonical Wnt Signaling Hyperactivation\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wnt output maintains embryonal renal progenitors in a self-renewing compartment\"}, {\"source\": \"Blocked Nephron Differentiation\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental arrest preserves proliferative embryonal renal cells\"}, {\"source\": \"IGF2 Loss of Imprinting\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic IGF2 expression expands fetal renal progenitors\"}, {\"source\": \"MicroRNA Processing Defect\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"miRNA dysregulation reinforces the undifferentiated proliferative compartment\"}, {\"source\": \"Nephron Progenitor Self-Renewal\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIX1/SIX2-mutant progenitors retain a proliferative embryonal identity\"}, {\"source\": \"Persistent Blastemal Progenitor State\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persisting blastemal clones expand into overt nephroblastoma\"}, {\"source\": \"Wilms Tumor Outgrowth\", \"target\": \"TP53-Deficient Anaplastic Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acquisition of TP53 dysfunction drives aggressive anaplastic evolution in a subset of tumors\"}, {\"source\": \"Surgical Resection\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Chemotherapy\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Chemotherapy\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Radiation Therapy\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Selinexor\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"WT1 Mutations\", \"target\": \"WT1 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CTNNB1 Mutations\", \"target\": \"CTNNB1 Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WTX (AMER1) Mutations\", \"target\": \"WTX (AMER1) Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Loss of 11p15 Imprinting\", \"target\": \"IGF2 Loss of Imprinting\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53 Mutations\", \"target\": \"TP53-Deficient Anaplastic Progression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7954,6 +8143,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7968,6 +8160,8 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8032,6 +8226,9 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8046,6 +8243,8 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8110,6 +8309,9 @@ This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8124,6 +8326,8 @@ This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8188,6 +8392,9 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8202,6 +8409,8 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8266,6 +8475,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8280,6 +8492,8 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8344,6 +8558,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8358,6 +8575,8 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8422,6 +8641,9 @@ This clinical feature is Hemihypertrophy (HP:0001528). HP:0001528 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8436,6 +8658,8 @@ This clinical feature is Hemihypertrophy (HP:0001528). HP:0001528 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8533,6 +8757,9 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8547,6 +8774,8 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8603,6 +8832,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8617,6 +8849,8 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8673,6 +8907,9 @@ This disease-associated gene is AMER1 (hgnc:26837). hgnc:26837 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8687,6 +8924,8 @@ This disease-associated gene is AMER1 (hgnc:26837). hgnc:26837 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8743,6 +8982,9 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8757,6 +8999,8 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8791,6 +9035,9 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8805,6 +9052,8 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8828,6 +9077,8 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8862,6 +9113,9 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8876,6 +9130,8 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8932,6 +9188,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8946,6 +9205,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8980,6 +9241,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8994,6 +9258,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9028,6 +9294,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9042,6 +9311,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9124,6 +9395,20 @@ This treatment is nephrectomy (NCIT:C15284). NCIT:C15284 is a clinical intervent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nephrectomy is the primary treatment for unilateral Wilms tumor. In North America (COG), upfront nephrectomy provides staging information and allows for immediate histologic diagnosis and molecular analysis. In Europe (SIOP), preoperative chemotherapy is given first. Both approaches achieve similar survival rates.</div>
 
 
@@ -9154,6 +9439,8 @@ This treatment is nephrectomy (NCIT:C15284). NCIT:C15284 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9198,6 +9485,8 @@ This treatment is nephrectomy (NCIT:C15284). NCIT:C15284 is a clinical intervent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9219,6 +9508,8 @@ This treatment is nephrectomy (NCIT:C15284). NCIT:C15284 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9338,6 +9629,20 @@ This treatment uses doxorubicin (NCIT:C456). NCIT:C456 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Actinomycin D and vincristine form the backbone of treatment for favorable histology tumors. Doxorubicin and other agents are added for higher-stage or anaplastic tumors. Cyclophosphamide and etoposide are added for the highest-risk patients.</div>
 
 
@@ -9368,6 +9673,8 @@ This treatment uses doxorubicin (NCIT:C456). NCIT:C456 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9416,6 +9723,8 @@ This treatment uses doxorubicin (NCIT:C456). NCIT:C456 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9458,6 +9767,8 @@ This treatment uses doxorubicin (NCIT:C456). NCIT:C456 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9479,6 +9790,8 @@ This treatment uses doxorubicin (NCIT:C456). NCIT:C456 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9542,6 +9855,31 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Flank radiation is used for stage III tumors and higher. Whole abdominal radiation is used for tumor rupture or diffuse peritoneal contamination. Whole lung irradiation is used for pulmonary metastases that fail to respond completely to chemotherapy.</div>
 
 
@@ -9572,6 +9910,8 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9614,6 +9954,8 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9698,6 +10040,20 @@ This treatment uses selinexor (NCIT:C102546). NCIT:C102546 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Selinexor is an oral XPO1 inhibitor under clinical evaluation for recurrent or refractory Wilms tumor and other pediatric solid tumors.</div>
 
 
@@ -9728,6 +10084,8 @@ This treatment uses selinexor (NCIT:C102546). NCIT:C102546 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9770,6 +10128,8 @@ This treatment uses selinexor (NCIT:C102546). NCIT:C102546 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9833,6 +10193,8 @@ This treatment uses selinexor (NCIT:C102546). NCIT:C102546 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9867,6 +10229,156 @@ This treatment uses selinexor (NCIT:C102546). NCIT:C102546 is a therapeutic agen
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-diagnosis">
+                <div class="item-name">Diagnosis</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Under 5 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Most cases are diagnosed in children under 5 years of age. Increasing patient age is associated with increased risk of recurrence and worse outcome.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33394739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Because WT is a malignant embryonal tumor, most cases are diagnosed in children under the age of 5 years."</div>
+
+
+                <div class="evidence-explanation">Confirms typical age at diagnosis for Wilms tumor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Estimated incidence of about 9 per million children under 15 years old in the United States and Canada, affecting 1 in 10,000 children. Similar rates in Europe, Australia, and New Zealand with lower rates in Asia and higher rates in parts of Africa.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33394739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the United States and Canada, the estimated incidence is about 9 per million children under 15 years old, affecting 1 in 10,000 children"</div>
+
+
+                <div class="evidence-explanation">Provides incidence data for Wilms tumor in North America.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9994,6 +10506,8 @@ This dataset samples Wilms tumor tissue, annotated with kidney (UBERON:0002113).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10426,6 +10940,8 @@ pathophysiology:
   - target: Canonical Wnt Signaling Hyperactivation
     description: Loss of WTX stabilizes beta-catenin signaling in nephrogenic progenitors
 - name: CTNNB1 Activating Mutation
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     Activating mutations in CTNNB1 (beta-catenin) occur in approximately 15%
     of Wilms tumors, affecting exon 3 to stabilize beta-catenin and activate
@@ -11752,6 +12268,8 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12245,7 +12763,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Wilms Tumor", "mondoId": "MONDO:0006058", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Wilms_Tumor", "yamlRevision": "fd499b301aaf"};
+        const OS_CONFIG = {"diseaseName": "Wilms Tumor", "mondoId": "MONDO:0006058", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Wilms_Tumor", "yamlRevision": "5dab406f3962"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

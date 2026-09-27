@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,6 +1626,15 @@
         <header class="page-header">
             <h1>PI3K-AKT-mTOR Cortical Overgrowth Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance."
+                      style="background: hsl(343, 68%, 96%); border-color: hsl(343, 52%, 78%); color: hsl(343, 62%, 26%);">Neuroscience</span>
+                
+                <span class="badge badge-study-area"
+                      title="Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue."
+                      style="background: hsl(120, 68%, 96%); border-color: hsl(120, 52%, 78%); color: hsl(120, 62%, 26%);">Developmental biology</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">pi3k_akt_mtor_cortical_overgrowth</span>
                 <span class="badge badge-count">1 disorder</span>
@@ -1574,7 +1643,7 @@
                 
             </div>
             
-            <div class="header-description">A conserved cortical-overgrowth module representing the shared pathomechanism of malformations of cortical development (MCDs) driven by constitutive activation of the phosphatidylinositol 3-kinase (PI3K)-AKT-mTOR growth pathway. Gain-of-function variants in PIK3CA, PIK3R2, AKT3, MTOR, or CCND2 - frequently arising as post-zygotic somatic (mosaic) events restricted to the developing brain - hyperactivate PI3K-AKT-mTOR signaling in neural progenitors. The resulting progenitor hyperproliferation and cell-cycle dysregulation drive cortical overgrowth (megalencephaly, hemimegalencephaly) together with impaired neuronal migration and dyslamination (polymicrogyria, focal cortical dysplasia), producing an epileptogenic cortical substrate and intractable seizures. The same pathway branch recurs across several disease entities and somatic-mosaic lesion types (hemimegalencephaly, focal cortical dysplasia type II, the megalencephaly- capillary malformation [MCAP] and megalencephaly-polymicrogyria-polydactyly- hydrocephalus [MPPH] spectrum, and the PIK3CA-related overgrowth spectrum such as CLOVES), so it is modeled as a module rather than a single disease entry. Conforming disorder nodes substitute the disorder-specific activating lesion (e.g., somatic PIK3CA in hemimegalencephaly/CLOVES, germline or postzygotic PIK3R2/AKT3 in the MCAP/MPPH spectrum, somatic MTOR in focal cortical dysplasia type II, CCND2 stabilization in MPPH) while preserving the conserved hyperactivation-to-overgrowth-to-epilepsy skeleton.</div>
+            <div class="header-description">A conserved cortical-overgrowth module representing the shared pathomechanism of malformations of cortical development (MCDs) driven by constitutive activation of the phosphatidylinositol 3-kinase (PI3K)-AKT-mTOR growth pathway. Gain-of-function variants in PIK3CA, PIK3R2, AKT3, MTOR, or CCND2 - frequently arising as post-zygotic somatic (mosaic) events restricted to the developing brain - hyperactivate PI3K-AKT-mTOR signaling in neural progenitors. The resulting progenitor hyperproliferation and cell-cycle dysregulation drive cortical overgrowth (megalencephaly, hemimegalencephaly) together with impaired neuronal migration and dyslamination (polymicrogyria, focal cortical dysplasia), producing an epileptogenic cortical substrate and intractable seizures. The same pathway branch recurs across several disease entities and somatic-mosaic lesion types (hemimegalencephaly, focal cortical dysplasia type II, the megalencephaly-capillary malformation [MCAP] and megalencephaly-polymicrogyria-polydactyly-hydrocephalus [MPPH] spectrum, and the PIK3CA-related overgrowth spectrum such as CLOVES), so it is modeled as a module rather than a single disease entry. Conforming disorder nodes substitute the disorder-specific activating lesion (e.g., somatic PIK3CA in hemimegalencephaly/CLOVES, germline or postzygotic PIK3R2/AKT3 in the MCAP/MPPH spectrum, somatic MTOR in focal cortical dysplasia type II, CCND2 stabilization in MPPH) while preserving the conserved hyperactivation-to-overgrowth-to-epilepsy skeleton.</div>
             
         </header>
 
@@ -1929,6 +1998,26 @@ This mechanism module involves abnormal Neuronal Migration (GO:0001764). GO:0001
 
         
 
+        
+        <div class="card" id="module-collections">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4338ca;">⌘</div>
+                <h2 class="card-title">Module Collections</h2>
+                <span class="card-count">1</span>
+            </div>
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../module-collections/Mechanisms_of_the_Epilepsies.html">Mechanisms of the Epilepsies</a>
+                    
+                    <span class="crosslink-desc">as mTOR-pathway malformation of cortical development</span>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2002,11 +2091,13 @@ This mechanism module involves abnormal Neuronal Migration (GO:0001764). GO:0001
             
             <div class="item-box anchor-target" id="module-pathophysiology-pi3k-akt-mtor-pathway-hyperactivation-in-neural-progenitors" data-dismech-node="PI3K-AKT-mTOR Pathway Hyperactivation in Neural Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K-AKT-mTOR Pathway Hyperactivation in Neural Progenitors</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The conserved initiating lesion is constitutive activation of the PI3K-AKT-mTOR growth-signaling cascade in neural progenitor cells. Activating variants in three core components of the PI3K-AKT pathway - PIK3CA (p110-alpha catalytic subunit), PIK3R2 (p85-beta regulatory subunit), and AKT3 - or in the downstream kinase MTOR drive ligand-independent signaling. These variants are frequently post-zygotic somatic (mosaic) events confined to the developing brain, producing mosaic hyperactivation in a clone of progenitors and their progeny.</div>
                 
@@ -2142,11 +2233,13 @@ This pathophysiological event involves increased TOR Signaling (GO:0031929). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-progenitor-hyperproliferation-and-cell-cycle-dysregulation" data-dismech-node="Progenitor Hyperproliferation and Cell-Cycle Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progenitor Hyperproliferation and Cell-Cycle Dysregulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Hyperactive PI3K-AKT-mTOR signaling increases biosynthesis, cell growth, and proliferation of neural progenitors while dysregulating cell-cycle control. Stabilization of cyclin D2 (CCND2) - normally targeted for proteasomal degradation downstream of GSK-3-beta, which is inhibited by AKT - links the pathway to G1/S cell-cycle progression and expands the progenitor pool, increasing the neuronal output that is subsequently malpositioned.</div>
                 
@@ -2247,11 +2340,13 @@ This pathophysiological event involves increased Neural Progenitor Proliferation
             
             <div class="item-box anchor-target" id="module-pathophysiology-cortical-overgrowth" data-dismech-node="Cortical Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Overgrowth</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Progenitor hyperproliferation and increased cell growth enlarge the cortex, producing megalencephaly when diffuse and hemimegalencephaly when the activating mosaic clone is confined to one hemisphere. The degree and distribution of overgrowth track the timing and spatial extent of the somatic-mosaic activating event.</div>
                 
@@ -2345,11 +2440,13 @@ This pathophysiological event involves abnormal Cerebral Cortex Development (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-neuronal-migration-and-cortical-lamination" data-dismech-node="Impaired Neuronal Migration and Cortical Lamination" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Migration and Cortical Lamination</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Beyond overgrowth, PI3K-AKT-mTOR hyperactivation perturbs radial neuronal migration and inside-out cortical lamination, yielding dyslamination and a polymicrogyria-like or focal cortical dysplasia cortical architecture. The migration defect is mechanistically separable from the proliferative overgrowth and contributes the malformed (as opposed to merely enlarged) component of the phenotype.</div>
                 
@@ -2457,11 +2554,13 @@ This pathophysiological event involves abnormal Neuronal Migration, annotated wi
             
             <div class="item-box anchor-target" id="module-pathophysiology-epileptogenic-cortical-dysplasia-and-seizures" data-dismech-node="Epileptogenic Cortical Dysplasia and Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Epileptogenic Cortical Dysplasia and Seizures</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">outcome</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The overgrown, dyslaminated cortex containing cytomegalic dysmorphic neurons (and, in focal cortical dysplasia type II, balloon cells) forms an epileptogenic substrate that generates medically refractory seizures. Persistent mTOR hyperactivation in these abnormal neurons shifts the cortical network toward excitation, and the seizures are frequently intractable to antiseizure medication but responsive to mTOR inhibition, identifying the pathway as a treatment target. This terminal step conforms to the conserved epilepsy excitation-inhibition imbalance module, with the mTOR-pathway cortical malformation as the disorder-specific driver of the imbalance.</div>
                 
@@ -2554,6 +2653,9 @@ This pathophysiological event involves increased TOR Signaling (GO:0031929). GO:
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

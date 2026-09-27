@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celiac Disease-phenotype-deep-dive · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Celiac Disease-phenotype-deep-dive</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Celiac Disease-phenotype-deep-dive</h1>
+                
+                <p class="report-subtitle">Phenotype Mechanism Deep-Dive Research Template</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">76 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 31982cf5035a6a4f9bb42f4a296b39495d9b2883 &#10;Resolve with: git log --find-object=31982cf5035a6a4f9bb42f4a296b39495d9b2883 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_phenotype_mechanism_deep_dive.md" target="_blank" rel="noopener noreferrer">disease_phenotype_mechanism_deep_dive.md</a>
+                        <code>31982cf5035a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Phenotype Mechanism Deep-Dive Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Celiac Disease</li>
+<li><strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005130" target="_blank" rel="noopener noreferrer">MONDO:0005130</a> (if available)</li>
+</ul>
+<h2>Scope</h2>
+<p>This is a narrow, per-phenotype deep dive — not a disease survey. The disease's
+core pathophysiology is already curated and is not in question here. The
+subject is a small set of clinical manifestations whose <strong>mechanistic link to
+the disease is unsettled, contested, or obscure</strong>, and which a broad
+mechanism survey would gloss over:</p>
+<p>Dental Enamel Defects (developmental enamel hypoplasia in permanent dentition); Recurrent Aphthous Stomatitis; Arthritis (celiac-associated arthropathy); Female infertility (and adverse pregnancy outcomes attributed to celiac disease); Constipation (as a presenting bowel habit despite enteropathy); Elevated Hepatic Transaminases (celiac hepatitis and its gluten-free-diet reversibility)</p>
+<h2>Research Objective</h2>
+<p>For <strong>each</strong> phenotype listed above, report:</p>
+<ol>
+<li><strong>Every mechanistic hypothesis in the literature</strong> for how the disease
+   produces this phenotype — including minority and historical hypotheses.
+   For each hypothesis: the proposed causal chain, step by step, and who has
+   proposed or tested it.</li>
+<li><strong>The human evidence for and against each hypothesis</strong>: PMIDs with exact
+   quotes from the abstracts. Interventional evidence (improvement or
+   resolution on disease-specific treatment, e.g. dietary withdrawal) counts
+   for causation; note where it is absent.</li>
+<li><strong>Non-causal explanations</strong>, treated as first-class competitors: shared
+   genetic susceptibility (e.g. HLA haplotypes), coincident autoimmune
+   disease, nutritional confounding, medication effects, surveillance or
+   ascertainment bias. Say which of these the literature has actually tested
+   and what was found.</li>
+<li><strong>A verdict per phenotype</strong>, one of:</li>
+<li>SETTLED — one mechanism is established in humans and generally accepted</li>
+<li>CONTESTED — two or more live hypotheses with meaningful support each</li>
+<li>UNKNOWN — association documented, mechanism not established
+   Plus: which single study design or observation would most efficiently
+   resolve a CONTESTED or UNKNOWN verdict.</li>
+<li><strong>Timing and reversibility facts</strong> that constrain mechanism: does the
+   phenotype precede diagnosis, does it remit with treatment, is it
+   irreversible once formed (for example, defects fixed during tissue
+   development), does it track disease activity or persist independently?</li>
+</ol>
+<p><strong>Honesty requirement:</strong> UNKNOWN is a correct and valuable answer. Do not
+promote a plausible hypothesis to SETTLED to make the report tidier. Where the
+best available evidence is old, small, or indirect, say so.</p>
+<h2>Output Format</h2>
+<ul>
+<li>One subsection per phenotype, headed by the phenotype name exactly as
+  listed above, containing: the competing hypotheses each with its causal
+  chain and evidence, the non-causal alternatives and their status, the
+  verdict, the resolving experiment, and the timing/reversibility facts.</li>
+<li>Suggested ontology terms where applicable: HP for the phenotype, GO for
+  biological processes, CL for cell types.</li>
+</ul>
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic claims</li>
+<li>Include direct quotes from abstracts to support key statements</li>
+<li>Never cite a paper for a claim its abstract does not make</li>
+</ul>
+<h1>Celiac Disease (<a href="http://purl.obolibrary.org/obo/MONDO_0005130" target="_blank" rel="noopener noreferrer">MONDO:0005130</a>): Phenotype–Mechanism Deep Dive</h1>
+<h2>Scope and evidence standard</h2>
+<p>This report addresses six manifestations whose association with celiac disease (CeD) is better documented than their mechanism. <strong>GFD</strong> means gluten-free diet; <strong>TG2/tTG</strong> means tissue transglutaminase 2. “Human evidence” is separated from animal or cell-culture evidence. Where the retrieved record did not expose a PMID, I provide the DOI/URL rather than inventing one. Quoted language below is restricted to statements available in the retrieved abstracts or article extracts.</p>
+<p>Recent evidence does not justify labeling any of these phenotype mechanisms fully settled. The strongest causal evidence concerns GFD-responsive celiac hepatitis, but even there the downstream hepatic mediator remains uncertain.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Leading causal hypotheses</th>
+<th>Strongest human evidence</th>
+<th>Key competing/non-causal explanations</th>
+<th>Timing/reversibility</th>
+<th>Verdict</th>
+<th>Single most efficient resolving study</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dental Enamel Defects (developmental enamel hypoplasia in permanent dentition)</td>
+<td>Ameloblast-directed IgA autoimmunity and food-antigen cross-reactivity; calcium/vitamin-D deficiency during amelogenesis; systemic inflammation; genetic susceptibility</td>
+<td>Enamel-directed antibodies occur in celiac cohorts, but direct causal experiments are mainly animal-based; observational studies show symmetric chronological defects, while one controlled study found no significant association</td>
+<td>Developmental illness, nutritional deficiency unrelated to celiac disease, fluorosis, genetic enamel disorders, regional ascertainment and diagnostic variation</td>
+<td>Arises only while enamel is forming; established defects are irreversible. Early diagnosis/GFD may prevent defects in teeth not yet mineralized</td>
+<td>CONTESTED</td>
+<td>Prospective birth cohort measuring nutrient status and enamel-specific antibodies before and during permanent-tooth mineralization, with standardized dental imaging and treated-versus-untreated exposure analysis</td>
+</tr>
+<tr>
+<td>Recurrent Aphthous Stomatitis</td>
+<td>Hematinic deficiency from malabsorption; gluten-driven mucosal immune inflammation; cytokine-mediated injury; direct oral autoimmunity</td>
+<td>RAS is enriched in case-control cohorts; in a small biopsy-confirmed series, four adherent patients improved within six months of GFD, but no mechanism-specific intervention exists</td>
+<td>Idiopathic RAS; iron, folate or B12 deficiency from other causes; Behçet disease, Crohn disease, infection, immunodeficiency and medication effects</td>
+<td>May precede gastrointestinal symptoms or be the sole presentation; recurrent lesions can improve on GFD, but persistence is possible and individual ulcers heal independently</td>
+<td>UNKNOWN</td>
+<td>Randomized gluten-withdrawal/gluten-challenge study in newly diagnosed celiac patients with RAS, stratified by corrected versus uncorrected hematinic deficiencies and using blinded ulcer counts</td>
+</tr>
+<tr>
+<td>Arthritis (celiac-associated arthropathy)</td>
+<td>Gluten-driven systemic immune activation; increased permeability and gut–joint trafficking; microbiome-mediated inflammation; nutrient deficiency and altered bone–muscle physiology</td>
+<td>A carefully investigated 2023 case had sterile, non-erosive inflammatory polyarthritis resolving within three weeks of GFD; observational ultrasound studies report more synovitis with gluten exposure, but controlled mechanistic evidence is absent</td>
+<td>Rheumatoid, psoriatic, reactive or spondyloarthritis; infection; crystal disease; vitamin-D deficiency; coincident autoimmunity; nonspecific arthralgia and referral bias</td>
+<td>Can precede celiac diagnosis and occur without gastrointestinal symptoms; some cases remit rapidly on GFD, whereas persistence suggests another rheumatic disorder</td>
+<td>UNKNOWN</td>
+<td>Prospective inception cohort with rheumatologist-confirmed synovitis, synovial-fluid profiling and blinded ultrasound before GFD and during controlled gluten challenge after remission</td>
+</tr>
+<tr>
+<td>Female infertility (and adverse pregnancy outcomes attributed to celiac disease)</td>
+<td>Anti-TG2 binding inhibits endometrial angiogenesis and trophoblast invasion and promotes apoptosis; placental TG2 inhibition; malabsorption-related iron, folate, B12 or zinc deficiency; systemic inflammation</td>
+<td>Patient antibodies bind human syncytiotrophoblast and damage primary trophoblasts in vitro; epidemiologic studies show excess infertility and adverse outcomes concentrated in undiagnosed/untreated disease, with risks attenuated after diagnosis/GFD</td>
+<td>Age, BMI, smoking and socioeconomic confounding; thyroid or other autoimmunity; endometriosis/PCOS; shared HLA susceptibility; infertility-clinic selection and surveillance bias</td>
+<td>Infertility or miscarriage may precede celiac diagnosis; risks generally diminish after diagnosis and GFD, although robust prospective fertility-treatment trials are lacking</td>
+<td>CONTESTED</td>
+<td>Multicenter prospective preconception cohort measuring anti-TG2, nutrients and placental/endometrial function before and after GFD, with antibody-negative celiac and nutrient-matched controls</td>
+</tr>
+<tr>
+<td>Constipation (as a presenting bowel habit despite enteropathy)</td>
+<td>Inflammation-mediated enteric neuromuscular and hormonal dysregulation; autonomic dysfunction; dysbiosis; impaired absorption; low-fiber, ultra-processed GFD after diagnosis</td>
+<td>In 12 newly diagnosed patients, four weeks of GFD shortened small-bowel and colonic transit and increased contractility; dietitian-led fiber-quality intervention improved hard stools in treated children</td>
+<td>IBS-C, pelvic-floor dysfunction, hypothyroidism, medications, ordinary chronic constipation and low-fiber dietary substitution; small studies lack healthy controls</td>
+<td>May present before diagnosis; motility can improve within weeks, but constipation may persist despite mucosal treatment and can also arise from the GFD itself</td>
+<td>CONTESTED</td>
+<td>Larger controlled longitudinal study combining colonic transit, anorectal manometry, mucosal inflammation, microbiome and quantified fiber intake before and after GFD</td>
+</tr>
+<tr>
+<td>Elevated Hepatic Transaminases (celiac hepatitis and its gluten-free-diet reversibility)</td>
+<td>Increased intestinal permeability permits microbial products and antigens to activate hepatic innate immunity; circulating cytokines; anti-TG2 deposition or activity inhibition; malnutrition-related injury</td>
+<td>Classic adult cohort: 67/158 had elevated enzymes and 60/67 normalized after one year of GFD; gluten challenge has reproduced abnormalities. Permeability correlates with AST, but the precise mediator is unproven</td>
+<td>Viral or autoimmune hepatitis, MASLD/steatosis, alcohol, medication toxicity, Wilson disease, hemochromatosis and false-positive celiac serology in chronic liver disease</td>
+<td>Often present at diagnosis and usually normalize within 6–12 months; persistence requires adherence review and investigation for another liver disease, though some pediatric abnormalities persist beyond one year</td>
+<td>CONTESTED</td>
+<td>Prospective GFD intervention with serial permeability, portal microbial-product, cytokine and anti-TG2 measurements, paired liver assessment, rigorous adherence monitoring and prespecified exclusion of competing liver diseases</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: Concise synthesis of the six phenotype-specific mechanistic verdicts, reversibility constraints, major alternatives, and highest-yield resolving studies, based on the gathered human and translational evidence (<a href="#ref-procaccini2007lackofassociation-pages-4-5">procaccini2007lackofassociation pages 4-5</a>, <a href="#ref-cobosquevedo2024effectofa-pages-4-5">cobosquevedo2024effectofa pages 4-5</a>, <a href="#ref-bardella1995prevalenceofhypertransaminasemia-pages-1-2">bardella1995prevalenceofhypertransaminasemia pages 1-2</a>, <a href="#ref-gruper2023autoimmuneamelogenesisimperfecta-pages-7-8">gruper2023autoimmuneamelogenesisimperfecta pages 7-8</a>, <a href="#ref-anjum2009maternalceliacdisease-pages-1-2">anjum2009maternalceliacdisease pages 1-2</a>, <a href="#ref-tersigni2014celiacdiseaseand-pages-7-8">tersigni2014celiacdiseaseand pages 7-8</a>, <a href="#ref-mougui2023isolatedpolyarthritisrevealing-pages-2-4">mougui2023isolatedpolyarthritisrevealing pages 2-4</a>).</em></p>
+<h2>Dental Enamel Defects (developmental enamel hypoplasia in permanent dentition)</h2>
+<h3>Competing mechanistic hypotheses</h3>
+<p><strong>1. Malabsorption during amelogenesis.</strong> The proposed chain is: active childhood CeD → villous injury → reduced calcium, phosphate, vitamin-D and other micronutrient availability → disturbed ameloblast function and enamel mineralization → symmetric, chronologically distributed hypoplasia or hypomineralization. A 2023 overview identifies calcium/vitamin-D malabsorption and immunity as the principal candidate mechanisms and stresses that completed defects are irreversible. A 2007 ultrastructural study likewise contrasted hypocalcemia from malabsorption with ameloblast-directed immunity but did not experimentally distinguish them. (<a href="#ref-wieser2023dentalmanifestationsand-pages-1-2">wieser2023dentalmanifestationsand pages 1-2</a>, <a href="#ref-bossu2007enamelhypoplasiain-pages-1-2">bossu2007enamelhypoplasiain pages 1-2</a>)</p>
+<p><strong>Human evidence for:</strong> Recent clinical syntheses consistently find more developmental enamel defects in CeD, often symmetric and chronological. A 2024 review included 18 human studies and reported prevalence ranging from 50% to 94.1%, although this unusually broad range reflects heterogeneous definitions and selected cohorts. Its abstract states: <strong>“Symmetrical and chronological defects, according to Aine’s classification, were predominant.”</strong> (Published February 2024; DOI/URL: <a href="https://doi.org/10.3390/jcm13051382." target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm13051382.</a>) (<a href="#ref-inchingolo2024celiacdiseaserelatedenamel-pages-1-3">inchingolo2024celiacdiseaserelatedenamel pages 1-3</a>)</p>
+<p><strong>Human evidence against or limiting:</strong> Nutrient measurements have generally been cross-sectional, often after the causal developmental window. Disease severity does not consistently track defects. A recent study found lower vitamin D in newly diagnosed/nonadherent children but no association between molar-incisor hypomineralization and Marsh grade, which weakens a simple “more villous injury → more enamel damage” model. (<a href="#ref-tok2025investigationofthe-pages-1-2">tok2025investigationofthe pages 1-2</a>)</p>
+<p><strong>2. Ameloblast-directed autoimmunity and dietary-antigen cross-reactivity.</strong> Proposed chain: gluten-associated loss of peripheral tolerance → predominantly IgA responses against antigens shared by intestinal/food proteins and developing enamel → binding to ameloblast proteins or interference with enamel-matrix assembly → defective mineralization. Gruper et al. found strong reactivity to human κ-casein in approximately 29% of pediatric and 60% of adult CeD cases versus about 9% of controls; every κ-casein-autoantibody-positive CeD patient also recognized at least one ameloblast protein. (Published November 2023; DOI/URL: <a href="https://doi.org/10.1038/s41586-023-06776-0." target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41586-023-06776-0.</a>) (<a href="#ref-gruper2023autoimmuneamelogenesisimperfecta-pages-7-8">gruper2023autoimmuneamelogenesisimperfecta pages 7-8</a>)</p>
+<p><strong>Human evidence for:</strong> The Nature study reports predominantly IgA autoantibodies against ameloblast-specific proteins in CeD and offers antigen-level evidence beyond the older generic “autoimmunity” hypothesis. (<a href="#ref-gruper2023autoimmuneamelogenesisimperfecta-pages-7-8">gruper2023autoimmuneamelogenesisimperfecta pages 7-8</a>, <a href="#ref-gruper2023autoimmuneamelogenesisimperfecta-pages-1-2">gruper2023autoimmuneamelogenesisimperfecta pages 1-2</a>)</p>
+<p><strong>Evidence limiting causality:</strong> The decisive serum-transfer and AIRE-knockout experiments were in animals, principally modeling APS-1 rather than ordinary CeD. Thus, they establish that enamel autoantibodies <em>can</em> perturb amelogenesis, not that they are the dominant cause of CeD-associated defects in humans. (<a href="#ref-gruper2023autoimmuneamelogenesisimperfecta-pages-18-26">gruper2023autoimmuneamelogenesisimperfecta pages 18-26</a>, <a href="#ref-gruper2023autoimmuneamelogenesisimperfecta-pages-3-4">gruper2023autoimmuneamelogenesisimperfecta pages 3-4</a>)</p>
+<p><strong>3. Nonspecific systemic inflammation or developmental illness.</strong> Cytokine exposure during tooth formation could alter ameloblast differentiation and matrix maturation without nutrient deficiency or antigen-specific attack. This remains plausible but is poorly tested in human CeD cohorts.</p>
+<p><strong>4. Shared genetic susceptibility.</strong> HLA-linked immune susceptibility or independent enamel-development variants could produce association without enteropathy directly causing the defect. The literature lists genetics as a candidate, but retrieved studies did not perform family-based segregation or polygenic adjustment. (<a href="#ref-lucchese2023beyondthegut-pages-1-2">lucchese2023beyondthegut pages 1-2</a>, <a href="#ref-cruz2018dentalandoral-pages-1-2">cruz2018dentalandoral pages 1-2</a>)</p>
+<h3>Non-causal alternatives and evidence against association</h3>
+<p>Regional fluoride exposure, childhood fever or infection, prematurity, medications, inherited amelogenesis imperfecta, and examiner/classification differences are important competitors. A matched Italian case-control study found enamel hypoplasia in 26% of 50 CeD cases versus 16% of 50 controls, but the difference was nonsignificant (OR 1.84, 95% CI 0.69–4.94; p&gt;0.2). Its abstract concludes: <strong>“The prevalence of enamel hypoplasia was not higher in the study population than in the control group.”</strong> (Published May 2007; DOI/URL: <a href="https://doi.org/10.1186/1746-160X-3-25." target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/1746-160X-3-25.</a>) (<a href="#ref-procaccini2007lackofassociation-pages-4-5">procaccini2007lackofassociation pages 4-5</a>)</p>
+<h3>Timing and reversibility</h3>
+<p>The phenotype records injury only while ameloblasts are forming a crown. It may therefore precede CeD diagnosis by years and can mark clinically silent childhood disease. Once enamel formation is complete, GFD cannot rebuild hypoplastic enamel; it can only prevent injury to teeth still developing. This developmental-window constraint also explains why adult diet-response studies cannot test reversal. (<a href="#ref-wieser2023dentalmanifestationsand-pages-1-2">wieser2023dentalmanifestationsand pages 1-2</a>)</p>
+<h3>Verdict and resolving experiment</h3>
+<p><strong>VERDICT: CONTESTED.</strong> Nutrient deficiency and enamel-directed autoimmunity are both live hypotheses; neither has been isolated in humans.</p>
+<p><strong>Most efficient resolving study:</strong> A prospective pediatric inception cohort enrolled before permanent-tooth mineralization, with serial enamel-protein autoantibodies, calcium/phosphate/vitamin-D status, inflammatory markers, verified gluten exposure, and blinded quantitative dental imaging. Mediation analysis should compare promptly treated children with delayed-diagnosis cases and nutrient-matched non-CeD controls.</p>
+<p><strong>Suggested ontology:</strong> HP: developmental enamel defect / enamel hypoplasia; GO: amelogenesis, biomineral tissue development, calcium-ion homeostasis, adaptive immune response; CL: ameloblast.</p>
+<h2>Recurrent Aphthous Stomatitis</h2>
+<h3>Competing mechanistic hypotheses</h3>
+<p><strong>1. Hematinic deficiency.</strong> Active CeD → iron, folate or vitamin-B12 malabsorption → impaired epithelial renewal and altered mucosal immunity → recurrent ulcers. Procaccini et al. explicitly connect RAS with iron, folate and B12 deficiency and recommend checking those deficiencies before CeD screening. (<a href="#ref-procaccini2007lackofassociation-pages-4-5">procaccini2007lackofassociation pages 4-5</a>)</p>
+<p><strong>For:</strong> This pathway is biologically coherent, and anemia may improve with GFD. In Shakeri et al., anemia resolved by six months in the two affected biopsy-confirmed patients. (<a href="#ref-shakeri2009glutensensitivityenteropathy-pages-4-5">shakeri2009glutensensitivityenteropathy pages 4-5</a>)</p>
+<p><strong>Against:</strong> Aphthae occur in CeD without documented deficiency, and correction of nutrients has not been factorially separated from gluten withdrawal. The hypothesis therefore cannot explain all cases.</p>
+<p><strong>2. Gluten-driven systemic or local immune inflammation.</strong> Gluten exposure → intestinal adaptive response and circulating inflammatory mediators → oral epithelial immune injury. A severe case remitted with the TNF inhibitor etanercept, supporting cytokine dependence, but a single biologic-response case cannot establish that ordinary CeD-associated RAS is TNF-driven. (<a href="#ref-lucchese2023beyondthegut-pages-13-15">lucchese2023beyondthegut pages 13-15</a>)</p>
+<p><strong>3. Direct oral autoimmunity.</strong> Circulating CeD antibodies or locally produced immune responses might target oral mucosa. Evidence is weak: the retrieved recent oral-immunopathology study found no IgA, IgG, IgM or C3 deposits in sampled oral mucosa, arguing against a simple deposition mechanism.</p>
+<p><strong>4. Shared immune susceptibility rather than causation.</strong> HLA background or general autoimmunity could predispose independently to both CeD and idiopathic RAS. This has not been adequately tested with genetically matched relatives.</p>
+<h3>Human association and intervention evidence</h3>
+<p>In the Italian case-control study, RAS occurred in 36% of CeD cases versus 12% of controls (OR 4.13, 95% CI 1.47–11.55; p=0.0091). The abstract states: <strong>“RAS was significantly more frequent in patients with CD.”</strong> (<a href="#ref-procaccini2007lackofassociation-pages-4-5">procaccini2007lackofassociation pages 4-5</a>)</p>
+<p>Shakeri et al. screened 247 patients with recurrent aphthae: seven had positive serology and compatible duodenal histology, a prevalence of 2.83% versus an estimated Iranian background prevalence of 0.9%. Four patients adhering strictly to GFD showed noticeable improvement over six months. The abstract states: <strong>“Four patients who adhered to a strict gluten-free diet showed noticeable improvement in their aphthous lesions.”</strong> (Published June 2009; DOI/URL: <a href="https://doi.org/10.1186/1471-230X-9-44." target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/1471-230X-9-44.</a>) This is supportive intervention evidence, but uncontrolled and based on four responders. (<a href="#ref-shakeri2009glutensensitivityenteropathy-pages-4-5">shakeri2009glutensensitivityenteropathy pages 4-5</a>)</p>
+<h3>Non-causal alternatives</h3>
+<p>Idiopathic RAS is common. Behçet disease, Crohn disease, infection, giardiasis, common variable immunodeficiency, autoimmune enteropathy, tropical sprue, peptic duodenitis, medications, trauma, stress, and non-CeD hematinic deficiency can produce similar ulcers. Ascertainment is substantial because persistent RAS prompts testing for CeD. These alternatives are recognized but rarely excluded systematically. (<a href="#ref-lucchese2023beyondthegut-pages-1-2">lucchese2023beyondthegut pages 1-2</a>, <a href="#ref-shakeri2009glutensensitivityenteropathy-pages-4-5">shakeri2009glutensensitivityenteropathy pages 4-5</a>)</p>
+<h3>Timing and reversibility</h3>
+<p>RAS may precede gastrointestinal symptoms and can be the sole presenting feature. Individual ulcers heal, while recurrence frequency may decline within two to six months of GFD. Persistence despite mucosal healing suggests idiopathic RAS, uncorrected deficiency, continued gluten exposure, or another systemic disease. (<a href="#ref-shakeri2009glutensensitivityenteropathy-pages-4-5">shakeri2009glutensensitivityenteropathy pages 4-5</a>)</p>
+<h3>Verdict and resolving experiment</h3>
+<p><strong>VERDICT: UNKNOWN.</strong> The association and occasional GFD response are credible, but no single mechanism is established.</p>
+<p><strong>Most efficient resolving study:</strong> In newly diagnosed CeD with active RAS, randomize immediate versus short deferred GFD under ethical monitoring while independently randomizing correction of iron/folate/B12 deficiency; use blinded ulcer counts and a controlled gluten challenge after remission.</p>
+<p><strong>Suggested ontology:</strong> HP: recurrent aphthous stomatitis; GO: oral mucosal immune response, epithelial wound healing, cytokine-mediated signaling; CL: oral keratinocyte, neutrophil, CD4-positive T cell.</p>
+<h2>Arthritis (celiac-associated arthropathy)</h2>
+<h3>Mechanistic hypotheses</h3>
+<p><strong>1. Gluten-driven systemic immune activation.</strong> Gluten-reactive intestinal immunity → circulating cytokines/activated lymphocytes → sterile synovitis. Oxidative stress and altered innate/adaptive immunity are repeatedly proposed, but synovial tissue has rarely been profiled. (<a href="#ref-poddighe2025prevalenceofjoint-pages-1-2">poddighe2025prevalenceofjoint pages 1-2</a>, <a href="#ref-poddighe2025prevalenceofjoint-pages-12-13">poddighe2025prevalenceofjoint pages 12-13</a>)</p>
+<p><strong>2. Gut-barrier/gut–joint axis.</strong> Enteropathy and increased permeability → translocation of microbial products or antigens → distal joint inflammation. A related microbiome model proposes dysbiosis → altered short-chain-fatty-acid production and regulatory-T-cell function → systemic inflammation. These mechanisms are extrapolated from systemic inflammatory disease and have not been demonstrated specifically in celiac synovium. (<a href="#ref-clemente2018theroleof-pages-6-7">clemente2018theroleof pages 6-7</a>)</p>
+<p><strong>3. Molecular cross-reactivity or shared autoimmunity.</strong> CeD and rheumatoid, psoriatic or spondyloarthritis may coexist because of overlapping immune susceptibility rather than CeD directly producing arthritis. This is a major competing explanation.</p>
+<p><strong>4. Nutritional musculoskeletal effects.</strong> Vitamin-D deficiency, osteomalacia, anemia or malnutrition may produce pain and weakness, but do not readily explain objectively inflammatory, leukocyte-rich synovial fluid.</p>
+<h3>Human evidence</h3>
+<p>The clearest recent observation is a 28-year-old woman with eight weeks of sterile, nonerosive polyarthritis affecting small and large peripheral joints. Infectious studies, crystals, ANA, rheumatoid factor, anti-CCP, ANCA and HLA-B27 were negative; imaging showed synovitis without erosions. CeD was confirmed by high anti-TG2 and Marsh 3b histology. GFD produced complete joint resolution in three weeks, normalization of laboratory tests by 48 weeks, and no recurrence at two years. The abstract states: <strong>“Her joint symptoms resolved in 3 weeks.”</strong> (Published January 2023; DOI/URL: <a href="https://doi.org/10.1177/2050313X231186305." target="_blank" rel="noopener noreferrer">https://doi.org/10.1177/2050313X231186305.</a>) This is a strong dechallenge observation but still one case. (<a href="#ref-mougui2023isolatedpolyarthritisrevealing-pages-1-2">mougui2023isolatedpolyarthritisrevealing pages 1-2</a>, <a href="#ref-mougui2023isolatedpolyarthritisrevealing-pages-2-4">mougui2023isolatedpolyarthritisrevealing pages 2-4</a>)</p>
+<p>A systematic review/meta-analysis searching through November 2024 found joint complaints in 530 of 6,901 CeD patients without diagnosed rheumatic comorbidity, weighted prevalence 10.7% (95% CI 6.9–15.1). Ultrasound studies found more subclinical synovitis in gluten-consuming than GFD-treated children. However, heterogeneity, secondary outcome reporting and small-study/publication bias were substantial. (<a href="#ref-poddighe2025prevalenceofjoint-pages-1-2">poddighe2025prevalenceofjoint pages 1-2</a>, <a href="#ref-poddighe2025prevalenceofjoint-pages-12-13">poddighe2025prevalenceofjoint pages 12-13</a>)</p>
+<h3>Non-causal alternatives</h3>
+<p>Rheumatoid arthritis, juvenile idiopathic arthritis, psoriatic arthritis, axial spondyloarthritis, reactive arthritis, infection, crystal disease, hypermobility, osteomalacia and nonspecific arthralgia must be separated from celiac-associated sterile arthritis. Shared HLA or polyautoimmunity and referral surveillance are realistic explanations. Only isolated reports have performed the breadth of exclusion seen above.</p>
+<h3>Timing and reversibility</h3>
+<p>Arthritis can precede CeD diagnosis and occur without gastrointestinal symptoms. Some inflammatory cases resolve rapidly on GFD, while persistent, erosive, seropositive, axial or enthesitic disease should prompt a separate rheumatologic diagnosis.</p>
+<h3>Verdict and resolving experiment</h3>
+<p><strong>VERDICT: UNKNOWN.</strong> A GFD-responsive inflammatory arthropathy appears real, but its immune mechanism and population frequency are not established.</p>
+<p><strong>Most efficient resolving study:</strong> A prospective inception cohort of untreated CeD with rheumatologist-confirmed synovitis, serial blinded ultrasound/MRI and synovial-fluid immunophenotyping before and after GFD, followed—only after remission—by controlled gluten challenge.</p>
+<p><strong>Suggested ontology:</strong> HP: arthritis, polyarthritis, synovitis; GO: leukocyte migration, inflammatory response, intestinal epithelial barrier; CL: synovial fibroblast, macrophage, neutrophil, T lymphocyte.</p>
+<h2>Female infertility (and adverse pregnancy outcomes attributed to celiac disease)</h2>
+<h3>Mechanistic hypotheses</h3>
+<p><strong>1. Anti-TG2 injury to endometrium and placenta.</strong> Active CeD → circulating anti-TG2 IgA/IgG → binding to endometrial endothelial cells and trophoblast/syncytiotrophoblast TG2 → inhibition of TG2 activity, matrix metalloproteinases, angiogenesis and trophoblast invasion → impaired implantation, placentation, fetal growth or pregnancy maintenance.</p>
+<p>Anjum et al. showed that CeD IgA bound the maternal-facing syncytiotrophoblast significantly more than control IgA (p&lt;0.0001); preabsorption with recombinant TG2 reduced staining, and bound IgA inhibited local TG2 activity. Their abstract concludes: <strong>“These data indicate that direct immune effects in untreated CD women may compromise placental function.”</strong> (Published February 2009; DOI/URL: <a href="https://doi.org/10.1186/1477-7827-7-16." target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/1477-7827-7-16.</a>) This is human placental-tissue evidence, not an in-vivo pregnancy intervention. (<a href="#ref-anjum2009maternalceliacdisease-pages-1-2">anjum2009maternalceliacdisease pages 1-2</a>)</p>
+<p>Di Simone et al. exposed primary human trophoblasts to commercial anti-TG2 or IgG isolated from three untreated CeD women. Antibodies bound trophoblasts, reduced invasiveness and matrix-metalloprotease activity, and increased TUNEL/annexin-V apoptosis. The title/abstract conclusion—<strong>“Anti-Tissue Transglutaminase Antibodies From Celiac Patients Are Responsible for Trophoblast Damage via Apoptosis In Vitro”</strong>—accurately limits the evidence to cell culture. (Published October 2010; DOI/URL: <a href="https://doi.org/10.1038/ajg.2010.233." target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ajg.2010.233.</a>) (<a href="#ref-simone2010antitissuetransglutaminaseantibodies-pages-1-2">simone2010antitissuetransglutaminaseantibodies pages 1-2</a>)</p>
+<p><strong>2. Nutritional/endocrine impairment.</strong> Villous injury → iron, folate, B12, zinc, selenium or energy deficiency → disturbed hypothalamic–pituitary–ovarian signaling, ovulation, endometrial competence and fetal growth. This likely contributes in severe malabsorptive disease, but contemporary analyses do not support nutrient deficiency as the sole explanation. (<a href="#ref-tersigni2014celiacdiseaseand-pages-6-7">tersigni2014celiacdiseaseand pages 6-7</a>, <a href="#ref-arvanitakis2022adversepregnancyoutcomes-pages-1-2">arvanitakis2022adversepregnancyoutcomes pages 1-2</a>)</p>
+<p><strong>3. Systemic inflammation and altered immune tolerance.</strong> Gluten-driven inflammation could impair decidualization and maternal–fetal tolerance independently of antibody binding. Human mechanistic specificity is limited.</p>
+<p><strong>4. Genital-tract dysbiosis/shared HLA susceptibility.</strong> A 2023 study found altered vaginal/endometrial Lactobacillus composition in recurrent-pregnancy-loss patients, but similar changes occurred in both HLA-DQ2/DQ8-positive and negative groups. This argues that dysbiosis may accompany recurrent loss rather than specifically mediate CeD.</p>
+<h3>Human epidemiology and treatment-response constraints</h3>
+<p>A 2024 Iranian case-control study found positive anti-TG2 serology in 8/100 infertile women versus 1/200 fertile controls; four infertile women had biopsy-confirmed CeD, whereas the seropositive control biopsy was negative. Adjusted association: OR 9.92 (95% CI 1.17–84.21), but the interval is very wide and infertility-clinic selection is important. Its abstract states: <strong>“Increased levels of Anti-TTG Ab were independently associated with infertility.”</strong> (Published May 2024; DOI/URL: <a href="https://doi.org/10.5812/semj-145384." target="_blank" rel="noopener noreferrer">https://doi.org/10.5812/semj-145384.</a>) (<a href="#ref-rahimpour2024thefrequencyof-pages-1-2">rahimpour2024thefrequencyof pages 1-2</a>)</p>
+<p>For pregnancy, an 18-study meta-analysis found increased risks of spontaneous abortion (RR 1.35, 95% CI 1.10–1.65), fetal-growth restriction (RR 1.68, 1.34–2.10), stillbirth (RR 1.57, 1.17–2.10), preterm delivery (RR 1.29, 1.12–1.49), cesarean delivery (RR 1.10, 1.03–1.16), and mean birthweight 176 g lower. Crucially, fetal-growth restriction, stillbirth, preterm birth and lower birthweight were confined to undiagnosed CeD; early-diagnosed disease was not associated with those outcomes. The abstract concludes: <strong>“Early CD diagnosis and appropriate management with GFD may ameliorate these associations.”</strong> (Published December 2022; DOI/URL: <a href="https://doi.org/10.20524/aog.2022.0764." target="_blank" rel="noopener noreferrer">https://doi.org/10.20524/aog.2022.0764.</a>) (<a href="#ref-arvanitakis2022adversepregnancyoutcomes-pages-1-2">arvanitakis2022adversepregnancyoutcomes pages 1-2</a>)</p>
+<p>Earlier treatment-stratified estimates similarly showed untreated-versus-treated differences: IUGR RR 1.98 versus 1.28, low birthweight 2.47 versus 1.22, and preterm delivery 1.62 versus 1.20; treated estimates crossed unity. (<a href="#ref-tersigni2014celiacdiseaseand-pages-7-8">tersigni2014celiacdiseaseand pages 7-8</a>)</p>
+<h3>Non-causal alternatives</h3>
+<p>Maternal age, BMI, smoking, socioeconomic status, thyroid disease, type-1 diabetes, antiphospholipid syndrome, endometriosis, PCOS, diminished ovarian reserve and paternal factors may confound the association. Shared HLA and heightened medical surveillance are plausible. Many cohorts adjusted incompletely for maternal age and did not objectively verify GFD adherence. (<a href="#ref-arvanitakis2022adversepregnancyoutcomes-pages-12-13">arvanitakis2022adversepregnancyoutcomes pages 12-13</a>)</p>
+<h3>Timing and reversibility</h3>
+<p>Infertility, miscarriage or fetal-growth restriction may be the presenting feature of silent CeD. Risk attenuation after diagnosis/GFD supports modifiability, but conception after GFD is not randomized proof. Placental injury is pregnancy-specific; enamel-like irreversibility does not apply, although damage in an established pregnancy may not be fully reversible.</p>
+<h3>Verdict and resolving experiment</h3>
+<p><strong>VERDICT: CONTESTED.</strong> Direct anti-TG2 effects are experimentally strong in human cells/tissue, while nutritional and inflammatory pathways remain credible; clinical causation is supported but not mechanism-specific.</p>
+<p><strong>Most efficient resolving study:</strong> A multicenter preconception cohort with serial anti-TG2 titers, nutrient panels, endometrial vascular imaging/biomarkers, verified GFD adherence and placental pathology, including antibody-negative CeD and nutrient-matched controls. An antibody-mediated mechanism predicts outcomes by anti-TG2 independently of villous injury and nutrient status.</p>
+<p><strong>Suggested ontology:</strong> HP: female infertility, recurrent spontaneous abortion, fetal growth restriction, stillbirth, preterm birth; GO: trophoblast migration, angiogenesis, apoptotic process, extracellular-matrix organization; CL: syncytiotrophoblast, extravillous trophoblast, endometrial endothelial cell.</p>
+<h2>Constipation (as a presenting bowel habit despite enteropathy)</h2>
+<h3>Competing mechanistic hypotheses</h3>
+<p><strong>1. Enteropathy-induced dysmotility.</strong> Gluten exposure → mucosal inflammation → disrupted enteroendocrine, enteric-neural and autonomic signaling → weaker or poorly coordinated intestinal/colonic contractions → slow transit and constipation. Hormonal imbalance, impaired absorption, dysbiosis and autonomic dysfunction are variants of this pathway. (<a href="#ref-cobosquevedo2024effectofa-pages-7-8">cobosquevedo2024effectofa pages 7-8</a>, <a href="#ref-usaisatta2018motilitydisordersin-pages-1-3">usaisatta2018motilitydisordersin pages 1-3</a>)</p>
+<p>The strongest recent test enrolled 12 newly diagnosed CeD and 12 non-celiac gluten-sensitivity patients. In CeD, four weeks of GFD reduced small-bowel transit from 252±39 to 196±27 minutes and colonic transit from 2,150±1,020 to 1,450±348 minutes. Small-bowel maximum pressure rose from 109±23 to 198±17 mmHg, contractions from 1.68±1.4 to 3.74±1.3 per minute, and motility index from 136±32 to 206±24. The abstract states: <strong>“CD patients experienced significant reductions in both intestinal and colonic transit times, along with enhanced small intestine contractility.”</strong> (Published March 2024; DOI/URL: <a href="https://doi.org/10.3390/jcm13061716." target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm13061716.</a>) The absence of healthy controls, tiny sample, four-week duration and only 2/12 baseline CeD patients with constipation limit phenotype-specific inference. (<a href="#ref-cobosquevedo2024effectofa-pages-1-2">cobosquevedo2024effectofa pages 1-2</a>, <a href="#ref-cobosquevedo2024effectofa-pages-4-5">cobosquevedo2024effectofa pages 4-5</a>, <a href="#ref-cobosquevedo2024effectofa-pages-8-10">cobosquevedo2024effectofa pages 8-10</a>)</p>
+<p><strong>2. Persistent low-grade inflammation.</strong> Incomplete mucosal recovery despite GFD could sustain neuro-immunomodulatory dysfunction. Studies disagree on whether all regional motor abnormalities normalize, making this a live explanation for persistence. (<a href="#ref-usaisatta2018motilitydisordersin-pages-1-3">usaisatta2018motilitydisordersin pages 1-3</a>, <a href="#ref-usaisatta2018motilitydisordersin-pages-4-6">usaisatta2018motilitydisordersin pages 4-6</a>)</p>
+<p><strong>3. Diet-induced constipation after diagnosis.</strong> GFD products may be low in fiber and high in refined starch, sugar and fat. In 72 children, dietitian-led education increased dietary quality; 92% achieved normal bowel habits and hard stools resolved in 80% of those constipated at baseline (p&lt;0.001). Thus, post-diagnosis constipation may be caused by the treatment diet rather than active CeD. (Published March 2021; DOI/URL: <a href="https://doi.org/10.3390/nu13041108." target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu13041108.</a>) (<a href="#ref-suarezgonzalez2021glutenfreedietnutritional-pages-1-2">suarezgonzalez2021glutenfreedietnutritional pages 1-2</a>)</p>
+<h3>Non-causal alternatives</h3>
+<p>IBS-C, ordinary chronic idiopathic constipation, pelvic-floor dyssynergia, hypothyroidism, medications, low fluid/fiber intake and psychosocial factors are first-class competitors. In treated adults, constipation at diagnosis predicted persistent gastrointestinal symptoms (OR 7.5, 95% CI 1.3–42), while persistent symptoms did not correlate with follow-up duodenal histology, arguing that ongoing constipation is not necessarily active enteropathy.</p>
+<h3>Timing and reversibility</h3>
+<p>Constipation can be the presenting bowel habit before CeD diagnosis. Objective transit may improve within four weeks of GFD, before complete histological recovery, but symptoms may persist independently. Conversely, constipation can emerge after GFD because of low-fiber substitutes.</p>
+<h3>Verdict and resolving experiment</h3>
+<p><strong>VERDICT: CONTESTED.</strong> Reversible dysmotility is demonstrated, but it is uncertain whether it explains constipation specifically, and treated-diet/functional mechanisms have independent support.</p>
+<p><strong>Most efficient resolving study:</strong> A larger untreated-CeD cohort stratified by Rome-defined constipation, with wireless transit, anorectal manometry, mucosal inflammatory/enteroendocrine markers, microbiome profiling and measured fiber intake before and after GFD.</p>
+<p><strong>Suggested ontology:</strong> HP: constipation, slow-transit constipation; GO: gastrointestinal motility, enteric nervous-system development/function, smooth-muscle contraction; CL: enteric neuron, enteroendocrine cell, intestinal smooth-muscle cell, interstitial cell of Cajal.</p>
+<h2>Elevated Hepatic Transaminases (celiac hepatitis and its gluten-free-diet reversibility)</h2>
+<h3>Definition</h3>
+<p>“Celiac hepatitis” is mild, otherwise unexplained hepatocellular injury in confirmed CeD that resolves with GFD. It is a diagnosis of exclusion and should not be used for autoimmune hepatitis, viral hepatitis, MASLD or drug injury merely coexisting with CeD. (<a href="#ref-kim2020celiacdiseaseand-pages-1-2">kim2020celiacdiseaseand pages 1-2</a>)</p>
+<h3>Mechanistic hypotheses</h3>
+<p><strong>1. Permeable gut–liver axis.</strong> Gluten-induced zonulin/tight-junction disruption → portal delivery of microbial products, toxins, antigens and cytokines → hepatic Toll-like-receptor and innate-immune activation → hepatocyte injury and ALT/AST release. Human studies found higher lactulose–mannitol permeability ratios in CeD patients with elevated enzymes, association with AST, and improvement with GFD. This is the best-supported mechanistic pathway, but the responsible portal mediator has not been identified. (<a href="#ref-seidita2024celiacdiseaseand-pages-12-13">seidita2024celiacdiseaseand pages 12-13</a>)</p>
+<p><strong>2. Anti-TG2-mediated hepatic injury.</strong> Circulating or deposited anti-TG2 IgA → altered extracellular TG2 activity in liver → impaired matrix repair or local immune injury. Anti-TG2 deposits have been observed in liver biopsy, but deposition does not explain why only a subset develops hypertransaminasemia and is not established as pathogenic. (<a href="#ref-kim2020celiacdiseaseand-pages-5-6">kim2020celiacdiseaseand pages 5-6</a>, <a href="#ref-hoffmanova2018celiacdiseaseand-pages-6-8">hoffmanova2018celiacdiseaseand pages 6-8</a>)</p>
+<p><strong>3. Systemic cytokines/immune trafficking.</strong> Intestinal inflammation may generate hepatotoxic cytokines or activated lymphocytes. Evidence remains indirect.</p>
+<p><strong>4. Malnutrition, fatty liver or altered bile-acid signaling.</strong> Severe malnutrition may promote steatosis, while after treatment, weight gain and composition of processed GFD can promote MASLD. In treated CeD, reduced FGF19 and altered bile-acid signaling have been associated with steatosis, especially with persistent anti-TG2, but this is more relevant to fatty liver than classic reversible celiac hepatitis.</p>
+<h3>Human causation and counterevidence</h3>
+<p>In the classic cohort of 158 consecutive adults, 67 (42%) had elevated AST and/or ALT at diagnosis; after one year of strict GFD, 60/67 (95%) normalized. The abstract-level result supports a strong dechallenge effect. Of seven persistent cases, three had hepatitis B, one hepatitis C, one autoimmune hepatitis and two fatty infiltration. (Published September 1995; DOI/URL: <a href="https://doi.org/10.1002/hep.1840220322." target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/hep.1840220322.</a>) (<a href="#ref-bardella1995prevalenceofhypertransaminasemia-pages-1-2">bardella1995prevalenceofhypertransaminasemia pages 1-2</a>)</p>
+<p>Other series report normalization within 6–12 months, disappearance of CeD antibodies and occasional histologic resolution. Gluten rechallenge has reproduced aminotransferase elevation, serologic relapse and intestinal injury, followed by renewed resolution on GFD—strong evidence that gluten-sensitive liver injury exists. (<a href="#ref-kim2020celiacdiseaseand-pages-1-2">kim2020celiacdiseaseand pages 1-2</a>, <a href="#ref-kim2020celiacdiseaseand-pages-2-3">kim2020celiacdiseaseand pages 2-3</a>)</p>
+<p>A 2024 review cites pooled hypertransaminasemia prevalence of 21.42% (95% CI 17.02–26.59) and improvement in 86.4% after GFD. However, a contemporary Sicilian pediatric cohort found only 8.1% prevalence and persistence in 53.8% of affected children at 12 months, suggesting geographic/definition differences, incomplete adherence, slower resolution or competing steatosis. (Published December 2024; DOI/URL: <a href="https://doi.org/10.3390/nu17010085." target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu17010085.</a>) (<a href="#ref-seidita2024celiacdiseaseand-pages-12-13">seidita2024celiacdiseaseand pages 12-13</a>, <a href="#ref-seidita2024celiacdiseaseand-pages-1-2">seidita2024celiacdiseaseand pages 1-2</a>)</p>
+<h3>Non-causal alternatives</h3>
+<p>Autoimmune hepatitis, primary biliary cholangitis, primary sclerosing cholangitis, hepatitis B/C, MASLD, alcohol, medication or supplement toxicity, Wilson disease, hemochromatosis, alpha-1-antitrypsin deficiency and muscle sources of AST must be excluded. Chronic liver disease may also cause false-positive anti-tTG, so biopsy-confirmed or otherwise robust CeD diagnosis matters. Persistent elevation despite verified GFD is positive evidence for an alternative liver disease. (<a href="#ref-kim2020celiacdiseaseand-pages-2-3">kim2020celiacdiseaseand pages 2-3</a>, <a href="#ref-kim2020celiacdiseaseand-pages-4-5">kim2020celiacdiseaseand pages 4-5</a>, <a href="#ref-hoffmanova2018celiacdiseaseand-pages-6-8">hoffmanova2018celiacdiseaseand pages 6-8</a>)</p>
+<h3>Timing and reversibility</h3>
+<p>Hypertransaminasemia is often present at CeD diagnosis and may be the only clue. Most genuine celiac hepatitis normalizes within 6–12 months; some patients need longer. Failure to decline should trigger adherence assessment and a full liver workup rather than indefinite attribution to CeD.</p>
+<h3>Verdict and resolving experiment</h3>
+<p><strong>VERDICT: CONTESTED for the mechanism; the existence of a gluten-responsive hepatic phenotype is well established.</strong> GFD dechallenge/rechallenge establishes causation in a subset, but permeability, anti-TG2, cytokines and steatosis remain competing mediators.</p>
+<p><strong>Most efficient resolving study:</strong> Prospective newly diagnosed CeD with prespecified exclusion of other liver diseases, rigorous gluten-exposure monitoring, serial intestinal-permeability testing, portal-product surrogates, cytokines, anti-TG2 deposition/activity and quantitative liver imaging before and after GFD. Mediation analysis should test whether permeability change explains ALT/AST normalization.</p>
+<p><strong>Suggested ontology:</strong> HP: elevated hepatic transaminases; GO: intestinal epithelial barrier, Toll-like-receptor signaling, response to lipopolysaccharide, hepatocyte apoptotic process; CL: hepatocyte, Kupffer cell, intestinal epithelial cell.</p>
+<h2>Overall interpretation</h2>
+<p>Across these phenotypes, GFD response is informative but not mechanism-specific: it simultaneously removes antigen, improves enteropathy, changes nutrient absorption and substantially alters diet composition. The most important research gap is therefore not another uncontrolled before/after series, but studies that measure candidate mediators longitudinally and include antibody-negative, nutrient-matched, genetically informative and disease-control groups. Current evidence supports <strong>CONTESTED</strong> verdicts for enamel defects, reproductive outcomes, constipation and the mechanism of celiac hepatitis, and <strong>UNKNOWN</strong> verdicts for RAS and celiac-associated arthropathy.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-procaccini2007lackofassociation-pages-4-5"></a>(procaccini2007lackofassociation pages 4-5): Maurizio Procaccini, Giuseppina Campisi, Pantaleo Bufo, Domenico Compilato, Claudia Massaccesi, Carlo Catassi, and Lorenzo Lo Muzio. Lack of association between celiac disease and dental enamel hypoplasia in a case-control study from an italian central region. Head &amp; Face Medicine, 3:25-25, May 2007. URL: <a href="https://doi.org/10.1186/1746-160x-3-25" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/1746-160x-3-25</a>, <a href="https://doi.org/10.1186/1746-160x-3-25" target="_blank" rel="noopener noreferrer">doi:10.1186/1746-160x-3-25</a>. This article has 89 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-cobosquevedo2024effectofa-pages-4-5"></a>(cobosquevedo2024effectofa pages 4-5): Orestes Cobos-Quevedo, Gildardo Alfonso Hernández, Xaira Jimena Rivera-Gutiérrez, Peter Grube-Pagola, and José María Remes-Troche. Effect of a gluten-free diet on whole gut transit time in celiac disease (cd) and non-celiac gluten sensitivity (ncgs) patients: a study using the wireless motility capsule (wmc). Journal of Clinical Medicine, 13:1716, Mar 2024. URL: <a href="https://doi.org/10.3390/jcm13061716" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm13061716</a>, <a href="https://doi.org/10.3390/jcm13061716" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm13061716</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-bardella1995prevalenceofhypertransaminasemia-pages-1-2"></a>(bardella1995prevalenceofhypertransaminasemia pages 1-2): Maria Teresa Bardella, Mirella Fraquelli, Maurizio Quatrini, Nicoletta Molteni, Paolo Bianchi, and Dario Conte. Prevalence of hypertransaminasemia in adult celiac patients and effect of gluten‐free diet. Hepatology, 22:833-836, Sep 1995. URL: <a href="https://doi.org/10.1002/hep.1840220322" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/hep.1840220322</a>, <a href="https://doi.org/10.1002/hep.1840220322" target="_blank" rel="noopener noreferrer">doi:10.1002/hep.1840220322</a>. This article has 315 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-gruper2023autoimmuneamelogenesisimperfecta-pages-7-8"></a>(gruper2023autoimmuneamelogenesisimperfecta pages 7-8): Yael Gruper, Anette S. B. Wolff, Liad Glanz, Frantisek Spoutil, Mihaela Cuida Marthinussen, Adriana Osickova, Yonatan Herzig, Yael Goldfarb, Goretti Aranaz-Novaliches, Jan Dobeš, Noam Kadouri, Osher Ben-Nun, Amit Binyamin, Bar Lavi, Tal Givony, Razi Khalaila, Tom Gome, Tomáš Wald, Blanka Mrazkova, Carmel Sochen, Marine Besnard, Shifra Ben-Dor, Ester Feldmesser, Elisaveta M. Orlova, Csaba Hegedűs, István Lampé, Tamás Papp, Szabolcs Felszeghy, Radislav Sedlacek, Esti Davidovich, Noa Tal, Dror S. Shouval, Raanan Shamir, Carole Guillonneau, Zsuzsa Szondy, Knut E. A. Lundin, Radim Osicka, Jan Prochazka, Eystein S. Husebye, and Jakub Abramson. Autoimmune amelogenesis imperfecta in patients with aps-1 and coeliac disease. Nature, 624:653-662, Nov 2023. URL: <a href="https://doi.org/10.1038/s41586-023-06776-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41586-023-06776-0</a>, <a href="https://doi.org/10.1038/s41586-023-06776-0" target="_blank" rel="noopener noreferrer">doi:10.1038/s41586-023-06776-0</a>. This article has 25 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-anjum2009maternalceliacdisease-pages-1-2"></a>(anjum2009maternalceliacdisease pages 1-2): Naheed Anjum, Philip N Baker, Nicola J Robinson, and John D Aplin. Maternal celiac disease autoantibodies bind directly to syncytiotrophoblast and inhibit placental tissue transglutaminase activity. Reproductive Biology and Endocrinology, Feb 2009. URL: <a href="https://doi.org/10.1186/1477-7827-7-16" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/1477-7827-7-16</a>, <a href="https://doi.org/10.1186/1477-7827-7-16" target="_blank" rel="noopener noreferrer">doi:10.1186/1477-7827-7-16</a>. This article has 89 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tersigni2014celiacdiseaseand-pages-7-8"></a>(tersigni2014celiacdiseaseand pages 7-8): C. Tersigni, R. Castellani, C. de Waure, A. Fattorossi, M. De Spirito, A. Gasbarrini, G. Scambia, and N. Di Simone. Celiac disease and reproductive disorders: meta-analysis of epidemiologic associations and potential pathogenic mechanisms. Human reproduction update, 20 4:582-93, Jul 2014. URL: <a href="https://doi.org/10.1093/humupd/dmu007" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/humupd/dmu007</a>, <a href="https://doi.org/10.1093/humupd/dmu007" target="_blank" rel="noopener noreferrer">doi:10.1093/humupd/dmu007</a>. This article has 260 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mougui2023isolatedpolyarthritisrevealing-pages-2-4"></a>(mougui2023isolatedpolyarthritisrevealing pages 2-4): Ahmed Mougui and Imane El Bouchti. Isolated polyarthritis revealing celiac disease: a case report. SAGE Open Medical Case Reports, Jan 2023. URL: <a href="https://doi.org/10.1177/2050313x231186305" target="_blank" rel="noopener noreferrer">https://doi.org/10.1177/2050313x231186305</a>, <a href="https://doi.org/10.1177/2050313x231186305" target="_blank" rel="noopener noreferrer">doi:10.1177/2050313x231186305</a>. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-wieser2023dentalmanifestationsand-pages-1-2"></a>(wieser2023dentalmanifestationsand pages 1-2): Herbert Wieser, Massimo Amato, Mario Caggiano, and Carolina Ciacci. Dental manifestations and celiac disease—an overview. Journal of Clinical Medicine, 12:2801, Apr 2023. URL: <a href="https://doi.org/10.3390/jcm12082801" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm12082801</a>, <a href="https://doi.org/10.3390/jcm12082801" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm12082801</a>. This article has 36 citations.</p>
+</li>
+<li>
+<p><a id="ref-bossu2007enamelhypoplasiain-pages-1-2"></a>(bossu2007enamelhypoplasiain pages 1-2): M Bossu, A Bartoli, G Orsini, and E Luppino. Enamel hypoplasia in coeliac children: a potential clinical marker of early diagnosis. Unknown journal, 2007.</p>
+</li>
+<li>
+<p><a id="ref-inchingolo2024celiacdiseaserelatedenamel-pages-1-3"></a>(inchingolo2024celiacdiseaserelatedenamel pages 1-3): Alessio Danilo Inchingolo, Gianna Dipalma, Fabio Viapiano, Anna Netti, Irene Ferrara, Anna Maria Ciocia, Antonio Mancini, Daniela Di Venere, Andrea Palermo, Angelo Michele Inchingolo, and Francesco Inchingolo. Celiac disease-related enamel defects: a systematic review. Journal of Clinical Medicine, 13:1382, Feb 2024. URL: <a href="https://doi.org/10.3390/jcm13051382" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm13051382</a>, <a href="https://doi.org/10.3390/jcm13051382" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm13051382</a>. This article has 26 citations.</p>
+</li>
+<li>
+<p><a id="ref-tok2025investigationofthe-pages-1-2"></a>(tok2025investigationofthe pages 1-2): Ayşegül Tok, Nilgün Altınsoy, and Ferda Özbay Hoşnut. Investigation of the frequency of molar incisor hypomineralisation in childhood celiac disease and evaluation with nutritional factors and calcium metabolism. Frontiers in Pediatrics, Aug 2025. URL: <a href="https://doi.org/10.3389/fped.2025.1603751" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fped.2025.1603751</a>, <a href="https://doi.org/10.3389/fped.2025.1603751" target="_blank" rel="noopener noreferrer">doi:10.3389/fped.2025.1603751</a>. This article has 1 citations.</p>
+</li>
+<li>
+<p><a id="ref-gruper2023autoimmuneamelogenesisimperfecta-pages-1-2"></a>(gruper2023autoimmuneamelogenesisimperfecta pages 1-2): Yael Gruper, Anette S. B. Wolff, Liad Glanz, Frantisek Spoutil, Mihaela Cuida Marthinussen, Adriana Osickova, Yonatan Herzig, Yael Goldfarb, Goretti Aranaz-Novaliches, Jan Dobeš, Noam Kadouri, Osher Ben-Nun, Amit Binyamin, Bar Lavi, Tal Givony, Razi Khalaila, Tom Gome, Tomáš Wald, Blanka Mrazkova, Carmel Sochen, Marine Besnard, Shifra Ben-Dor, Ester Feldmesser, Elisaveta M. Orlova, Csaba Hegedűs, István Lampé, Tamás Papp, Szabolcs Felszeghy, Radislav Sedlacek, Esti Davidovich, Noa Tal, Dror S. Shouval, Raanan Shamir, Carole Guillonneau, Zsuzsa Szondy, Knut E. A. Lundin, Radim Osicka, Jan Prochazka, Eystein S. Husebye, and Jakub Abramson. Autoimmune amelogenesis imperfecta in patients with aps-1 and coeliac disease. Nature, 624:653-662, Nov 2023. URL: <a href="https://doi.org/10.1038/s41586-023-06776-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41586-023-06776-0</a>, <a href="https://doi.org/10.1038/s41586-023-06776-0" target="_blank" rel="noopener noreferrer">doi:10.1038/s41586-023-06776-0</a>. This article has 25 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-gruper2023autoimmuneamelogenesisimperfecta-pages-18-26"></a>(gruper2023autoimmuneamelogenesisimperfecta pages 18-26): Yael Gruper, Anette S. B. Wolff, Liad Glanz, Frantisek Spoutil, Mihaela Cuida Marthinussen, Adriana Osickova, Yonatan Herzig, Yael Goldfarb, Goretti Aranaz-Novaliches, Jan Dobeš, Noam Kadouri, Osher Ben-Nun, Amit Binyamin, Bar Lavi, Tal Givony, Razi Khalaila, Tom Gome, Tomáš Wald, Blanka Mrazkova, Carmel Sochen, Marine Besnard, Shifra Ben-Dor, Ester Feldmesser, Elisaveta M. Orlova, Csaba Hegedűs, István Lampé, Tamás Papp, Szabolcs Felszeghy, Radislav Sedlacek, Esti Davidovich, Noa Tal, Dror S. Shouval, Raanan Shamir, Carole Guillonneau, Zsuzsa Szondy, Knut E. A. Lundin, Radim Osicka, Jan Prochazka, Eystein S. Husebye, and Jakub Abramson. Autoimmune amelogenesis imperfecta in patients with aps-1 and coeliac disease. Nature, 624:653-662, Nov 2023. URL: <a href="https://doi.org/10.1038/s41586-023-06776-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41586-023-06776-0</a>, <a href="https://doi.org/10.1038/s41586-023-06776-0" target="_blank" rel="noopener noreferrer">doi:10.1038/s41586-023-06776-0</a>. This article has 25 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-gruper2023autoimmuneamelogenesisimperfecta-pages-3-4"></a>(gruper2023autoimmuneamelogenesisimperfecta pages 3-4): Yael Gruper, Anette S. B. Wolff, Liad Glanz, Frantisek Spoutil, Mihaela Cuida Marthinussen, Adriana Osickova, Yonatan Herzig, Yael Goldfarb, Goretti Aranaz-Novaliches, Jan Dobeš, Noam Kadouri, Osher Ben-Nun, Amit Binyamin, Bar Lavi, Tal Givony, Razi Khalaila, Tom Gome, Tomáš Wald, Blanka Mrazkova, Carmel Sochen, Marine Besnard, Shifra Ben-Dor, Ester Feldmesser, Elisaveta M. Orlova, Csaba Hegedűs, István Lampé, Tamás Papp, Szabolcs Felszeghy, Radislav Sedlacek, Esti Davidovich, Noa Tal, Dror S. Shouval, Raanan Shamir, Carole Guillonneau, Zsuzsa Szondy, Knut E. A. Lundin, Radim Osicka, Jan Prochazka, Eystein S. Husebye, and Jakub Abramson. Autoimmune amelogenesis imperfecta in patients with aps-1 and coeliac disease. Nature, 624:653-662, Nov 2023. URL: <a href="https://doi.org/10.1038/s41586-023-06776-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41586-023-06776-0</a>, <a href="https://doi.org/10.1038/s41586-023-06776-0" target="_blank" rel="noopener noreferrer">doi:10.1038/s41586-023-06776-0</a>. This article has 25 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-lucchese2023beyondthegut-pages-1-2"></a>(lucchese2023beyondthegut pages 1-2): Alberta Lucchese, Dario Di Stasio, Simona De Stefano, Michele Nardone, and Francesco Carinci. Beyond the gut: a systematic review of oral manifestations in celiac disease. Jun 2023. URL: <a href="https://doi.org/10.3390/jcm12123874" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm12123874</a>, <a href="https://doi.org/10.3390/jcm12123874" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm12123874</a>. This article has 38 citations.</p>
+</li>
+<li>
+<p><a id="ref-cruz2018dentalandoral-pages-1-2"></a>(cruz2018dentalandoral pages 1-2): I. Cruz, F. Fraiz, A. Celli, J. Amenábar, and Luciana-Reichert-da-Silva Assunção. Dental and oral manifestations of celiac disease. Medicina Oral, Patología Oral y Cirugía Bucal, 23:e639-e645, Nov 2018. URL: <a href="https://doi.org/10.4317/medoral.22506" target="_blank" rel="noopener noreferrer">https://doi.org/10.4317/medoral.22506</a>, <a href="https://doi.org/10.4317/medoral.22506" target="_blank" rel="noopener noreferrer">doi:10.4317/medoral.22506</a>. This article has 67 citations.</p>
+</li>
+<li>
+<p><a id="ref-shakeri2009glutensensitivityenteropathy-pages-4-5"></a>(shakeri2009glutensensitivityenteropathy pages 4-5): Ramin Shakeri, Farhad Zamani, Rasoul Sotoudehmanesh, Afsaneh Amiri, Mehdi Mohamadnejad, Fereydoun Davatchi, Ali Mohammadi Karakani, Reza Malekzadeh, and Farhad Shahram. Gluten sensitivity enteropathy in patients with recurrent aphthous stomatitis. BMC Gastroenterology, 9:44-44, Jun 2009. URL: <a href="https://doi.org/10.1186/1471-230x-9-44" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/1471-230x-9-44</a>, <a href="https://doi.org/10.1186/1471-230x-9-44" target="_blank" rel="noopener noreferrer">doi:10.1186/1471-230x-9-44</a>. This article has 82 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-lucchese2023beyondthegut-pages-13-15"></a>(lucchese2023beyondthegut pages 13-15): Alberta Lucchese, Dario Di Stasio, Simona De Stefano, Michele Nardone, and Francesco Carinci. Beyond the gut: a systematic review of oral manifestations in celiac disease. Jun 2023. URL: <a href="https://doi.org/10.3390/jcm12123874" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm12123874</a>, <a href="https://doi.org/10.3390/jcm12123874" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm12123874</a>. This article has 38 citations.</p>
+</li>
+<li>
+<p><a id="ref-poddighe2025prevalenceofjoint-pages-1-2"></a>(poddighe2025prevalenceofjoint pages 1-2): Dimitri Poddighe, Gulsamal Zhubanova, Dinara Galiyeva, Kamilla Mussina, and Anders Forss. Prevalence of joint complaints in patients with celiac disease: a systematic review and meta-analysis. Journal of Clinical Medicine, 14:3740, May 2025. URL: <a href="https://doi.org/10.3390/jcm14113740" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm14113740</a>, <a href="https://doi.org/10.3390/jcm14113740" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm14113740</a>. This article has 10 citations.</p>
+</li>
+<li>
+<p><a id="ref-poddighe2025prevalenceofjoint-pages-12-13"></a>(poddighe2025prevalenceofjoint pages 12-13): Dimitri Poddighe, Gulsamal Zhubanova, Dinara Galiyeva, Kamilla Mussina, and Anders Forss. Prevalence of joint complaints in patients with celiac disease: a systematic review and meta-analysis. Journal of Clinical Medicine, 14:3740, May 2025. URL: <a href="https://doi.org/10.3390/jcm14113740" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm14113740</a>, <a href="https://doi.org/10.3390/jcm14113740" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm14113740</a>. This article has 10 citations.</p>
+</li>
+<li>
+<p><a id="ref-clemente2018theroleof-pages-6-7"></a>(clemente2018theroleof pages 6-7): Jose C Clemente, Julia Manasson, and Jose U Scher. The role of the gut microbiome in systemic inflammatory disease. British Medical Journal, 360:j5145, Jan 2018. URL: <a href="https://doi.org/10.1136/bmj.j5145" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bmj.j5145</a>, <a href="https://doi.org/10.1136/bmj.j5145" target="_blank" rel="noopener noreferrer">doi:10.1136/bmj.j5145</a>. This article has 737 citations.</p>
+</li>
+<li>
+<p><a id="ref-mougui2023isolatedpolyarthritisrevealing-pages-1-2"></a>(mougui2023isolatedpolyarthritisrevealing pages 1-2): Ahmed Mougui and Imane El Bouchti. Isolated polyarthritis revealing celiac disease: a case report. SAGE Open Medical Case Reports, Jan 2023. URL: <a href="https://doi.org/10.1177/2050313x231186305" target="_blank" rel="noopener noreferrer">https://doi.org/10.1177/2050313x231186305</a>, <a href="https://doi.org/10.1177/2050313x231186305" target="_blank" rel="noopener noreferrer">doi:10.1177/2050313x231186305</a>. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-simone2010antitissuetransglutaminaseantibodies-pages-1-2"></a>(simone2010antitissuetransglutaminaseantibodies pages 1-2): Nicoletta Di Simone, Marco Silano, Roberta Castellani, Fiorella Di Nicuolo, Maria C D'Alessio, Francesco Franceschi, Alessandra Tritarelli, Antonio M Leone, Chiara Tersigni, Giovanni Gasbarrini, Nicolò G Silveri, Alessandro Caruso, and Antonio Gasbarrini. Anti-tissue transglutaminase antibodies from celiac patients are responsible for trophoblast damage via apoptosis in vitro. American Journal of Gastroenterology, 105(10):2254-2261, Oct 2010. URL: <a href="https://doi.org/10.1038/ajg.2010.233" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ajg.2010.233</a>, <a href="https://doi.org/10.1038/ajg.2010.233" target="_blank" rel="noopener noreferrer">doi:10.1038/ajg.2010.233</a>. This article has 88 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tersigni2014celiacdiseaseand-pages-6-7"></a>(tersigni2014celiacdiseaseand pages 6-7): C. Tersigni, R. Castellani, C. de Waure, A. Fattorossi, M. De Spirito, A. Gasbarrini, G. Scambia, and N. Di Simone. Celiac disease and reproductive disorders: meta-analysis of epidemiologic associations and potential pathogenic mechanisms. Human reproduction update, 20 4:582-93, Jul 2014. URL: <a href="https://doi.org/10.1093/humupd/dmu007" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/humupd/dmu007</a>, <a href="https://doi.org/10.1093/humupd/dmu007" target="_blank" rel="noopener noreferrer">doi:10.1093/humupd/dmu007</a>. This article has 260 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-arvanitakis2022adversepregnancyoutcomes-pages-1-2"></a>(arvanitakis2022adversepregnancyoutcomes pages 1-2): Konstantinos D. Arvanitakis, A. Siargkas, G. Germanidis, T. Dagklis, and I. Tsakiridis. Adverse pregnancy outcomes in women with celiac disease: a systematic review and meta-analysis. Annals of Gastroenterology, 36:12-24, Dec 2022. URL: <a href="https://doi.org/10.20524/aog.2022.0764" target="_blank" rel="noopener noreferrer">https://doi.org/10.20524/aog.2022.0764</a>, <a href="https://doi.org/10.20524/aog.2022.0764" target="_blank" rel="noopener noreferrer">doi:10.20524/aog.2022.0764</a>. This article has 38 citations.</p>
+</li>
+<li>
+<p><a id="ref-rahimpour2024thefrequencyof-pages-1-2"></a>(rahimpour2024thefrequencyof pages 1-2): Elham Rahimpour, Sara Shojaei-Zarghani, Sedigheh Amooee, Ali Reza Safarpour, Bita Geramizadeh, and Mojgan Zahmatkeshan. The frequency of celiac disease and its association with infertility in women attending infertility clinics: a case-control study in southern iran. Shiraz E-Medical Journal, May 2024. URL: <a href="https://doi.org/10.5812/semj-145384" target="_blank" rel="noopener noreferrer">https://doi.org/10.5812/semj-145384</a>, <a href="https://doi.org/10.5812/semj-145384" target="_blank" rel="noopener noreferrer">doi:10.5812/semj-145384</a>. This article has 1 citations.</p>
+</li>
+<li>
+<p><a id="ref-arvanitakis2022adversepregnancyoutcomes-pages-12-13"></a>(arvanitakis2022adversepregnancyoutcomes pages 12-13): Konstantinos D. Arvanitakis, A. Siargkas, G. Germanidis, T. Dagklis, and I. Tsakiridis. Adverse pregnancy outcomes in women with celiac disease: a systematic review and meta-analysis. Annals of Gastroenterology, 36:12-24, Dec 2022. URL: <a href="https://doi.org/10.20524/aog.2022.0764" target="_blank" rel="noopener noreferrer">https://doi.org/10.20524/aog.2022.0764</a>, <a href="https://doi.org/10.20524/aog.2022.0764" target="_blank" rel="noopener noreferrer">doi:10.20524/aog.2022.0764</a>. This article has 38 citations.</p>
+</li>
+<li>
+<p><a id="ref-cobosquevedo2024effectofa-pages-7-8"></a>(cobosquevedo2024effectofa pages 7-8): Orestes Cobos-Quevedo, Gildardo Alfonso Hernández, Xaira Jimena Rivera-Gutiérrez, Peter Grube-Pagola, and José María Remes-Troche. Effect of a gluten-free diet on whole gut transit time in celiac disease (cd) and non-celiac gluten sensitivity (ncgs) patients: a study using the wireless motility capsule (wmc). Journal of Clinical Medicine, 13:1716, Mar 2024. URL: <a href="https://doi.org/10.3390/jcm13061716" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm13061716</a>, <a href="https://doi.org/10.3390/jcm13061716" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm13061716</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-usaisatta2018motilitydisordersin-pages-1-3"></a>(usaisatta2018motilitydisordersin pages 1-3): Paolo Usai-Satta, Francesco Oppia, Mariantonia Lai, and Francesco Cabras. Motility disorders in celiac disease and non-celiac gluten sensitivity: the impact of a gluten-free diet. Nutrients, 10:1705, Nov 2018. URL: <a href="https://doi.org/10.3390/nu10111705" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu10111705</a>, <a href="https://doi.org/10.3390/nu10111705" target="_blank" rel="noopener noreferrer">doi:10.3390/nu10111705</a>. This article has 35 citations.</p>
+</li>
+<li>
+<p><a id="ref-cobosquevedo2024effectofa-pages-1-2"></a>(cobosquevedo2024effectofa pages 1-2): Orestes Cobos-Quevedo, Gildardo Alfonso Hernández, Xaira Jimena Rivera-Gutiérrez, Peter Grube-Pagola, and José María Remes-Troche. Effect of a gluten-free diet on whole gut transit time in celiac disease (cd) and non-celiac gluten sensitivity (ncgs) patients: a study using the wireless motility capsule (wmc). Journal of Clinical Medicine, 13:1716, Mar 2024. URL: <a href="https://doi.org/10.3390/jcm13061716" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm13061716</a>, <a href="https://doi.org/10.3390/jcm13061716" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm13061716</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-cobosquevedo2024effectofa-pages-8-10"></a>(cobosquevedo2024effectofa pages 8-10): Orestes Cobos-Quevedo, Gildardo Alfonso Hernández, Xaira Jimena Rivera-Gutiérrez, Peter Grube-Pagola, and José María Remes-Troche. Effect of a gluten-free diet on whole gut transit time in celiac disease (cd) and non-celiac gluten sensitivity (ncgs) patients: a study using the wireless motility capsule (wmc). Journal of Clinical Medicine, 13:1716, Mar 2024. URL: <a href="https://doi.org/10.3390/jcm13061716" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm13061716</a>, <a href="https://doi.org/10.3390/jcm13061716" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm13061716</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-usaisatta2018motilitydisordersin-pages-4-6"></a>(usaisatta2018motilitydisordersin pages 4-6): Paolo Usai-Satta, Francesco Oppia, Mariantonia Lai, and Francesco Cabras. Motility disorders in celiac disease and non-celiac gluten sensitivity: the impact of a gluten-free diet. Nutrients, 10:1705, Nov 2018. URL: <a href="https://doi.org/10.3390/nu10111705" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu10111705</a>, <a href="https://doi.org/10.3390/nu10111705" target="_blank" rel="noopener noreferrer">doi:10.3390/nu10111705</a>. This article has 35 citations.</p>
+</li>
+<li>
+<p><a id="ref-suarezgonzalez2021glutenfreedietnutritional-pages-1-2"></a>(suarezgonzalez2021glutenfreedietnutritional pages 1-2): Marta Suárez-González, Carlos Bousoño-García, Santiago Jiménez-Treviño, and Juan José Díaz-Martín. Gluten-free diet: nutritional strategies to improve eating habits in children with celiac disease: a prospective, single-arm intervention study. Nutrients, 13:1108, Mar 2021. URL: <a href="https://doi.org/10.3390/nu13041108" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu13041108</a>, <a href="https://doi.org/10.3390/nu13041108" target="_blank" rel="noopener noreferrer">doi:10.3390/nu13041108</a>. This article has 29 citations.</p>
+</li>
+<li>
+<p><a id="ref-kim2020celiacdiseaseand-pages-1-2"></a>(kim2020celiacdiseaseand pages 1-2): Jaimy Villavicencio Kim and George Y. Wu. Celiac disease and elevated liver enzymes: a review. Journal of Clinical and Translational Hepatology, 9:116-124, Dec 2020. URL: <a href="https://doi.org/10.14218/jcth.2020.00089" target="_blank" rel="noopener noreferrer">https://doi.org/10.14218/jcth.2020.00089</a>, <a href="https://doi.org/10.14218/jcth.2020.00089" target="_blank" rel="noopener noreferrer">doi:10.14218/jcth.2020.00089</a>. This article has 58 citations.</p>
+</li>
+<li>
+<p><a id="ref-seidita2024celiacdiseaseand-pages-12-13"></a>(seidita2024celiacdiseaseand pages 12-13): Aurelio Seidita, Federica Latteri, Mirco Pistone, Alessandra Giuliano, Luca Bertoncello, Giorgia Cavallo, Marta Chiavetta, Francesco Faraci, Alessia Nigro, Alessandro Termini, Laura Verona, Agnese Ammannato, Salvatore Accomando, Francesca Cavataio, Maria Letizia Lospalluti, Michele Citrano, Diana Di Liberto, Maurizio Soresi, Pasquale Mansueto, and Antonio Carroccio. Celiac disease and liver damage: the gut–liver axis strikes back (again)? a retrospective analysis in the light of a literature review. Nutrients, 17:85, Dec 2024. URL: <a href="https://doi.org/10.3390/nu17010085" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu17010085</a>, <a href="https://doi.org/10.3390/nu17010085" target="_blank" rel="noopener noreferrer">doi:10.3390/nu17010085</a>. This article has 5 citations.</p>
+</li>
+<li>
+<p><a id="ref-kim2020celiacdiseaseand-pages-5-6"></a>(kim2020celiacdiseaseand pages 5-6): Jaimy Villavicencio Kim and George Y. Wu. Celiac disease and elevated liver enzymes: a review. Journal of Clinical and Translational Hepatology, 9:116-124, Dec 2020. URL: <a href="https://doi.org/10.14218/jcth.2020.00089" target="_blank" rel="noopener noreferrer">https://doi.org/10.14218/jcth.2020.00089</a>, <a href="https://doi.org/10.14218/jcth.2020.00089" target="_blank" rel="noopener noreferrer">doi:10.14218/jcth.2020.00089</a>. This article has 58 citations.</p>
+</li>
+<li>
+<p><a id="ref-hoffmanova2018celiacdiseaseand-pages-6-8"></a>(hoffmanova2018celiacdiseaseand pages 6-8): Iva Hoffmanová, Daniel Sánchez, Ludmila Tučková, and Helena Tlaskalová-Hogenová. Celiac disease and liver disorders: from putative pathogenesis to clinical implications. Nutrients, 10:892, Jul 2018. URL: <a href="https://doi.org/10.3390/nu10070892" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu10070892</a>, <a href="https://doi.org/10.3390/nu10070892" target="_blank" rel="noopener noreferrer">doi:10.3390/nu10070892</a>. This article has 94 citations.</p>
+</li>
+<li>
+<p><a id="ref-kim2020celiacdiseaseand-pages-2-3"></a>(kim2020celiacdiseaseand pages 2-3): Jaimy Villavicencio Kim and George Y. Wu. Celiac disease and elevated liver enzymes: a review. Journal of Clinical and Translational Hepatology, 9:116-124, Dec 2020. URL: <a href="https://doi.org/10.14218/jcth.2020.00089" target="_blank" rel="noopener noreferrer">https://doi.org/10.14218/jcth.2020.00089</a>, <a href="https://doi.org/10.14218/jcth.2020.00089" target="_blank" rel="noopener noreferrer">doi:10.14218/jcth.2020.00089</a>. This article has 58 citations.</p>
+</li>
+<li>
+<p><a id="ref-seidita2024celiacdiseaseand-pages-1-2"></a>(seidita2024celiacdiseaseand pages 1-2): Aurelio Seidita, Federica Latteri, Mirco Pistone, Alessandra Giuliano, Luca Bertoncello, Giorgia Cavallo, Marta Chiavetta, Francesco Faraci, Alessia Nigro, Alessandro Termini, Laura Verona, Agnese Ammannato, Salvatore Accomando, Francesca Cavataio, Maria Letizia Lospalluti, Michele Citrano, Diana Di Liberto, Maurizio Soresi, Pasquale Mansueto, and Antonio Carroccio. Celiac disease and liver damage: the gut–liver axis strikes back (again)? a retrospective analysis in the light of a literature review. Nutrients, 17:85, Dec 2024. URL: <a href="https://doi.org/10.3390/nu17010085" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu17010085</a>, <a href="https://doi.org/10.3390/nu17010085" target="_blank" rel="noopener noreferrer">doi:10.3390/nu17010085</a>. This article has 5 citations.</p>
+</li>
+<li>
+<p><a id="ref-kim2020celiacdiseaseand-pages-4-5"></a>(kim2020celiacdiseaseand pages 4-5): Jaimy Villavicencio Kim and George Y. Wu. Celiac disease and elevated liver enzymes: a review. Journal of Clinical and Translational Hepatology, 9:116-124, Dec 2020. URL: <a href="https://doi.org/10.14218/jcth.2020.00089" target="_blank" rel="noopener noreferrer">https://doi.org/10.14218/jcth.2020.00089</a>, <a href="https://doi.org/10.14218/jcth.2020.00089" target="_blank" rel="noopener noreferrer">doi:10.14218/jcth.2020.00089</a>. This article has 58 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Celiac_Disease-phenotype-deep-dive-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>26</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0005130</code> (2 mentions) - the report calls it "if available"; MONDO calls it <strong>celiac disease</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Celiac_Disease-falcon.html">← Celiac Disease (Falcon)</a>
+                
+                
+                <a href="Celiac_Disease-phenotype-wiring-falcon.html">Celiac Disease-phenotype-wiring (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Celiac_Disease-phenotype-deep-dive-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

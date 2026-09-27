@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4151,6 +4244,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4172,6 +4267,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4402,6 +4499,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4423,6 +4522,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4571,6 +4672,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4592,6 +4695,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4628,6 +4733,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tbc1d32-bromi-ciliary-trafficking-and-ift-turnaround-defect" data-dismech-node="TBC1D32/BROMI Ciliary Trafficking and IFT Turnaround Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">TBC1D32/BROMI Ciliary Trafficking and IFT Turnaround Defect</div>
+
 
                 <div class="item-desc">TBC1D32 (BROMI) is a ciliary protein required for the intraflagellar transport (IFT) turnaround at the ciliary tip. It interacts with CCRK/CDK20, which phosphorylates and activates the ICK/CILK1 kinase that controls the change in direction of the IFT machinery. Loss of TBC1D32 function (modelled by BROMI-knockout cells and mouse mutants) produces abnormally long cilia with accumulation of IFT proteins and ICK at the bulged ciliary tip, deranging the bidirectional cargo trafficking on which cilium-dependent signaling depends.</div>
 
@@ -4879,6 +4985,8 @@ This pathophysiological event involves abnormal protein localization to cilium (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4900,6 +5008,8 @@ This pathophysiological event involves abnormal protein localization to cilium (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4925,6 +5035,8 @@ This pathophysiological event involves abnormal protein localization to cilium (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4947,6 +5059,7 @@ This pathophysiological event involves abnormal protein localization to cilium (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hedgehog-signal-transduction" data-dismech-node="Impaired Hedgehog Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hedgehog Signal Transduction</div>
+
 
                 <div class="item-desc">The CCRK-BROMI(TBC1D32) module governs ciliary Hedgehog signaling. Loss of CCRK or its TBC1D32/BROMI partner causes overaccumulation of IFT proteins at the ciliary tip and abnormal enrichment of Hedgehog pathway components (GPR161 and Smoothened) on the ciliary membrane, deregulating cilium-dependent Hedgehog signal transduction. Because Hedgehog signaling patterns the limb and craniofacial midline, its disruption underlies the polydactyly and oral-facial-digital malformations of the syndrome.</div>
 
@@ -5037,6 +5150,8 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5058,6 +5173,8 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5082,6 +5199,7 @@ This pathophysiological event involves dysregulated Hedgehog (smoothened) signal
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oral-facial-digital-malformation" data-dismech-node="Oral-Facial-Digital Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Oral-Facial-Digital Malformation</div>
+
 
                 <div class="item-desc">TBC1D32 variants produce an oral-facial-digital syndrome phenotype (designated OFD-IX) characterized by polydactyly and craniofacial dysmorphism, reflecting deranged cilium-dependent Hedgehog patterning of the limb and craniofacial midline. Sensorineural hearing loss has been proposed as an additional feature of the gene&#39;s phenotypic spectrum.</div>
 
@@ -5196,6 +5314,8 @@ This pathophysiological event involves abnormal limb morphogenesis (GO:0035108).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5217,6 +5337,8 @@ This pathophysiological event involves abnormal limb morphogenesis (GO:0035108).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5241,6 +5363,7 @@ This pathophysiological event involves abnormal limb morphogenesis (GO:0035108).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-connecting-cilium-degeneration" data-dismech-node="Photoreceptor Connecting Cilium Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Connecting Cilium Degeneration</div>
+
 
                 <div class="item-desc">TBC1D32 is expressed during retinal development and is required for ciliogenesis of the retinal pigment epithelium and for photoreceptor connecting-cilium function. TBC1D32 variants disrupt outer-segment trafficking in cones and rods, causing inherited retinal degeneration presenting as retinitis pigmentosa / rod-cone degeneration. This retinal arm has been reported both within the syndromic TBC1D32 spectrum and as a non-syndromic rod-cone degeneration.</div>
 
@@ -5416,6 +5539,8 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5437,6 +5562,8 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5461,6 +5588,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-pituitary-ciliary-dysfunction" data-dismech-node="Hypothalamic-Pituitary Ciliary Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic-Pituitary Ciliary Dysfunction</div>
+
 
                 <div class="item-desc">TBC1D32 is expressed in the developing hypothalamus and pituitary gland, where cilium-dependent (including Hedgehog) signaling governs ventral forebrain and pituitary development. TBC1D32 variants have been implicated in congenital hypopituitarism, linking the ciliary defect to hypothalamic-pituitary developmental endocrinopathy rather than to the leptin-driven obesity of the classic metabolic-ciliopathy node.</div>
 
@@ -5572,6 +5700,8 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5593,6 +5723,8 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5665,19 +5797,17 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Limbs<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Prenatal and Birth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5720,20 +5850,25 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24285566" target="_blank">PMID:24285566</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5796,6 +5931,9 @@ This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5810,6 +5948,8 @@ This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5874,6 +6014,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5888,6 +6031,8 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5919,8 +6064,105 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypopituitarism" data-dismech-node="Hypopituitarism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypopituitarism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0040075</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32060556" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32060556" target="_blank">PMID:32060556</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biallelic TBC1D32 variants underlie syndromic hypopituitarism, and the underlying mechanism may be via disrupted Shh signaling."</div>
+
+
+                <div class="evidence-explanation">A dedicated human series directly establishes syndromic hypopituitarism due to biallelic TBC1D32 variants.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40702307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40702307" target="_blank">PMID:40702307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A review of previously reported cases highlighted facial dysmorphism, retinal disease, and hypopituitarism as major clinical features of TBC1D32-related ciliopathy."</div>
+
+
+                <div class="evidence-explanation">The 2025 literature review identifies hypopituitarism as one of the major recurring manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anterior-pituitary-aplasia-or-hypoplasia" data-dismech-node="Anterior Pituitary Aplasia or Hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5938,15 +6180,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0010627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0010627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anterior pituitary hypoplasia (HP:0010627). HP:0010627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5966,6 +6211,8 @@ This clinical feature is Anterior pituitary hypoplasia (HP:0010627). HP:0010627 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6014,15 +6261,18 @@ This clinical feature is Anterior pituitary hypoplasia (HP:0010627). HP:0010627 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000568</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6034,14 +6284,16 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24285566" target="_blank">PMID:24285566</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6081,15 +6333,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000589</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6101,14 +6356,16 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24285566" target="_blank">PMID:24285566</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6148,15 +6405,18 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6176,6 +6436,8 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6201,6 +6463,8 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6222,6 +6486,8 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6253,7 +6519,7 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-oral-facial-digital-syndrome-dysmorphic-features" data-dismech-node="Oral-Facial-Digital Syndrome Dysmorphic Features" data-dismech-type="phenotype">
@@ -6272,15 +6538,18 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Oral-facial-digital (OFD-IX) dysmorphic facial features, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6300,6 +6569,8 @@ This clinical feature is Oral-facial-digital (OFD-IX) dysmorphic facial features
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6325,6 +6596,8 @@ This clinical feature is Oral-facial-digital (OFD-IX) dysmorphic facial features
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6333,6 +6606,78 @@ This clinical feature is Oral-facial-digital (OFD-IX) dysmorphic facial features
 
 
                 <div class="evidence-explanation">The 2025 literature review identifies facial dysmorphism as one of the major recurring manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-midline-facial-cleft" data-dismech-node="Midline Facial Cleft" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Midline Facial Cleft
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100629</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Midline facial cleft (HP:0100629). HP:0100629 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24285566" target="_blank">PMID:24285566</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"oro-facio-digital syndrome type IX featuring midline cleft, microcephaly, and colobomatous microphathalmia/anophthalmia."</div>
+
+
+                <div class="evidence-explanation">The series contained one SCLT1 and one TBC1D32 proband and did not disaggregate their phenotypes by gene; it therefore supports the OFD-IX spectrum but not a definitive TBC1D32-specific assignment.</div>
 
 
 
@@ -6362,15 +6707,18 @@ This clinical feature is Oral-facial-digital (OFD-IX) dysmorphic facial features
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6382,14 +6730,16 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24285566" target="_blank">PMID:24285566</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6429,15 +6779,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0410030</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0410030</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft lip (HP:0410030). HP:0410030 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6457,6 +6810,8 @@ This clinical feature is Cleft lip (HP:0410030). HP:0410030 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6505,15 +6860,18 @@ This clinical feature is Cleft lip (HP:0410030). HP:0410030 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010442" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0010442</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010442" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0010442</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6525,14 +6883,16 @@ This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24285566" target="_blank">PMID:24285566</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6581,15 +6941,18 @@ This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012758</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6609,6 +6972,8 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6659,15 +7024,18 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001197" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001197</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001197" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001197</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe prenatal phenotype with life-limiting congenital anomalies, annotated with Abnormality of prenatal development or birth (HP:0001197). HP:0001197 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6689,6 +7057,8 @@ This clinical feature is Severe prenatal phenotype with life-limiting congenital
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6697,172 +7067,6 @@ This clinical feature is Severe prenatal phenotype with life-limiting congenital
 
 
                 <div class="evidence-explanation">Documents a severe, life-limiting prenatal phenotype at the severe end of the TBC1D32 spectrum; the generic prenatal-abnormality term matches the level of detail the abstract provides.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-midline-facial-cleft" data-dismech-node="Midline Facial Cleft" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Midline Facial Cleft
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0100629</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Midline facial cleft (HP:0100629). HP:0100629 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24285566" target="_blank">PMID:24285566</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"oro-facio-digital syndrome type IX featuring midline cleft, microcephaly, and colobomatous microphathalmia/anophthalmia."</div>
-
-
-                <div class="evidence-explanation">The series contained one SCLT1 and one TBC1D32 proband and did not disaggregate their phenotypes by gene; it therefore supports the OFD-IX spectrum but not a definitive TBC1D32-specific assignment.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypopituitarism" data-dismech-node="Hypopituitarism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypopituitarism
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0040075</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32060556" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32060556" target="_blank">PMID:32060556</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Biallelic TBC1D32 variants underlie syndromic hypopituitarism, and the underlying mechanism may be via disrupted Shh signaling."</div>
-
-
-                <div class="evidence-explanation">A dedicated human series directly establishes syndromic hypopituitarism due to biallelic TBC1D32 variants.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40702307" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40702307" target="_blank">PMID:40702307</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A review of previously reported cases highlighted facial dysmorphism, retinal disease, and hypopituitarism as major clinical features of TBC1D32-related ciliopathy."</div>
-
-
-                <div class="evidence-explanation">The 2025 literature review identifies hypopituitarism as one of the major recurring manifestations.</div>
 
 
 
@@ -6950,6 +7154,9 @@ This disease-associated gene is TBC1D32 (hgnc:21485). hgnc:21485 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6964,6 +7171,8 @@ This disease-associated gene is TBC1D32 (hgnc:21485). hgnc:21485 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6989,6 +7198,8 @@ This disease-associated gene is TBC1D32 (hgnc:21485). hgnc:21485 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7010,6 +7221,8 @@ This disease-associated gene is TBC1D32 (hgnc:21485). hgnc:21485 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7094,6 +7307,20 @@ This treatment is hormone replacement therapy (NCIT:C15599). NCIT:C15599 is a cl
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Replace deficient target-gland hormones according to the affected pituitary axes under pediatric endocrine supervision; adrenal insufficiency requires urgent recognition and treatment when present.</div>
 
 
@@ -7163,6 +7390,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Coordinate endocrine, ophthalmologic, audiologic, developmental, and other specialist care according to each individual&#39;s manifestations.</div>
 
 
@@ -7209,6 +7450,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7264,6 +7530,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counsel families regarding autosomal recessive inheritance, including a 25% recurrence risk for each pregnancy when both parents are carriers, and available carrier, prenatal, and preimplantation testing after molecular diagnosis.</div>
 
 
@@ -7281,6 +7561,155 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-diagnosis">
+                <div class="item-name">
+                    Molecular Genetic Diagnosis
+
+                </div>
+
+                <div class="item-desc">Diagnosis rests on identification of biallelic pathogenic TBC1D32 variants by exome or genome sequencing in a patient with compatible ciliopathy features (oral-facial-digital anomalies, retinal degeneration, hypothalamic-pituitary involvement). Because expressivity is highly variable, TBC1D32 should be considered across this phenotypic spectrum.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32060556" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32060556" target="_blank">PMID:32060556</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patients were investigated by whole genome sequencing."</div>
+
+
+                <div class="evidence-explanation">The disease-specific cohort documents genome sequencing as the molecular route used to identify biallelic TBC1D32 variants.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24285566" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24285566" target="_blank">PMID:24285566</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"single novel truncating variant as revealed by exome sequencing"</div>
+
+
+                <div class="evidence-explanation">The original OFD-IX discovery series documents exome sequencing as an additional molecular diagnostic route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7340,6 +7769,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7441,11 +7872,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         TBC1D32
 
 
-    <a href="https://bioregistry.io/hgnc:21485" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:21485</a>
+    <a href="https://bioregistry.io/hgnc:21485" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:21485</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns TBC1D32 (hgnc:21485). hgnc:21485 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -7496,6 +7927,8 @@ This experimental model concerns TBC1D32 (hgnc:21485). hgnc:21485 is a gene from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7509,14 +7942,16 @@ This experimental model concerns TBC1D32 (hgnc:21485). hgnc:21485 is a gene from
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37768732" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37768732" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37768732" target="_blank">PMID:37768732</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7722,7 +8157,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32060556
       reference_title: Loss-of-Function Variants in TBC1D32 Underlie Syndromic Hypopituitarism.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Biallelic TBC1D32 variants underlie syndromic hypopituitarism, and the
@@ -7739,7 +8174,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32060556
       reference_title: Loss-of-Function Variants in TBC1D32 Underlie Syndromic Hypopituitarism.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Biallelic TBC1D32 variants underlie syndromic hypopituitarism, and the
@@ -7797,7 +8232,7 @@ pathophysiology:
     evidence:
     - reference: PMID:24285566
       reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Our findings suggest a previously unrecognized role of SCLT1 and
@@ -7850,7 +8285,7 @@ pathophysiology:
     evidence:
     - reference: PMID:24285566
       reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         oro-facio-digital syndrome type IX featuring midline cleft, microcephaly,
@@ -7865,7 +8300,7 @@ pathophysiology:
     evidence:
     - reference: PMID:24285566
       reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         oro-facio-digital syndrome type IX featuring midline cleft, microcephaly,
@@ -7880,7 +8315,7 @@ pathophysiology:
     evidence:
     - reference: PMID:24285566
       reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         oro-facio-digital syndrome type IX featuring midline cleft, microcephaly,
@@ -7894,7 +8329,7 @@ pathophysiology:
     evidence:
     - reference: PMID:24285566
       reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         there was variable presence of polydactyly, absent pituitary, and
@@ -8082,7 +8517,7 @@ phenotypes:
   evidence:
   - reference: PMID:24285566
     reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       oro-facio-digital syndrome type IX featuring midline cleft, microcephaly,
@@ -8101,7 +8536,7 @@ phenotypes:
   evidence:
   - reference: PMID:24285566
     reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       oro-facio-digital syndrome type IX featuring midline cleft, microcephaly,
@@ -8123,7 +8558,7 @@ phenotypes:
   evidence:
   - reference: PMID:24285566
     reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       oro-facio-digital syndrome type IX featuring midline cleft, microcephaly,
@@ -8147,7 +8582,7 @@ phenotypes:
   evidence:
   - reference: PMID:24285566
     reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       oro-facio-digital syndrome type IX featuring midline cleft, microcephaly,
@@ -8166,7 +8601,7 @@ phenotypes:
   evidence:
   - reference: PMID:24285566
     reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       there was variable presence of polydactyly, absent pituitary, and
@@ -8184,7 +8619,7 @@ phenotypes:
   evidence:
   - reference: PMID:24285566
     reference_title: Ciliary genes TBC1D32/C6orf170 and SCLT1 are mutated in patients with OFD type IX.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       there was variable presence of polydactyly, absent pituitary, and
@@ -8536,7 +8971,7 @@ animal_models:
       differentiation/ciliogenesis outcomes it helped establish.
   - reference: PMID:37768732
     reference_title: TBC1D32 variants disrupt retinal ciliogenesis and cause retinitis pigmentosa.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       we also detected tbc1d32 in the Xenopus otic vesicle
@@ -8991,7 +9426,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alsahan-Harris Syndrome", "mondoId": "MONDO:0979871", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alsahan-Harris_Syndrome", "yamlRevision": "73354fc92645"};
+        const OS_CONFIG = {"diseaseName": "Alsahan-Harris Syndrome", "mondoId": "MONDO:0979871", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alsahan-Harris_Syndrome", "yamlRevision": "73861845e267"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

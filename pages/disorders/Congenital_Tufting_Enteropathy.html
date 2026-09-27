@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3782,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Congenital%20Tufting%20Enteropathy"
@@ -3948,7 +4041,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4056,6 +4149,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4224,6 +4319,7 @@ This subtype is caused by variation in SPINT2 (hgnc:11247). hgnc:11247 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-functional-epcam-at-the-epithelial-cell-surface" data-dismech-node="Loss of Functional EpCAM at the Epithelial Cell Surface" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Functional EpCAM at the Epithelial Cell Surface</div>
 
+
                 <div class="item-desc">The initiating lesion. EpCAM is a transmembrane glycoprotein localized to the tight junctions, adherens junctions and lateral membrane of intestinal epithelial cells. Biallelic EPCAM variants reduce its abundance or mislocalize it, and the syndromic SPINT2 form reaches the same endpoint indirectly: without HAI-2 to restrain matriptase, EpCAM is proteolytically depleted. The node is therefore defined by loss of functional EpCAM at the cell surface, not by the identity of the mutated gene - which is why the two genotypes produce indistinguishable intestinal histology.</div>
 
 
@@ -4264,6 +4360,88 @@ This pathophysiological event involves Intestinal epithelial cell (CL:0002563). 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        EPCAM
+
+
+    <a href="https://bioregistry.io/hgnc:11529" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11529</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EPCAM (hgnc:11529). hgnc:11529 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SPINT2
+
+
+    <a href="https://bioregistry.io/hgnc:11247" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11247</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPINT2 (hgnc:11247). hgnc:11247 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4279,11 +4457,11 @@ This pathophysiological event involves Intestinal epithelial cell (CL:0002563). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034109" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0034109</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034109" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0034109</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Homotypic cell-cell adhesion (GO:0034109). GO:0034109 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4320,11 +4498,11 @@ This pathophysiological event involves decreased Homotypic cell-cell adhesion (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4366,6 +4544,8 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4389,6 +4569,7 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apical-junctional-complex-disassembly-and-barrier-failure" data-dismech-node="Apical Junctional Complex Disassembly and Barrier Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Apical Junctional Complex Disassembly and Barrier Failure</div>
 
+
                 <div class="item-desc">The rate-limiting step. EpCAM&#39;s transmembrane and intracellular regions recruit claudin-7 to the tight junction, so loss of EpCAM substantially reduces claudin-7 at the junction and prevents normal tight-junction formation. Other claudins (2, 3, 15) and the tight-junction proteins ZO-1 and occludin are also reduced. Because adherens junctions govern tight-junction assembly, the whole apical junctional complex is destabilised, and with it epithelial barrier function and the apical-basal polarity that the complex maintains. Claudin-15 loss is of particular functional consequence: it mediates paracellular sodium permeability, whose failure impairs the sodium-coupled glucose absorption that normally drives fluid uptake.</div>
 
 
@@ -4403,11 +4584,11 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002563</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4444,11 +4625,11 @@ This pathophysiological event involves Intestinal epithelial cell (CL:0002563). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0120192" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0120192</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0120192" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0120192</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Tight junction assembly (GO:0120192). GO:0120192 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4484,11 +4665,11 @@ This pathophysiological event involves decreased Tight junction assembly (GO:012
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0070160</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0070160</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves Tight junction (GO:0070160). GO:0070160 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -4537,6 +4718,8 @@ This pathophysiological event involves Tight junction (GO:0070160). GO:0070160 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4558,6 +4741,8 @@ This pathophysiological event involves Tight junction (GO:0070160). GO:0070160 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4583,157 +4768,8 @@ This pathophysiological event involves Tight junction (GO:0070160). GO:0070160 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-dysplasia-and-focal-tuft-formation" data-dismech-node="Epithelial Dysplasia and Focal Tuft Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial Dysplasia and Focal Tuft Formation</div>
 
+
                 <div class="item-desc">The morphological signature that names the disease. Loss of EpCAM-dependent adhesion at bicellular junctions shifts the mechanical balance of the epithelium: myosin IIa/IIb accumulates at tricellular junctions, which become hypercontractile, while the apical domain of individual cells expands abnormally. The result is focal crowding of disorganised enterocytes at the villus tips forming teardrop-shaped &#34;tufts&#34;, on a background of partial or total villous atrophy and crypt hyperplasia, characteristically without inflammatory infiltration. Basement-membrane abnormalities (increased heparan sulfate proteoglycan and collagen IV, decreased laminin) and abnormal alpha-2-beta-1 integrin distribution accompany the dysplasia.</div>
-
-
-
-                <div class="item-meta">
-
-
-
-                    <span class="tag tag-cell">
-                        Small-intestinal enterocyte
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000584</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Small-intestinal enterocyte, annotated with enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.</span>
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-
-
-                <div class="item-meta">
-
-
-
-                    <span class="tag tag-location">
-                        Small intestine
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002108</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
-                    </span>
-
-                </div>
-
-
-
-
-
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Intractable Diarrhea and Intestinal Failure</span>
-
-
-	                        </div>
-
-	                    </div>
-	                </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The loss of EpCAM-dependent cell-cell adhesion at bicellular junctions in CTE leads to tricellular junction hypercontractility due to accumulation of myosin IIa/IIb."</div>
-
-
-                <div class="evidence-explanation">Gives the mechanical mechanism by which adhesion loss produces the tuft lesion, linking this node to its upstream junctional cause.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The tufts are composed of disorganized enterocytes with focal crowding at villous tips and basement membrane abnormalities resulting in teardrop-like configurations."</div>
-
-
-                <div class="evidence-explanation">Describes the histological appearance of the tuft lesion that defines this node.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-absorptive-and-ion-transport-function" data-dismech-node="Loss of Absorptive and Ion-Transport Function" data-dismech-type="pathophysiology">
-                <div class="item-name">Loss of Absorptive and Ion-Transport Function</div>
-
-                <div class="item-desc">The functional arm, running in parallel with the morphological one and explaining why the diarrhea of CTE has both a secretory and an osmotic component. Ion transporters are differentially affected - NKCC1 is mislocalized and reduced while CFTR is unchanged, and NHE3 is affected in murine models - which together with tight-junction loss accounts for the secretory component. Separately, the glucose transporters SGLT1 and GLUT2 and the brush-border glycoside hydrolases (maltase, sucrase, lactase) are disrupted, which accounts for the osmotic component and for the compromised caloric uptake driving weight loss. This dual mechanism is why enteral feeding worsens CTE and why parenteral nutrition is usually the only reliable route.</div>
 
 
 
@@ -4778,6 +4814,161 @@ This pathophysiological event involves Small-intestinal enterocyte, annotated wi
 
 
 
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        Small intestine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002108</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intractable Diarrhea and Intestinal Failure</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The loss of EpCAM-dependent cell-cell adhesion at bicellular junctions in CTE leads to tricellular junction hypercontractility due to accumulation of myosin IIa/IIb."</div>
+
+
+                <div class="evidence-explanation">Gives the mechanical mechanism by which adhesion loss produces the tuft lesion, linking this node to its upstream junctional cause.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The tufts are composed of disorganized enterocytes with focal crowding at villous tips and basement membrane abnormalities resulting in teardrop-like configurations."</div>
+
+
+                <div class="evidence-explanation">Describes the histological appearance of the tuft lesion that defines this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-absorptive-and-ion-transport-function" data-dismech-node="Loss of Absorptive and Ion-Transport Function" data-dismech-type="pathophysiology">
+                <div class="item-name">Loss of Absorptive and Ion-Transport Function</div>
+
+
+                <div class="item-desc">The functional arm, running in parallel with the morphological one and explaining why the diarrhea of CTE has both a secretory and an osmotic component. Ion transporters are differentially affected - NKCC1 is mislocalized and reduced while CFTR is unchanged, and NHE3 is affected in murine models - which together with tight-junction loss accounts for the secretory component. Separately, the glucose transporters SGLT1 and GLUT2 and the brush-border glycoside hydrolases (maltase, sucrase, lactase) are disrupted, which accounts for the osmotic component and for the compromised caloric uptake driving weight loss. This dual mechanism is why enteral feeding worsens CTE and why parenteral nutrition is usually the only reliable route.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Small-intestinal enterocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000584</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Small-intestinal enterocyte, annotated with enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
                 <div class="item-meta">
 
 
@@ -4788,11 +4979,11 @@ This pathophysiological event involves Small-intestinal enterocyte, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050892" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0050892</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050892" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0050892</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Intestinal absorption (GO:0050892). GO:0050892 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4854,6 +5045,8 @@ This pathophysiological event involves decreased Intestinal absorption (GO:00508
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4875,6 +5068,8 @@ This pathophysiological event involves decreased Intestinal absorption (GO:00508
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4900,6 +5095,7 @@ This pathophysiological event involves decreased Intestinal absorption (GO:00508
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intractable-diarrhea-and-intestinal-failure" data-dismech-node="Intractable Diarrhea and Intestinal Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Intractable Diarrhea and Intestinal Failure</div>
 
+
                 <div class="item-desc">The clinical output. Profuse watery diarrhea, present whether the infant is fed or fasted, produces electrolyte imbalance, dehydration, weight loss and impaired growth, progressing to intestinal failure that requires parenteral nutrition and in some cases intestinal transplantation. Severity is heterogeneous - some patients need total parenteral nutrition while others need little parenteral support, and some improve substantially over time - but most never achieve enteral autonomy.</div>
 
 
@@ -4924,11 +5120,11 @@ This pathophysiological event involves decreased Intestinal absorption (GO:00508
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4957,6 +5153,8 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4978,6 +5176,8 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5025,7 +5225,7 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apical Junctional Complex Disassembly and Barrier Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rate-limiting step. EpCAM\u0027s transmembrane and intracellular regions recruit claudin-7 to the tight junction, so loss of EpCAM substantially reduces claudin-7 at the junction and prevents normal tight-junction formation. Other claudins (2, 3, 15) and the tight-junction proteins ZO-1 and occludin are also reduced. Because adherens junctions govern tight-junction assembly, the whole apical junctional complex is destabilised, and with it epithelial barrier function and the apical-basal polarity that the complex maintains. Claudin-15 loss is of particular functional consequence: it mediates paracellular sodium permeability, whose failure impairs the sodium-coupled glucose absorption that normally drives fluid uptake.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Intestinal epithelial cell\"], \"biological_processes\": [\"Tight junction assembly\"], \"role\": \"central_effector\"}}, {\"id\": \"Epithelial Dysplasia and Focal Tuft Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The morphological signature that names the disease. Loss of EpCAM-dependent adhesion at bicellular junctions shifts the mechanical balance of the epithelium: myosin IIa/IIb accumulates at tricellular junctions, which become hypercontractile, while the apical domain of individual cells expands abnormally. The result is focal crowding of disorganised enterocytes at the villus tips forming teardrop-shaped \\\"tufts\\\", on a background of partial or total villous atrophy and crypt hyperplasia, characteristically without inflammatory infiltration. Basement-membrane abnormalities (increased heparan sulfate proteoglycan and collagen IV, decreased laminin) and abnormal alpha-2-beta-1 integrin distribution accompany the dysplasia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Small-intestinal enterocyte\"], \"role\": \"effector\", \"locations\": [\"Small intestine\"]}}, {\"id\": \"Intestinal Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Small-bowel transplantation is the only accepted cure, but is not a first-line treatment: the natural history is variable and some patients improve substantially over time, so the decision must weigh transplant morbidity against that possibility.\"}, {\"id\": \"Intractable Diarrhea and Intestinal Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical output. Profuse watery diarrhea, present whether the infant is fed or fasted, produces electrolyte imbalance, dehydration, weight loss and impaired growth, progressing to intestinal failure that requires parenteral nutrition and in some cases intestinal transplantation. Severity is heterogeneous - some patients need total parenteral nutrition while others need little parenteral support, and some improve substantially over time - but most never achieve enteral autonomy.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"Small intestine\"]}}, {\"id\": \"Loss of Absorptive and Ion-Transport Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional arm, running in parallel with the morphological one and explaining why the diarrhea of CTE has both a secretory and an osmotic component. Ion transporters are differentially affected - NKCC1 is mislocalized and reduced while CFTR is unchanged, and NHE3 is affected in murine models - which together with tight-junction loss accounts for the secretory component. Separately, the glucose transporters SGLT1 and GLUT2 and the brush-border glycoside hydrolases (maltase, sucrase, lactase) are disrupted, which accounts for the osmotic component and for the compromised caloric uptake driving weight loss. This dual mechanism is why enteral feeding worsens CTE and why parenteral nutrition is usually the only reliable route.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Small-intestinal enterocyte\"], \"biological_processes\": [\"Intestinal absorption\"], \"role\": \"effector\"}}, {\"id\": \"Loss of Functional EpCAM at the Epithelial Cell Surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. EpCAM is a transmembrane glycoprotein localized to the tight junctions, adherens junctions and lateral membrane of intestinal epithelial cells. Biallelic EPCAM variants reduce its abundance or mislocalize it, and the syndromic SPINT2 form reaches the same endpoint indirectly: without HAI-2 to restrain matriptase, EpCAM is proteolytically depleted. The node is therefore defined by loss of functional EpCAM at the cell surface, not by the identity of the mutated gene - which is why the two genotypes produce indistinguishable intestinal histology.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Intestinal epithelial cell\"], \"biological_processes\": [\"Homotypic cell-cell adhesion\"], \"role\": \"trigger\", \"locations\": [\"Small intestine\"]}}, {\"id\": \"Parenteral Nutrition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Parenteral nutrition is the mainstay of supportive care, required because enteral feeding worsens the diarrhea and the epithelium cannot absorb adequately. The degree of dependence varies: some patients require total parenteral nutrition indefinitely while others need only limited parenteral support. It carries the usual burden of long-term intravenous nutrition - liver disease, infection and vascular complications.\"}], \"edges\": [{\"source\": \"Loss of Functional EpCAM at the Epithelial Cell Surface\", \"target\": \"Apical Junctional Complex Disassembly and Barrier Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Junctional Complex Disassembly and Barrier Failure\", \"target\": \"Epithelial Dysplasia and Focal Tuft Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Junctional Complex Disassembly and Barrier Failure\", \"target\": \"Loss of Absorptive and Ion-Transport Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epithelial Dysplasia and Focal Tuft Formation\", \"target\": \"Intractable Diarrhea and Intestinal Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Absorptive and Ion-Transport Function\", \"target\": \"Intractable Diarrhea and Intestinal Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenteral Nutrition\", \"target\": \"Loss of Absorptive and Ion-Transport Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intestinal Transplantation\", \"target\": \"Loss of Absorptive and Ion-Transport Function\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apical Junctional Complex Disassembly and Barrier Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rate-limiting step. EpCAM\u0027s transmembrane and intracellular regions recruit claudin-7 to the tight junction, so loss of EpCAM substantially reduces claudin-7 at the junction and prevents normal tight-junction formation. Other claudins (2, 3, 15) and the tight-junction proteins ZO-1 and occludin are also reduced. Because adherens junctions govern tight-junction assembly, the whole apical junctional complex is destabilised, and with it epithelial barrier function and the apical-basal polarity that the complex maintains. Claudin-15 loss is of particular functional consequence: it mediates paracellular sodium permeability, whose failure impairs the sodium-coupled glucose absorption that normally drives fluid uptake.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Intestinal epithelial cell\"], \"biological_processes\": [\"Tight junction assembly\"], \"role\": \"central_effector\"}}, {\"id\": \"EPCAM loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"EPCAM\"], \"gene_terms\": [{\"label\": \"EPCAM\", \"id\": \"hgnc:11529\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Epithelial Dysplasia and Focal Tuft Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The morphological signature that names the disease. Loss of EpCAM-dependent adhesion at bicellular junctions shifts the mechanical balance of the epithelium: myosin IIa/IIb accumulates at tricellular junctions, which become hypercontractile, while the apical domain of individual cells expands abnormally. The result is focal crowding of disorganised enterocytes at the villus tips forming teardrop-shaped \\\"tufts\\\", on a background of partial or total villous atrophy and crypt hyperplasia, characteristically without inflammatory infiltration. Basement-membrane abnormalities (increased heparan sulfate proteoglycan and collagen IV, decreased laminin) and abnormal alpha-2-beta-1 integrin distribution accompany the dysplasia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Small-intestinal enterocyte\"], \"role\": \"effector\", \"locations\": [\"Small intestine\"]}}, {\"id\": \"Intestinal Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Small-bowel transplantation is the only accepted cure, but is not a first-line treatment: the natural history is variable and some patients improve substantially over time, so the decision must weigh transplant morbidity against that possibility.\"}, {\"id\": \"Intractable Diarrhea and Intestinal Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical output. Profuse watery diarrhea, present whether the infant is fed or fasted, produces electrolyte imbalance, dehydration, weight loss and impaired growth, progressing to intestinal failure that requires parenteral nutrition and in some cases intestinal transplantation. Severity is heterogeneous - some patients need total parenteral nutrition while others need little parenteral support, and some improve substantially over time - but most never achieve enteral autonomy.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"Small intestine\"]}}, {\"id\": \"Loss of Absorptive and Ion-Transport Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional arm, running in parallel with the morphological one and explaining why the diarrhea of CTE has both a secretory and an osmotic component. Ion transporters are differentially affected - NKCC1 is mislocalized and reduced while CFTR is unchanged, and NHE3 is affected in murine models - which together with tight-junction loss accounts for the secretory component. Separately, the glucose transporters SGLT1 and GLUT2 and the brush-border glycoside hydrolases (maltase, sucrase, lactase) are disrupted, which accounts for the osmotic component and for the compromised caloric uptake driving weight loss. This dual mechanism is why enteral feeding worsens CTE and why parenteral nutrition is usually the only reliable route.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Small-intestinal enterocyte\"], \"biological_processes\": [\"Intestinal absorption\"], \"role\": \"effector\"}}, {\"id\": \"Loss of Functional EpCAM at the Epithelial Cell Surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. EpCAM is a transmembrane glycoprotein localized to the tight junctions, adherens junctions and lateral membrane of intestinal epithelial cells. Biallelic EPCAM variants reduce its abundance or mislocalize it, and the syndromic SPINT2 form reaches the same endpoint indirectly: without HAI-2 to restrain matriptase, EpCAM is proteolytically depleted. The node is therefore defined by loss of functional EpCAM at the cell surface, not by the identity of the mutated gene - which is why the two genotypes produce indistinguishable intestinal histology.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Intestinal epithelial cell\"], \"biological_processes\": [\"Homotypic cell-cell adhesion\"], \"genes\": [\"EPCAM\", \"SPINT2\"], \"gene_terms\": [{\"label\": \"EPCAM\", \"id\": \"hgnc:11529\"}, {\"label\": \"SPINT2\", \"id\": \"hgnc:11247\"}], \"role\": \"trigger\", \"locations\": [\"Small intestine\"]}}, {\"id\": \"Parenteral Nutrition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Parenteral nutrition is the mainstay of supportive care, required because enteral feeding worsens the diarrhea and the epithelium cannot absorb adequately. The degree of dependence varies: some patients require total parenteral nutrition indefinitely while others need only limited parenteral support. It carries the usual burden of long-term intravenous nutrition - liver disease, infection and vascular complications.\"}, {\"id\": \"SPINT2 variants (syndromic form)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SPINT2\"], \"gene_terms\": [{\"label\": \"SPINT2\", \"id\": \"hgnc:11247\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}], \"edges\": [{\"source\": \"Loss of Functional EpCAM at the Epithelial Cell Surface\", \"target\": \"Apical Junctional Complex Disassembly and Barrier Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Junctional Complex Disassembly and Barrier Failure\", \"target\": \"Epithelial Dysplasia and Focal Tuft Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Junctional Complex Disassembly and Barrier Failure\", \"target\": \"Loss of Absorptive and Ion-Transport Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epithelial Dysplasia and Focal Tuft Formation\", \"target\": \"Intractable Diarrhea and Intestinal Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Absorptive and Ion-Transport Function\", \"target\": \"Intractable Diarrhea and Intestinal Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenteral Nutrition\", \"target\": \"Loss of Absorptive and Ion-Transport Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intestinal Transplantation\", \"target\": \"Loss of Absorptive and Ion-Transport Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EPCAM loss-of-function variants\", \"target\": \"Loss of Functional EpCAM at the Epithelial Cell Surface\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPINT2 variants (syndromic form)\", \"target\": \"Loss of Functional EpCAM at the Epithelial Cell Surface\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5044,13 +5244,13 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5060,7 +5260,7 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intractable-watery-diarrhea" data-dismech-node="Intractable Watery Diarrhea" data-dismech-type="phenotype">
@@ -5079,10 +5279,10 @@ This pathophysiological event occurs in Small intestine (UBERON:0002108). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002014</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intractable watery diarrhea, annotated with Diarrhea (HP:0002014), qualified as temporality chronic. HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5111,6 +5311,9 @@ This clinical feature is Intractable watery diarrhea, annotated with Diarrhea (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5125,6 +5328,8 @@ This clinical feature is Intractable watery diarrhea, annotated with Diarrhea (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5149,185 +5354,6 @@ This clinical feature is Intractable watery diarrhea, annotated with Diarrhea (H
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arthritis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001369</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Arthritis is more common in patients with EPCAM mutations who have extra-intestinal manifestations"</div>
-
-
-                <div class="evidence-explanation">Supports the genotype association of arthritis with EPCAM variants. No frequency band is adopted, for the same reason as the ophthalmological phenotype above: the source is comparative (&#34;more common&#34;), not quantitative, and is measured over reported CTE patients as a whole.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to Thrive
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508), qualified as course progressive. HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Nutrient malabsorption and intractable diarrhea lead infants to become irritable and develop dehydration as well as weight loss"</div>
-
-
-                <div class="evidence-explanation">Attributes the weight loss and dehydration to malabsorption and diarrhea.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-villous-atrophy-with-epithelial-tufts" data-dismech-node="Villous Atrophy with Epithelial Tufts" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5359,6 +5385,9 @@ This clinical feature is Villous atrophy (HP:0011473). HP:0011473 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5373,6 +5402,8 @@ This clinical feature is Villous atrophy (HP:0011473). HP:0011473 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5397,6 +5428,15 @@ This clinical feature is Villous atrophy (HP:0011473). HP:0011473 is a phenotype
 
 
                 </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-punctate-keratitis" data-dismech-node="Punctate Keratitis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5426,6 +5466,9 @@ This clinical feature is Punctate keratitis (HP:0011859). HP:0011859 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5442,6 +5485,8 @@ This clinical feature is Punctate keratitis (HP:0011859). HP:0011859 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5450,6 +5495,186 @@ This clinical feature is Punctate keratitis (HP:0011859). HP:0011859 is a phenot
 
 
                 <div class="evidence-explanation">Supports the genotype association of ophthalmological features with SPINT2 rather than EPCAM variants. No frequency band is adopted: the source states only that these features are &#34;more common&#34; with SPINT2 variants, a comparative claim measured over reported CTE patients as a whole with no figure for either genotype, so it cannot support a quantitative band on this subtype-scoped record.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arthritis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001369</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arthritis is more common in patients with EPCAM mutations who have extra-intestinal manifestations"</div>
+
+
+                <div class="evidence-explanation">Supports the genotype association of arthritis with EPCAM variants. No frequency band is adopted, for the same reason as the ophthalmological phenotype above: the source is comparative (&#34;more common&#34;), not quantitative, and is measured over reported CTE patients as a whole.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to Thrive
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508), qualified as course progressive. HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nutrient malabsorption and intractable diarrhea lead infants to become irritable and develop dehydration as well as weight loss"</div>
+
+
+                <div class="evidence-explanation">Attributes the weight loss and dehydration to malabsorption and diarrhea.</div>
 
 
 
@@ -5522,10 +5747,10 @@ This clinical feature is Punctate keratitis (HP:0011859). HP:0011859 is a phenot
                         Gene: EPCAM
 
 
-    <a href="https://bioregistry.io/hgnc:11529" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:11529</a>
+    <a href="https://bioregistry.io/hgnc:11529" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:11529</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is EPCAM (hgnc:11529). hgnc:11529 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5537,6 +5762,9 @@ This disease-associated gene is EPCAM (hgnc:11529). hgnc:11529 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -5555,6 +5783,8 @@ This disease-associated gene is EPCAM (hgnc:11529). hgnc:11529 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5578,6 +5808,8 @@ This disease-associated gene is EPCAM (hgnc:11529). hgnc:11529 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5619,10 +5851,10 @@ This disease-associated gene is EPCAM (hgnc:11529). hgnc:11529 is a gene from th
                         Gene: SPINT2
 
 
-    <a href="https://bioregistry.io/hgnc:11247" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:11247</a>
+    <a href="https://bioregistry.io/hgnc:11247" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:11247</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SPINT2 (hgnc:11247). hgnc:11247 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5634,6 +5866,9 @@ This disease-associated gene is SPINT2 (hgnc:11247). hgnc:11247 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -5652,6 +5887,8 @@ This disease-associated gene is SPINT2 (hgnc:11247). hgnc:11247 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5675,6 +5912,8 @@ This disease-associated gene is SPINT2 (hgnc:11247). hgnc:11247 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5724,7 +5963,7 @@ This disease-associated gene is SPINT2 (hgnc:11247). hgnc:11247 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Total Parenteral Nutrition<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Total Parenteral Nutrition<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Total Parenteral Nutrition (NCIT:C29484). NCIT:C29484 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5751,6 +5990,31 @@ This treatment is Total Parenteral Nutrition (NCIT:C29484). NCIT:C29484 is a cli
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -5786,6 +6050,8 @@ This treatment is Total Parenteral Nutrition (NCIT:C29484). NCIT:C29484 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5825,7 +6091,7 @@ This treatment is Total Parenteral Nutrition (NCIT:C29484). NCIT:C29484 is a cli
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Small Bowel Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Small Bowel Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Small Bowel Transplantation (NCIT:C157985). NCIT:C157985 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5852,6 +6118,31 @@ This treatment is Small Bowel Transplantation (NCIT:C157985). NCIT:C157985 is a 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -5887,6 +6178,8 @@ This treatment is Small Bowel Transplantation (NCIT:C157985). NCIT:C157985 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5925,6 +6218,218 @@ This treatment is Small Bowel Transplantation (NCIT:C157985). NCIT:C157985 is a 
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-duodenal-biopsy-with-histology">
+                <div class="item-name">
+                    Duodenal biopsy with histology
+
+                </div>
+
+                <div class="item-desc">Esophagogastroduodenoscopy with duodenal biopsy is the diagnostic mainstay, showing villous atrophy, crypt hyperplasia and focal epithelial tufts. EpCAM immunohistochemistry showing reduced or mislocalized protein supports the diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CTE is generally diagnosed by esophagogastroduodenoscopy, noting duodenal histological abnormalities."</div>
+
+
+                <div class="evidence-explanation">States the diagnostic procedure and the tissue on which the diagnosis rests.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-epcam-and-spint2-sequencing">
+                <div class="item-name">
+                    EPCAM and SPINT2 sequencing
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation by sequencing EPCAM and SPINT2. With broader access to genomic testing, patients may now be identified genetically before mucosal findings are available.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Given the recent advancement in genetic technologies and improved access to whole-genome testing, patients may be identified by genetics even prior to the identification of mucosal findings."</div>
+
+
+                <div class="evidence-explanation">Supports genomic testing as an increasingly primary diagnostic route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-western-europe">
+                <div class="item-name">Western Europe</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">1.0&ndash;2.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Reported incidence of 1/50,000-100,000 live births in western Europe, i.e. 1-2 per 100,000 births; higher in the Middle East. Recorded here as a birth prevalence because the source reports incidence per live birth.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33374714" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33374714" target="_blank">PMID:33374714</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with an incidence estimated at 1/50,000-100,000 live births in western Europe"</div>
+
+
+                <div class="evidence-explanation">Source for the western European birth-incidence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6111,6 +6616,15 @@ genetic:
         Source for the per-gene case fractions among reported CTE patients.
 pathophysiology:
 - name: Loss of Functional EpCAM at the Epithelial Cell Surface
+  genes:
+  - preferred_term: EPCAM
+    term:
+      id: hgnc:11529
+      label: EPCAM
+  - preferred_term: SPINT2
+    term:
+      id: hgnc:11247
+      label: SPINT2
   conforms_to: &#34;enterocyte_polarity_trafficking_failure#Loss of Junctional Adhesion Machinery&#34;
   description: &gt;-
     The initiating lesion. EpCAM is a transmembrane glycoprotein localized to the
@@ -6709,7 +7223,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Congenital Tufting Enteropathy", "mondoId": "MONDO:0013184", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Tufting_Enteropathy", "yamlRevision": "80082b8b6d19"};
+        const OS_CONFIG = {"diseaseName": "Congenital Tufting Enteropathy", "mondoId": "MONDO:0013184", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Tufting_Enteropathy", "yamlRevision": "86de531d69de"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

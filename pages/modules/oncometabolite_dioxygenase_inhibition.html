@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,9 +1626,18 @@
         <header class="page-header">
             <h1>Oncometabolite Dioxygenase Inhibition Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Tumor biology and cancer therapeutics — the hallmark-of-cancer capability modules, tumor-microenvironment mechanisms, and cancer-specific therapeutic vulnerabilities and resistance patterns."
+                      style="background: hsl(290, 68%, 96%); border-color: hsl(290, 52%, 78%); color: hsl(290, 62%, 26%);">Oncology</span>
+                
+                <span class="badge badge-study-area"
+                      title="Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes."
+                      style="background: hsl(258, 68%, 96%); border-color: hsl(258, 52%, 78%); color: hsl(258, 62%, 26%);">Metabolism</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">oncometabolite_dioxygenase_inhibition</span>
-                <span class="badge badge-count">3 disorders</span>
+                <span class="badge badge-count">4 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
                 
@@ -1945,11 +2014,13 @@ This mechanism module involves increased cellular response to oxidative stress (
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="crosslink-list">
@@ -2044,6 +2115,26 @@ This mechanism module involves increased cellular response to oxidative stress (
                     
                 </div>
                 
+                <div class="crosslink-item">
+                    <a href="../disorders/Uterine_Leiomyoma.html">Uterine Leiomyoma</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Fumarate Accumulation in FH-Deficient Leiomyoma → Oncometabolite Accumulation
+                        
+                        
+                        , 
+                        
+                        Pseudohypoxic HIF Stabilization in FH-Deficient Leiomyoma → Pseudohypoxic HIF Stabilization
+                        
+                        
+                    </span>
+                    
+                </div>
+                
             </div>
             
         </div>
@@ -2083,11 +2174,13 @@ This mechanism module involves increased cellular response to oxidative stress (
             
             <div class="item-box anchor-target" id="module-pathophysiology-metabolic-enzyme-lesion-tca-tumor-suppressor-loss-or-idh-neomorphic-gain" data-dismech-node="Metabolic Enzyme Lesion (TCA Tumor Suppressor Loss or IDH Neomorphic Gain)" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Enzyme Lesion (TCA Tumor Suppressor Loss or IDH Neomorphic Gain)</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion, reached by two opposite genetic routes. In the tumor suppressor route, both alleles of a TCA-cycle enzyme gene are inactivated — fumarate hydratase in hereditary leiomyomatosis and renal cell cancer, or a succinate dehydrogenase subunit in hereditary paraganglioma-pheochromocytoma — typically a germline first hit plus somatic loss of the wild-type allele. In the oncogene route, a heterozygous missense mutation at IDH1 R132 or IDH2 R140/R172 confers a neomorphic activity while the wild-type allele is retained, so there is simultaneous partial loss of normal 2-oxoglutarate production and gain of a new product.</div>
                 
@@ -2133,11 +2226,13 @@ This mechanism module involves increased cellular response to oxidative stress (
             
             <div class="item-box anchor-target" id="module-pathophysiology-oncometabolite-accumulation" data-dismech-node="Oncometabolite Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Oncometabolite Accumulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The metabolite immediately upstream of the disabled enzyme, or the neomorphic product, accumulates to concentrations far above physiological. Succinate accumulates when succinate dehydrogenase is inhibited; fumarate accumulates when fumarate hydratase is lost; R-2-hydroxyglutarate is produced de novo by mutant IDH. What unites them is structural: each is a close analogue of 2-oxoglutarate, the obligatory co-substrate of an entire dioxygenase superfamily, and each is present at concentrations sufficient to compete with it.</div>
                 
@@ -2199,6 +2294,13 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Uterine_Leiomyoma.html">Uterine Leiomyoma</a>
+                            
+                            <span class="crosslink-desc">as Fumarate Accumulation in FH-Deficient Leiomyoma</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2229,11 +2331,13 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-competitive-inhibition-of-2-oxoglutarate-dependent-dioxygenases" data-dismech-node="Competitive Inhibition of 2-Oxoglutarate-Dependent Dioxygenases" data-dismech-type="pathophysiology">
                 <div class="item-name">Competitive Inhibition of 2-Oxoglutarate-Dependent Dioxygenases</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node this module exists to name. The accumulated oncometabolite occupies the same active-site space as 2-oxoglutarate and competitively inhibits the superfamily of enzymes that require it — the HIF prolyl hydroxylases, the TET family of 5-methylcytosine hydroxylases, and the Jumonji-domain histone demethylases, among others. Inhibition is not selective for one target, which is why a single metabolic lesion produces simultaneous hypoxia-response and chromatin phenotypes, and why the tumor phenotype cannot be explained by ATP deficiency.</div>
                 
@@ -2300,11 +2404,13 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-pseudohypoxic-hif-stabilization" data-dismech-node="Pseudohypoxic HIF Stabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Pseudohypoxic HIF Stabilization</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">With the prolyl hydroxylases inhibited, HIF-alpha subunits are not hydroxylated, are not recognized by the VHL E3 ligase, and accumulate in normoxia. The cell therefore transcribes the hypoxia programme — angiogenic, glycolytic and invasion-associated target genes — while oxygen is adequate. This is the mechanistic explanation for why highly vascular tumors arise in these syndromes without any VHL mutation, and it is the point of convergence with von Hippel-Lindau disease, which reaches the same state from the opposite direction by losing the ligase instead of inhibiting the hydroxylase.</div>
                 
@@ -2373,6 +2479,13 @@ This pathophysiological event involves increased cellular response to decreased 
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Uterine_Leiomyoma.html">Uterine Leiomyoma</a>
+                            
+                            <span class="crosslink-desc">as Pseudohypoxic HIF Stabilization in FH-Deficient Leiomyoma</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2396,11 +2509,13 @@ This pathophysiological event involves increased cellular response to decreased 
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-demethylation-and-genome-wide-hypermethylation" data-dismech-node="Impaired Demethylation and Genome-Wide Hypermethylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Demethylation and Genome-Wide Hypermethylation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Inhibition of the TET 5-methylcytosine hydroxylases and the Jumonji-family histone demethylases blocks the removal of methyl marks, so DNA and histone methylation accumulate genome-wide. In SDHx-mutated paraganglioma this produces a distinct hypermethylator cluster with downregulation of the genes that specify neuroendocrine differentiation; in IDH-mutant acute myeloid leukaemia the same chemistry produces a global hypermethylation signature with impaired haematopoietic differentiation. The severity tracks the genotype — epigenetic silencing is most marked in SDHB-mutated tumors, which are also the most malignant.</div>
                 
@@ -2513,11 +2628,13 @@ This pathophysiological event involves decreased demethylation (GO:0070988). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-keap1-succination-and-nrf2-antioxidant-pathway-activation" data-dismech-node="KEAP1 Succination and NRF2 Antioxidant Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">KEAP1 Succination and NRF2 Antioxidant Pathway Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A branch specific to fumarate and chemically distinct from the rest of the module: fumarate reacts covalently with cysteine thiols to form S-(2-succinyl)cysteine, and succination of KEAP1 abrogates its ability to repress NRF2. The NRF2 antioxidant transcriptional programme is then constitutively active. Mouse genetics places this branch outside the HIF axis — Fh1-associated renal cyst formation proceeds independently of HIF — which is the principal reason the HIF branch cannot be assumed to be the sole oncogenic driver in FH-deficient disease.</div>
                 
@@ -2595,11 +2712,13 @@ This pathophysiological event involves increased cellular response to oxidative 
             
             <div class="item-box anchor-target" id="module-pathophysiology-oncometabolite-driven-tumorigenesis-with-differentiation-block" data-dismech-node="Oncometabolite-Driven Tumorigenesis with Differentiation Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Oncometabolite-Driven Tumorigenesis with Differentiation Block</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent output: tumors that are characteristically hypervascular, metabolically reprogrammed, and blocked in differentiation, arising in the specific lineages each genotype affects — smooth muscle and renal tubular epithelium for FH, chromaffin and paraganglionic tissue for SDHx, glial and haematopoietic progenitors for IDH. Reversibility is part of the evidence for the mechanism: the migratory phenotype induced by succinate accumulation in SDH-deficient cells is reversed by a DNA hypomethylating agent, which would not be expected if the hypermethylation were a bystander mark.</div>
                 
@@ -2612,6 +2731,135 @@ This pathophysiological event involves increased cellular response to oxidative 
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="DNA Hypomethylating Agent (Decitabine) Reversal of the Epigenetic Branch" data-dismech-type="treatment">
+                <div class="item-name">DNA Hypomethylating Agent (Decitabine) Reversal of the Epigenetic Branch</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-11">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        decitabine
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_749378" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-12">CHEBI:749378</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses decitabine (CHEBI:749378). CHEBI:749378 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The module&#39;s drug-target design pattern, and a mechanistic proof rather than a standard of care: because the oncogenic signal at the epigenetic branch is an excess of methyl marks that the cell can no longer remove, a hypomethylating agent addresses it downstream of the untreatable metabolic lesion. CRITICAL scope caveat — the evidence here is a cell-based demonstration in SDH-deficient mouse chromaffin cells, not clinical efficacy in hereditary paraganglioma; conforming disorders do not inherit this as a treatment recommendation.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-impaired-demethylation-and-genome-wide-hypermethylation"><strong>Impaired Demethylation and Genome-Wide Hypermethylation</strong></a>
+                        
+                        <span> — Decitabine depletes DNA methyltransferase activity and lowers 5mC, relieving the hypermethylated state that the inhibited TET enzymes can no longer reverse — acting on the consequence of dioxygenase inhibition rather than restoring the dioxygenases.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 1</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

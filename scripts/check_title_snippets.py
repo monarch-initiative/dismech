@@ -120,7 +120,9 @@ if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
 if str(ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT))
 
+from dismech import kb_cache
 from dismech.frontmatter import split_frontmatter
+from dismech.kb_cache import load_document
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     CachedReferenceIndex,
@@ -134,10 +136,10 @@ from dismech.yaml_io import safe_load
 from scripts.check_snippet_length import is_structured_row
 
 #: Reference prefixes whose records are dataset accessions rather than papers.
-#: Sourced from the reference validator's own `skip_prefixes`, minus DOI --
-#: `conf/reference_validator_config.yaml` skips DOI because it cannot *fetch*
-#: those, not because they are not literature, and a DOI record is a real paper
-#: whose title must stay checked. A dataset record's cached body is frequently
+#: Sourced from the reference validator's own `skip_prefixes`, with an explicit
+#: literature safeguard. DOI was incorrectly skipped until issue #7514; a DOI
+#: record is a real paper whose title must stay checked even if a caller passes
+#: an older config. A dataset record's cached body is frequently
 #: its title verbatim, so "quote the abstract sentence instead" is unsatisfiable
 #: in a way the editorial case is not: an editorial has an underlying study to
 #: cite in its place.
@@ -260,13 +262,12 @@ def scan_repo(
     findings = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
-            with path.open(encoding="utf-8") as handle:
-                data = safe_load(handle)
+            data = load_document(path)
         except Exception as exc:
             # Gating on malformed YAML is `validate-all`'s job; skipping silently
             # would make the file invisible here rather than merely unchecked.
             print(
-                f"warning: skipping unparseable {path.relative_to(rel_to).as_posix()}: "
+                f"warning: skipping unparsable {path.relative_to(rel_to).as_posix()}: "
                 f"{exc.__class__.__name__}",
                 file=sys.stderr,
             )
@@ -407,6 +408,10 @@ def new_findings(findings, baseline: Counter):
 
 
 def main(argv=None) -> int:
+    # One walk over kb/ per run, so the shared-parse cache would cost a hash
+    # per file and 500 MB of retention for no hits. Under pytest, which
+    # imports scan_repo directly alongside the other scans, it stays on.
+    kb_cache.default_off()
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
