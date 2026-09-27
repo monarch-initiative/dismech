@@ -160195,6 +160195,7 @@ window.searchData = [
     "treatments": [
       "Diazoxide",
       "Octreotide and Long-Acting Somatostatin Analogs",
+      "Exendin-(9-39) (avexitide; investigational)",
       "Glucagon Rescue and Continuous Glucagon Infusion",
       "Intravenous Dextrose and High-Rate Carbohydrate Support",
       "18F-DOPA PET-Guided Focal Lesionectomy",
@@ -160221,8 +160222,8 @@ window.searchData = [
     "num_phenotypes": 17,
     "num_pathophysiology": 12,
     "num_genes": 10,
-    "num_treatments": 9,
-    "causal_graph_edges": "51",
+    "num_treatments": 10,
+    "causal_graph_edges": "59",
     "causal_graph_longest_path": "6"
   },
   {
@@ -338323,8 +338324,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3198,
   "total_subtypes": 4301,
   "total_disorders_and_subtypes": 7499,
-  "total_unique_evidence_sources": 46667,
-  "total_unique_publications": 43805,
+  "total_unique_evidence_sources": 46671,
+  "total_unique_publications": 43808,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
   "total_pathographs": 3193,
