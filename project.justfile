@@ -951,6 +951,17 @@ knowledge-gap-audit *args="":
 check-knowledge-gap-targets *files:
     uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
 
+# Census of how far estrogen signalling is curated, in six tiers from "mentions
+# estrogen anywhere" down to "binds ESR1/ESR2 on a pathophysiology node". The
+# gap it measures is between binding GO:0030520 on a node and putting the
+# receptor driving it on that node. Offline, report-only, exits 0. See #12925.
+#   just estrogen-census
+#   just estrogen-census --format tsv
+#   just estrogen-census --out docs/reports/estrogen-signalling-coverage-census-<date>.md
+[group('QC')]
+estrogen-census *args="":
+    uv run python scripts/estrogen_signalling_census.py {{args}}
+
 # Census of has_subtypes usage (how many subtypes are ever referenced by a
 # subtype: foreign key) plus the deterministic subtype-gene wiring check: a
 # gene named in has_subtypes[].genes that no pathophysiology node carries and
