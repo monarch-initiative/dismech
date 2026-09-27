@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actinomycosis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Actinomycosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Actinomycosis</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-09-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005631" target="_blank" rel="noopener noreferrer">MONDO:0005631</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">31 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>F001 — Actinomycosis is caused by commensal <em>Actinomyces</em> that turn invasive only after a mucosal breach</h3>
+<p>Actinomycosis is defined by a two-part causal logic: an organism that is normally harmless, plus a triggering event that lets it into tissue where it does not belong. The comprehensive review by Valour et al. establishes that <em>Actinomyces</em> spp. are anaerobic Gram-positive bacteria that normally colonize the human mouth, digestive tract, and genital tract — <em>"Actinomycosis is a rare chronic disease caused by Actinomyces spp., anaerobic Gram-positive bacteria that normally colonize the human mouth and digestive and genital tracts"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>). Because the organism is a commensal, disease is fundamentally <strong>opportunistic</strong>: it requires disruption of the mucosal barrier. The abdominal actinomycosis review makes this explicit — <em>"Actinomyces are considered to be residential saprophytes in the gastrointestinal tract and require a mucosal lesion to cause an opportunistic infection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">PMID: 24905109</a>). This is the initiating step of the entire pathogenic cascade and explains why the disease has no genetic etiology and why prevention hinges on protecting mucosal integrity.</p>
+<h3>F002 — Three classic clinical forms map to distinct predisposing factors; the disease mimics malignancy</h3>
+<p>The disease presents in anatomically distinct but mechanistically unified forms. Valour et al. describe <em>"cervicofacial actinomycosis following dental focus of infection, pelvic actinomycosis in women with an intrauterine device, and pulmonary actinomycosis in smokers with poor dental hygiene"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>). Each form corresponds to a specific mode of mucosal breach: odontogenic infection (cervicofacial), IUD-associated genital colonization (pelvic — <em>"Pelvic actinomycosis is a rare, chronic infection caused by Actinomyces species, most associated with prolonged intrauterine device (IUD) use,"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/42287450/">PMID: 42287450</a>), and aspiration with poor dental hygiene (pulmonary). A defining and clinically dangerous feature across all sites is <strong>tumor mimicry</strong>: independent case series report infiltrative mass lesions raising suspicion for cancer in the lung (<a href="https://pubmed.ncbi.nlm.nih.gov/42007821/">PMID: 42007821</a>), liver (<a href="https://pubmed.ncbi.nlm.nih.gov/42501997/">PMID: 42501997</a>), pelvis (<a href="https://pubmed.ncbi.nlm.nih.gov/42287450/">PMID: 42287450</a>), mandible (<a href="https://pubmed.ncbi.nlm.nih.gov/41871568/">PMID: 41871568</a>), and abdominal wall (<a href="https://pubmed.ncbi.nlm.nih.gov/42717451/">PMID: 42717451</a>). This mimicry frequently drives patients to major, sometimes unnecessary, surgery.</p>
+<h3>F003 — Diagnosis rests on sulfur granules and prolonged anaerobic culture; often only after surgery</h3>
+<p>Diagnosis is notoriously difficult. Valour et al. note that <em>"Prolonged bacterial cultures in anaerobic conditions are necessary to identify the bacterium and typical microscopic findings include necrosis with yellowish sulfur granules and filamentous Gram-positive fungal-like pathogens"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>). Culture, though the microbiological gold standard, has high false-negative rates, so the diagnosis is more often histopathological (<a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">PMID: 24905109</a>). A retrospective series of 17 patients quantified the diagnostic delay: <em>"The mean time to diagnosis was 110 (30–540) days,"</em> with diagnosis made pathologically in 13/17 versus microbiologically in 4/17 (<a href="https://pubmed.ncbi.nlm.nih.gov/41712794/">PMID: 41712794</a>). Modern molecular methods — 16S rRNA gene sequencing and metagenomic next-generation sequencing (mNGS) — are increasingly decisive, as seen in a cardiac case confirmed by 16S rRNA (<a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>) and multiple osteomyelitis cases identified only by mNGS (<a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">PMID: 41691170</a>).</p>
+<h3>F004 — Prolonged high-dose penicillin/amoxicillin cures actinomycosis with excellent prognosis</h3>
+<p>Treatment is a long course of beta-lactam antibiotics. Valour et al.: <em>"Patients with actinomycosis require prolonged (6- to 12-month) high doses ... of penicillin G or amoxicillin, but the duration of antimicrobial therapy could probably be shortened to 3 months in patients in whom optimal surgical resection of infected tissues has been performed"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>). Outcomes are excellent. In a series of 17, <em>"the outcome was favorable in 16 cases"</em> (94%) (<a href="https://pubmed.ncbi.nlm.nih.gov/41712794/">PMID: 41712794</a>). In 7 renal transplant recipients, all treated with amoxicillin for a median of 115 days (range 30–200), <em>"all patients, except one, recovered completely"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30055044/">PMID: 30055044</a>). Resistance rates are low, and IV-then-oral penicillin for ≥4 weeks is advisable (<a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">PMID: 24905109</a>).</p>
+<h3>F005 — <em>Actinomyces</em> evades intracellular killing and elicits a Splendore–Hoeppli granulomatous reaction</h3>
+<p>The chronicity of actinomycosis is explained by immune evasion. Friduss &amp; Maceri report that <em>"The organism, although phagocytized by the host cells, is not killed. Therefore, it is defined as a facultative intracellular parasite of the host"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/2228706/">PMID: 2228706</a>). The host response produces the disease's signature histology, the Splendore–Hoeppli phenomenon: <em>"The Splendore-Hoeppli reaction material comprises antigen-antibody complex, tissue debris and fibrin"</em> and represents a localized immunological response to which actinomycosis is a recognized bacterial cause (<a href="https://pubmed.ncbi.nlm.nih.gov/18976399/">PMID: 18976399</a>). A cardiac actinomycosis biopsy demonstrated abscess formation with the Splendore–Hoeppli phenomenon and Gram-positive/Grocott-positive filaments, confirmed by 16S rRNA sequencing (<a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>).</p>
+<h3>F006 — Actinomycosis is a comparative disease of cattle and wild cervids</h3>
+<p>While not classically zoonotic (person-to-person or animal-to-person transmission is not a feature), naturally occurring <em>Actinomyces</em> disease is well documented in animals. Friduss &amp; Maceri note <em>"Actinomycotic infections, once common in humans and cattle, are now rare causes of disease in man"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/2228706/">PMID: 2228706</a>) — the bovine form is classic "lumpy jaw." In wild cervids, granulomatous lymphadenitis showed Splendore–Hoeppli material in 93% of cases, with <em>"Organisms morphologically consistent with Actinomyces spp. ... found in one white-tailed deer,"</em> and focal granulomatous lymphadenitis occurring in 0.3–1.3% of deer (<a href="https://pubmed.ncbi.nlm.nih.gov/19617472/">PMID: 19617472</a>).</p>
+<h3>F007 — IUD use promotes genital <em>Actinomyces</em> colonization in a device- and duration-dependent, reversible manner</h3>
+<p>The IUD–<em>Actinomyces</em> relationship is one of the best-quantified in the field. Mali et al. found that among 815 IUD users, <em>"the repeat smears from 57 women were positive for Actinomyces-like organisms, giving a prevalence rate of 6.99%"</em> (with <em>A. israelii</em> confirmed by immunofluorescence in all and cultured in 23/40), while all non-users were negative; prolonged use (&gt;2 years) promoted overgrowth (<a href="https://pubmed.ncbi.nlm.nih.gov/3526779/">PMID: 3526779</a>). Device type matters: Mao &amp; Guillebaud reported actinomyces-like organism (ALO) prevalence of 22.6% with inert versus 2% with copper IUDs, and — critically — <em>"After removal of the IUCD, and without antibiotic therapy, in 100% (20/20) of the women, ALO colonisation was no longer found six to twelve months later"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">PMID: 6529911</a>). A systematic review of pelvic actinomycosis (63 articles, 1980–2014) confirmed the dominant IUD association and the typical route of diagnosis by histology after surgery (<a href="https://pubmed.ncbi.nlm.nih.gov/28684963/">PMID: 28684963</a>). This finding establishes both a <strong>dose–response</strong> (duration, device type) and <strong>reversibility</strong> — an unusually clean exposure–response relationship for an infectious disease.</p>
+<h3>F008 — CNS actinomycosis carries ~11% mortality; combined surgery + antibiotics improves survival</h3>
+<p>CNS disease is the principal exception to the disease's generally benign prognosis. A systematic review of 118 CNS actinomycosis cases (1988–2022) found a mean age of 44 years, 57% male; <em>A. israelii</em> most common (41.5%) followed by <em>A. meyeri</em> (22.6%); brain abscess in 55%, leptomeningeal enhancement in 22%, culture positivity 53.4%, and disseminated disease in 19.5%. Outcomes were markedly worse than localized disease: <em>"The overall case-fatality rate was 11%. Neurological sequelae were present in 22% of the patients"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">PMID: 37269006</a>). Multivariate analysis showed a survival benefit of combined management — <em>"patients who underwent surgery with antimicrobials had better survival (adjusted OR 0.14, 95% CI 0.04–0.28)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">PMID: 37269006</a>). This contrasts with the ~94% favorable outcome for localized disease (<a href="https://pubmed.ncbi.nlm.nih.gov/41712794/">PMID: 41712794</a>).</p>
+<h3>F009 — Pathogenesis is driven by fimbrial/pilus adhesins, coaggregation, and polymicrobial biofilm formation</h3>
+<p>The sulfur granule is not a pure culture but a <strong>polymicrobial biofilm</strong> built by molecular adhesion mechanisms. Cisar describes how indigenous Gram-positive tooth colonizers <em>"including viridans streptococci and actinomyces"</em> evade host secretory inhibitors of adhesion through the structural design and binding properties of bacterial adhesins/receptors (<a href="https://pubmed.ncbi.nlm.nih.gov/9524453/">PMID: 9524453</a>). Kumari Yadav et al. show that <em>"Early colonization by S. oralis and its interaction with Actinomyces oris seeds the development of oral biofilm or dental plaque,"</em> mediated by sortase-dependent pili (<a href="https://pubmed.ncbi.nlm.nih.gov/31929180/">PMID: 31929180</a>). Companion organisms enable deep-tissue invasion: <em>"Periodontal pathogens or their pathogenic products must be able to pass through the epithelial cell barrier in order to reach and cause destruction to underlying tissues"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10522226/">PMID: 10522226</a>). This explains why actinomycosis is fundamentally a <strong>synergistic polymicrobial</strong> infection.</p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Actinomycosis is a rare chronic granulomatous and suppurative bacterial infection caused by <em>Actinomyces</em> species, anaerobic-to-microaerophilic Gram-positive filamentous bacteria that are normal commensals of the human oropharynx, gastrointestinal tract, and female genital tract. It is characterized by indolent progression, formation of abscesses and draining sinus tracts, extension across normal tissue planes (disregarding anatomical boundaries), dense fibrosis, and the pathognomonic "sulfur granules." It classically mimics malignancy.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0001580" target="_blank" rel="noopener noreferrer">MONDO:0001580</a> (actinomycosis)
+- <strong>ICD-10:</strong> A42 (A42.0 pulmonary, A42.1 abdominal, A42.2 cervicofacial, A42.7 actinomycotic sepsis, A42.8 other, A42.9 unspecified)
+- <strong>ICD-11:</strong> 1C10 (Actinomycosis)
+- <strong>MeSH:</strong> D000196 (Actinomycosis)
+- <strong>OMIM / Orphanet:</strong> Not a Mendelian disorder; no OMIM entry. Not a heritable rare disease (acquired infection).
+- <strong>SNOMED CT:</strong> 63455001 (Actinomycosis)</p>
+<p><strong>Synonyms / alternative names:</strong> "Lumpy jaw" (cervicofacial and bovine forms), actinomycotic infection, "the most misdiagnosed disease." Historically confused with fungal disease owing to filamentous morphology (hence "fungal-like").</p>
+<p><strong>Information source type:</strong> Aggregated disease-level knowledge derived from case reports, retrospective case series, and systematic reviews (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28684963/">PMID: 28684963</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">PMID: 37269006</a>). There is no large EHR-derived individual-patient dataset; the disease's rarity means the evidence base is dominated by pooled case-level literature.</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause — infectious.</strong> The disease is caused by <em>Actinomyces</em> spp. (commensal anaerobic Gram-positive bacteria) that become invasive after a mucosal breach (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">PMID: 24905109</a>). It is <strong>not a genetic disease</strong> — there are no causal genes, no Mendelian inheritance, and no established susceptibility loci. Infection is typically <strong>polymicrobial</strong>, with companion bacteria (e.g., <em>Aggregatibacter actinomycetemcomitans</em>, <em>Streptococcus</em> spp., <em>Finegoldia magna</em>, <em>Staphylococcus</em> spp., Enterobacteriaceae, <em>Fusobacterium</em>) contributing to invasion and biofilm architecture (<a href="https://pubmed.ncbi.nlm.nih.gov/31929180/">PMID: 31929180</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10522226/">PMID: 10522226</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">PMID: 41691170</a>).</p>
+<p><strong>Risk factors (environmental/host):</strong>
+- <strong>Genetic:</strong> None established. Immunosuppression is facilitating, not required (most cases occur in immunocompetent hosts).
+- <strong>Dental disease and dental procedures</strong> → cervicofacial disease (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>).
+- <strong>Long-standing IUD (especially inert/plastic, &gt;2 years)</strong> → pelvic/abdominal disease (<a href="https://pubmed.ncbi.nlm.nih.gov/3526779/">PMID: 3526779</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">PMID: 6529911</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28684963/">PMID: 28684963</a>).
+- <strong>Smoking + poor oral hygiene, aspiration</strong> → pulmonary/thoracic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>).
+- <strong>Trauma / surgery</strong> (post-surgical abdominal wall, post-traumatic osteomyelitis) → localized soft-tissue and bone disease (<a href="https://pubmed.ncbi.nlm.nih.gov/42717451/">PMID: 42717451</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">PMID: 41691170</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>).
+- <strong>Immunosuppression</strong> (e.g., renal transplant, though prevalence very low at 0.02%) (<a href="https://pubmed.ncbi.nlm.nih.gov/30055044/">PMID: 30055044</a>); poor socioeconomic status noted in a CNS case (<a href="https://pubmed.ncbi.nlm.nih.gov/30572823/">PMID: 30572823</a>).</p>
+<p><strong>Protective factors:</strong> Good dental hygiene; copper rather than inert IUDs (ALO prevalence 2% vs 22.6%, <a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">PMID: 6529911</a>); timely IUD removal/exchange (clears colonization in 100% within 6–12 months without antibiotics, <a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">PMID: 6529911</a>). One historical report speculated that cyclical menstrual flow may act as a protective "cleansing mechanism" (<a href="https://pubmed.ncbi.nlm.nih.gov/6481117/">PMID: 6481117</a>). No <strong>genetic</strong> protective factors are known.</p>
+<p><strong>Gene–environment interactions:</strong> Not applicable in the classical sense — actinomycosis has no genetic component. The relevant interaction is <strong>host-barrier × microbial-colonization</strong>: the same commensal is harmless on an intact mucosa and pathogenic once the barrier is breached.</p>
+<h3>3. Phenotypes</h3>
+<p>Phenotypes are anatomically driven. Common features across forms:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency / notes</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chronic infiltrative mass mimicking tumor</td>
+<td>Clinical sign</td>
+<td>Hallmark across sites (<a href="https://pubmed.ncbi.nlm.nih.gov/42007821/">PMID: 42007821</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42501997/">PMID: 42501997</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" rel="noopener noreferrer">HP:0002664</a> (Neoplasm — mimic)</td>
+</tr>
+<tr>
+<td>Draining sinus tracts / fistulae</td>
+<td>Physical manifestation</td>
+<td>Classic in cervicofacial and abdominal (<a href="https://pubmed.ncbi.nlm.nih.gov/6481117/">PMID: 6481117</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100279" target="_blank" rel="noopener noreferrer">HP:0100279</a> (Fistula)</td>
+</tr>
+<tr>
+<td>Sulfur granules in discharge/tissue</td>
+<td>Lab/pathology</td>
+<td>Pathognomonic when present</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Fever, night sweats</td>
+<td>Symptom</td>
+<td>Common, nonspecific (<a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+</tr>
+<tr>
+<td>Weight loss</td>
+<td>Symptom</td>
+<td>Common (<a href="https://pubmed.ncbi.nlm.nih.gov/42501997/">PMID: 42501997</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/20458215/">PMID: 20458215</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a> (Weight loss)</td>
+</tr>
+<tr>
+<td>Cough, dyspnea, hemoptysis, chest pain</td>
+<td>Symptom</td>
+<td>Pulmonary form (<a href="https://pubmed.ncbi.nlm.nih.gov/42007821/">PMID: 42007821</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a>, <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a>, <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" rel="noopener noreferrer">HP:0002105</a></td>
+</tr>
+<tr>
+<td>Trismus, neck/jaw swelling</td>
+<td>Clinical sign</td>
+<td>Cervicofacial (<a href="https://pubmed.ncbi.nlm.nih.gov/41871568/">PMID: 41871568</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000211" target="_blank" rel="noopener noreferrer">HP:0000211</a> (Trismus)</td>
+</tr>
+<tr>
+<td>Osteomyelitis (mandible, phalanx, fibula)</td>
+<td>Physical manifestation</td>
+<td>Bone involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/41871568/">PMID: 41871568</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">PMID: 41691170</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" rel="noopener noreferrer">HP:0002754</a> (Osteomyelitis)</td>
+</tr>
+<tr>
+<td>Abdominal/pelvic mass, pain</td>
+<td>Symptom/sign</td>
+<td>Abdominopelvic form (<a href="https://pubmed.ncbi.nlm.nih.gov/42287450/">PMID: 42287450</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004396" target="_blank" rel="noopener noreferrer">HP:0004396</a>, <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a></td>
+</tr>
+<tr>
+<td>Pericardial effusion / constriction</td>
+<td>Clinical sign</td>
+<td>Rare thoracic/cardiac (<a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank" rel="noopener noreferrer">HP:0001698</a> (Pericardial effusion)</td>
+</tr>
+<tr>
+<td>Elevated inflammatory markers</td>
+<td>Lab abnormality</td>
+<td>Variable (<a href="https://pubmed.ncbi.nlm.nih.gov/41871568/">PMID: 41871568</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011897" target="_blank" rel="noopener noreferrer">HP:0011897</a> (Neutrophilia)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics:</strong> Onset is typically <strong>adult</strong> (mean ~44 y in CNS series). Course is <strong>chronic, indolent, progressive</strong> if untreated, punctuated by episodic abscess/sinus formation. Severity is <strong>variable</strong> — from an indolent local mass to fatal disseminated/CNS disease. <strong>Quality of life</strong> is impaired mainly by diagnostic delay, disfiguring surgery, and prolonged antibiotic courses; CNS disease leaves neurological sequelae in ~22% (<a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">PMID: 37269006</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Not applicable to the human host.</strong> Actinomycosis has <strong>no causal human genes, no pathogenic germline/somatic variants, no modifier genes, no chromosomal abnormalities, and no established disease-associated epigenetic changes.</strong> It is an acquired bacterial infection, not a heritable disorder. The relevant "genetics" are microbial: bacterial adhesin/pilus genes (e.g., sortase-dependent pilus loci in <em>Actinomyces oris</em>; <em>fim</em> fimbrial genes) that mediate coaggregation and biofilm formation (<a href="https://pubmed.ncbi.nlm.nih.gov/31929180/">PMID: 31929180</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/9524453/">PMID: 9524453</a>), and virulence factors of companion organisms such as <em>A. actinomycetemcomitans</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10522226/">PMID: 10522226</a>).</p>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental factors:</strong> Foreign bodies are central — the IUD is the paradigmatic example (<a href="https://pubmed.ncbi.nlm.nih.gov/3526779/">PMID: 3526779</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/6481117/">PMID: 6481117</a>); retained gallstones after laparoscopic cholecystectomy have caused intraperitoneal actinomycosis (<a href="https://pubmed.ncbi.nlm.nih.gov/19886052/">PMID: 19886052</a>); prior surgery/implants predispose to soft-tissue disease (<a href="https://pubmed.ncbi.nlm.nih.gov/42717451/">PMID: 42717451</a>).</li>
+<li><strong>Lifestyle factors:</strong> Smoking and poor dental hygiene (pulmonary form); alcohol; dental neglect (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>).</li>
+<li><strong>Infectious agents (NCBI Taxonomy):</strong> <em>Actinomyces israelii</em> (txid1659), <em>A. meyeri</em>, <em>A. odontolyticus</em>, <em>A. naeslundii</em>, <em>A. viscosus</em>, <em>A. gerencseriae</em>; reclassified species now include <em>Schaalia turicensis</em> (formerly <em>A. turicensis</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>) and <em>Actinomyces radingae</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">PMID: 41691170</a>). Genus <em>Actinomyces</em> = NCBI txid1654. Companion organisms include <em>Aggregatibacter actinomycetemcomitans</em>, <em>Streptococcus oralis</em>, <em>Finegoldia magna</em>, and <em>Staphylococcus</em> spp.</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<pre><code>1. Actinomyces spp. colonize the oral/GI/genital mucosa as harmless commensals
+│  (established; PMID 25045274)
+▼
+2. A mucosal barrier breach (dental disease/procedure, aspiration, IUD, trauma,
+   surgery) LEADS TO translocation of the organism into normally sterile deep tissue
+│  (established; PMID 24905109)
+▼
+3. In tissue, Actinomyces coaggregates with companion bacteria via fimbrial/
+   sortase-dependent pilus adhesins, RESULTING IN a polymicrobial biofilm
+│  (established in oral plaque model; PMID 31929180, 9524453)
+▼
+4. Companion organisms breach the epithelial cell barrier, FACILITATING deeper
+   tissue penetration and synergistic invasion
+│  (demonstrated for A. actinomycetemcomitans; PMID 10522226 — inferred to
+│   generalize to actinomycosis biofilms)
+▼
+5. The biofilm macroscopically forms &quot;sulfur granules&quot;; the organism is phagocytosed
+   but NOT killed (facultative intracellular survival), RESULTING IN persistence
+│  (established; PMID 2228706)
+▼
+6. Persistent antigen elicits a chronic granulomatous/suppurative host response with
+   antigen–antibody–fibrin deposition → the Splendore–Hoeppli phenomenon
+│  (established; PMID 18976399, 38077408)
+▼
+7. Chronic inflammation LEADS TO abscess formation, dense fibrosis, and sinus tracts
+   that cross anatomical tissue planes
+│  (established; PMID 6481117, 25045274)
+▼
+8. The infiltrative fibro-inflammatory mass MANIFESTS clinically as a chronic,
+   cancer-mimicking lesion at the affected site
+   │
+   ├──► localized disease → curable with prolonged penicillin (&gt;90% favorable)
+   └──► hematogenous/contiguous spread → disseminated/CNS disease (~11% fatal)
+      (PMID 41712794; PMID 37269006; PMID 38077408)
+</code></pre>
+<p><strong>Molecular pathways / cellular processes.</strong> The dominant biology is <strong>bacterial biofilm formation</strong> (<a href="http://purl.obolibrary.org/obo/GO_0042710" target="_blank" rel="noopener noreferrer">GO:0042710</a>) via <strong>cell–cell adhesion</strong> (<a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" rel="noopener noreferrer">GO:0098609</a>) and sortase-mediated pilus assembly, plus a host <strong>granulomatous inflammatory response</strong> (<a href="http://purl.obolibrary.org/obo/GO_0002532" target="_blank" rel="noopener noreferrer">GO:0002532</a>) and <strong>defense response to bacterium</strong> (<a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a>). There is no canonical human oncogenic/degenerative signaling cascade (Wnt, MAPK, mTOR) involved — this is an infectious/inflammatory, not a signaling, disease.</p>
+<p><strong>Immune involvement.</strong> Neutrophilic suppuration surrounds granules; macrophages phagocytose but fail to kill the organism (facultative intracellular parasitism, <a href="https://pubmed.ncbi.nlm.nih.gov/2228706/">PMID: 2228706</a>); a humoral response contributes antigen–antibody complexes to Splendore–Hoeppli material (<a href="https://pubmed.ncbi.nlm.nih.gov/18976399/">PMID: 18976399</a>). Cell types: <strong>neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>)</strong>, <strong>macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>)</strong>, <strong>plasma cells (<a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a>)</strong>, <strong>fibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>)</strong>, and mucosal <strong>epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" rel="noopener noreferrer">CL:0000066</a>)</strong> at the breach site.</p>
+<p><strong>Tissue damage mechanisms.</strong> Chronic suppuration, necrosis, and reactive fibrosis; extension across tissue planes rather than respecting fascial boundaries. <strong>Metabolic/biochemical:</strong> <em>Actinomyces</em> is a fermentative anaerobe; disease favors low-oxygen (devitalized/necrotic) tissue niches. No specific enzyme deficiency or metabolomic signature is established for this infection.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Cervicofacial (~50% historically):</strong> mandible (<a href="http://purl.obolibrary.org/obo/UBERON_0001684" target="_blank" rel="noopener noreferrer">UBERON:0001684</a>), maxilla, paranasal sinuses (<a href="http://purl.obolibrary.org/obo/UBERON_0001825" target="_blank" rel="noopener noreferrer">UBERON:0001825</a>), neck soft tissue; can cause mandibular osteomyelitis (<a href="https://pubmed.ncbi.nlm.nih.gov/41871568/">PMID: 41871568</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25301047/">PMID: 25301047</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23008010/">PMID: 23008010</a>).</li>
+<li><strong>Thoracic/pulmonary:</strong> lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), pleura, chest wall, pericardium (<a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" rel="noopener noreferrer">UBERON:0002407</a>) and myocardium (<a href="https://pubmed.ncbi.nlm.nih.gov/42007821/">PMID: 42007821</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/20458215/">PMID: 20458215</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>).</li>
+<li><strong>Abdominopelvic:</strong> ileocecal region/colon (<a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" rel="noopener noreferrer">UBERON:0001155</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), abdominal wall, uterus/fallopian tubes/ovaries (<a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" rel="noopener noreferrer">UBERON:0000995</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0000992" target="_blank" rel="noopener noreferrer">UBERON:0000992</a>), peritoneum (<a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">PMID: 24905109</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42501997/">PMID: 42501997</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/6481117/">PMID: 6481117</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42287450/">PMID: 42287450</a>).</li>
+<li><strong>CNS:</strong> brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>) — brain abscess in 55%, leptomeninges (<a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>) (<a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">PMID: 37269006</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30572823/">PMID: 30572823</a>).</li>
+<li><strong>Bone/soft tissue extremities:</strong> phalanges, fibula (<a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">PMID: 41691170</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>).</li>
+</ul>
+<p><strong>Tissue/cell level:</strong> primarily mucosal epithelium (breach site) and connective tissue/bone at the infection focus; the lesion is a mixed inflammatory infiltrate. <strong>Subcellular:</strong> the phagosome/phagolysosome of host macrophages is relevant (survival within phagocytes; <a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a> phagocytic vesicle). <strong>Lateralization:</strong> typically unilateral/focal at the site of breach; disseminated disease is multifocal.</p>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Predominantly <strong>adult</strong> (mean ~44 y in CNS series; ~55 y in transplant series). Onset is <strong>insidious/chronic</strong>, over weeks to months.</li>
+<li><strong>Progression:</strong> Slow and <strong>progressive</strong> if untreated. Diagnostic delay averages ~110 days (range 30–540) (<a href="https://pubmed.ncbi.nlm.nih.gov/41712794/">PMID: 41712794</a>); the interval from transplant to infection reached a median of 104 months (<a href="https://pubmed.ncbi.nlm.nih.gov/30055044/">PMID: 30055044</a>). Disease crosses tissue planes rather than following formal staging; there is no cancer-style staging system.</li>
+<li><strong>Duration/remission:</strong> With appropriate antibiotics ± surgery, the disease is curable, though relapse is described (hence the long treatment course). Remission is <strong>treatment-induced</strong>; untreated disease does not spontaneously resolve. Recurrence propensity is noted for reclassified species (<em>S. turicensis</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>).</li>
+<li><strong>Critical periods:</strong> Early recognition (before CNS/disseminated spread) is the key window; failure to recognize the disease early "may result in drastic complications" (<a href="https://pubmed.ncbi.nlm.nih.gov/20458215/">PMID: 20458215</a>).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> Rare. Historically cited incidence ~1 per 300,000/year in the pre-antibiotic era, now lower. Prevalence among renal transplant recipients was 0.02% (<a href="https://pubmed.ncbi.nlm.nih.gov/30055044/">PMID: 30055044</a>). Among IUD users, cervical <em>Actinomyces</em>-like organism prevalence is 2–22.6% depending on device and duration (<a href="https://pubmed.ncbi.nlm.nih.gov/3526779/">PMID: 3526779</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">PMID: 6529911</a>). In wild cervids, focal granulomatous lymphadenitis occurs in 0.3–1.3% (<a href="https://pubmed.ncbi.nlm.nih.gov/19617472/">PMID: 19617472</a>).</li>
+<li><strong>Inheritance:</strong> <strong>Not heritable</strong> — no inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity role, or carrier frequency applies.</li>
+<li><strong>Demographics:</strong> Male predominance in some series (57% male in CNS, <a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">PMID: 37269006</a>; overall M:F historically ~3:1 for cervicofacial/thoracic), but pelvic disease is essentially exclusive to women (IUD-related). Geographic distribution is worldwide with no strong endemicity; regional shifts track IUD introduction (e.g., post-1990 rise in Romania, <a href="https://pubmed.ncbi.nlm.nih.gov/19886052/">PMID: 19886052</a>).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Histopathology (cornerstone):</strong> sulfur granules with radiating filaments surrounded by Splendore–Hoeppli material within suppurative/granulomatous inflammation and reactive fibrosis; Gram-positive, non-acid-fast filaments (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42717451/">PMID: 42717451</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23008010/">PMID: 23008010</a>). Grocott/PAS stains highlight filaments (<a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>).</li>
+<li><strong>Microbiology:</strong> prolonged anaerobic culture (gold standard but high false-negative rate) (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">PMID: 24905109</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28684963/">PMID: 28684963</a>).</li>
+<li><strong>Molecular:</strong> 16S rRNA gene PCR/sequencing (<a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30572823/">PMID: 30572823</a>) and metagenomic next-generation sequencing (mNGS) — increasingly decisive for indolent/reclassified species (<a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">PMID: 41691170</a>).</li>
+<li><strong>Cytology (Pap smear):</strong> actinomyces-like organisms on cervical smear signal IUD-associated colonization — but beware "pseudoactinomyces" mimics that can cause false alarm (<a href="https://pubmed.ncbi.nlm.nih.gov/21323418/">PMID: 21323418</a>).</li>
+<li><strong>Imaging:</strong> CT/MRI/FDG-PET typically show an infiltrative, hypermetabolic mass — helpful for extent but <strong>cannot distinguish from malignancy</strong>, often prompting biopsy/surgery (<a href="https://pubmed.ncbi.nlm.nih.gov/42007821/">PMID: 42007821</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>).</li>
+<li><strong>Genetic/omics diagnostics:</strong> Not applicable (no host genetic test). No newborn/carrier screening.</li>
+<li><strong>Differential diagnosis:</strong> malignancy (carcinoma, sarcoma, lymphoma), tuberculosis and other granulomatous infections, nocardiosis, Crohn's disease, fungal disease. Nocardiosis is a key mimic distinguished by acid-fastness and aerobic growth (<a href="https://pubmed.ncbi.nlm.nih.gov/42007821/">PMID: 42007821</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">PMID: 24905109</a>).</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Localized disease: excellent.</strong> Favorable outcome in 16/17 (94%) (<a href="https://pubmed.ncbi.nlm.nih.gov/41712794/">PMID: 41712794</a>); 6/7 transplant patients fully recovered (<a href="https://pubmed.ncbi.nlm.nih.gov/30055044/">PMID: 30055044</a>). Low antimicrobial resistance supports high cure rates (<a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">PMID: 24905109</a>).</li>
+<li><strong>CNS/disseminated disease: worse.</strong> Case-fatality ~11%, neurological sequelae ~22%; combined surgery + antibiotics improves survival (adjusted OR 0.14) (<a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">PMID: 37269006</a>). Fatal hepatic/pericardial and pulmonary/CNS cases are documented (<a href="https://pubmed.ncbi.nlm.nih.gov/33346982/">PMID: 33346982</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19581170/">PMID: 19581170</a>).</li>
+<li><strong>Prognostic factors:</strong> anatomical site (CNS worst), extent (disseminated ~19.5% in CNS series), timeliness of diagnosis, and completeness of surgical resection. Adjunctive corticosteroids helped in constrictive pericardial disease (<a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>).</li>
+<li><strong>Complications:</strong> sinus tracts, fistulae (e.g., to colon/small bowel), osteomyelitis, constrictive pericarditis, brain abscess, sepsis/multiorgan failure.</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy (first line):</strong> high-dose penicillin G (IV) followed by oral amoxicillin/penicillin V, for <strong>6–12 months</strong>, shortenable to ~3 months after complete surgical resection (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>). NCIT: Penicillin G (C61785), Amoxicillin (C287). Alternatives for penicillin allergy: doxycycline, clindamycin, macrolides, ceftriaxone; carbapenems (ertapenem, meropenem) used in polymicrobial/resistant contexts (<a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">PMID: 41691170</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41871568/">PMID: 41871568</a>); clindamycin used for <em>S. turicensis</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>).</li>
+<li><strong>Surgical/interventional:</strong> drainage/resection of abscesses, debridement of necrotic bone, excision of infiltrative masses; ~43% of transplant cases required surgery (<a href="https://pubmed.ncbi.nlm.nih.gov/30055044/">PMID: 30055044</a>). Surgery is both diagnostic and therapeutic and shortens antibiotic duration.</li>
+<li><strong>Foreign-body removal:</strong> IUD removal is therapeutic and preventive for pelvic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">PMID: 6529911</a>).</li>
+<li><strong>Adjunctive:</strong> corticosteroids in selected inflammatory complications (constrictive pericarditis) (<a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">PMID: 38077408</a>).</li>
+<li><strong>Advanced/experimental therapeutics:</strong> Not applicable — no gene, cell, RNA, targeted, or immunotherapy is used; this is a classically antibiotic-responsive infection. No pharmacogenomic considerations are established.</li>
+<li><strong>Adverse events:</strong> vancomycin nephrotoxicity noted when broad empiric regimens are used before diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/41871568/">PMID: 41871568</a>).</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary:</strong> good oral/dental hygiene; smoking cessation; careful management of intra-oral and abdominal foreign bodies; avoiding retained surgical material (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19886052/">PMID: 19886052</a>).</li>
+<li><strong>IUD management:</strong> timely device exchange; preference for copper over inert devices (lower ALO prevalence); removal clears asymptomatic colonization in 100% within 6–12 months without antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">PMID: 6529911</a>).</li>
+<li><strong>Secondary:</strong> cervical Pap-smear surveillance for ALO in IUD users, with awareness of pseudoactinomyces to avoid unnecessary device removal (<a href="https://pubmed.ncbi.nlm.nih.gov/21323418/">PMID: 21323418</a>); early biopsy of mass lesions to shorten diagnostic delay.</li>
+<li><strong>Tertiary:</strong> complete surgical resection plus prolonged antibiotics to prevent relapse and complications.</li>
+<li><strong>Immunization / genetic counseling / public health vector control:</strong> Not applicable — no vaccine, no heritable risk, no vector.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy of affected hosts:</strong> <em>Homo sapiens</em> (txid9606); cattle <em>Bos taurus</em> (txid9913, "lumpy jaw"); white-tailed deer <em>Odocoileus virginianus</em> and other wild cervids (<a href="https://pubmed.ncbi.nlm.nih.gov/2228706/">PMID: 2228706</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19617472/">PMID: 19617472</a>).</li>
+<li><strong>Natural disease / veterinary relevance:</strong> Bovine actinomycosis (mandibular "lumpy jaw," typically <em>A. bovis</em>) is a classic veterinary disease of economic importance; granulomatous lymphadenitis with Splendore–Hoeppli material occurs in wild cervids (93% of affected nodes) (<a href="https://pubmed.ncbi.nlm.nih.gov/19617472/">PMID: 19617472</a>).</li>
+<li><strong>Comparative pathology:</strong> the Splendore–Hoeppli phenomenon and sulfur-granule biofilm architecture are conserved across host species, indicating a <strong>conserved host–pathogen interaction</strong> rather than a species-specific mechanism.</li>
+<li><strong>Transmission / zoonosis:</strong> <strong>Not zoonotic</strong> — no animal-to-human or human-to-human transmission; each host acquires disease from its own endogenous commensal flora after a barrier breach.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Dedicated genetic disease models:</strong> None — because there is no host genetic defect, there are no knockout/knock-in/transgenic disease models (no MGI/RGD/ZFIN disease-model entries).</li>
+<li><strong>Relevant experimental systems:</strong> In vitro <strong>biofilm/coaggregation models</strong> of <em>Actinomyces oris</em> with <em>Streptococcus oralis</em> recapitulate the adhesin/pilus-mediated plaque-seeding step (<a href="https://pubmed.ncbi.nlm.nih.gov/31929180/">PMID: 31929180</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/9524453/">PMID: 9524453</a>); epithelial-barrier invasion models with <em>A. actinomycetemcomitans</em> model deep-tissue penetration (<a href="https://pubmed.ncbi.nlm.nih.gov/10522226/">PMID: 10522226</a>). Natural animal disease (cattle, cervids) serves as a comparative model of the granulomatous host response (<a href="https://pubmed.ncbi.nlm.nih.gov/19617472/">PMID: 19617472</a>).</li>
+<li><strong>Limitations:</strong> These in vitro systems model early colonization/biofilm and barrier crossing but do not reproduce the full chronic granulomatous mass, Splendore–Hoeppli reaction, or clinical mimicry of malignancy.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Actinomycosis is best understood as a <strong>breach-plus-biofilm</strong> disease. A single unifying model accounts for every clinical form:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Category</th>
+<th>Evidence (PMID)</th>
+<th>Certainty</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Commensal colonization</td>
+<td>Infectious agent</td>
+<td>25045274</td>
+<td>Established</td>
+</tr>
+<tr>
+<td>Mucosal breach (dental/IUD/aspiration/surgery/trauma)</td>
+<td>Environmental trigger</td>
+<td>24905109; 3526779</td>
+<td>Established</td>
+</tr>
+<tr>
+<td>Adhesin/pilus coaggregation → polymicrobial biofilm</td>
+<td>Molecular/cellular</td>
+<td>31929180; 9524453</td>
+<td>Established (oral model)</td>
+</tr>
+<tr>
+<td>Companion-organism epithelial penetration</td>
+<td>Cellular process</td>
+<td>10522226</td>
+<td>Demonstrated for companion; inferred for actinomycosis</td>
+</tr>
+<tr>
+<td>Phagocytosis without killing (facultative intracellular survival)</td>
+<td>Immune evasion</td>
+<td>2228706</td>
+<td>Established</td>
+</tr>
+<tr>
+<td>Splendore–Hoeppli granulomatous response</td>
+<td>Immune/tissue</td>
+<td>18976399; 38077408</td>
+<td>Established</td>
+</tr>
+<tr>
+<td>Abscess, fibrosis, tissue-plane-crossing sinus tracts</td>
+<td>Tissue damage</td>
+<td>6481117; 25045274</td>
+<td>Established</td>
+</tr>
+<tr>
+<td>Cancer-mimicking mass → localized (curable) vs disseminated/CNS (~11% fatal)</td>
+<td>Clinical outcome</td>
+<td>41712794; 37269006</td>
+<td>Established</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The model explains the disease's paradoxes: it is caused by a harmless bug (so it is not "caught"), yet is aggressive locally (biofilm + immune evasion); it is highly antibiotic-sensitive (so cure rates exceed 90%), yet frequently misdiagnosed and delayed (so it still kills, especially in the CNS). The two therapeutic levers — <strong>antibiotics</strong> (kill the persistent biofilm organisms) and <strong>surgery/foreign-body removal</strong> (debulk the biofilm and remove the nidus) — act directly on the two mechanistic pillars.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">25045274</a></td>
+<td><em>Actinomycosis: etiology, clinical features, diagnosis, treatment, and management</em></td>
+<td>Anchor review: etiology, three forms, diagnosis, treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24905109/">24905109</a></td>
+<td><em>Abdominal actinomycosis: differential to colon carcinoma / Crohn's</em></td>
+<td>Mucosal-breach requirement; culture false-negatives</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41712794/">41712794</a></td>
+<td>Retrospective series of 17</td>
+<td>Diagnostic delay (110 d); 94% favorable outcome</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">37269006</a></td>
+<td><em>CNS actinomycosis systematic review</em> (n=118)</td>
+<td>11% fatality; surgery+antibiotics OR 0.14</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30055044/">30055044</a></td>
+<td>Actinomycosis in renal transplant recipients</td>
+<td>Prevalence 0.02%; amoxicillin outcomes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/2228706/">2228706</a></td>
+<td><em>Cervicofacial actinomycosis in children</em></td>
+<td>Facultative intracellular parasite; cattle comparative</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18976399/">18976399</a></td>
+<td><em>Mucocutaneous Splendore–Hoeppli phenomenon</em></td>
+<td>Immune-response histology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38077408/">38077408</a></td>
+<td>Cardiac/pericardial actinomycosis</td>
+<td>16S confirmation; Splendore–Hoeppli; steroids adjunct</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/3526779/">3526779</a></td>
+<td>Actinomyces in cervical smears of IUD users</td>
+<td>6.99% ALO prevalence; duration effect</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">6529911</a></td>
+<td>IUD removal and cervical colonization</td>
+<td>Reversibility (100%); inert&gt;copper risk</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28684963/">28684963</a></td>
+<td><em>Pelvic Actinomycosis</em> systematic review</td>
+<td>IUD dominance; histology-after-surgery route</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19617472/">19617472</a></td>
+<td>Granulomatous lymphadenitis in wild cervids</td>
+<td>Natural animal disease; 93% Splendore–Hoeppli</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31929180/">31929180</a></td>
+<td><em>S. oralis PitA pilus</em></td>
+<td>Adhesin/pilus biofilm seeding with <em>A. oris</em></td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10522226/">10522226</a></td>
+<td>Virulence factors of <em>A. actinomycetemcomitans</em></td>
+<td>Epithelial-barrier breaching by companion organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9524453/">9524453</a></td>
+<td>Inhibitors of bacterial adhesion</td>
+<td>Actinomyces adhesins evade host inhibitors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42717451/">42717451</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42007821/">42007821</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42501997/">42501997</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42287450/">42287450</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41871568/">41871568</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25301047/">25301047</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23008010/">23008010</a></td>
+<td>Case series (multi-site)</td>
+<td>Tumor mimicry across anatomy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">42604646</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41691170/">41691170</a></td>
+<td><em>S. turicensis</em> / <em>A. radingae</em> osteomyelitis</td>
+<td>mNGS diagnosis; reclassified species; polymicrobial</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33346982/">33346982</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/20458215/">20458215</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/19581170/">19581170</a></td>
+<td>Fatal hepatic/pulmonary/CNS cases</td>
+<td>Severe-end outcomes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21323418/">21323418</a></td>
+<td>Pseudoactinomyces in cervical mucus</td>
+<td>Diagnostic pitfall</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6481117/">6481117</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/19886052/">19886052</a></td>
+<td>Abdominal actinomycosis in IUD users</td>
+<td>Fistulae; foreign-body nidus; epidemiologic shift</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Concordance:</strong> The literature is highly internally consistent. No paper in the reviewed set contradicts the breach-plus-biofilm model; disagreements are limited to relative frequencies, which vary by referral pattern and era.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Evidence quality.</strong> The base is dominated by case reports, retrospective series, and systematic reviews of case-level data. There are <strong>no randomized controlled trials</strong> of antibiotic duration or the surgery-vs-medical-alone question; treatment durations (6–12 months) are consensus-based, not trial-proven.</li>
+<li><strong>Incidence uncertainty.</strong> True population incidence/prevalence is poorly quantified because the disease is rare, underdiagnosed, and often reclassified microbiologically (species renaming to <em>Schaalia</em>, <em>Winkia</em>, etc.).</li>
+<li><strong>Mechanistic inference.</strong> The epithelial-barrier-breach step is directly demonstrated for the companion organism <em>A. actinomycetemcomitans</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10522226/">PMID: 10522226</a>) and <strong>inferred</strong> to generalize to <em>Actinomyces</em> biofilms in vivo; there is no direct in-vivo human demonstration of the invasion sequence.</li>
+<li><strong>Host-response detail.</strong> Why some hosts contain the organism and others develop invasive disease is not molecularly resolved; there is no validated host biomarker or genetic susceptibility signal.</li>
+<li><strong>Omics void.</strong> There are no transcriptomic, proteomic, or metabolomic signatures of human actinomycosis in the reviewed literature — an omics-based diagnostic/prognostic gap.</li>
+<li><strong>Model organisms.</strong> No genetic animal model exists (appropriately, as the disease is non-genetic), which limits controlled mechanistic dissection to in-vitro biofilm systems and opportunistic natural animal disease.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective diagnostic-yield study of mNGS vs culture vs histology</strong> across anatomical sites, to formalize the emerging role of metagenomic sequencing and reduce the ~110-day diagnostic delay (<a href="https://pubmed.ncbi.nlm.nih.gov/41712794/">PMID: 41712794</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42604646/">PMID: 42604646</a>).</li>
+<li><strong>Registry-based comparative-effectiveness analysis</strong> of antibiotic duration (3 vs 6 vs 12 months) stratified by completeness of surgical resection, to test the "shortenable to 3 months after resection" hypothesis (<a href="https://pubmed.ncbi.nlm.nih.gov/25045274/">PMID: 25045274</a>).</li>
+<li><strong>In-vivo biofilm invasion model</strong> (organoid or animal) to directly test the inferred companion-organism epithelial-breach step and quantify <em>Actinomyces</em>–partner synergy (<a href="https://pubmed.ncbi.nlm.nih.gov/10522226/">PMID: 10522226</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31929180/">PMID: 31929180</a>).</li>
+<li><strong>Host-response profiling</strong> (transcriptomic/proteomic on sulfur-granule tissue) to identify why phagocytes fail to kill the organism and to seek adjunctive immunomodulatory targets (<a href="https://pubmed.ncbi.nlm.nih.gov/2228706/">PMID: 2228706</a>).</li>
+<li><strong>CNS actinomycosis prospective cohort</strong> to validate the surgery+antibiotics survival benefit (adjusted OR 0.14) and define optimal timing (<a href="https://pubmed.ncbi.nlm.nih.gov/37269006/">PMID: 37269006</a>).</li>
+<li><strong>IUD device-material trial / surveillance</strong> confirming lower colonization with modern copper/hormonal devices and defining optimal exchange intervals (<a href="https://pubmed.ncbi.nlm.nih.gov/6529911/">PMID: 6529911</a>).</li>
+</ol>
+<hr />
+<p><em>Report generated by autonomous scientific discovery agent. Evidence attributed only to abstracts/citation snippets confirmed during investigation. Ontology suggestions (HPO/GO/CL/UBERON/NCIT/MONDO/NCBI Taxon) are provided as curation aids and should be verified against current ontology releases.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Actinomycosis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Actinomycosis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>31</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0001580</code> (2 mentions) - the report calls it "actinomycosis"; MONDO calls it <strong>lacrimal duct cancer</strong></li>
+<li><code>HP:0100279</code> (1 mention) - the report calls it "Fistula"; HP calls it <strong>Ulcerative colitis</strong></li>
+<li><code>UBERON:0002048</code> (1 mention) - the report calls it "Thoracic/pulmonary:<strong> lung"; UBERON calls it </strong>lung**</li>
+<li><code>UBERON:0001155</code> (1 mention) - the report calls it "Abdominopelvic:<strong> ileocecal region/colon"; UBERON calls it </strong>colon**</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0002664</code> (1 mention) - the report calls it "Neoplasm — mimic"; HP calls it <strong>Neoplasm</strong></li>
+<li><code>HP:0011897</code> (1 mention) - the report calls it "Neutrophilia"; HP calls it <strong>Increased total neutrophil count</strong>, and lists "Neutrophilia" among its other names</li>
+<li><code>GO:0042710</code> (1 mention) - the report calls it "bacterial biofilm formation"; GO calls it <strong>biofilm formation</strong></li>
+<li><code>GO:0002532</code> (1 mention) - the report calls it "granulomatous inflammatory response"; GO calls it <strong>production of molecular mediator involved in inflammatory response</strong></li>
+<li><code>UBERON:0000955</code> (1 mention) - the report calls it "CNS:<strong> brain"; UBERON calls it </strong>brain**</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="ACTH-independent_Macronodular_Adrenal_Hyperplasia_3-openscientist.html">← ACTH-Independent Macronodular Adrenal Hyperplasia 3 (OpenScientist)</a>
+                
+                
+                <a href="Action_Myoclonus-Renal_Failure_Syndrome-openscientist.html">Action Myoclonus-Renal Failure Syndrome (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Actinomycosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Actinomycosis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
