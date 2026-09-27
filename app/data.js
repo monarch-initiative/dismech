@@ -20660,6 +20660,7 @@ window.searchData = [
       "Amyloid Plaque Formation",
       "Neurofibrillary Tangle Formation",
       "Synaptic Dysfunction",
+      "Cortical Structural Connectivity Degeneration",
       "Neuroinflammation",
       "Oxidative Stress",
       "Mitochondrial Quality-Control Failure",
@@ -20826,11 +20827,11 @@ window.searchData = [
     "source_file": "Alzheimer_Disease.yaml",
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 23,
+    "num_pathophysiology": 24,
     "num_genes": 9,
     "num_treatments": 7,
-    "causal_graph_edges": "57",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "61",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Amatoxin Poisoning",
@@ -29277,7 +29278,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 12,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "50",
     "causal_graph_longest_path": "5"
   },
   {
@@ -79057,7 +79058,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
   },
   {
@@ -94748,6 +94749,83 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Craniofacial Anomalies and Anterior Segment Dysgenesis Syndrome",
+    "disease_id": "MONDO:0013618",
+    "category": "Mendelian",
+    "parents": [
+      "Anterior segment dysgenesis",
+      "Hereditary disease"
+    ],
+    "creation_date": "2026-09-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CAASDS (OMIM 614195) rests on a single publication: one three-generation African American family, four affected members, reported in 2004. A PubMed search on 2026-09-08 for the syndrome name, and for VSX1 with craniofacial or anterior segment terms, returned no second family in the twenty-two years since. This entry is therefore as much about the limits of the evidence as about the disease, and it is written that way rather than presenting a four-person phenotype as an established entity.\nWhat the family shows is consistent. Craniofacial features - wide interpupillary distance and unusual pinnae - were present in all four affected members, and anterior segment anomalies of the corneal endothelium were described as a constant finding in all of them. Beyond that the expressivity is extreme: the proband had an empty sella turcica, a posterior fossa cyst, an anterior encephalocele and severe hydrocephalus, her mother had a partially empty sella with a small pituitary and hypertelorism, and her older sister had hypertelorism and otherwise normal neuroimaging. Electrophysiology found abnormal cone bipolar cell function in the affected adults and abnormal auditory bipolar cell function in the proband.\nTwo VSX1 changes segregate with the phenotype, and they sit on the same chromosome: R131S, which the authors classify as a variation outside a critical region and present in a few controls, and A256S, in the conserved CVC domain and absent from controls. Only the second is offered as the mutation. That matters, because R131S is catalogued elsewhere as a previously reported single-nucleotide polymorphism, found in a keratoconus cohort in which no VSX1 variant proved pathogenic.\nThe gene's disease associations are contested more broadly, and this entry carries that context because it bears directly on how much weight the entity can take. VSX1 was originally reported for posterior polymorphous corneal dystrophy and keratoconus; dismech already records those assignments as unconfirmed or of uncertain significance in Posterior_Polymorphous_Corneal_Dystrophy, and types VSX1 as DISPUTED in Keratoconus. A mouse carrying the equivalent of the VSX1 CVC-domain change p.P247R has no corneal defect at all, though it does have an abnormal electroretinogram, and the authors of that study conclude that VSX1 on its own does not appear to play a major causative role in corneal disease. There is no ClinGen gene-disease validity assertion for VSX1.\nThe one part of this phenotype with independent mechanistic support is the retinal electrophysiology. VSX1 is a paired-like homeodomain transcriptional repressor expressed in retinal bipolar cells; it regulates terminal differentiation of type 7 ON bipolar cells in mouse, and abnormal inner-retinal function on electroretinography has been reported in carriers of two other VSX1 changes in an unrelated family. The craniofacial and sellar findings have no proposed mechanism in any source read here, and none is invented.",
+    "pathophysiology": [
+      "VSX1 CVC-Domain Substitution in cis with a Coding Variant",
+      "Impaired VSX1 Transcriptional Repression",
+      "Retinal and Auditory Bipolar Cell Dysfunction",
+      "Corneal Endothelial Dysgenesis",
+      "Midline Craniofacial and Sellar Maldevelopment"
+    ],
+    "cell_types": [
+      "retinal bipolar neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000748"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Hypertelorism",
+      "Abnormal Pinna Morphology",
+      "Abnormal Corneal Endothelium Morphology",
+      "Empty Sella Turcica",
+      "Hydrocephalus",
+      "Abnormal Electroretinogram",
+      "Abnormal Auditory Evoked Potentials"
+    ],
+    "phenotype_categories": [
+      "Head and Neck",
+      "Eye",
+      "Nervous System",
+      "Ear"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000316",
+      "HP:0000377",
+      "HP:0011488",
+      "HP:6000483",
+      "HP:0000238",
+      "HP:0000512",
+      "HP:0006958"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "VSX1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Craniofacial_Anomalies_And_Anterior_Segment_Dysgenesis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Craniofacial_Anomalies_and_Anterior_Segment_Dysgenesis_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Craniofacial Microsomia",
@@ -237567,7 +237645,7 @@ window.searchData = [
     "num_pathophysiology": 16,
     "num_genes": 19,
     "num_treatments": 6,
-    "causal_graph_edges": "91",
+    "causal_graph_edges": "96",
     "causal_graph_longest_path": "5"
   },
   {
@@ -276841,7 +276919,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -338321,19 +338399,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3198,
+  "total_disorder_pages": 3199,
   "total_subtypes": 4301,
-  "total_disorders_and_subtypes": 7499,
-  "total_unique_evidence_sources": 46671,
-  "total_unique_publications": 43808,
+  "total_disorders_and_subtypes": 7500,
+  "total_unique_evidence_sources": 46690,
+  "total_unique_publications": 43827,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
-  "total_pathographs": 3193,
-  "total_unique_pathological_events": 20280,
+  "total_pathographs": 3194,
+  "total_unique_pathological_events": 20286,
   "total_modules": 179,
-  "total_research_reports": 3313,
+  "total_research_reports": 3314,
   "total_classifications": 20,
   "total_comorbidities": 47,
-  "total_groupings": 108
+  "total_groupings": 109
 };
 window.dispatchEvent(new Event('searchDataReady'));
