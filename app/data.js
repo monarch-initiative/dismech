@@ -16303,6 +16303,103 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "African Tick-Bite Fever",
+    "disease_id": "MONDO:0000227",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-25T11:07:39Z",
+    "updated_date": "2026-09-25T11:07:39Z",
+    "subtypes": [],
+    "description": "African tick-bite fever is an acute, usually self-limited spotted fever group rickettsiosis caused by the obligately intracellular bacterium Rickettsia africae. Infection follows bites from Amblyomma ticks, whose hunting habits explain the frequent multiple-eschar and case-cluster presentations. Dermal inoculation produces one or more eschars and regional lymphadenopathy, while the systemic illness is a febrile headache-myalgia syndrome with only modest endothelial inflammatory activation compared with more severe spotted fevers.",
+    "pathophysiology": [
+      "Amblyomma-Borne Rickettsia africae Inoculation",
+      "Dermal Mononuclear Phagocyte Infection",
+      "Lymphatic Dissemination to Regional Nodes",
+      "Mild Systemic Endothelial Activation",
+      "Rickettsial Ribosomal Translation (Doxycycline Target)",
+      "Intracytosolic Rickettsia africae Niche"
+    ],
+    "cell_types": [
+      "macrophage",
+      "vascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "symbiont entry into host cell",
+      "inflammatory response",
+      "Translation",
+      "response to antibiotic",
+      "biological process involved in interaction with host"
+    ],
+    "phenotypes": [
+      "Multiple Inoculation Eschars",
+      "Regional Lymphadenopathy",
+      "Fever",
+      "Headache",
+      "Myalgia",
+      "Papulovesicular Rash",
+      "Chills",
+      "Aphthous stomatitis",
+      "Myocarditis",
+      "Cellulitis"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Immune",
+      "Constitutional",
+      "Neurological",
+      "Musculoskeletal",
+      "Mucosal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:6000793",
+      "HP:0002716",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0033700",
+      "HP:0025143",
+      "HP:0032154",
+      "HP:0012819",
+      "HP:0100658"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Empiric doxycycline",
+      "Personal protection against tick bites"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "African_Tick-Bite_Fever.yaml",
+    "page_url": "../pages/disorders/African_Tick-Bite_Fever.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Age-Related Macular Degeneration",
     "disease_id": "MONDO:0005150",
     "category": "Complex",
@@ -157260,6 +157357,110 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Human Granulocytic Anaplasmosis",
+    "disease_id": "MONDO:0005118",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tick-borne disease",
+      "Anaplasmataceae infectious disease"
+    ],
+    "creation_date": "2026-09-25T09:44:24Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Human granulocytic anaplasmosis is an acute Ixodes tick-borne bacterial infection caused by the obligate intracellular bacterium Anaplasma phagocytophilum. The organism enters neutrophils, remodels host antimicrobial and survival programs with type IV secretion effectors, and produces a nonspecific febrile illness often accompanied by leukopenia, thrombocytopenia, and abnormal hepatic injury tests.",
+    "pathophysiology": [
+      "Ixodes-Borne Anaplasma Inoculation",
+      "PSGL-1-Mediated Neutrophil Entry",
+      "Anaplasma-Occupied Granulocyte Inclusion",
+      "AnkA-Driven NADPH Oxidase Silencing",
+      "Ats-1 Anti-Apoptosis and Autophagy Hijacking",
+      "Msp2(p44) Antigenic Variation",
+      "Granulocytic Anaplasma Immune Evasion",
+      "IFN-gamma-STAT1 Immunopathology",
+      "Acute Febrile Cytopenic HGA",
+      "Anaplasma Ribosomal Translation (Doxycycline Target)",
+      "Cell-Penetrant Antimicrobial Requirement"
+    ],
+    "cell_types": [
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "negative regulation of respiratory burst",
+      "negative regulation of apoptotic process",
+      "autophagosome assembly",
+      "DNA recombination",
+      "antigenic variation",
+      "IFN-gamma-mediated signaling pathway",
+      "response to IFN-gamma",
+      "translation",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Thrombocytopenia",
+      "Leukopenia",
+      "Elevated Hepatic Transaminases",
+      "Acute Respiratory Distress Syndrome",
+      "Headache",
+      "Myalgia",
+      "Chills",
+      "Malaise",
+      "Acute kidney injury",
+      "Multi-organ failure",
+      "Hemophagocytosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0001873",
+      "HP:0001882",
+      "HP:0002910",
+      "HP:0033677",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0025143",
+      "HP:0033834",
+      "HP:0001919",
+      "HP:0012156"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline",
+      "Rifampin During Pregnancy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Human_Granulocytic_Anaplasmosis.yaml",
+    "page_url": "../pages/disorders/Human_Granulocytic_Anaplasmosis.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Human Metapneumovirus Infection",
@@ -304798,7 +304999,7 @@ window.searchData = [
       "QTT",
       "NATT"
     ],
-    "description": "Spotted fever rickettsiosis is the group of acute febrile illnesses caused by the spotted fever group (SFG) of the genus Rickettsia \u2014 obligately intracytosolic, Gram-negative bacteria acquired from a feeding tick (or, for rickettsialpox, a mite). Whatever the species, the mechanism is the same: the organism is inoculated at the arthropod attachment site, disseminates haematogenously, and replicates inside microvascular endothelial cells, producing a disseminated small-vessel vasculitis with increased vascular permeability. That single lesion accounts for the group's shared clinical signature \u2014 fever, headache and myalgia, a centrifugally or centripetally spreading rash, and (in most members, though notably not in Rocky Mountain spotted fever) an inoculation eschar at the bite site \u2014 and, at the severe end, for non-cardiogenic pulmonary oedema and encephalitis. Members differ enormously in severity, from the self-limiting African tick-bite fever to the frequently fatal Rocky Mountain spotted fever, and that gradient tracks the species-specific inflammatory response the organism provokes in endothelium rather than any difference in the route of infection.\nThis root entry is deliberately thin. It carries only what is defined over the group as a whole: the SFG taxon itself and the species-versus-geography naming problem, the shared eschar/fever/rash triad and how eschar frequency varies by species, the group-level serologic cross-reactivity that makes species-level diagnosis hard, the shared doxycycline-first-line logic including its paediatric arm, and the SFG-versus-typhus-group boundary. Per-member pathophysiology, epidemiology, phenotype frequencies and treatment detail live in the individual entries \u2014 `Rocky_Mountain_Spotted_Fever.yaml` and `Boutonneuse_Fever.yaml` are curated in full \u2014 and the antimicrobial mechanism is held once in `kb/modules/bacterial_protein_synthesis_inhibition.yaml` and `kb/modules/intracellular_pathogen_persistence.yaml`.\n",
+    "description": "Spotted fever rickettsiosis is the group of acute febrile illnesses caused by the spotted fever group (SFG) of the genus Rickettsia \u2014 obligately intracytosolic, Gram-negative bacteria acquired from a feeding tick (or, for rickettsialpox, a mite). Whatever the species, the mechanism is the same: the organism is inoculated at the arthropod attachment site, disseminates haematogenously, and replicates inside microvascular endothelial cells, producing a disseminated small-vessel vasculitis with increased vascular permeability. That single lesion accounts for the group's shared clinical signature \u2014 fever, headache and myalgia, a centrifugally or centripetally spreading rash, and (in most members, though notably not in Rocky Mountain spotted fever) an inoculation eschar at the bite site \u2014 and, at the severe end, for non-cardiogenic pulmonary oedema and encephalitis. Members differ enormously in severity, from the self-limiting African tick-bite fever to the frequently fatal Rocky Mountain spotted fever, and that gradient tracks the species-specific inflammatory response the organism provokes in endothelium rather than any difference in the route of infection.\nThis root entry is deliberately thin. It carries only what is defined over the group as a whole: the SFG taxon itself and the species-versus-geography naming problem, the shared eschar/fever/rash triad and how eschar frequency varies by species, the group-level serologic cross-reactivity that makes species-level diagnosis hard, the shared doxycycline-first-line logic including its paediatric arm, and the SFG-versus-typhus-group boundary. Per-member pathophysiology, epidemiology, phenotype frequencies and treatment detail live in the individual entries \u2014 `Rocky_Mountain_Spotted_Fever.yaml`, `Boutonneuse_Fever.yaml`, and `African_Tick-Bite_Fever.yaml` are curated in full \u2014 and the antimicrobial mechanism is held once in `kb/modules/bacterial_protein_synthesis_inhibition.yaml` and `kb/modules/intracellular_pathogen_persistence.yaml`.\n",
     "pathophysiology": [
       "Arthropod Inoculation of a Spotted Fever Group Rickettsia",
       "Obligate Intracytosolic Infection of Microvascular Endothelium",
@@ -336597,17 +336798,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3186,
+  "total_disorder_pages": 3188,
   "total_subtypes": 4237,
-  "total_disorders_and_subtypes": 7423,
-  "total_unique_evidence_sources": 46379,
-  "total_unique_publications": 43577,
+  "total_disorders_and_subtypes": 7425,
+  "total_unique_evidence_sources": 46399,
+  "total_unique_publications": 43597,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3181,
-  "total_unique_pathological_events": 20109,
+  "total_pathographs": 3183,
+  "total_unique_pathological_events": 20125,
   "total_modules": 179,
-  "total_research_reports": 3300,
+  "total_research_reports": 3302,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 106
