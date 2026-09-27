@@ -1,0 +1,257 @@
+# Boolean (logical) model of the cutaneous innate-immune arm of rosacea.
+#
+# THIS IS NOT A PUBLISHED MODEL. It is authored in this repository, like the
+# minimal urate-homeostasis and HPT-feedback models, and it is not wired to
+# dismech-perturb: that runner is tellurium/SBML (ODE) only and cannot execute a
+# logical network. Run it with models/rosacea_innate_boolean.py.
+#
+# Every node maps to a node in kb/disorders/Rosacea.yaml and every rule encodes
+# causal edges curated there (`provenance:` on each rule names them). The model
+# therefore adds no biology: it makes the curated chain executable, so its
+# implications - especially which interventions the chain predicts are
+# insufficient - can be derived instead of argued.
+#
+# Scope: the cutaneous innate/inflammatory arm and the vascular and
+# papulopustular phenotypes it feeds. Deliberately excluded, because they are
+# separate curated subgraphs: the ocular chain (meibomian gland dysfunction ->
+# ocular surface inflammation -> blepharitis) and the phymatous chain (sebaceous
+# gland dysfunction -> hyperplasia/fibrosis -> phymatous change).
+
+model_id: rosacea_innate_boolean
+name: Rosacea Innate-Immune Axis Boolean Model
+formalism: synchronous Boolean network
+source_entry: kb/disorders/Rosacea.yaml
+runner: models/rosacea_innate_boolean.py
+results: models/rosacea_innate_boolean.results.json
+
+# ---------------------------------------------------------------------------
+# Inputs: nodes with no curated upstream cause in the entry. They are set by a
+# scenario rather than computed, which is itself a finding - it marks where the
+# curated graph currently starts.
+# ---------------------------------------------------------------------------
+inputs:
+  UVB_exposure:
+    maps_to: environmental#Ultraviolet B radiation
+    description: Ultraviolet B exposure, curated as EXACERBATES on skin barrier dysfunction.
+  Corticosteroid_exposure:
+    maps_to: environmental#Corticosteroid treatment
+    description: Topical corticosteroid exposure, curated as EXACERBATES on skin barrier dysfunction.
+  Barrier_intrinsic:
+    maps_to: pathophysiology#Skin barrier dysfunction
+    description: >-
+      Barrier impairment not attributable to the two curated exposures. Present
+      so that barrier dysfunction is not forced to be exposure-dependent, which
+      the entry does not claim.
+  Demodex:
+    maps_to: pathophysiology#Demodex Folliculorum Proliferation
+    description: >-
+      Mite proliferation. An input because the entry curates no upstream cause
+      for it.
+  TRP_neuropeptide:
+    maps_to: pathophysiology#TRP and neuropeptide signaling
+    description: >-
+      TRP-channel and neuropeptide signaling. An input because its curated
+      upstream (heat, alcohol, capsaicin triggers) is not modeled in this entry.
+  Fibroblast_expansion:
+    maps_to: pathophysiology#Pro-inflammatory Fibroblast Expansion
+    description: >-
+      Expansion of the PTGDS-associated pro-inflammatory fibroblast population.
+      An input: no upstream cause is curated.
+  ACSL5_lipid:
+    maps_to: pathophysiology#ACSL5-Mediated Lipid Metabolism Dysregulation
+    description: >-
+      Lipid-metabolic reprogramming in erythematotelangiectatic disease. An
+      input; the node itself is PROVISIONAL.
+
+# ---------------------------------------------------------------------------
+# Interventions: inhibitory inputs. `provenance` records how each is grounded,
+# and only these three are encoded - a candidate whose mechanism is not curated
+# in the entry (for example sub-antimicrobial doxycycline acting on KLK5) is
+# deliberately absent rather than assumed.
+# ---------------------------------------------------------------------------
+interventions:
+  Acaricide:
+    inhibits: Demodex
+    provenance: curated_edge
+    detail: >-
+      treatments#Papulopustular-directed pharmacotherapy carries a curated
+      target_mechanisms link, treatment_effect INHIBITS, onto the Demodex node.
+  NLRP3_inhibitor:
+    inhibits: NLRP3
+    provenance: cited_evidence
+    detail: >-
+      Not a curated treatment in the entry. Grounded in PMID:33745908, cited on
+      the NLRP3 node, which reports that LL-37-induced rosacea-like inflammation
+      is abrogated in Nlrp3-deficient mice and reduced by the NLRP3 inhibitor
+      MCC950.
+  Brimonidine:
+    inhibits: Neurovascular_vasodilation
+    provenance: treatment_described
+    detail: >-
+      treatments#Topical brimonidine therapy is curated as reducing visible
+      vasodilatory erythema, but carries no target_mechanisms edge, so the node
+      it acts on is inferred from the treatment description.
+
+# ---------------------------------------------------------------------------
+# Rules. `and`, `or`, `not`, parentheses only. Each cites the curated edges it
+# encodes; `decision` records where Boolean logic forced a choice the curated
+# edge list does not itself make.
+# ---------------------------------------------------------------------------
+rules:
+  Skin_barrier_dysfunction:
+    rule: Barrier_intrinsic or UVB_exposure or Corticosteroid_exposure
+    maps_to: pathophysiology#Skin barrier dysfunction
+    provenance:
+      - environmental#Ultraviolet B radiation -EXACERBATES-> Skin barrier dysfunction
+      - environmental#Corticosteroid treatment -EXACERBATES-> Skin barrier dysfunction
+    decision: >-
+      OR, because either exposure is described as sufficient to worsen the
+      barrier and neither is described as necessary.
+
+  Pro_cathelicidin_transcription:
+    rule: Skin_barrier_dysfunction
+    maps_to: pathophysiology#Pro-cathelicidin transcription
+    provenance:
+      - Skin barrier dysfunction -> Pro-cathelicidin transcription (DIRECT)
+
+  TLR2_upregulation:
+    rule: Demodex
+    maps_to: pathophysiology#TLR2 upregulation
+    provenance:
+      - Demodex Folliculorum Proliferation -> TLR2 upregulation (INDIRECT_KNOWN_INTERMEDIATES)
+    decision: >-
+      Demodex is the only curated upstream of TLR2 in this entry, so in the
+      model TLR2 cannot rise without mites. That is a property of the curated
+      graph, not of the disease, and it is the main reason acaricide monotherapy
+      looks more complete here than it is clinically.
+
+  KLK5_KLK7_activation:
+    rule: TLR2_upregulation
+    maps_to: pathophysiology#KLK5/KLK7 activation
+    provenance:
+      - TLR2 upregulation -> KLK5/KLK7 activation (DIRECT)
+
+  LL37_generation:
+    rule: Pro_cathelicidin_transcription and KLK5_KLK7_activation
+    maps_to: pathophysiology#LL-37 generation
+    provenance:
+      - Pro-cathelicidin transcription -> LL-37 generation (INDIRECT_KNOWN_INTERMEDIATES)
+      - KLK5/KLK7 activation -> LL-37 generation (DIRECT)
+    decision: >-
+      AND, not OR. LL-37 is a proteolytic product, so it needs both the
+      substrate arm and the protease arm; the two curated edges are conjunctive
+      in the biology even though the edge list does not say so.
+
+  NLRP3:
+    rule: LL37_generation and not NLRP3_inhibitor
+    maps_to: pathophysiology#NLRP3 Inflammasome Activation
+    provenance:
+      - LL-37 generation -> NLRP3 Inflammasome Activation (DIRECT)
+
+  Mast_cell_amplification:
+    rule: LL37_generation
+    maps_to: pathophysiology#Mast cell-mediated amplification
+    provenance:
+      - LL-37 generation -> Mast cell-mediated amplification (DIRECT)
+
+  Angiogenic_remodeling:
+    rule: LL37_generation
+    maps_to: pathophysiology#Angiogenic vascular remodeling
+    provenance:
+      - LL-37 generation -> Angiogenic vascular remodeling (DIRECT)
+
+  Th1_Th17:
+    rule: LL37_generation
+    maps_to: pathophysiology#Th1/Th17 adaptive inflammation
+    provenance:
+      - LL-37 generation -> Th1/Th17 adaptive inflammation (INDIRECT_KNOWN_INTERMEDIATES)
+
+  STAT3_signaling:
+    rule: Skin_barrier_dysfunction
+    maps_to: pathophysiology#STAT3-mediated cytokine signaling
+    provenance:
+      - Skin barrier dysfunction -> STAT3-mediated cytokine signaling (DIRECT)
+
+  Immune_cell_infiltration:
+    rule: STAT3_signaling or ACSL5_lipid or Fibroblast_expansion
+    maps_to: pathophysiology#Immune cell infiltration
+    provenance:
+      - STAT3-mediated cytokine signaling -> Immune cell infiltration (DIRECT)
+      - ACSL5-Mediated Lipid Metabolism Dysregulation -> Immune cell infiltration (INDIRECT_KNOWN_INTERMEDIATES)
+      - Pro-inflammatory Fibroblast Expansion -> Immune cell infiltration (INDIRECT_KNOWN_INTERMEDIATES)
+    decision: OR; the three curated edges are independent contributors.
+
+  Papulopustular_inflammation:
+    rule: NLRP3 or Immune_cell_infiltration or Th1_Th17
+    maps_to: pathophysiology#Papulopustular inflammation
+    provenance:
+      - NLRP3 Inflammasome Activation -> Papulopustular inflammation (INDIRECT_KNOWN_INTERMEDIATES)
+      - Immune cell infiltration -> Papulopustular inflammation (DIRECT)
+      - Th1/Th17 adaptive inflammation -> Papulopustular inflammation (DIRECT)
+    decision: >-
+      OR, the literal reading of three separately curated edges. This is the
+      model's least safe assumption: if lesion formation in fact requires
+      several arms together, OR understates how much therapy is needed, and the
+      single-agent results below would be optimistic.
+
+  Neurovascular_vasodilation:
+    rule: (Mast_cell_amplification or Fibroblast_expansion or TRP_neuropeptide) and not Brimonidine
+    maps_to: pathophysiology#Neurovascular vasodilation
+    provenance:
+      - Mast cell-mediated amplification -> Neurovascular vasodilation (DIRECT)
+      - Pro-inflammatory Fibroblast Expansion -> Neurovascular vasodilation (DIRECT)
+      - TRP and neuropeptide signaling -> Neurovascular vasodilation (DIRECT)
+
+# ---------------------------------------------------------------------------
+# Phenotype outputs, mapped to the entry's phenotypes.
+# ---------------------------------------------------------------------------
+outputs:
+  Flushing:
+    rule: Neurovascular_vasodilation
+    maps_to: phenotypes#Flushing
+    provenance:
+      - Neurovascular vasodilation -> Flushing (DIRECT)
+  Persistent_erythema:
+    rule: Neurovascular_vasodilation or Angiogenic_remodeling
+    maps_to: phenotypes#Persistent centrofacial erythema
+    provenance:
+      - Neurovascular vasodilation -> Persistent centrofacial erythema (INDIRECT_KNOWN_INTERMEDIATES)
+      - Angiogenic vascular remodeling -> Persistent centrofacial erythema (INDIRECT_KNOWN_INTERMEDIATES)
+  Telangiectasia:
+    rule: Angiogenic_remodeling
+    maps_to: phenotypes#Facial telangiectasia
+    provenance:
+      - Angiogenic vascular remodeling -> Facial telangiectasia (DIRECT)
+  Papules:
+    rule: Papulopustular_inflammation
+    maps_to: phenotypes#Papules
+    provenance:
+      - Papulopustular inflammation -> Papules (DIRECT)
+  Pustules:
+    rule: Papulopustular_inflammation
+    maps_to: phenotypes#Pustules
+    provenance:
+      - Papulopustular inflammation -> Pustules (DIRECT)
+
+# ---------------------------------------------------------------------------
+# Scenarios. `active_inputs` lists inputs held ON; everything else is OFF.
+# ---------------------------------------------------------------------------
+scenarios:
+  healthy:
+    label: Healthy skin (no active input)
+    active_inputs: []
+  papulopustular:
+    label: Papulopustular rosacea (mites, barrier impairment, fibroblast expansion)
+    active_inputs: [Demodex, Barrier_intrinsic, Fibroblast_expansion]
+  erythematotelangiectatic:
+    label: Erythematotelangiectatic rosacea (neurovascular and lipid-metabolic, no mites)
+    active_inputs: [TRP_neuropeptide, ACSL5_lipid, Barrier_intrinsic]
+  uv_triggered:
+    label: UV-triggered flare on a mite-colonised face
+    active_inputs: [Demodex, UVB_exposure, Fibroblast_expansion]
+  steroid_induced:
+    label: Topical-corticosteroid-aggravated disease
+    active_inputs: [Demodex, Corticosteroid_exposure]
+
+# Interventions are scanned against this scenario, singly and in pairs.
+intervention_scan_scenario: papulopustular

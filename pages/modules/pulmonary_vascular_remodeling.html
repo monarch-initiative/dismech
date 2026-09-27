@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -375,6 +386,20 @@
             font-weight: 500;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         /* Ontology term pills explain themselves on hover AND on focus
            (issues #8310, #8355). The text lives in a real element rather than a
            `title` attribute so it reaches four audiences with one copy: mouse
@@ -443,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -620,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -960,6 +995,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -968,7 +1017,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1008,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1023,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1077,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1090,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1248,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1258,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1299,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1505,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1538,9 +1626,10 @@
         <header class="page-header">
             <h1>Pulmonary Vascular Remodeling Module</h1>
             <div class="header-meta">
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">pulmonary_vascular_remodeling</span>
-                <span class="badge badge-count">9 disorders</span>
+                <span class="badge badge-count">10 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1853,11 +1942,15 @@ This mechanism module involves increased right ventricular hypertrophy (GO:00033
 
         
 
+        
+
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">10</span>
             </div>
             
             <div class="crosslink-list">
@@ -2003,6 +2096,21 @@ This mechanism module involves increased right ventricular hypertrophy (GO:00033
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_1.html">Multiple Mitochondrial Dysfunctions Syndrome 1</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Pulmonary Endothelial Metabolic Dysfunction → Pulmonary Endothelial Dysfunction and Impaired BMP Signaling
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Persistent_Truncus_Arteriosus.html">Persistent Truncus Arteriosus</a>
                     
                     <span class="crosslink-desc">
@@ -2086,11 +2194,13 @@ This mechanism module involves increased right ventricular hypertrophy (GO:00033
             
             <div class="item-box anchor-target" id="module-pathophysiology-pulmonary-endothelial-dysfunction-and-impaired-bmp-signaling" data-dismech-node="Pulmonary Endothelial Dysfunction and Impaired BMP Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Endothelial Dysfunction and Impaired BMP Signaling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion is injury to and dysfunction of pulmonary arterial endothelial cells, with impaired bone morphogenetic protein (BMP) signaling (loss-of-function BMPR2 mutations in heritable PAH, acquired suppression in idiopathic and associated PAH). Dysfunctional endothelium loses its ability to produce vasodilatory mediators such as nitric oxide and prostacyclin while favoring vasoconstrictors such as endothelin-1, and undergoes hyperproliferation with early apoptosis followed by enrichment of apoptosis-resistant cells. This endothelial trigger generalizes across heritable, idiopathic, and connective-tissue-disease-associated PAH.</div>
                 
@@ -2210,6 +2320,13 @@ This pathophysiological event involves decreased nitric oxide biosynthetic proce
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_1.html">Multiple Mitochondrial Dysfunctions Syndrome 1</a>
+                            
+                            <span class="crosslink-desc">as Pulmonary Endothelial Metabolic Dysfunction</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2231,11 +2348,13 @@ This pathophysiological event involves decreased nitric oxide biosynthetic proce
             
             <div class="item-box anchor-target" id="module-pathophysiology-pulmonary-artery-smooth-muscle-cell-proliferation-and-vasoconstriction" data-dismech-node="Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Paracrine signals from the dysfunctional endothelium drive a cancer-like pro-proliferative, anti-apoptotic switch in pulmonary artery smooth muscle cells (PASMCs), together with sustained vasoconstriction. PASMCs acquire migratory capacity and resistance to apoptosis, increasing medial cellularity. This amplifying step is conserved across PAH subtypes regardless of the specific initiating endothelial injury.</div>
                 
@@ -2409,11 +2528,13 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
             
             <div class="item-box anchor-target" id="module-pathophysiology-obstructive-pulmonary-vascular-remodeling" data-dismech-node="Obstructive Pulmonary Vascular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Obstructive Pulmonary Vascular Remodeling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Sustained PASMC proliferation, neointima formation, and endothelial dysregulation remodel the pulmonary arterial wall, producing medial and adventitial hypertrophy, muscularization of previously nonmuscular peripheral arteries, and intimal and plexiform lesions that obliterate the lumen of small pulmonary arteries. This structural obstruction is the central effector of the module and is conserved across PAH subtypes.</div>
                 
@@ -2557,11 +2678,13 @@ This pathophysiological event involves dysregulated blood vessel remodeling (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-increased-pulmonary-vascular-resistance" data-dismech-node="Increased Pulmonary Vascular Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Pulmonary Vascular Resistance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Structural obstruction and sustained vasoconstriction of the small pulmonary arteries increase pulmonary vascular resistance. The combination of dynamic (vasoconstrictive) and fixed (remodeling) obstruction raises the resistance the right ventricle must pump against.</div>
                 
@@ -2615,11 +2738,13 @@ This pathophysiological event involves dysregulated blood vessel remodeling (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-pulmonary-arterial-hypertension" data-dismech-node="Pulmonary Arterial Hypertension" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Arterial Hypertension</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent consequence is a sustained elevation of pulmonary arterial pressure. The increased resistance imposes a chronic pressure overload on the right ventricle, causing right ventricular hypertrophy and, in many patients, maladaptive remodeling that progresses to right ventricular failure and premature death. This is the named clinical phenotype (HP:0002092; MONDO:0005149).</div>
                 
@@ -2703,6 +2828,9 @@ This pathophysiological event involves increased right ventricular hypertrophy, 
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">
