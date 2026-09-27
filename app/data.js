@@ -29982,7 +29982,15 @@ window.searchData = [
       "Ostium secundum",
       "Ostium primum",
       "Sinus venosus",
-      "Coronary sinus"
+      "Coronary sinus",
+      "ASD2",
+      "ASD3",
+      "ASD4",
+      "ASD5",
+      "ASD6",
+      "ASD7",
+      "ASD8",
+      "ASD9"
     ],
     "description": "Atrial septal defect is a congenital cardiovascular disorder in which a deficiency or interatrial communication permits abnormal flow between the left and right atria. The dominant physiology is usually left-to-right shunting with right-sided volume overload; untreated significant defects can lead to exercise intolerance, supraventricular arrhythmias, right ventricular dysfunction, and pulmonary arterial hypertension.",
     "pathophysiology": [
@@ -30045,7 +30053,12 @@ window.searchData = [
       "NKX2-5",
       "GATA4",
       "TBX5",
-      "MYH6"
+      "MYH6",
+      "TBX20",
+      "ACTC1",
+      "TLL1",
+      "CITED2",
+      "GATA6"
     ],
     "treatments": [
       "Conservative surveillance for a hemodynamically insignificant ASD",
@@ -30059,9 +30072,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Atrial_Septal_Defect.html",
     "num_phenotypes": 11,
     "num_pathophysiology": 4,
-    "num_genes": 4,
+    "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "4"
   },
   {
@@ -160843,9 +160856,11 @@ window.searchData = [
       "MT-TI",
       "MYL2",
       "MYL3",
+      "MYOZ2",
       "NEXN",
       "OBSCN",
       "PDLIM3",
+      "PLN",
       "RBM20",
       "RPS6KB1",
       "RYR2",
@@ -160875,9 +160890,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy.html",
     "num_phenotypes": 10,
     "num_pathophysiology": 6,
-    "num_genes": 26,
+    "num_genes": 28,
     "num_treatments": 8,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "1"
   },
   {
@@ -174474,7 +174489,10 @@ window.searchData = [
       "CBS deficiency",
       "MTHFR deficiency",
       "cblC disease",
-      "MAT I/III deficiency"
+      "MAT I/III deficiency",
+      "CTH deficiency",
+      "GNMT deficiency",
+      "SELENBP1 deficiency"
     ],
     "description": "Inborn disorder of methionine cycle and sulfur amino acid metabolism is a pathway-based group of rare inherited metabolic disorders that disrupt methionine-cycle flux, homocysteine remethylation, cobalamin-dependent one-carbon metabolism, or transsulfuration. Major supported branches include CBS-deficient classical homocystinuria, MTHFR-related remethylation disease, MMACHC-related cblC disease, and MAT1A-related methionine adenosyltransferase I/III deficiency. The group is unified by abnormal sulfur amino-acid biomarkers, including hyperhomocystinemia, hypermethioninemia, hypomethioninemia, and, in combined cobalamin-processing disorders, methylmalonic acidemia, with subtype-specific neurologic, vascular, ocular, skeletal, renal, and pulmonary manifestations.",
     "pathophysiology": [
@@ -174482,7 +174500,10 @@ window.searchData = [
       "CBS Transsulfuration Block",
       "Cobalamin-Dependent Remethylation and Mutase Cofactor Failure",
       "MTHFR Remethylation Deficiency",
-      "MAT1A S-Adenosylmethionine Synthesis Defect"
+      "MAT1A S-Adenosylmethionine Synthesis Defect",
+      "CTH Cystathionine Cleavage Block",
+      "GNMT S-Adenosylmethionine Disposal Block",
+      "SELENBP1 Methanethiol Oxidase Deficiency"
     ],
     "cell_types": [
       "hepatocyte",
@@ -174504,6 +174525,10 @@ window.searchData = [
       "S-adenosylmethionine metabolic process"
     ],
     "phenotypes": [
+      "Cystathioninuria",
+      "Halitosis",
+      "Hepatomegaly",
+      "Elevated circulating hepatic transaminase concentration",
       "Hyperhomocystinemia",
       "Hypermethioninemia",
       "Hypomethioninemia",
@@ -174523,6 +174548,8 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Laboratory abnormality",
+      "Oral",
+      "Hepatic",
       "Vascular",
       "Ophthalmologic",
       "Neurodevelopmental",
@@ -174536,14 +174563,21 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
+      "Constitutional",
+      "Digestive",
       "Eye",
       "Genitourinary",
+      "Head and Neck",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
+      "HP:0003153",
+      "HP:0100812",
+      "HP:0002240",
+      "HP:0002910",
       "HP:0002160",
       "HP:0003235",
       "HP:0003658",
@@ -174568,7 +174602,10 @@ window.searchData = [
       "CBS-related transsulfuration disorder",
       "MTHFR-related remethylation disorder",
       "MMACHC-related cobalamin-processing disorder",
-      "MAT1A-related methionine adenosyltransferase deficiency"
+      "MAT1A-related methionine adenosyltransferase deficiency",
+      "CTH-related cystathioninuria",
+      "GNMT-related hypermethioninemia",
+      "SELENBP1-related methanethiol oxidase deficiency"
     ],
     "treatments": [
       "Pyridoxine-responsive CBS therapy",
@@ -174589,11 +174626,11 @@ window.searchData = [
     ],
     "source_file": "Inborn_Disorder_of_Methionine_Cycle_and_Sulfur_Amino_Acid_Metabolism.yaml",
     "page_url": "../pages/disorders/Inborn_Disorder_of_Methionine_Cycle_and_Sulfur_Amino_Acid_Metabolism.html",
-    "num_phenotypes": 16,
-    "num_pathophysiology": 5,
-    "num_genes": 4,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
+    "num_genes": 7,
     "num_treatments": 8,
-    "causal_graph_edges": "45",
+    "causal_graph_edges": "56",
     "causal_graph_longest_path": "3"
   },
   {
@@ -219325,23 +219362,35 @@ window.searchData = [
     "subtypes": [
       "BUB1B-related MVA",
       "CEP57-related MVA",
-      "TRIP13-related MVA"
+      "TRIP13-related MVA",
+      "CENATAC-related MVA",
+      "SLF2-related Atelis syndrome 1",
+      "SMC5-related Atelis syndrome 2",
+      "MAD1L1-related MVA"
     ],
     "description": "Mosaic variegated aneuploidy syndrome is a rare chromosomal instability disorder in which pathogenic germline variants in mitotic checkpoint or centrosome-associated genes impair faithful chromosome segregation. The resulting constitutional mosaic aneuploidy causes antenatal or neonatal-onset growth and neurodevelopmental abnormalities, variable congenital anomalies, and cancer predisposition, especially Wilms tumor and rhabdomyosarcoma in spindle-assembly-checkpoint-defective forms.\n",
     "pathophysiology": [
       "Mitotic checkpoint gene disruption",
       "Spindle assembly checkpoint impairment",
       "CEP57 centrosomal kinetochore attachment defects",
+      "Minor spliceosome AT-AC intron splicing failure",
+      "SMC5/6 genome stability pathway failure",
       "Chromosome segregation errors and mosaic aneuploidy",
       "Growth and neurodevelopmental abnormalities",
-      "Cancer predisposition"
+      "Cancer predisposition",
+      "Aneuploidy-associated systemic inflammation"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "mitotic spindle assembly checkpoint signaling",
       "attachment of spindle microtubules to kinetochore",
-      "chromosome segregation"
+      "minor (U12-dependent) spliceosomal mRNA splicing",
+      "DNA replication under replication stress",
+      "sister chromatid cohesion",
+      "chromosome segregation",
+      "inflammatory response",
+      "interferon-mediated signaling pathway"
     ],
     "phenotypes": [
       "Epicanthus",
@@ -219431,7 +219480,11 @@ window.searchData = [
       "CEP57 germline pathogenic variants",
       "TRIP13 germline pathogenic variants",
       "BUB1 germline pathogenic variants",
-      "BUB3 germline pathogenic variants"
+      "BUB3 germline pathogenic variants",
+      "CENATAC germline pathogenic variants",
+      "MAD1L1 germline pathogenic variants",
+      "SLF2 germline pathogenic variants",
+      "SMC5 germline pathogenic variants"
     ],
     "treatments": [
       "Symptomatic supportive care",
@@ -219443,10 +219496,10 @@ window.searchData = [
     "source_file": "Mosaic_Variegated_Aneuploidy_Syndrome.yaml",
     "page_url": "../pages/disorders/Mosaic_Variegated_Aneuploidy_Syndrome.html",
     "num_phenotypes": 25,
-    "num_pathophysiology": 6,
-    "num_genes": 5,
+    "num_pathophysiology": 9,
+    "num_genes": 9,
     "num_treatments": 3,
-    "causal_graph_edges": "37",
+    "causal_graph_edges": "47",
     "causal_graph_longest_path": "5"
   },
   {
@@ -337211,14 +337264,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3191,
-  "total_subtypes": 4271,
-  "total_disorders_and_subtypes": 7462,
-  "total_unique_evidence_sources": 46497,
-  "total_unique_publications": 43691,
+  "total_subtypes": 4286,
+  "total_disorders_and_subtypes": 7477,
+  "total_unique_evidence_sources": 46513,
+  "total_unique_publications": 43707,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
   "total_pathographs": 3186,
-  "total_unique_pathological_events": 20168,
+  "total_unique_pathological_events": 20174,
   "total_modules": 179,
   "total_research_reports": 3305,
   "total_classifications": 20,
