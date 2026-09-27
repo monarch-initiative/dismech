@@ -64,15 +64,30 @@ jobs:
         if: steps.issue.outputs.number != ''
         uses: ./.github/actions/setup-claude-code
 
+      - name: Install uv for Langfuse tracing
+        if: steps.issue.outputs.number != ''
+        uses: astral-sh/setup-uv@v7
+
       - name: Find and verify duplicate issues
         if: steps.issue.outputs.number != ''
         id: dedupe
         uses: anthropics/claude-code-action@v1
         env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          CC_LANGFUSE_TRACE_TAGS: >-
+            ["repo:${{ github.repository }}", "workflow:claude-dedupe-issues",
+            "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         with:
           path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
+          # Keep the .git suffix: the action validates marketplace URLs.
+          plugin_marketplaces: |
+            https://github.com/langfuse/Claude-Observability-Plugin.git
+          plugins: |
+            langfuse-observability@langfuse-observability
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           github_token: ${{ github.token }}

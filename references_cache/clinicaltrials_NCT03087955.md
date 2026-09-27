@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT03087955
+extractor_version: 1
 title: "Efficacy and Safety Study of Acoziborole (SCYX-7158) in Patients With Human African Trypanosomiasis (HAT) Due to Trypanosoma Brucei Gambiense: a Multicentre, Open-label, Prospective Study"
 content_type: summary
 full_text_attempted: true

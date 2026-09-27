@@ -20,9 +20,8 @@ This script performs that census in two network phases plus one offline phase:
    a body -- see the ``not_open_access`` reason in phase 2.
 2. ``recoverability`` -- for every PMID phase 1 found in PMC, fetch the actual
    article XML (falling back to the PMC HTML page, exactly as
-   ``PMCFullTextProvider.locate`` does) and run it through dismech's real
-   patched extractor (``dismech.patch_reference_validator`` + the installed
-   ``linkml_reference_validator``) to determine whether a body -- long enough
+   ``PMCFullTextProvider.locate`` does) and run it through the installed
+   ``linkml_reference_validator`` extractor to determine whether a body -- long enough
    to pass the same ``_MIN_PMC_FULLTEXT_CHARS`` floor production applies --
    and how many tables -- would actually be recovered. Each row also records
    the cache file's current ``full_text_attempted`` flag, so the
@@ -324,8 +323,6 @@ def phase_recoverability(out_dir: str, sleep_seconds: float) -> None:
     from bs4 import BeautifulSoup
     from linkml_reference_validator.etl.extract.xml import XMLExtractor
 
-    import dismech.patch_reference_validator as patch
-
     idconv_path = os.path.join(out_dir, "idconv_results.csv")
     results_path = os.path.join(out_dir, "recoverability_results.csv")
     if not os.path.exists(idconv_path):
@@ -373,8 +370,11 @@ def phase_recoverability(out_dir: str, sleep_seconds: float) -> None:
         except Exception:
             return body_text, 0, "" if body_text else "soup_parse_error"
 
-        tables_text = patch._jats_tables_as_text(soup)
-        num_tables = tables_text.count("\n\n## ") + (1 if tables_text.startswith("## ") else 0)
+        # Upstream's XMLExtractor appends tables to the body itself, so count
+        # them where they now land rather than re-extracting. A hardcoded 0 here
+        # reported "tables found: 0" for every record and wrote a dead CSV
+        # column.
+        num_tables = len(re.findall(r"^## Table ", body_text or "", re.MULTILINE))
 
         if body_text:
             return body_text, num_tables, ""

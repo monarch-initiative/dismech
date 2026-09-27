@@ -171,13 +171,34 @@ def iter_qualifier_terms(data: Any, display: str) -> list[Term]:
     return found
 
 
-def iter_yaml_files(paths: list[str]) -> list[Path]:
-    if paths:
-        return [Path(p) for p in paths]
-    files: list[Path] = []
-    for root in DEFAULT_ROOTS:
-        files.extend(sorted((ROOT / root).rglob("*.yaml")))
-    return files
+def iter_yaml_files(paths: list[str]) -> tuple[list[Path], list[str]]:
+    """Return ``(files, usage_errors)`` for the CLI's path arguments.
+
+    Same convention as ``check_causal_targets.iter_yaml_files`` and
+    ``check_disconnected_phenotypes.resolve_paths`` (#11939): a directory
+    argument is expanded into the ``*.yaml`` files under it, a named directory
+    holding none is a usage error, and a path that does not exist is passed
+    through so reading it raises and :func:`collect` reports it.
+    """
+    if not paths:
+        files: list[Path] = []
+        for root in DEFAULT_ROOTS:
+            files.extend(sorted((ROOT / root).rglob("*.yaml")))
+        return files, []
+    files = []
+    usage_errors: list[str] = []
+    for raw in paths:
+        path = Path(raw)
+        if path.is_dir():
+            found = sorted(path.rglob("*.yaml"))
+            if not found:
+                usage_errors.append(
+                    f"{_display(path)}: directory contains no *.yaml files"
+                )
+            files.extend(found)
+        else:
+            files.append(path)
+    return files, usage_errors
 
 
 def _display(path: Path) -> str:
@@ -187,16 +208,30 @@ def _display(path: Path) -> str:
         return str(path)
 
 
-def collect(paths: list[str]) -> list[Term]:
+def collect(paths: list[str]) -> tuple[list[Term], list[str]]:
+    """Return ``(terms, usage_errors)``.
+
+    A path that cannot be read is a usage error, never a skip: swallowing it
+    let a mistyped path print "OK: 0 qualifier term label(s) match" and exit 0
+    (#11939). A YAML parse failure is still skipped, because
+    ``check-duplicate-keys`` and ``linkml-validate`` report it with better
+    detail.
+    """
     terms: list[Term] = []
-    for path in iter_yaml_files(paths):
+    files, usage_errors = iter_yaml_files(paths)
+    for path in files:
         try:
-            data = safe_load(path.read_text(encoding="utf-8"))
-        except (OSError, yaml.YAMLError):
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            usage_errors.append(f"{_display(path)}: {exc.strerror or exc}")
+            continue
+        try:
+            data = safe_load(text)
+        except yaml.YAMLError:
             continue
         if isinstance(data, (dict, list)):
             terms.extend(iter_qualifier_terms(data, _display(path)))
-    return terms
+    return terms, usage_errors
 
 
 def classify(
@@ -335,7 +370,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    terms = collect(args.paths)
+    terms, usage_errors = collect(args.paths)
+    if usage_errors:
+        # Exit 2, distinct from the gate's own exit 1, matching
+        # `check_causal_targets.py` and `check_disconnected_phenotypes.py`.
+        for message in usage_errors:
+            print(f"ERROR: {message}", file=sys.stderr)
+        return 2
     cache = load_label_cache()
     wrong, unverified, unconfigured, ok = classify(terms, cache)
 
