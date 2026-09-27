@@ -37,6 +37,13 @@ import sys
 from pathlib import Path
 
 import yaml
+from linkml_reference_validator.validation.supporting_text_validator import (
+    SupportingTextValidator as _STV,
+)
+from ruamel.yaml import YAML
+
+#: lrv's own comparison, so this module measures titles exactly as lrv does.
+_normalize = _STV.normalize_text
 
 KB_ROOT = Path("kb")
 CACHE_DIR = Path("references_cache")
@@ -56,7 +63,11 @@ _MARKUP_TAG_RE = re.compile(
 
 
 def clean_title(raw: str) -> str:
-    """Normalise a cached title: unescape entities, drop formatting tags, fold space."""
+    """Tidy a cached title: unescape entities, drop formatting tags, fold space.
+
+    This is a *display* tidy, not the value to write blindly — see
+    ``resolve_title``, which decides when tidying is safe.
+    """
     title = raw
     # Some Crossref titles are double-escaped (&lt;i&gt;...); unescape twice.
     for _ in range(2):
@@ -68,30 +79,107 @@ def clean_title(raw: str) -> str:
     return re.sub(r"\s+", " ", title).strip()
 
 
-def build_title_index(cache_dir: Path = CACHE_DIR) -> dict[str, str]:
-    """Map ``reference_id`` -> cleaned title for every cache file that has one.
+def resolve_title(raw: str) -> str:
+    """The value to write into YAML for a cached title.
+
+    linkml-reference-validator compares ``normalize_text(<yaml title>)`` against
+    ``normalize_text(<RAW frontmatter title>)``, and its ``normalize_text`` maps
+    ``[^\\w\\s]`` to a *space* rather than deleting it. Markup and HTML entities
+    therefore survive normalization as words: ``<italic>TUBA1A</italic>`` becomes
+    ``italic tuba1a italic`` and ``&amp;`` becomes ``amp``.
+
+    So the tidied title is only safe to write when tidying does not change what
+    lrv sees. Where it does, the raw title is the only value that validates —
+    prefer readability, fall back to correctness.
+    """
+    cleaned = clean_title(raw)
+    return cleaned if _normalize(cleaned) == _normalize(raw) else raw
+
+
+def _load_frontmatter(text: str):
+    """Parse cache frontmatter exactly as lrv does.
+
+    ruamel is not an optional dependency here: this module imports lrv at the
+    top for ``normalize_text``, and lrv itself requires ruamel.
+    """
+    return YAML(typ="safe").load(text)
+
+
+def build_title_index(
+    cache_dir: Path = CACHE_DIR, unreadable: list[str] | None = None
+) -> dict[str, str]:
+    """Map ``reference_id`` -> RAW frontmatter title for every cache file with one.
+
+    Deliberately raw, not cleaned: this index is the yardstick a title is compared
+    against, and lrv compares against the raw value. Apply ``resolve_title`` at the
+    point of writing.
 
     Keyed off the frontmatter ``reference_id`` rather than the filename, because
     the validator's filename sanitisation is lossy (``?``/``=``/``/`` all become
     ``_``).
+
+    Parsed with ruamel, because that is what lrv uses
+    (``ReferenceFetcher._load_markdown_format`` calls ``YAML(typ="safe")``). The
+    two disagree on real cache files: PubMed titles occasionally carry U+2028 /
+    U+2029, which the fetcher writes into an unquoted scalar. PyYAML treats those
+    as line breaks and raises, so ``PMID:27951541`` looked title-less here while
+    lrv read it fine and checked it -- the reader equivalent of the operand bug
+    ``resolve_title`` fixes.
+
+    An unreadable cache entry is *reported*, not silently skipped. Swallowing the
+    parse error is what let PMID:27951541 masquerade as title-less for as long as
+    it did, so ``unreadable`` collects those paths and callers print them.
     """
     index: dict[str, str] = {}
+    unreadable = [] if unreadable is None else unreadable
     for path in sorted(cache_dir.glob("*.md")):
         match = _FRONTMATTER_RE.match(path.read_text(errors="replace"))
         if not match:
+            unreadable.append(f"{path.name}: no frontmatter block")
             continue
         try:
-            frontmatter = yaml.safe_load(match.group(1))
-        except yaml.YAMLError:
+            frontmatter = _load_frontmatter(match.group(1))
+        except Exception as exc:
+            unreadable.append(f"{path.name}: {type(exc).__name__}")
             continue
         if not isinstance(frontmatter, dict):
+            unreadable.append(f"{path.name}: frontmatter is not a mapping")
             continue
         ref_id = frontmatter.get("reference_id")
         title = frontmatter.get("title")
         if not ref_id or not title or not str(title).strip():
             continue
-        index[str(ref_id)] = clean_title(str(title))
+        index[str(ref_id)] = str(title).strip()
     return index
+
+
+def report_unreadable(unreadable: list[str], limit: int = 10) -> None:
+    """Announce cache entries whose frontmatter could not be read.
+
+    Without this an unreadable entry is indistinguishable from a title-less one,
+    which is precisely how the PMID:27951541 blind spot survived.
+
+    This warning is a diagnostic, not the gate. ``just check-reference-cache-frontmatter``
+    (``dismech.reference_cache_frontmatter``) already fails on frontmatter this cannot
+    read, and it parses with ruamel exactly as lrv and this module do. It runs in
+    ``just qc``, as an ungated CI step, and via the real-cache sweep in
+    ``tests/test_reference_cache_frontmatter.py`` -- so a corrupted cache turns CI red
+    long before anyone runs ``--check``. That is why ``--check`` reports these without
+    failing on them: the coverage hole is gated upstream, and failing here too would
+    only duplicate it in a manual command.
+    """
+    if not unreadable:
+        return
+    print(
+        f"\nWARNING: {len(unreadable)} cache file(s) have unreadable frontmatter "
+        "and were skipped. Titles on these references cannot be checked "
+        "(just check-reference-cache-frontmatter gates this):",
+        file=sys.stderr,
+    )
+    for entry in unreadable[:limit]:
+        print(f"  {entry}", file=sys.stderr)
+    if len(unreadable) > limit:
+        print(f"  ... and {len(unreadable) - limit} more", file=sys.stderr)
 
 
 def lookup_title(reference: str, index: dict[str, str], lower_index: dict[str, str]):
@@ -208,7 +296,10 @@ def process_file(
             continue
         indent = " " * target["column"]
         insertions.append(
-            (target["insert_at"], f"{indent}{target['slot']}: {yaml_quote(title)}")
+            (
+                target["insert_at"],
+                f"{indent}{target['slot']}: {yaml_quote(resolve_title(title))}",
+            )
         )
 
     if not insertions:
@@ -268,9 +359,11 @@ def main() -> int:
     args = parser.parse_args()
     dry_run = args.dry_run or args.check
 
-    index = build_title_index()
+    unreadable: list[str] = []
+    index = build_title_index(unreadable=unreadable)
     lower_index = {k.lower(): v for k, v in index.items()}
     print(f"Indexed {len(index)} titled cache entries from {CACHE_DIR}/", file=sys.stderr)
+    report_unreadable(unreadable)
 
     total_added = 0
     files_changed = 0

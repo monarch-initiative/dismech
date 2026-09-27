@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Mevalonate Kinase Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Mevalonate Kinase Deficiency</h1>
             <div class="header-meta">
 
@@ -3732,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Mevalonate%20Kinase%20Deficiency"
@@ -3913,7 +4056,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">23</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3991,6 +4134,125 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7 &#34;Autoinflammatory disorders&#34;, section 2 &#34;Defects Affecting the Inflammasome&#34;, the MVK row (listed as &#34;Mevalonate kinase deficiency (Hyper IgD syndrome)&#34;). IUIS places MKD in the inflammasome section even though the table&#39;s own functional-defect cell records that the link from the isoprenoid-biosynthesis block to inflammation is not fully resolved.">autoinflammatory syndrome</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4006,7 +4268,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4051,7 +4313,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4106,7 +4371,7 @@ disorders."</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hids">
 
                     <div class="item-name">
                         Hyperimmunoglobulinemia D Syndrome (HIDS / mild MKD)
@@ -4135,7 +4400,7 @@ disorders."</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mevalonic-aciduria">
 
                     <div class="item-name">
                         Mevalonic Aciduria (MA / severe MKD)
@@ -4229,7 +4494,10 @@ disorders."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4266,6 +4534,7 @@ disorders."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mevalonate-kinase-deficiency-and-isoprenoid-shortage" data-dismech-node="Mevalonate Kinase Deficiency and Isoprenoid Shortage" data-dismech-type="pathophysiology">
                 <div class="item-name">Mevalonate Kinase Deficiency and Isoprenoid Shortage</div>
+
 
                 <div class="item-desc">Biallelic MVK variants reduce mevalonate kinase enzyme activity, impairing flux through the mevalonate pathway. Mevalonate accumulates (and is excreted as urinary mevalonic acid) while downstream non-sterol isoprenoid pyrophosphates, especially geranylgeranyl pyrophosphate (GGPP), fall. The shortage of GGPP is the key node linking the metabolic defect to inflammation. Disease severity tracks inversely with residual enzyme activity.
 </div>
@@ -4401,6 +4670,38 @@ This pathophysiological event involves decreased mevalonate kinase activity (GO:
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global Developmental Delay</span>
+
+	                            <span class="crosslink-desc">A defining feature of mevalonic aciduria — the severe end of this spectrum — reflecting a neurodegenerative component absent from the milder HIDS phenotype. Drawn from the enzyme defect rather than from the autoinflammation node, because severity tracks residual enzyme activity rather than attack frequency.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebellar Ataxia</span>
+
+	                            <span class="crosslink-desc">The other neurological feature of the severe end, with cerebellar atrophy on imaging.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cataract</span>
+
+	                            <span class="crosslink-desc">Lens opacity developing in mevalonic aciduria, with retinal dystrophy and progressive visual loss.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysmorphic Features</span>
+
+	                            <span class="crosslink-desc">Dolichocephaly, triangular face, low-set ears and downslanting palpebral fissures — part of the mevalonic aciduria phenotype and not seen in HIDS.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Defective Protein Prenylation and Pyrin Inflammasome Activation</span>
 
 	                            <span class="crosslink-desc">The fall in geranylgeranyl pyrophosphate deprives small GTPases of their prenyl lipid anchor, triggering the downstream prenylation/inflammasome defect.</span>
@@ -4425,7 +4726,10 @@ This pathophysiological event involves decreased mevalonate kinase activity (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4451,6 +4755,7 @@ mevalonate kinase (MVK), the first committed enzyme of cholesterol biosynthesis.
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-protein-prenylation-and-pyrin-inflammasome-activation" data-dismech-node="Defective Protein Prenylation and Pyrin Inflammasome Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Protein Prenylation and Pyrin Inflammasome Activation</div>
+
 
                 <div class="item-desc">Geranylgeranyl pyrophosphate is the lipid anchor for prenylation (geranylgeranylation) of small GTPases including RhoA. With GGPP depleted, RhoA is not geranylgeranylated, cannot localize to the membrane, and loses its GTPase activity. Geranylgeranylated RhoA normally keeps the pyrin inflammasome under tonic phospho-inhibition; unprenylated RhoA releases this brake, allowing pyrin inflammasome assembly, caspase-1 activation, and excessive interleukin-1 beta secretion in monocytes. Unprenylated RhoA also boosts Rac1 activity, further priming IL-1 beta production. The IL-1 beta-centric mechanism is inferred from human cell-culture and pharmacologic models.
 </div>
@@ -4670,7 +4975,10 @@ This pathophysiological event involves increased interleukin-1 beta production (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25107911" target="_blank">PMID:25107911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4694,7 +5002,10 @@ protein prenylation in monocytes."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27270401" target="_blank">PMID:27270401</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4720,6 +5031,7 @@ inactivation and consequent pyrin inflammasome activation."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-autoinflammation" data-dismech-node="Systemic Autoinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Autoinflammation</div>
+
 
                 <div class="item-desc">Sustained IL-1 beta-driven inflammation produces recurrent febrile attacks with an acute-phase response (elevated CRP and serum amyloid A) and the systemic manifestations of MKD: lymphadenopathy, abdominal symptoms, arthralgia, rash, and aphthous ulcers. Chronic elevation of serum amyloid A over years can lead to AA (secondary) amyloidosis.
 </div>
@@ -4812,6 +5124,109 @@ This pathophysiological event involves increased positive regulation of inflamma
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent Fever</span>
+
+	                            <span class="crosslink-desc">The cardinal feature, in attacks lasting three to seven days, typically from infancy.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cervical Lymphadenopathy</span>
+
+	                            <span class="crosslink-desc">Painful cervical nodes during attacks — the most characteristic localised sign and part of the classic HIDS triad with fever and abdominal pain.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lymphadenopathy</span>
+
+	                            <span class="crosslink-desc">Generalised nodal enlargement, curated alongside the cervical record because the sources report both.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abdominal Pain</span>
+
+	                            <span class="crosslink-desc">Severe abdominal pain during attacks, historically leading to unnecessary laparotomy.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vomiting</span>
+
+	                            <span class="crosslink-desc">Gastrointestinal involvement during attacks.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Diarrhea</span>
+
+	                            <span class="crosslink-desc">The other gastrointestinal manifestation of the attack.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Arthralgia</span>
+
+	                            <span class="crosslink-desc">Joint pain during attacks, usually large joints and non-erosive.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skin Rash</span>
+
+	                            <span class="crosslink-desc">Maculopapular or urticarial eruption accompanying attacks.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aphthous Ulcers</span>
+
+	                            <span class="crosslink-desc">Oral ulceration during attacks.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Splenomegaly</span>
+
+	                            <span class="crosslink-desc">Splenic enlargement from sustained inflammatory activity.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to Thrive</span>
+
+	                            <span class="crosslink-desc">Growth failure from the cumulative burden of frequent attacks, most marked in the severe end of the spectrum.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated Serum IgD</span>
+
+	                            <span class="crosslink-desc">The biomarker that gave HIDS its name. Curated as a downstream consequence rather than a readout of the enzyme defect, because it is the inflammation that drives it — and the entry is explicit that it is a biomarker rather than the disease driver, poorly sensitive in young children.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4826,7 +5241,10 @@ This pathophysiological event involves increased positive regulation of inflamma
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4875,7 +5293,7 @@ characterized by recurrent inflammatory episodes."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anakinra (IL-1 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra is a recombinant IL-1 receptor antagonist that blocks IL-1 signaling. It is effective for on-demand or continuous treatment of MKD attacks and is a rational alternative when canakinumab is unavailable.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Canakinumab (Anti-IL-1beta Monoclonal Antibody)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Canakinumab is a selective human anti-interleukin-1 beta monoclonal antibody and the only agent with randomized controlled trial evidence and regulatory approval for MKD. In the Phase 3 CLUSTER trial it controlled disease activity and prevented flares, with most patients flare-free during long-term treatment; higher doses are often required than for other periodic fever syndromes.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"canakinumab\"]}}, {\"id\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Geranylgeranyl pyrophosphate is the lipid anchor for prenylation (geranylgeranylation) of small GTPases including RhoA. With GGPP depleted, RhoA is not geranylgeranylated, cannot localize to the membrane, and loses its GTPase activity. Geranylgeranylated RhoA normally keeps the pyrin inflammasome under tonic phospho-inhibition; unprenylated RhoA releases this brake, allowing pyrin inflammasome assembly, caspase-1 activation, and excessive interleukin-1 beta secretion in monocytes. Unprenylated RhoA also boosts Rac1 activity, further priming IL-1 beta production. The IL-1 beta-centric mechanism is inferred from human cell-culture and pharmacologic models.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"protein geranylgeranylation\", \"Rho protein signal transduction\", \"interleukin-1 beta production\"]}}, {\"id\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic MVK variants reduce mevalonate kinase enzyme activity, impairing flux through the mevalonate pathway. Mevalonate accumulates (and is excreted as urinary mevalonic acid) while downstream non-sterol isoprenoid pyrophosphates, especially geranylgeranyl pyrophosphate (GGPP), fall. The shortage of GGPP is the key node linking the metabolic defect to inflammation. Disease severity tracks inversely with residual enzyme activity.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"isoprenoid biosynthetic process\", \"cholesterol biosynthetic process\"], \"molecular_functions\": [\"mevalonate kinase activity\"]}}, {\"id\": \"Systemic Autoinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained IL-1 beta-driven inflammation produces recurrent febrile attacks with an acute-phase response (elevated CRP and serum amyloid A) and the systemic manifestations of MKD: lymphadenopathy, abdominal symptoms, arthralgia, rash, and aphthous ulcers. Chronic elevation of serum amyloid A over years can lead to AA (secondary) amyloidosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\", \"positive regulation of inflammatory response\"]}}], \"edges\": [{\"source\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"target\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fall in geranylgeranyl pyrophosphate deprives small GTPases of their prenyl lipid anchor, triggering the downstream prenylation/inflammasome defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess IL-1 beta from the de-repressed pyrin inflammasome drives the systemic autoinflammatory clinical picture.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canakinumab (Anti-IL-1beta Monoclonal Antibody)\", \"target\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anakinra (IL-1 Receptor Antagonist)\", \"target\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain is a near-universal feature of attacks; gastrointestinal symptoms were present in almost all patients in the Eurofever cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Anakinra (IL-1 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra is a recombinant IL-1 receptor antagonist that blocks IL-1 signaling. It is effective for on-demand or continuous treatment of MKD attacks and is a rational alternative when canakinumab is unavailable.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Aphthous Ulcers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent aphthous (oral, sometimes genital) ulcers are a characteristic mucocutaneous feature and part of the MKD classification criteria.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032154\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain (arthralgia), with or without arthritis, is among the most frequent musculoskeletal manifestations of MKD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Canakinumab (Anti-IL-1beta Monoclonal Antibody)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Canakinumab is a selective human anti-interleukin-1 beta monoclonal antibody and the only agent with randomized controlled trial evidence and regulatory approval for MKD. In the Phase 3 CLUSTER trial it controlled disease activity and prevented flares, with most patients flare-free during long-term treatment; higher doses are often required than for other periodic fever syndromes.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"canakinumab\"]}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cataracts (with retinal dystrophy and progressive visual impairment) develop in mevalonic aciduria.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mevalonic Aciduria\"], \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebellar Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebellar ataxia (with cerebellar atrophy on imaging) is a hallmark of mevalonic aciduria and can become the predominant manifestation with age in survivors.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mevalonic Aciduria\"], \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cervical Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tender cervical lymphadenopathy is characteristically present during febrile attacks and is one of the most discriminating features of MKD among the periodic fever syndromes.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HIDS\"], \"term_id\": \"HP:0025289\"}}, {\"id\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Geranylgeranyl pyrophosphate is the lipid anchor for prenylation (geranylgeranylation) of small GTPases including RhoA. With GGPP depleted, RhoA is not geranylgeranylated, cannot localize to the membrane, and loses its GTPase activity. Geranylgeranylated RhoA normally keeps the pyrin inflammasome under tonic phospho-inhibition; unprenylated RhoA releases this brake, allowing pyrin inflammasome assembly, caspase-1 activation, and excessive interleukin-1 beta secretion in monocytes. Unprenylated RhoA also boosts Rac1 activity, further priming IL-1 beta production. The IL-1 beta-centric mechanism is inferred from human cell-culture and pharmacologic models.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"protein geranylgeranylation\", \"Rho protein signal transduction\", \"interleukin-1 beta production\"]}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhea is a frequent gastrointestinal manifestation during attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dysmorphic Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmorphic facial features (e.g., dolichocephaly, triangular face, low-set ears, downslanting palpebral fissures) are part of the mevalonic aciduria phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mevalonic Aciduria\"], \"term_id\": \"HP:0001999\"}}, {\"id\": \"Elevated Serum IgD\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum immunoglobulin D (often with elevated IgA) gave HIDS its name. It is a biomarker rather than the disease driver, is most evident in milder disease, and may be normal in young children, so IgD testing is no longer relied upon for diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010702\"}}, {\"id\": \"Elevated Urinary Mevalonic Acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly elevated urinary mevalonic acid is the direct biochemical signature of the enzyme block. It is constantly elevated in mevalonic aciduria and elevated only during flares in milder disease.\\n\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Mevalonate accumulates upstream of the blocked enzyme step and spills into urine, so this measures the block directly rather than following from it.\"}], \"term_id\": \"HP:0032638\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive / growth retardation (short stature) is characteristic of mevalonic aciduria.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mevalonic Aciduria\"], \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor/developmental delay is a defining feature of mevalonic aciduria (severe MKD) and reflects the neurodegenerative component absent in mild disease.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mevalonic Aciduria\"], \"term_id\": \"HP:0001263\"}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized lymphadenopathy (beyond the cervical region) is very frequent in MKD attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002716\"}}, {\"id\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic MVK variants reduce mevalonate kinase enzyme activity, impairing flux through the mevalonate pathway. Mevalonate accumulates (and is excreted as urinary mevalonic acid) while downstream non-sterol isoprenoid pyrophosphates, especially geranylgeranyl pyrophosphate (GGPP), fall. The shortage of GGPP is the key node linking the metabolic defect to inflammation. Disease severity tracks inversely with residual enzyme activity.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"isoprenoid biosynthetic process\", \"cholesterol biosynthetic process\"], \"molecular_functions\": [\"mevalonate kinase activity\"]}}, {\"id\": \"Recurrent Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent febrile attacks, typically beginning in the first year of life, are the defining manifestation of MKD. Attacks last several days and recur every few weeks, with frequency declining through adolescence in milder disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Reduced Mevalonate Kinase Activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced mevalonate kinase enzyme activity in leukocytes or fibroblasts is the confirmatory enzymatic defect; residual activity correlates inversely with disease severity.\\n\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The confirmatory enzymatic measurement of this node. Residual activity correlates inversely with severity, which is what places a given patient on the HIDS-to-mevalonic-aciduria spectrum.\"}], \"term_id\": \"HP:0033168\"}}, {\"id\": \"Skin Rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A maculopapular or urticarial skin rash occurs during attacks; mucocutaneous involvement was present in the large majority of the Eurofever cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000988\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly (often with hepatomegaly) reflects reticuloendothelial activation during febrile crises, particularly prominent in mevalonic aciduria.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001744\"}}, {\"id\": \"Systemic Autoinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained IL-1 beta-driven inflammation produces recurrent febrile attacks with an acute-phase response (elevated CRP and serum amyloid A) and the systemic manifestations of MKD: lymphadenopathy, abdominal symptoms, arthralgia, rash, and aphthous ulcers. Chronic elevation of serum amyloid A over years can lead to AA (secondary) amyloidosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\", \"positive regulation of inflammatory response\"]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting is a common gastrointestinal symptom during MKD attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A defining feature of mevalonic aciduria \\u2014 the severe end of this spectrum \\u2014 reflecting a neurodegenerative component absent from the milder HIDS phenotype. Drawn from the enzyme defect rather than from the autoinflammation node, because severity tracks residual enzyme activity rather than attack frequency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"target\": \"Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The other neurological feature of the severe end, with cerebellar atrophy on imaging.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lens opacity developing in mevalonic aciduria, with retinal dystrophy and progressive visual loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"target\": \"Dysmorphic Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dolichocephaly, triangular face, low-set ears and downslanting palpebral fissures \\u2014 part of the mevalonic aciduria phenotype and not seen in HIDS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"target\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fall in geranylgeranyl pyrophosphate deprives small GTPases of their prenyl lipid anchor, triggering the downstream prenylation/inflammasome defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess IL-1 beta from the de-repressed pyrin inflammasome drives the systemic autoinflammatory clinical picture.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Recurrent Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cardinal feature, in attacks lasting three to seven days, typically from infancy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Cervical Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Painful cervical nodes during attacks \\u2014 the most characteristic localised sign and part of the classic HIDS triad with fever and abdominal pain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalised nodal enlargement, curated alongside the cervical record because the sources report both.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe abdominal pain during attacks, historically leading to unnecessary laparotomy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal involvement during attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The other gastrointestinal manifestation of the attack.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint pain during attacks, usually large joints and non-erosive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Skin Rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maculopapular or urticarial eruption accompanying attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Aphthous Ulcers\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oral ulceration during attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic enlargement from sustained inflammatory activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth failure from the cumulative burden of frequent attacks, most marked in the severe end of the spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Elevated Serum IgD\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The biomarker that gave HIDS its name. Curated as a downstream consequence rather than a readout of the enzyme defect, because it is the inflammation that drives it \\u2014 and the entry is explicit that it is a biomarker rather than the disease driver, poorly sensitive in young children.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Canakinumab (Anti-IL-1beta Monoclonal Antibody)\", \"target\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anakinra (IL-1 Receptor Antagonist)\", \"target\": \"Defective Protein Prenylation and Pyrin Inflammasome Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"target\": \"Elevated Urinary Mevalonic Acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Mevalonate accumulates upstream of the blocked enzyme step and spills into urine, so this measures the block directly rather than following from it.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Mevalonate Kinase Deficiency and Isoprenoid Shortage\", \"target\": \"Reduced Mevalonate Kinase Activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The confirmatory enzymatic measurement of this node. Residual activity correlates inversely with severity, which is what places a given patient on the HIDS-to-mevalonic-aciduria spectrum.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4894,31 +5312,117 @@ characterized by recurrent inflammatory episodes."</div>
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Constitutional<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-igd" data-dismech-node="Elevated Serum IgD" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated Serum IgD
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating immunoglobulin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0010702</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated serum IgD, annotated with Increased circulating immunoglobulin concentration (HP:0010702). HP:0010702 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Increased levels of immunoglobulin D
+(IgD) and, in most patients of immunoglobulin A (IgA)"</div>
+
+
+                <div class="evidence-explanation">Increased IgD and, in most patients, IgA are characteristic laboratory findings in HIDS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
@@ -4939,15 +5443,18 @@ characterized by recurrent inflammatory episodes."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0025289</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0025289</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4965,7 +5472,10 @@ This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22038276" target="_blank">PMID:22038276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5008,15 +5518,18 @@ cervical lymphadenopathy"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5034,7 +5547,10 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5074,15 +5590,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5100,7 +5619,10 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5130,7 +5652,7 @@ arthralgia and skin rashes."</div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
@@ -5151,15 +5673,18 @@ arthralgia and skin rashes."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002013</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5177,7 +5702,10 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22038276" target="_blank">PMID:22038276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5217,15 +5745,18 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002014</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5243,7 +5774,10 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22038276" target="_blank">PMID:22038276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5271,7 +5805,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -5292,15 +5826,18 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5318,7 +5855,10 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12563048" target="_blank">PMID:12563048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5346,16 +5886,16 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
+                    Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysmorphic-features" data-dismech-node="Dysmorphic Features" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-urinary-mevalonic-acid" data-dismech-node="Elevated Urinary Mevalonic Acid" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Dysmorphic Features
+                        Elevated Urinary Mevalonic Acid
 
 
 
@@ -5364,20 +5904,23 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Abnormal facial shape</span>
+                        <span class="phenotype-term-label">Elevated urine mevalonic acid level</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0032638</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated urine mevalonic acid level (HP:0032638). HP:0032638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5395,7 +5938,166 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In MVA, the diagnosis is established by detection of highly elevated
+levels of mevalonic acid excreted in urine."</div>
+
+
+                <div class="evidence-explanation">Highly elevated urinary mevalonic acid establishes the diagnosis of mevalonic aciduria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aphthous-ulcers" data-dismech-node="Aphthous Ulcers" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aphthous Ulcers
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0032154</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aphthous ulcer (HP:0032154). HP:0032154 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27213830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mucocutaneous involvement (n = 99)"</div>
+
+
+                <div class="evidence-explanation">Aphthous ulcers fall within the mucocutaneous involvement present in 99 of 114 patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysmorphic-features" data-dismech-node="Dysmorphic Features" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysmorphic Features
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5425,7 +6127,7 @@ impairment and recurrent febrile crises."</div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
@@ -5446,15 +6148,18 @@ impairment and recurrent febrile crises."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000988</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000988</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5472,7 +6177,10 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5500,11 +6208,11 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-fever" data-dismech-node="Recurrent Fever" data-dismech-type="phenotype">
@@ -5521,10 +6229,10 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001954</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001954</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent fever (HP:0001954), qualified as temporality recurrent. HP:0001954 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5553,6 +6261,9 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5565,7 +6276,10 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22038276" target="_blank">PMID:22038276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5593,9 +6307,83 @@ every 1-12 weeks."</div>
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-mevalonate-kinase-activity" data-dismech-node="Reduced Mevalonate Kinase Activity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced Mevalonate Kinase Activity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033168" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0033168</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced mevalonate kinase activity (HP:0033168). HP:0033168 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The
+diagnosis is confirmed by low activity of mevalonate kinase or by demonstration
+of disease-causing mutations."</div>
+
+
+                <div class="evidence-explanation">Low mevalonate kinase activity confirms the diagnosis of MKD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -5616,15 +6404,18 @@ every 1-12 weeks."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5642,7 +6433,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12563048" target="_blank">PMID:12563048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5685,10 +6479,10 @@ crises"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5717,6 +6511,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5729,7 +6526,10 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12563048" target="_blank">PMID:12563048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5758,7 +6558,7 @@ predominant clinical manifestation"</div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -5781,15 +6581,18 @@ predominant clinical manifestation"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5807,7 +6610,10 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5830,7 +6636,10 @@ gastrointestinal symptoms (n = 112)"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22038276" target="_blank">PMID:22038276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5870,15 +6679,18 @@ gastrointestinal symptoms (n = 112)"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5896,7 +6708,10 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5924,7 +6739,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -5945,15 +6760,18 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5971,7 +6789,10 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5984,287 +6805,6 @@ impairment and recurrent febrile crises."</div>
 
 
                 <div class="evidence-explanation">Mevalonic aciduria is characterized by failure to thrive.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aphthous-ulcers" data-dismech-node="Aphthous Ulcers" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aphthous Ulcers
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0032154</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aphthous ulcer (HP:0032154). HP:0032154 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27213830" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"mucocutaneous involvement (n = 99)"</div>
-
-
-                <div class="evidence-explanation">Aphthous ulcers fall within the mucocutaneous involvement present in 99 of 114 patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-igd" data-dismech-node="Elevated Serum IgD" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated Serum IgD
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased circulating immunoglobulin concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0010702</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated serum IgD, annotated with Increased circulating immunoglobulin concentration (HP:0010702). HP:0010702 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Increased levels of immunoglobulin D
-(IgD) and, in most patients of immunoglobulin A (IgA)"</div>
-
-
-                <div class="evidence-explanation">Increased IgD and, in most patients, IgA are characteristic laboratory findings in HIDS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-urinary-mevalonic-acid" data-dismech-node="Elevated Urinary Mevalonic Acid" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated Urinary Mevalonic Acid
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Elevated urine mevalonic acid level</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0032638</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated urine mevalonic acid level (HP:0032638). HP:0032638 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In MVA, the diagnosis is established by detection of highly elevated
-levels of mevalonic acid excreted in urine."</div>
-
-
-                <div class="evidence-explanation">Highly elevated urinary mevalonic acid establishes the diagnosis of mevalonic aciduria.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-mevalonate-kinase-activity" data-dismech-node="Reduced Mevalonate Kinase Activity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced Mevalonate Kinase Activity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033168" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0033168</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced mevalonate kinase activity (HP:0033168). HP:0033168 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The
-diagnosis is confirmed by low activity of mevalonate kinase or by demonstration
-of disease-causing mutations."</div>
-
-
-                <div class="evidence-explanation">Low mevalonate kinase activity confirms the diagnosis of MKD.</div>
 
 
 
@@ -6352,6 +6892,9 @@ This disease-associated gene is MVK (hgnc:7530). hgnc:7530 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6364,7 +6907,10 @@ This disease-associated gene is MVK (hgnc:7530). hgnc:7530 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6388,7 +6934,10 @@ disorders."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22038276" target="_blank">PMID:22038276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6417,6 +6966,9 @@ disorders."</div>
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6492,6 +7044,31 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Canakinumab is a selective human anti-interleukin-1 beta monoclonal antibody and the only agent with randomized controlled trial evidence and regulatory approval for MKD. In the Phase 3 CLUSTER trial it controlled disease activity and prevented flares, with most patients flare-free during long-term treatment; higher doses are often required than for other periodic fever syndromes.
 </div>
 
@@ -6530,7 +7107,10 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34554243" target="_blank">PMID:34554243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6554,7 +7134,10 @@ year reported at baseline."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29768139" target="_blank">PMID:29768139</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6642,6 +7225,31 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anakinra is a recombinant IL-1 receptor antagonist that blocks IL-1 signaling. It is effective for on-demand or continuous treatment of MKD attacks and is a rational alternative when canakinumab is unavailable.
 </div>
 
@@ -6680,7 +7288,10 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6769,6 +7380,31 @@ This treatment uses etanercept (CHEBI:4875). CHEBI:4875 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Etanercept, a TNF inhibitor, can improve symptoms and induce remission in some MKD patients and is used as a second-line biologic, with variable/partial benefit relative to IL-1 blockade.
 </div>
 
@@ -6783,13 +7419,16 @@ This treatment uses etanercept (CHEBI:4875). CHEBI:4875 is a therapeutic agent f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27213830" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27213830" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6856,6 +7495,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nonsteroidal anti-inflammatory drugs relieve attack symptoms, and short-course corticosteroids given during attacks can improve symptoms. These are supportive measures for acute flares rather than disease-modifying therapy.
 </div>
 
@@ -6876,7 +7529,10 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27213830" target="_blank">PMID:27213830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6943,6 +7599,31 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Allogeneic HSCT can be curative for severe, biologic-refractory MKD (including mevalonic aciduria) by replacing the hematopoietic compartment, but it carries significant transplant-related mortality and is reserved for severe cases.
 </div>
 
@@ -6963,7 +7644,10 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35906690" target="_blank">PMID:35906690</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6980,13 +7664,16 @@ patients went into complete remission after stem cell transplantation."</div>
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7046,7 +7733,10 @@ patients went into complete remission after stem cell transplantation."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7064,13 +7754,16 @@ enhanced excretion of mevalonic acid provide strong evidence for HIDS."</div>
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12563048" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12563048" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12563048" target="_blank">PMID:12563048</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7116,7 +7809,10 @@ seems to be linked to recurrent febrile crises."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7143,6 +7839,100 @@ levels of mevalonic acid excreted in urine."</div>
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-mvk-genetic-testing-and-biochemical-confirmation">
+                <div class="item-name">
+                    MVK Genetic Testing and Biochemical Confirmation
+
+                </div>
+
+                <div class="item-desc">Diagnosis combines clinical recognition (early-onset recurrent fever with cervical adenopathy, abdominal symptoms, and aphthae) with biochemical findings (elevated urinary mevalonic acid, acute-phase reactants) and is confirmed by demonstrating reduced mevalonate kinase activity or biallelic pathogenic MVK variants.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16722536" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16722536" target="_blank">PMID:16722536</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The
+diagnosis is confirmed by low activity of mevalonate kinase or by demonstration
+of disease-causing mutations."</div>
+
+
+                <div class="evidence-explanation">Diagnosis is confirmed by low mevalonate kinase activity or by demonstration of disease-causing MVK mutations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7157,7 +7947,7 @@ levels of mevalonic acid excreted in urine."</div>
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-familial-mediterranean-fever-fmf">
                 <div class="item-name">
 
                     Familial Mediterranean Fever (FMF)
@@ -7201,7 +7991,10 @@ levels of mevalonic acid excreted in urine."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27270401" target="_blank">PMID:27270401</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7241,7 +8034,7 @@ Mediterranean fever (FMF) and hyperimmunoglobulinemia D syndrome (HIDS)."</div>
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02059291">
                 <div class="item-name">
                     NCT02059291
 
@@ -7292,7 +8085,10 @@ This clinical trial targets Recurrent fever (HP:0001954). HP:0001954 is a phenot
                         <a href="https://clinicaltrials.gov/study/NCT02059291" target="_blank">clinicaltrials:NCT02059291</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7347,16 +8143,39 @@ disease_term:
     id: MONDO:0017708
     label: mevalonate kinase deficiency
 parents:
-  - hereditary periodic fever syndrome
-  - autoinflammatory syndrome
-  - inborn error of metabolism
+- hereditary periodic fever syndrome
+- autoinflammatory syndrome
+- inborn error of metabolism
 synonyms:
-  - MKD
-  - hyperimmunoglobulinemia D syndrome
-  - hyper-IgD syndrome
-  - HIDS
-  - mevalonic aciduria
-  - periodic fever, Dutch type
+- MKD
+- hyperimmunoglobulinemia D syndrome
+- hyper-IgD syndrome
+- HIDS
+- mevalonic aciduria
+- periodic fever, Dutch type
+classifications:
+  harrisons_chapter:
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+  - classification_value: ENDOCRINOLOGY_METABOLISM
+  iuis_category:
+    classification_value: autoinflammatory syndrome
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7
+      &#34;Autoinflammatory disorders&#34;, section 2 &#34;Defects Affecting the
+      Inflammasome&#34;, the MVK row (listed as &#34;Mevalonate kinase deficiency (Hyper
+      IgD syndrome)&#34;). IUIS places MKD in the inflammasome section even though
+      the table&#39;s own functional-defect cell records that the link from the
+      isoprenoid-biosynthesis block to inflammation is not fully resolved.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Mevalonate kinase deficiency (Hyper IgD syndrome) MVK AR 260920&#34;
+      explanation: &gt;-
+        The IUIS Table 7 row places mevalonate kinase deficiency, with its MVK
+        genetic defect, autosomal recessive inheritance and OMIM 260920, among
+        the autoinflammatory disorders.
 description: &gt;
   Mevalonate kinase deficiency (MKD) is an autosomal recessive systemic
   autoinflammatory disorder caused by biallelic loss-of-function variants in MVK,
@@ -7449,6 +8268,22 @@ pathophysiology:
       Identifies mevalonate kinase deficiency in the cholesterol/isoprenoid
       biosynthesis pathway as the cause spanning the MKD spectrum.
   downstream:
+  - target: Global Developmental Delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      A defining feature of mevalonic aciduria — the severe end of this spectrum — reflecting a neurodegenerative component absent from the milder HIDS phenotype. Drawn from the enzyme defect rather than from the autoinflammation node, because severity tracks residual enzyme activity rather than attack frequency.
+  - target: Cerebellar Ataxia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The other neurological feature of the severe end, with cerebellar atrophy on imaging.
+  - target: Cataract
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Lens opacity developing in mevalonic aciduria, with retinal dystrophy and progressive visual loss.
+  - target: Dysmorphic Features
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Dolichocephaly, triangular face, low-set ears and downslanting palpebral fissures — part of the mevalonic aciduria phenotype and not seen in HIDS.
   - target: Defective Protein Prenylation and Pyrin Inflammasome Activation
     causal_link_type: DIRECT
     description: &gt;-
@@ -7560,6 +8395,55 @@ pathophysiology:
     explanation: &gt;-
       Characterizes MKD clinically as a disease of recurrent inflammatory
       episodes, the readout of the autoinflammatory cascade.
+  downstream:
+  - target: Recurrent Fever
+    causal_link_type: DIRECT
+    description: &gt;-
+      The cardinal feature, in attacks lasting three to seven days, typically from infancy.
+  - target: Cervical Lymphadenopathy
+    causal_link_type: DIRECT
+    description: &gt;-
+      Painful cervical nodes during attacks — the most characteristic localised sign and part of the classic HIDS triad with fever and abdominal pain.
+  - target: Lymphadenopathy
+    causal_link_type: DIRECT
+    description: &gt;-
+      Generalised nodal enlargement, curated alongside the cervical record because the sources report both.
+  - target: Abdominal Pain
+    causal_link_type: DIRECT
+    description: &gt;-
+      Severe abdominal pain during attacks, historically leading to unnecessary laparotomy.
+  - target: Vomiting
+    causal_link_type: DIRECT
+    description: &gt;-
+      Gastrointestinal involvement during attacks.
+  - target: Diarrhea
+    causal_link_type: DIRECT
+    description: &gt;-
+      The other gastrointestinal manifestation of the attack.
+  - target: Arthralgia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Joint pain during attacks, usually large joints and non-erosive.
+  - target: Skin Rash
+    causal_link_type: DIRECT
+    description: &gt;-
+      Maculopapular or urticarial eruption accompanying attacks.
+  - target: Aphthous Ulcers
+    causal_link_type: DIRECT
+    description: &gt;-
+      Oral ulceration during attacks.
+  - target: Splenomegaly
+    causal_link_type: DIRECT
+    description: &gt;-
+      Splenic enlargement from sustained inflammatory activity.
+  - target: Failure to Thrive
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Growth failure from the cumulative burden of frequent attacks, most marked in the severe end of the spectrum.
+  - target: Elevated Serum IgD
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The biomarker that gave HIDS its name. Curated as a downstream consequence rather than a readout of the enzyme defect, because it is the inflammation that drives it — and the entry is explicit that it is a biomarker rather than the disease driver, poorly sensitive in young children.
 phenotypes:
 - category: Constitutional
   name: Recurrent Fever
@@ -7899,6 +8783,13 @@ phenotypes:
     explanation: &gt;-
       Highly elevated urinary mevalonic acid establishes the diagnosis of
       mevalonic aciduria.
+  reports_on:
+  - target: Mevalonate Kinase Deficiency and Isoprenoid Shortage
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      Mevalonate accumulates upstream of the blocked enzyme step and spills into urine, so this measures the block directly rather than following from it.
 - category: Laboratory
   name: Reduced Mevalonate Kinase Activity
   description: &gt;
@@ -7918,6 +8809,13 @@ phenotypes:
     snippet: &#34;The \ndiagnosis is confirmed by low activity of mevalonate kinase or by demonstration \nof disease-causing mutations.&#34;
     explanation: &gt;-
       Low mevalonate kinase activity confirms the diagnosis of MKD.
+  reports_on:
+  - target: Mevalonate Kinase Deficiency and Isoprenoid Shortage
+    relationship: READOUT_OF
+    direction: NEGATIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      The confirmatory enzymatic measurement of this node. Residual activity correlates inversely with severity, which is what places a given patient on the HIDS-to-mevalonic-aciduria spectrum.
 biochemical:
 - name: Elevated Serum IgD and IgA
   notes: &gt;-
@@ -7936,7 +8834,7 @@ biochemical:
       laboratory evidence for HIDS.
   - reference: PMID:12563048
     reference_title: &#34;Mevalonate kinase deficiency: enlarging the clinical and biochemical spectrum.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Elevation of IgD is most likely a secondary phenomenon that \nseems to be linked to recurrent febrile crises.&#34;
     explanation: &gt;-
@@ -8080,7 +8978,7 @@ treatments:
   evidence:
   - reference: PMID:27213830
     reference_title: &#34;The Phenotype and Genotype of Mevalonate Kinase Deficiency: A Series of 114 Cases From the Eurofever Registry.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Steroids given during attacks, \nanakinra, and etanercept appeared to improve symptoms and could induce complete \nremission in patients with MKD.&#34;
     explanation: &gt;-
@@ -8130,7 +9028,7 @@ treatments:
       curative option in severe disease.
   - reference: PMID:16722536
     reference_title: &#34;Mevalonate kinase deficiencies: from mevalonic aciduria to hyperimmunoglobulinemia D syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There is no established successful treatment for MVA.&#34;
     explanation: &gt;-
@@ -8439,6 +9337,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8886,7 +9786,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Mevalonate Kinase Deficiency", "mondoId": "MONDO:0017708", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mevalonate_Kinase_Deficiency", "yamlRevision": "3670fd8fa66b"};
+        const OS_CONFIG = {"diseaseName": "Mevalonate Kinase Deficiency", "mondoId": "MONDO:0017708", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mevalonate_Kinase_Deficiency", "yamlRevision": "39352cbfce14"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

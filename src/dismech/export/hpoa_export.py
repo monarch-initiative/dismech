@@ -20,10 +20,10 @@ Rules
   dismech's in-vitro evidence is overwhelmingly human iPSC / cell-line work.
 * ``supports`` handling: ``NO_EVIDENCE`` items are dropped (the cited reference
   does not mention the claim, so a positive row would be misleading);
-  ``REFUTE`` / ``WRONG_STATEMENT`` become ``NOT``-qualified rows; ``PARTIAL`` is
-  kept as a normal positive row (HPOA has no partial qualifier, and partial
-  support still attests the association) with no qualifier; ``SUPPORT`` /
-  missing is a normal positive row.
+  ``REFUTE`` becomes a ``NOT``-qualified row; ``SUPPORT`` / missing is a normal
+  positive row. ``directness`` is not consulted — an indirectly-evidenced
+  phenotype association is still an association, and HPOA has no slot for the
+  distinction.
 * A phenotype whose ``frequency`` enum is ``EXCLUDED`` asserts the phenotype is
   *absent*; it is emitted as a ``NOT``-qualified row with an empty frequency
   column rather than a positive row carrying the "Excluded" frequency term.
@@ -84,19 +84,17 @@ EVIDENCE_CODE: dict[Any, str | None] = {
     None: "IEA",
 }
 
-# supports value -> HPOA qualifier. Anything absent here (SUPPORT, PARTIAL)
-# becomes a positive row with an empty qualifier: PARTIAL support still attests
-# the phenotype-disease association and HPOA has no dedicated partial qualifier.
+# supports value -> HPOA qualifier. Anything absent here (SUPPORT, or a missing
+# value) becomes a positive row with an empty qualifier.
 SUPPORTS_TO_QUALIFIER: dict[Any, str] = {
     "REFUTE": "NOT",
-    "WRONG_STATEMENT": "NOT",
 }
 
 # supports values whose evidence item is dropped entirely (no HPOA row).
 # NO_EVIDENCE means the cited reference does not mention the claim at all, so
 # emitting it as a positive PCS/IEA row would falsely imply the paper supports
-# the phenotype-disease link. REFUTE/WRONG_STATEMENT are NOT dropped — they
-# become NOT-qualified rows via SUPPORTS_TO_QUALIFIER.
+# the phenotype-disease link. REFUTE is NOT dropped — it becomes a NOT-qualified
+# row via SUPPORTS_TO_QUALIFIER.
 DROP_SUPPORTS: frozenset[str] = frozenset({"NO_EVIDENCE"})
 
 HPOA_COLUMNS = [
@@ -320,8 +318,7 @@ def export(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
         hp_f.write("#tracker: https://github.com/monarch-initiative/dismech\n")
         hp_f.write(
             "#rules: human evidence only (MODEL_ORGANISM excluded); "
-            "NO_EVIDENCE dropped; REFUTE/WRONG_STATEMENT/EXCLUDED-frequency -> NOT; "
-            "PARTIAL kept as positive; "
+            "NO_EVIDENCE dropped; REFUTE/EXCLUDED-frequency -> NOT; "
             "reference column may be PMID/ORPHA/DOI/clinicaltrials/CGGV; "
             "untyped phenotypes get DISMECH:<entry-slug>#<phen-slug> CURIEs; "
             "MONDO-typed entries routed to disease_comorbidity.tsv\n"
