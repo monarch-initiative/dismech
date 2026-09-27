@@ -44047,7 +44047,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "8"
   },
   {
@@ -64424,7 +64424,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "9"
   },
   {
@@ -67582,7 +67582,10 @@ window.searchData = [
       "Anti-inflammatory cytokine-associated immune evasion",
       "Reduced endothelial cell apoptosis",
       "BafA/BadA-associated endothelial proliferation",
-      "Atypical hepatosplenic dissemination"
+      "Atypical hepatosplenic dissemination",
+      "Atypical osseous dissemination",
+      "Ocular neuroretinal inflammation",
+      "Neurologic Bartonella encephalitis"
     ],
     "cell_types": [
       "neutrophil",
@@ -67652,11 +67655,11 @@ window.searchData = [
     "source_file": "Cat-Scratch_Disease.yaml",
     "page_url": "../pages/disorders/Cat-scratch_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 13,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Cataract 13 With Adult I Phenotype",
@@ -73817,8 +73820,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Chikungunya",
@@ -73901,7 +73904,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "7"
   },
   {
@@ -96096,8 +96099,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cutaneous Melanoma",
@@ -96771,7 +96774,8 @@ window.searchData = [
       "Ingestion of sporulated Cyclospora oocysts",
       "Excystation and invasion of small-intestinal enterocytes",
       "Villous atrophy and mucosal inflammation",
-      "Malabsorption and diarrhea"
+      "Malabsorption and diarrhea",
+      "Biliary epithelial infection in immunocompromised host"
     ],
     "cell_types": [
       "enterocyte"
@@ -96838,10 +96842,10 @@ window.searchData = [
     "source_file": "Cyclosporiasis.yaml",
     "page_url": "../pages/disorders/Cyclosporiasis.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
   {
@@ -96857,7 +96861,9 @@ window.searchData = [
     "subtypes": [],
     "description": "Cystic echinococcosis is a helminthic disease caused by the larval stage of Echinococcus granulosus.",
     "pathophysiology": [
+      "Egg-derived larval cyst establishment",
       "Hepatic cyst formation",
+      "Pulmonary cyst formation",
       "Hepatic Cyst Rupture",
       "Secondary Hydatidosis"
     ],
@@ -96904,11 +96910,11 @@ window.searchData = [
     "source_file": "Cystic_Echinococcosis.yaml",
     "page_url": "../pages/disorders/Cystic_echinococcosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Cystic Fibrosis",
@@ -106200,8 +106206,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Diethylene Glycol Poisoning",
@@ -111525,6 +111531,7 @@ window.searchData = [
     "pathophysiology": [
       "Larval transmission by copepods",
       "Worm emergence and skin ulceration",
+      "Retained or calcified guinea worm remnants",
       "Disability and socioeconomic impact"
     ],
     "cell_types": [],
@@ -111570,11 +111577,11 @@ window.searchData = [
     "source_file": "Dracunculiasis.yaml",
     "page_url": "../pages/disorders/Dracunculiasis.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Dravet_syndrome",
@@ -133640,7 +133647,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "6"
   },
   {
@@ -139653,6 +139660,8 @@ window.searchData = [
     "description": "Glanders is a highly contagious zoonotic bacterial infection caused by Burkholderia mallei. It primarily affects equids but can infect humans, and disease is marked by pulmonary nodular lesions and ulcerative skin or mucous membrane involvement.",
     "pathophysiology": [
       "Intracellular macrophage survival and T6SS-1 actin-based spread",
+      "Pulmonary granulomatous lesions",
+      "Mucocutaneous ulcerative lesions",
       "Serodiagnostic antigen variation"
     ],
     "cell_types": [
@@ -139664,6 +139673,7 @@ window.searchData = [
     "biological_processes": [
       "defense response to Gram-negative bacterium",
       "symbiont-mediated actin polymerization-dependent cell-to-cell migration in host",
+      "inflammatory response",
       "immune response"
     ],
     "phenotypes": [
@@ -139691,11 +139701,11 @@ window.searchData = [
     "source_file": "Glanders.yaml",
     "page_url": "../pages/disorders/Glanders.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Glanzmann Thrombasthenia",
@@ -150927,6 +150937,8 @@ window.searchData = [
     "pathophysiology": [
       "Hepatocyte Infection and cccDNA Formation",
       "HBV DNA Integration",
+      "Immune-mediated acute hepatocellular injury",
+      "Immune-complex extrahepatic prodrome",
       "Chronic Inflammation",
       "Immune Evasion and T Cell Exhaustion",
       "Liver Fibrosis",
@@ -150950,6 +150962,7 @@ window.searchData = [
       "viral entry into host cell",
       "epigenetic regulation of gene expression",
       "DNA integration",
+      "inflammatory response",
       "negative regulation of T cell activation",
       "cGAS-STING signaling pathway"
     ],
@@ -151017,10 +151030,10 @@ window.searchData = [
     "source_file": "Hepatitis_B.yaml",
     "page_url": "../pages/disorders/Hepatitis_B.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "4"
   },
   {
@@ -151298,8 +151311,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Hepatoblastoma",
@@ -157737,8 +157750,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Human Granulocytic Anaplasmosis",
@@ -157908,8 +157921,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Human Monocytic Ehrlichiosis",
@@ -179415,7 +179428,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
   {
@@ -193587,7 +193600,10 @@ window.searchData = [
     "pathophysiology": [
       "Intracellular amastigote replication in macrophages",
       "Th1-Polarized Cell-Mediated Response and Macrophage Activation",
-      "Th2-Polarized Response and Permissive Disease Progression"
+      "Th2-Polarized Response and Permissive Disease Progression",
+      "Cutaneous macrophage infection and ulcerative inflammation",
+      "Visceral reticuloendothelial infection and systemic inflammation",
+      "Mucosal destructive granulomatous inflammation"
     ],
     "cell_types": [
       "macrophage",
@@ -193601,7 +193617,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "T-helper 1 type immune response",
-      "T-helper 2 type immune response"
+      "T-helper 2 type immune response",
+      "granuloma formation"
     ],
     "phenotypes": [
       "Cutaneous ulcers",
@@ -193648,11 +193665,11 @@ window.searchData = [
     "source_file": "Leishmaniasis.yaml",
     "page_url": "../pages/disorders/Leishmaniasis.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Lemierre Syndrome",
@@ -196844,7 +196861,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "7"
   },
   {
@@ -214632,8 +214649,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Midface Hypoplasia, Hearing Impairment, Elliptocytosis, and Nephrocalcinosis",
@@ -321333,12 +321350,18 @@ window.searchData = [
     ],
     "creation_date": "2026-06-22T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Glandular form"
+    ],
     "description": "Tularemia is a highly infectious zoonotic disease caused by the intracellular Gram-negative bacterium Francisella tularensis. Humans acquire infection through arthropod (tick or mosquito) bites, direct contact with infected animals (especially rabbits, hares, and rodents), ingestion of contaminated food or water, or inhalation of infectious aerosols; person-to-person transmission has not been reported. After uptake by macrophages, F. tularensis escapes the phagosome into the cytosol via the Francisella Pathogenicity Island-encoded type VI secretion system, where it replicates and triggers caspase-1 inflammasome activation and granulomatous inflammation. The route of inoculation determines the clinical form: ulceroglandular, glandular, oculoglandular, oropharyngeal, pneumonic, and typhoidal tularemia. F. tularensis requires as few as 10 organisms to cause disease and is classified as a Category A bioterrorism agent.\n",
     "pathophysiology": [
       "Arthropod-Borne and Zoonotic Acquisition",
       "Macrophage Phagosomal Escape and Cytosolic Replication",
-      "Inflammasome Activation and Granulomatous Inflammation"
+      "Lymphatic Francisella Spread to Regional Nodes",
+      "Necrotizing and Suppurative Granulomatous Lymphadenitis",
+      "Inflammasome Activation and Granulomatous Inflammation",
+      "Francisella Ribosomal Translation",
+      "Francisella DNA Gyrase and Topoisomerase IV"
     ],
     "cell_types": [
       "Macrophage"
@@ -321350,15 +321373,20 @@ window.searchData = [
       "Phagocytosis",
       "Suppression of host phagosome maturation",
       "Symbiont entry into host",
+      "inflammatory response",
       "Inflammasome-mediated signaling",
-      "Inflammatory response"
+      "Inflammatory response",
+      "translation",
+      "DNA topological change"
     ],
     "phenotypes": [
       "Fever",
       "Lymphadenopathy",
       "Skin Ulcer",
       "Pneumonia",
-      "Chills"
+      "Chills",
+      "Headache",
+      "Myalgia"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -321367,6 +321395,7 @@ window.searchData = [
       "Immune",
       "Integument",
       "Metabolism",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -321374,25 +321403,30 @@ window.searchData = [
       "HP:0002716",
       "HP:0200042",
       "HP:0002090",
-      "HP:0025143"
+      "HP:0025143",
+      "HP:0002315",
+      "HP:0003326"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
       "Streptomycin",
       "Ciprofloxacin",
-      "Doxycycline"
+      "Doxycycline",
+      "Fine-Needle Aspiration or Surgical Drainage"
     ],
-    "environmental": [],
+    "environmental": [
+      "Arthropod and infected-animal contact"
+    ],
     "biochemical": [],
     "source_file": "Tularemia.yaml",
     "page_url": "../pages/disorders/Tularemia.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
     "num_genes": 0,
-    "num_treatments": 3,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Turner Syndrome",
@@ -337629,16 +337663,16 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3194,
-  "total_subtypes": 4290,
-  "total_disorders_and_subtypes": 7484,
-  "total_unique_evidence_sources": 46563,
-  "total_unique_publications": 43745,
+  "total_subtypes": 4291,
+  "total_disorders_and_subtypes": 7485,
+  "total_unique_evidence_sources": 46567,
+  "total_unique_publications": 43749,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
   "total_pathographs": 3189,
-  "total_unique_pathological_events": 20203,
+  "total_unique_pathological_events": 20221,
   "total_modules": 179,
-  "total_research_reports": 3308,
+  "total_research_reports": 3309,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 106
