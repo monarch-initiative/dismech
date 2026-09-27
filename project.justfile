@@ -680,6 +680,21 @@ check-groupings *args="":
 grouping-anchor-audit *args="":
     uv run python scripts/grouping_module_anchor_audit.py {{args}}
 
+# Check each grouping's MONDO mapping predicate against its own members, by
+# resolving every member's MONDO term to its ANCESTORS and looking the mapped
+# class up in that set (dismech#11299 territory, but no local build needed).
+# This is the inverted form of the descendant-closure check: bounded by the
+# member list rather than by the ontology, and the OLS REST endpoint serves
+# ancestors even though the ols:mondo OAK adapter serves neither direction.
+# Needs network. Report-only; --strict exits 1 when a grouping declares
+# exactMatch/narrowMatch while holding members outside the mapped class.
+# Distinct from scripts/grouping_mondo_gaps.py, which finds MONDO descendants
+# with NO dismech entry -- irreducibly a descendant query, still needs the
+# ~588 MB local MONDO build.
+[group('QC')]
+grouping-mondo-consistency *args="":
+    uv run python scripts/grouping_mondo_consistency.py {{args}}
+
 # Report the declared grouping-of-grouping tree plus undeclared member-set
 # containments between groupings (advisory; a containment is a lead, not a ruling)
 [group('QC')]
@@ -951,6 +966,17 @@ knowledge-gap-audit *args="":
 check-knowledge-gap-targets *files:
     uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
 
+# Census of how far estrogen signalling is curated, in six tiers from "mentions
+# estrogen anywhere" down to "binds ESR1/ESR2 on a pathophysiology node". The
+# gap it measures is between binding GO:0030520 on a node and putting the
+# receptor driving it on that node. Offline, report-only, exits 0. See #12925.
+#   just estrogen-census
+#   just estrogen-census --format tsv
+#   just estrogen-census --out docs/reports/estrogen-signalling-coverage-census-<date>.md
+[group('QC')]
+estrogen-census *args="":
+    uv run python scripts/estrogen_signalling_census.py "$@"
+
 # Census of has_subtypes usage (how many subtypes are ever referenced by a
 # subtype: foreign key) plus the deterministic subtype-gene wiring check: a
 # gene named in has_subtypes[].genes that no pathophysiology node carries and
@@ -1176,6 +1202,19 @@ alias validate-references := validate-kb-references
 [group('QC')]
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
+
+# Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
+# A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
+# re-checks them: the trial registry is the one live-API reference source with no
+# `*-refresh` recipe, and its cache records carry no retrieval timestamp, so drift
+# is not measurable offline. Reports only -- never edits the KB, since a trial
+# moving to COMPLETED/TERMINATED usually wants its description/evidence revisited
+# too. Network-dependent and therefore advisory: deliberately NOT part of `just qc`.
+# Pass --strict to gate, --only-drift for just the worklist, --format json|markdown.
+# See docs/clinical-trial-status.md.
+[group('QC')]
+clinicaltrials-status-audit *args:
+    uv run python -m dismech.clinical_trial_status {{args}}
 
 # Deterministically validate reference cache frontmatter against the
 # linkml-reference-validator cache contract before the heavier data validators.
@@ -2037,6 +2076,14 @@ export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
 
+# Maximal KGX export: the whole KB (disorders, modules, comorbidities,
+# groupings) as one graph with entry-local pathograph nodes promoted to
+# first-class KG nodes (dismech:<stem>#<node> ids). Experimental; see the
+# module docstring for the koza join / report follow-on commands.
+[group('Export')]
+export-kgx-maximal out_dir="output/maximal_kgx":
+    uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
+
 # Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
 [group('Export')]
 export-hpoa:
@@ -2779,6 +2826,8 @@ validate-research-terms +args:
 # Verdicts: PASS / WARN (contamination or OMIM mismatch) / FAIL (wrong entity —
 # discard the report, do not cherry-pick) / SKIP (MONDO records no causal gene).
 # Exits non-zero on FAIL, or on WARN too with --strict.
+# Needs the local MONDO build (`just fetch-ontology-dbs mondo`); exits 2 rather
+# than downloading it when absent (#12687). --no-hgnc also avoids the HGNC build.
 # Examples:
 #   just preflight-dr research/Marfan_Syndrome-deep-research-falcon.md MONDO:0007947
 #   just preflight-dr research/Foo-deep-research-falcon.md MONDO:0014572 --strict
@@ -3149,6 +3198,17 @@ ictrp-rebuild *args="":
 [group('Research')]
 ictrp-list limit="20":
     uv run python -m dismech.structured_sources.cli list ictrp --limit {{limit}}
+
+# Fetch EPA's ToxCast/Tox21 assay-endpoint annotations into data/toxcast/.
+# These describe what each assay measures — intended gene target, target family,
+# biological process, species, tissue, method and signal direction — and are the
+# input to the assay-to-pathograph-node mapping work in issue #12858. Chemical
+# hit-calls are NOT fetched; those stay with #12682.
+# Requires CTX_API_KEY (free, from ccte_api@epa.gov). Pass --force to refetch,
+# --summary to describe what is already cached.
+[group('Research')]
+toxcast-refresh *args="":
+    uv run python -m dismech.toxcast_assays {{args}}
 
 # Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
 # is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
@@ -3787,6 +3847,16 @@ phenopacket-eval paths="tests/phenoagent/data/phenopackets":
 [positional-arguments]
 jev-audit *args:
     uv run python -m dismech.classifier.audit "$@"
+
+# Preview new issues from the latest published Jev queue; no API inference.
+[positional-arguments]
+plan-eval-issues n="5":
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1"
+
+# Create up to N issues, skipping diseases with an open or closed intake issue.
+[positional-arguments]
+enqueue-eval-issues n="5":
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1" --apply
 
 # Inventory every assertion without paid API calls.
 [positional-arguments]
