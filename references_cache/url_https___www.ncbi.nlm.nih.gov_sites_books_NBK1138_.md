@@ -166,7 +166,7 @@ content_type: url
 	</div>
 	<section data-section="Alerts">
 		<div class="ncbi-alerts-placeholder"></div>
-	</section>  
+	</section>
 </div>
                             <div class="header">
     <div class="res_logo"><h1 class="res_name"><a href="/sites/books/" title="Bookshelf home">Bookshelf</a></h1><h2 class="res_tagline"></h2></div>
@@ -1020,7 +1020,7 @@ Neuroepidemiology.
 			</div>
 		</div>
 	</section>
-	<script type="text/javascript" src="/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js?v=1"> </script>  
+	<script type="text/javascript" src="/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js?v=1"> </script>
 	<script type="text/javascript" src="/portal/portal3rc.fcgi/static/js/hfjs2.js"> </script>
 </div>
                         </div>
