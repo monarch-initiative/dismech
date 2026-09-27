@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT03347396
+extractor_version: 1
 title: "A Phase 3, Pivotal, Open-label, Multicenter Study to Assess the Efficacy and Safety of Sutimlimab in Patients With Primary Cold Agglutinin Disease Who Have a Recent History of Blood Transfusion"
 content_type: summary
 full_text_attempted: true
