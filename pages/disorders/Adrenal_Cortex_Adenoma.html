@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4284,6 +4352,7 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4346,6 +4415,7 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4367,6 +4437,7 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4519,6 +4590,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4600,6 +4672,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4644,6 +4717,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-adrenocortical-proliferation" data-dismech-node="Clonal Adrenocortical Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Adrenocortical Proliferation</div>
+
 
                 <div class="item-desc">A somatic driver mutation in a single adrenocortical cell produces a clonal, benign, well-circumscribed proliferation. Unlike adrenocortical carcinoma, this proliferation is self-limited: there is no destructive capsular or vascular invasion and no metastatic capacity. The driver that initiates the clone also determines the tumour&#39;s secretory phenotype, which is why the functional classification of adrenal adenomas maps onto distinct mutational classes rather than onto tumour size or histology.</div>
 
@@ -4752,6 +4826,7 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4774,6 +4849,7 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prkaca-catalytic-subunit-activation" data-dismech-node="PRKACA Catalytic Subunit Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PRKACA Catalytic Subunit Activation</div>
+
 
                 <div class="item-desc">Somatic hotspot mutations in PRKACA — the recurrent change is c.617A&gt;C, designated p.Leu206Arg when the initiator methionine is counted and widely reported in the earlier literature as L205R under mature-protein numbering that omits it — lie in the P+1 loop at the interface between the PKA catalytic subunit and its regulatory subunit. The mutant catalytic subunit can no longer be held inactive by the regulatory subunit, so kinase activity becomes constitutive and cAMP-independent. Activating GNAS mutations produce the same functional endpoint one step upstream by locking Gs-alpha in its active state.</div>
 
@@ -4947,6 +5023,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4968,6 +5045,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4995,6 +5073,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5017,6 +5096,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-camp-pka-signalling" data-dismech-node="Constitutive cAMP-PKA Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive cAMP-PKA Signalling</div>
+
 
                 <div class="item-desc">Unrestrained PKA catalytic activity phosphorylates CREB and other substrates, driving transcription of the steroidogenic program (STAR, CYP11A1, CYP11B1) in the absence of ACTH stimulation. The same signalling supports the modest proliferative advantage that allows the clone to form a macroscopic adenoma.</div>
 
@@ -5116,6 +5196,7 @@ This pathophysiological event involves increased protein phosphorylation (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5138,6 +5219,7 @@ This pathophysiological event involves increased protein phosphorylation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acth-independent-cortisol-hypersecretion" data-dismech-node="ACTH-Independent Cortisol Hypersecretion" data-dismech-type="pathophysiology">
                 <div class="item-name">ACTH-Independent Cortisol Hypersecretion</div>
+
 
                 <div class="item-desc">Zona fasciculata-like tumour cells synthesise and release cortisol autonomously, uncoupled from the hypothalamic-pituitary axis. The magnitude of this autonomous output is the single variable that determines whether the patient presents with overt Cushing syndrome, with MACS, or with no cortisol-related phenotype at all — the same mechanism operating along a continuum of severity.</div>
 
@@ -5308,6 +5390,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5330,6 +5413,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpa-axis-suppression-and-contralateral-adrenal-atrophy" data-dismech-node="HPA Axis Suppression and Contralateral Adrenal Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">HPA Axis Suppression and Contralateral Adrenal Atrophy</div>
+
 
                 <div class="item-desc">Negative feedback from tumour-derived cortisol suppresses pituitary ACTH secretion; the non-tumorous ipsilateral and contralateral adrenal cortex atrophies. This is clinically silent while the adenoma is in place but becomes the dominant management problem immediately after adrenalectomy, when the remaining gland cannot mount a cortisol response — hence the requirement for perioperative and tapering glucocorticoid cover, with hypothalamic-pituitary-adrenal recovery often taking months.</div>
 
@@ -5383,6 +5467,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5405,6 +5490,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-glucocorticoid-excess" data-dismech-node="Chronic Glucocorticoid Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Glucocorticoid Excess</div>
+
 
                 <div class="item-desc">Sustained supraphysiological cortisol exposure produces the classical Cushing phenotype: central and abdominal fat redistribution, proteolytic muscle wasting with proximal weakness, dermal collagen loss with easy bruising, insulin resistance and type 2 diabetes, hypertension, and glucocorticoid-induced osteoporosis with fragility fracture.</div>
 
@@ -5506,6 +5592,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5528,6 +5615,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mild-autonomous-cortisol-secretion" data-dismech-node="Mild Autonomous Cortisol Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Mild Autonomous Cortisol Secretion</div>
+
 
                 <div class="item-desc">Low-grade cortisol autonomy sufficient to fail the 1-mg dexamethasone suppression test but insufficient to produce the classical Cushing habitus. The mechanistically important point — and the reason this node exists separately from Chronic Glucocorticoid Excess — is the reclassification of MACS. It was long treated as a biochemical curiosity of no consequence (&#34;subclinical hypercortisolism&#34;). Contemporary multicentre cohort data show that MACS is instead an independent cardiometabolic and skeletal risk state, carrying excess hypertension, insulin-requiring diabetes, vertebral fracture, and — critically — increased all-cause mortality relative to non-functioning adenomas, with the excess concentrated in women under 65. The 2023 ESE guideline formalised the term and mandated screening for cortisol-attributable comorbidity in every patient with MACS.</div>
 
@@ -5605,6 +5693,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5626,6 +5715,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5653,6 +5743,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5675,6 +5766,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zona-glomerulosa-ion-channel-and-pump-driver-mutation" data-dismech-node="Zona Glomerulosa Ion Channel and Pump Driver Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">Zona Glomerulosa Ion Channel and Pump Driver Mutation</div>
+
 
                 <div class="item-desc">Aldosterone-producing adenomas carry mutually exclusive somatic mutations in a small set of genes encoding ion channels and pumps of the zona glomerulosa plasma membrane: KCNJ5 (inwardly rectifying K+ channel; the commonest), CACNA1D (Cav1.3 L-type calcium channel), ATP1A1 (Na+/K+-ATPase alpha subunit) and ATP2B3 (plasma-membrane Ca2+-ATPase). CTNNB1 mutations occur in a minority. Different genes, one shared functional endpoint — the resting membrane potential of the glomerulosa cell can no longer be maintained.</div>
 
@@ -5887,6 +5979,8 @@ This pathophysiological event involves ATP2B3 (hgnc:816). hgnc:816 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5895,6 +5989,9 @@ This pathophysiological event involves ATP2B3 (hgnc:816). hgnc:816 is a gene fro
 
 
     </div>
+
+
+
 
 
 
@@ -5963,6 +6060,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5984,6 +6082,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6011,6 +6110,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6033,6 +6133,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zona-glomerulosa-membrane-depolarisation" data-dismech-node="Zona Glomerulosa Membrane Depolarisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Zona Glomerulosa Membrane Depolarisation</div>
+
 
                 <div class="item-desc">The glomerulosa cell resting potential, normally close to the K+ equilibrium potential, shifts toward depolarisation. This is the convergence point of the channel and pump drivers, and the reason a heterogeneous set of genes produces one clinical phenotype.</div>
 
@@ -6158,6 +6259,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6180,6 +6282,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-calcium-influx-and-calcium-dependent-signalling" data-dismech-node="Calcium Influx and Calcium-Dependent Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Calcium Influx and Calcium-Dependent Signalling</div>
+
 
                 <div class="item-desc">Increased cytosolic calcium is the final common pathway of aldosterone-producing adenoma formation. It is simultaneously the signal for aldosterone biosynthesis and for glomerulosa cell proliferation, which is why a single somatic channel mutation is sufficient to produce both constitutive hormone production and tumour growth.</div>
 
@@ -6313,6 +6416,7 @@ This pathophysiological event involves increased calcium ion import across plasm
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6334,6 +6438,7 @@ This pathophysiological event involves increased calcium ion import across plasm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6359,6 +6464,7 @@ This pathophysiological event involves increased calcium ion import across plasm
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp11b2-induction-and-autonomous-aldosterone-synthesis" data-dismech-node="CYP11B2 Induction and Autonomous Aldosterone Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP11B2 Induction and Autonomous Aldosterone Synthesis</div>
+
 
                 <div class="item-desc">Aldosterone synthase (CYP11B2) is upregulated in the tumour cells, which therefore synthesise aldosterone independently of angiotensin II and potassium. CYP11B2 immunohistochemistry is now the WHO-endorsed means of identifying which adrenal structures are actually the source of aldosterone excess — an important point, because a radiologically visible nodule is not necessarily the functional lesion.</div>
 
@@ -6535,6 +6641,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6556,6 +6663,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6581,6 +6689,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renin-independent-mineralocorticoid-excess" data-dismech-node="Renin-Independent Mineralocorticoid Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Renin-Independent Mineralocorticoid Excess</div>
+
 
                 <div class="item-desc">Excess aldosterone acting on the distal nephron produces sodium retention with volume expansion, kaliuresis and hydrogen-ion loss. The resulting biochemical signature is hypertension with a suppressed plasma renin and an elevated aldosterone-to-renin ratio, sometimes with hypokalaemia (and, when hypokalaemia is marked, a metabolic alkalosis that is not separately curated here for want of an adenoma-specific citable source). Normokalaemia does not exclude primary aldosteronism — an important reason the condition is under-recognised.</div>
 
@@ -6650,6 +6759,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6672,6 +6782,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aldosterone-mediated-target-organ-damage" data-dismech-node="Aldosterone-Mediated Target Organ Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Aldosterone-Mediated Target Organ Damage</div>
+
 
                 <div class="item-desc">The clinically decisive feature of primary aldosteronism is that its cardiovascular and renal injury is disproportionate to the blood pressure. Compared with essential hypertensives, patients with primary aldosteronism have markedly higher odds of stroke, coronary disease, atrial fibrillation and heart failure. Combined with the fact that primary aldosteronism remains largely underdiagnosed and undertreated, this is the strongest argument for biochemical screening of hypertensive patients with an adrenal adenoma rather than treating blood pressure alone.</div>
 
@@ -6757,6 +6868,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6778,6 +6890,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6805,6 +6918,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6827,6 +6941,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-pathway-activation" data-dismech-node="Wnt Beta-Catenin Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Wnt Beta-Catenin Pathway Activation</div>
+
 
                 <div class="item-desc">Activating CTNNB1 mutations stabilise beta-catenin, driving canonical Wnt transcription. This is the commonest recurrent alteration in non-functioning adrenocortical adenomas, and also occurs in a minority of aldosterone- and cortisol-producing lesions. It is a proliferation driver that does not itself impose a secretory phenotype, which is consistent with its enrichment in the non-functioning group.</div>
 
@@ -6961,6 +7076,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6982,6 +7098,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7044,6 +7161,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7091,6 +7209,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7112,6 +7231,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7162,6 +7282,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7206,6 +7327,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7321,6 +7443,9 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7335,6 +7460,7 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7397,6 +7523,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency assigned FREQUENT from the counts quoted above (58.6-75.2% across the cortisol-autonomy strata of the NAPACA cohort). Hypertension is near-universal in the aldosterone-producing subtype specifically, since it is part of that subtype&#39;s case definition, so the subtype-level frequency is higher than this disease-level band; that subtype-specific figure was not separately curated.</div>
 
 
@@ -7416,6 +7545,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7469,6 +7599,9 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:000167
                     </div>
 
 
+
+
+
                     <div class="item-desc">The meta-analysis endpoint is &#34;coronary artery disease&#34; as an event category; HP:0001677 (Coronary artery atherosclerosis) is the closest HPO term, which is slightly narrower than the reported endpoint.</div>
 
 
@@ -7488,6 +7621,7 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:000167
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7544,6 +7678,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7558,6 +7695,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7612,6 +7750,9 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7626,6 +7767,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7680,6 +7822,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7694,6 +7839,7 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7748,6 +7894,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7762,6 +7911,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7829,6 +7979,9 @@ This clinical feature is Adrenocortical adenoma (HP:0008256). HP:0008256 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7843,6 +7996,7 @@ This clinical feature is Adrenocortical adenoma (HP:0008256). HP:0008256 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7897,6 +8051,9 @@ This clinical feature is Primary hypercortisolism (HP:0001579). HP:0001579 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7911,6 +8068,7 @@ This clinical feature is Primary hypercortisolism (HP:0001579). HP:0001579 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7965,6 +8123,9 @@ This clinical feature is Primary hyperaldosteronism (HP:0011736). HP:0011736 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7979,6 +8140,7 @@ This clinical feature is Primary hyperaldosteronism (HP:0011736). HP:0011736 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8035,6 +8197,9 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8049,6 +8214,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8103,6 +8269,9 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8117,6 +8286,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8177,6 +8347,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. The cited source says only &#34;often associated with hypokalemia&#34; with no numerator or denominator, and contemporary reviews emphasise that primary aldosteronism is commonly normokalaemic. Assigning a FrequencyEnum band here would not be supported by quotable evidence.</div>
 
 
@@ -8196,6 +8369,7 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8252,6 +8426,9 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8266,6 +8443,7 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8331,6 +8509,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8345,6 +8526,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8400,6 +8582,9 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to HP:0002953 (Vertebral compression fracture) because the claim and its evidence concern fracture *events*. An earlier draft used HP:0005625 (Osteoporosis of vertebrae), which asserts bone density rather than fracture and partly duplicated the separate Osteoporosis phenotype; that was corrected in review.</div>
 
 
@@ -8419,6 +8604,7 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8443,6 +8629,7 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8497,6 +8684,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8511,6 +8701,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8574,6 +8765,9 @@ This clinical feature is Abdominal obesity (HP:0012743). HP:0012743 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8588,6 +8782,7 @@ This clinical feature is Abdominal obesity (HP:0012743). HP:0012743 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8690,6 +8885,9 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8704,6 +8902,7 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8728,6 +8927,7 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8789,6 +8989,9 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8803,6 +9006,7 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8864,6 +9068,9 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8878,6 +9085,7 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8939,6 +9147,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8953,6 +9164,7 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9014,6 +9226,9 @@ This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9028,6 +9243,7 @@ This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9089,6 +9305,9 @@ This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9103,6 +9322,7 @@ This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9164,6 +9384,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9178,6 +9401,7 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9265,6 +9489,9 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9275,6 +9502,9 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
 
 
     </div>
+
+
+
 
 
 
@@ -9336,6 +9566,7 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9360,6 +9591,7 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9381,6 +9613,7 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9488,6 +9721,9 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9498,6 +9734,9 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9546,6 +9785,7 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9567,6 +9807,7 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9657,6 +9898,9 @@ This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9667,6 +9911,9 @@ This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI
 
 
     </div>
+
+
+
 
 
 
@@ -9734,6 +9981,7 @@ This treatment targets Adrenal insufficiency (HP:0000846). HP:0000846 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9807,6 +10055,12 @@ This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">The practical consequence of the MACS reclassification: rather than reassuring the patient, every individual with MACS should be actively screened for hypertension, type 2 diabetes, dyslipidaemia and osteoporosis, and those conditions treated on their own terms. This is now a guideline recommendation and, for the large majority of MACS patients who do not undergo surgery, it is the entire intervention.</div>
 
 
@@ -9831,6 +10085,7 @@ This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9852,6 +10107,7 @@ This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9925,6 +10181,12 @@ This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a cli
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">For a homogeneous adrenal mass measuring 10 HU or less on unenhanced CT with a normal endocrine work-up, the 2023 ESE guideline recommends no further imaging follow-up at all, irrespective of size, and no surgery. This is a deliberate de-escalation from earlier size-based surveillance protocols and spares a large number of patients repeated CT and its radiation burden.</div>
 
 
@@ -9949,6 +10211,7 @@ This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9970,6 +10233,7 @@ This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10060,6 +10324,9 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10070,6 +10337,9 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -10118,6 +10388,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10139,6 +10410,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10286,6 +10558,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10324,6 +10597,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10400,6 +10674,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10421,6 +10696,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10497,6 +10773,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10544,6 +10821,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10565,6 +10843,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10636,6 +10915,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10657,6 +10937,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10711,6 +10992,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10861,6 +11143,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10885,14 +11168,15 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"a homogeneous adrenal mass with ≤10 Hounsfield units on non-contrast computed tomography requires no further follow-up, irrespective of its size"</div>
+                <div class="evidence-snippet">"The revised 2023 European Society of Endocrinology (ESE) guideline incorporates cutting-edge evidence for managing adrenal incidentalomas. ... Regarding the criteria of benign adrenal adenomas, a homogeneous adrenal mass with ≤10 Hounsfield units on non-contrast computed tomography requires no..."</div>
 
 
-                <div class="evidence-explanation">Independent restatement of the same criterion in the guideline review.</div>
+                <div class="evidence-explanation">Restores the 2023 ESE guideline attribution and the benign-adrenal-adenoma criteria before the attenuation/follow-up rule. The selected passage does not rank every imaging discriminator or explain the intracellular lipid mechanism.</div>
 
 
 
@@ -10987,6 +11271,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11063,6 +11348,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11120,6 +11406,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11231,6 +11518,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11255,6 +11543,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11276,6 +11565,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11360,6 +11650,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11381,6 +11672,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11459,6 +11751,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11543,6 +11836,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11622,6 +11916,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11696,6 +11991,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13471,8 +13767,15 @@ imaging_findings:
     reference_title: Recent Updates on the Management of Adrenal Incidentalomas.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;a homogeneous adrenal mass with ≤10 Hounsfield units on non-contrast computed tomography requires no further follow-up, irrespective of its size&#34;
-    explanation: Independent restatement of the same criterion in the guideline review.
+    snippet: &gt;-
+      The revised 2023 European Society of Endocrinology (ESE) guideline incorporates cutting-edge
+      evidence for managing adrenal incidentalomas. ... Regarding the criteria of benign adrenal
+      adenomas, a homogeneous adrenal mass with ≤10 Hounsfield units on non-contrast computed
+      tomography requires no further follow-up, irrespective of its size.
+    explanation: &gt;-
+      Restores the 2023 ESE guideline attribution and the benign-adrenal-adenoma criteria before the
+      attenuation/follow-up rule. The selected passage does not rank every imaging discriminator or
+      explain the intracellular lipid mechanism.
 
 - name: Indeterminate Large or High-Attenuation Adrenal Mass
   modality: CT
@@ -14426,6 +14729,39 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and boundaries. This entry covers the benign adrenal cortical neoplasm only. Three adjacent entities were deliberately excluded and modelled as differential diagnoses rather than subtypes, because each has a distinct driver, laterality and inheritance: adrenal cortex carcinoma (MONDO:0006639), bilateral macronodular adrenal hyperplasia (ARMC5; MONDO:0009049), and primary pigmented nodular adrenocortical disease (PRKAR1A / Carney complex; MONDO:0015999), the last of which is already curated in this knowledge base as Primary_Pigmented_Nodular_Adrenocortical_Disease.
+Relationship to existing entries. The downstream clinical syndromes caused by functional adenomas are curated separately and are not duplicated here: Cushings_Syndrome covers the full hypercortisolism syndrome across all aetiologies (pituitary, ectopic and adrenal), and Familial_Hyperaldosteronism and Familial_Hyperaldosteronism_Type_I cover the germline forms of aldosterone excess. This entry models the adenoma itself and the mechanistic chain from its somatic driver to the hormone excess; the syndrome entries model the systemic consequences of that hormone excess in full.
+On the functional axis. Subtypes are defined by autonomous secretion rather than by histology or size because that is what determines management, and because the somatic driver classes map cleanly onto the secretory phenotypes. MACS is modelled as a subtype in its own right rather than as mild Cushing syndrome, reflecting its 2023 ESE-formalised status and the mortality and fracture data that reclassified it.
+Curation gaps for a future pass. (1) No numeric interval is asserted for the aldosterone-to-renin ratio or for late-night salivary cortisol; both are strongly assay- and unit-dependent and no citable quotable interval was found. (2) Rare androgen-, estrogen- and mixed-steroid-secreting adenomas are noted in the literature but are not modelled as subtypes, because marked sex-steroid excess should raise suspicion of carcinoma rather than adenoma. (3) Bilateral adrenal hyperplasia (idiopathic hyperaldosteronism) is the differential that adrenal vein sampling exists to resolve and is discussed in the Adrenal Vein Sampling diagnosis entry, but is not curated as a structured differential_diagnoses item because MONDO has no distinct term for it separate from primary aldosteronism itself. (4) Metabolic alkalosis, a recognised accompaniment of marked hypokalaemic mineralocorticoid excess, was removed during review: the only cached source for it was a germline PASNA case with no adrenal adenoma, and no adenoma-specific citable statement was found. (5) No `conforms_to` link is declared to `osteoporosis_bone_resorption`; glucocorticoid-induced osteoporosis is a plausible conformer but the module&#39;s node-level expectations were not checked against this entry. (6) `clinical_trials:` is absent; the six NCTs surfaced by deep research are all observational or diagnostic rather than interventional.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Adrenal Cortex Adenoma (MONDO:0003924)</strong> · 2026-08-01T07:52:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Adrenal_Cortex_Adenoma/2026-08-01T075235Z-claude-code-f929ba.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of the adrenal cortex adenoma entry (MONDO:0003924), organised on the AUTONOMOUS-SECRETION functional axis rather than histology or size.
+
+Subtypes (has_subtypes): Cortisol-Producing (overt Cushing; PRKACA/GNAS), MACS (mild autonomous cortisol secretion), Aldosterone-Producing (APA/Conn; KCNJ5, CACNA1D, ATP1A1, ATP2B3, CTNNB1), Non-Functioning (CTNNB1).
+
+Pathophysiology: 13 nodes, all carrying both biological_scale and role, forming three convergent chains plus a shared clonal-proliferation trunk. Cortisol arm: PRKACA/GNAS driver -&gt; constitutive cAMP-PKA -&gt; ACTH-independent cortisol hypersecretion -&gt; (a) chronic glucocorticoid excess, (b) MACS, (c) HPA suppression/contralateral atrophy -&gt; postoperative adrenal insufficiency. Aldosterone arm: ion channel/pump driver -&gt; zona glomerulosa depolarisation -&gt; calcium influx (explicitly modelled as the FINAL COMMON PATHWAY, and feeding back into proliferation) -&gt; CYP11B2 induction -&gt; renin-independent mineralocorticoid excess -&gt; target organ damage disproportionate to blood pressure. Wnt/beta-catenin arm feeds the proliferation trunk.
+
+MACS reclassification is modelled as a first-class node and subtype, not as mild Cushing syndrome, carrying the Deutschbein NAPACA mortality data (PMID:35533704), the Prete EURINE-ACT cardiometabolic data (PMID:34978855), the Pal fracture meta-analysis (PMID:38703381) and the 2023 ESE guideline that formalised the term (PMID:37318239).
+
+Boundaries: adrenal cortex carcinoma (MONDO:0006639), bilateral macronodular adrenal hyperplasia (MONDO:0009049, ARMC5) and primary pigmented nodular adrenocortical disease (MONDO:0015999, PRKAR1A/Carney) are modelled as structured differential_diagnoses with bound disease_terms, NOT as subtypes; pheochromocytoma and adrenal myelolipoma complete the incidentaloma differential. Cushings_Syndrome and Familial_Hyperaldosteronism* are cross-referenced in notes rather than duplicated.
+
+Deep research: Edison/Falcon via &#39;just research-disorder falcon&#39; (412 s, 33 citations, 1 artifact). Report treated as leads only. Falcon emitted several semantically wrong or obsolete ontology IDs that were caught and discarded during OAK verification: HP:0001578 (does not exist), HP:0000848 labelled &#39;Hyperaldosteronism&#39; but actually &#39;Increased circulating renin concentration&#39; (opposite of primary aldosteronism), GO:0019933 and GO:0010737 (obsolete), GO:0071372 labelled &#39;cellular response to mineralocorticoid stimulus&#39; but actually &#39;cellular response to follicle-stimulating hormone stimulus&#39;, GO:0030007 and HP:0000978 label mismatches, plus non-existent CL &#39;adrenal cortex cell&#39; and NCIT &#39;Laparoscopic Adrenalectomy&#39;. Falcon supplied no PMIDs (it declined to invent them); its DOIs were resolved via the PMC ID Converter and fetched with &#39;just fetch-reference&#39;.
+
+Validation: just validate PASS; just validate-terms PASS; just validate-references PASS (131/131 snippets verified); just compliance 97.3% global / 97.6% weighted; just compliance-connectivity reports no gaps for this file (100% phenotype connectivity, all genes wired). A scripted audit confirmed all 133 reference_title values match their cached paper titles exactly (issue #7536 class of defect). LOINC codes for the 1 mg DST, the aldosterone-to-renin ratio and late-night salivary cortisol were verified against the NLM clinical-tables LOINC service because LOINC is not covered by the repo OAK config; no numeric interval was asserted for ARR or salivary cortisol since both are assay-dependent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14820,7 +15156,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adrenal Cortex Adenoma", "mondoId": "MONDO:0003924", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adrenal_Cortex_Adenoma", "yamlRevision": "7d7e80186c9f"};
+        const OS_CONFIG = {"diseaseName": "Adrenal Cortex Adenoma", "mondoId": "MONDO:0003924", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adrenal_Cortex_Adenoma", "yamlRevision": "02bfdd74522a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

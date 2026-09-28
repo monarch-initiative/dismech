@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4238,6 +4306,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4341,6 +4410,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4402,6 +4472,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4469,6 +4540,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4533,6 +4605,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4577,6 +4650,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unopposed-estrogen-signaling" data-dismech-node="Unopposed Estrogen Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Unopposed Estrogen Signaling</div>
+
 
                 <div class="item-desc">Hyperestrogenic states expose endometrial epithelium to mitogenic estrogen signaling without sufficient progesterone counter-regulation, promoting sustained glandular proliferation.</div>
 
@@ -4723,6 +4797,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4745,6 +4820,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endometrial-hyperplasia-precursor" data-dismech-node="Endometrial Hyperplasia Precursor" data-dismech-type="pathophysiology">
                 <div class="item-name">Endometrial Hyperplasia Precursor</div>
+
 
                 <div class="item-desc">Prolonged progesterone deficiency and estrogen-driven proliferation can produce endometrial hyperplasia, including atypical hyperplasia/endometrial intraepithelial neoplasia, which can progress to endometrioid carcinoma.</div>
 
@@ -4891,6 +4967,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4913,6 +4990,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pten-pi3k-pathway-dysregulation" data-dismech-node="PTEN PI3K Pathway Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">PTEN PI3K Pathway Dysregulation</div>
+
 
                 <div class="item-desc">Endometrioid tumors are enriched for PTEN, PIK3CA, KRAS, and ARID1A alterations. Loss of PTEN restraint and cooperating PI3K-pathway lesions promote survival, growth, and progression of malignant endometrial epithelial cells.</div>
 
@@ -5198,6 +5276,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5220,6 +5299,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctnnb1-wnt-pathway-activation" data-dismech-node="CTNNB1 WNT Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">CTNNB1 WNT Pathway Activation</div>
+
 
                 <div class="item-desc">Activating CTNNB1 alterations are recurrent in endometrioid/copy-number-low endometrial carcinoma and drive beta-catenin-dependent WNT transcriptional programs that support malignant growth.</div>
 
@@ -5388,6 +5468,7 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5410,6 +5491,7 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pole-proofreading-defect-and-ultramutation" data-dismech-node="POLE Proofreading Defect and Ultramutation" data-dismech-type="pathophysiology">
                 <div class="item-name">POLE Proofreading Defect and Ultramutation</div>
+
 
                 <div class="item-desc">Somatic POLE exonuclease-domain mutations impair polymerase proofreading during DNA replication, creating an ultramutated molecular class with very high mutation burden and generally favorable prognosis.</div>
 
@@ -5612,6 +5694,7 @@ This pathophysiological event involves abnormal DNA damage response (GO:0006974)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5634,6 +5717,7 @@ This pathophysiological event involves abnormal DNA damage response (GO:0006974)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adaptive-immune-resistance" data-dismech-node="Adaptive Immune Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Adaptive Immune Resistance</div>
+
 
                 <div class="item-desc">Immunogenic endometrial carcinomas, especially the mismatch repair-deficient/MSI-hypermutated subtype represented in the dedicated MSI-High Endometrial Cancer entry, can co-opt PD-1/PD-L1 checkpoint signaling to suppress anti-tumor T cell activity. This parent-level node provides the mechanism targeted by PD-1 blockade regimens without duplicating the full subtype-specific MSI-H mechanism chain.</div>
 
@@ -5759,6 +5843,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5781,6 +5866,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-mutation-and-copy-number-high-state" data-dismech-node="TP53 Mutation and Copy-Number High State" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53 Mutation and Copy-Number High State</div>
+
 
                 <div class="item-desc">Serous and serous-like endometrial carcinomas are characterized by TP53 mutation, extensive copy-number alterations, low ER and PR expression, and aggressive biology. This molecular state underlies poorer prognosis and distinct therapeutic risk stratification.</div>
 
@@ -5876,6 +5962,8 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5884,6 +5972,9 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
 
 
     </div>
+
+
+
 
 
 
@@ -5969,6 +6060,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5991,6 +6083,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-endometrial-cell-proliferation" data-dismech-node="Uncontrolled Endometrial Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Endometrial Cell Proliferation</div>
+
 
                 <div class="item-desc">Estrogen-driven precursor proliferation and recurrent oncogenic driver alterations converge on sustained proliferation and survival of malignant endometrial epithelial cells.</div>
 
@@ -6116,6 +6209,7 @@ This pathophysiological event involves increased positive regulation of cell pop
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6174,6 +6268,7 @@ This pathophysiological event involves increased positive regulation of cell pop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6289,6 +6384,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6330,6 +6428,9 @@ This clinical feature is Endometrial carcinoma (HP:0012114). HP:0012114 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6344,6 +6445,7 @@ This clinical feature is Endometrial carcinoma (HP:0012114). HP:0012114 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6400,6 +6502,9 @@ This clinical feature is postmenopausal bleeding (HP:0033840). HP:0033840 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6414,6 +6519,7 @@ This clinical feature is postmenopausal bleeding (HP:0033840). HP:0033840 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6474,6 +6580,9 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6557,6 +6666,9 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6571,6 +6683,7 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6628,6 +6741,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6642,6 +6758,7 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6699,6 +6816,9 @@ This disease-associated gene is POLE (hgnc:9177). hgnc:9177 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6713,6 +6833,7 @@ This disease-associated gene is POLE (hgnc:9177). hgnc:9177 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6770,6 +6891,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6784,6 +6908,7 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6841,6 +6966,9 @@ This disease-associated gene is MLH1 (hgnc:7127). hgnc:7127 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6855,6 +6983,7 @@ This disease-associated gene is MLH1 (hgnc:7127). hgnc:7127 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6912,6 +7041,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6926,6 +7058,7 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6983,6 +7116,9 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6997,6 +7133,7 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7083,6 +7220,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7093,6 +7233,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7120,6 +7263,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7231,6 +7375,12 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Carboplatin plus paclitaxel is the global first-line chemotherapy backbone for advanced or recurrent endometrial carcinoma and serves as the chemotherapy partner in modern first-line immunotherapy combinations.</div>
 
 
@@ -7252,6 +7402,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7380,6 +7531,12 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Pembrolizumab added to paclitaxel-carboplatin improves progression-free survival for advanced or recurrent endometrial carcinoma, with benefit in both dMMR and pMMR cohorts.</div>
 
 
@@ -7410,6 +7567,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7453,6 +7611,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7564,6 +7723,12 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Combination systemic therapy for advanced endometrial carcinoma after prior platinum-based chemotherapy, with survival benefit over physician&#39;s-choice chemotherapy.</div>
 
 
@@ -7594,6 +7759,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7637,6 +7803,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7765,6 +7932,12 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Dostarlimab added to carboplatin-paclitaxel improves progression-free survival in primary advanced or recurrent endometrial cancer, with the largest benefit in the dMMR/MSI-H population.</div>
 
 
@@ -7795,6 +7968,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7838,6 +8012,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7966,6 +8141,12 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">HER2/Neu-positive uterine serous carcinoma, an aggressive endometrial carcinoma subtype, may be treated with trastuzumab added to carboplatin-paclitaxel.</div>
 
 
@@ -7987,6 +8168,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8098,6 +8280,12 @@ This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Selected patients with grade 1, stage I endometrioid disease who desire fertility preservation may be managed with high-dose progestin and close endometrial surveillance.</div>
 
 
@@ -8119,6 +8307,7 @@ This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8184,6 +8373,7 @@ This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8232,6 +8422,7 @@ This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8312,6 +8503,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8360,6 +8552,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8417,6 +8610,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8465,6 +8659,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8522,6 +8717,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8570,6 +8766,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8629,6 +8826,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8653,6 +8851,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8674,6 +8873,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8725,6 +8925,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8882,6 +9083,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8966,6 +9168,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9056,6 +9259,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9077,6 +9281,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9192,6 +9397,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9261,6 +9467,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9337,6 +9544,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9407,6 +9615,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9485,6 +9694,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9506,6 +9716,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9584,6 +9795,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9605,6 +9817,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9676,6 +9889,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9697,6 +9911,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9796,6 +10011,7 @@ This environmental factor is exposure to estrogens (ECTO:9000010). ECTO:9000010 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9883,6 +10099,7 @@ This clinical trial targets Endometrial carcinoma (HP:0012114). HP:0012114 is a 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This phase III trial studies how well the combination of pembrolizumab, paclitaxel and carboplatin works compared with paclitaxel and carboplatin alone in treating patients with endometrial cancer that is stage III or IV, or has come back after a period of improvement (recurrent)."</div>
@@ -9956,6 +10173,7 @@ This clinical trial targets Endometrial carcinoma (HP:0012114). HP:0012114 is a 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Part 1 is to evaluate the efficacy and safety of dostarlimab plus carboplatin-paclitaxel followed by dostarlimab versus placebo plus carboplatin-paclitaxel followed by placebo"</div>
@@ -10026,6 +10244,7 @@ This clinical trial targets Endometrial carcinoma (HP:0012114). HP:0012114 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11602,6 +11821,8 @@ classifications:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

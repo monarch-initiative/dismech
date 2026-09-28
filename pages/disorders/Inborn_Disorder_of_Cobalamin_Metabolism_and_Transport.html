@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Inborn%20Disorder%20of%20Cobalamin%20Metabolism%20and%20Transport"
@@ -3840,7 +3908,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Inborn disorders of cobalamin (vitamin B12) metabolism and transport are a genetically heterogeneous group of autosomal recessive inherited metabolic diseases that disrupt the intestinal absorption, plasma transport, cellular uptake, or intracellular processing of cobalamin. Cobalamin is the obligate cofactor for two enzymes: cytosolic methionine synthase (MTR), which uses methylcobalamin to remethylate homocysteine to methionine, and mitochondrial methylmalonyl-CoA mutase (MMUT), which uses adenosylcobalamin to convert L-methylmalonyl-CoA to succinyl-CoA. Defects are classified by complementation group: cblC (MMACHC, the most common), cblA (MMAA), cblB (MMAB), cblD (MMADHC), cblE (MTRR), cblF (LMBRD1), cblG (MTR), cblJ (ABCD4), and transcobalamin II deficiency (TCN2). Depending on which cofactor branch is affected, patients develop isolated methylmalonic acidemia (cblA, cblB), isolated homocystinuria with megaloblastic anemia (cblE, cblG), or combined methylmalonic acidemia and homocystinuria (cblC, cblD, cblF, cblJ). Clinical manifestations span failure to thrive, megaloblastic anemia, neurocognitive impairment, seizures, thromboembolism, and ocular disease, with onset ranging from the neonatal period to adulthood. Treatment centers on hydroxocobalamin, betaine, and dietary management.
+                Inborn disorders of cobalamin (vitamin B12) metabolism and transport are a genetically heterogeneous group of inherited metabolic diseases that disrupt the intestinal absorption, plasma transport, cellular uptake, or intracellular processing of cobalamin. Most are autosomal recessive; the HCFC1 form (cblX) is X-linked. Cobalamin is the obligate cofactor for two enzymes: cytosolic methionine synthase (MTR), which uses methylcobalamin to remethylate homocysteine to methionine, and mitochondrial methylmalonyl-CoA mutase (MMUT), which uses adenosylcobalamin to convert L-methylmalonyl-CoA to succinyl-CoA. Defects are classified by complementation group: cblC (MMACHC, the most common), cblA (MMAA), cblB (MMAB), cblD (MMADHC), cblE (MTRR), cblF (LMBRD1), cblG (MTR), cblJ (ABCD4), and transcobalamin II deficiency (TCN2). A further group arises not from a defect in a cobalamin-handling protein but from loss of MMACHC expression: cblX (HCFC1), cblL (THAP11), and the ZNF143 form, whose gene products act together as the transcriptional complex that drives MMACHC. Depending on which cofactor branch is affected, patients develop isolated methylmalonic acidemia (cblA, cblB), isolated homocystinuria with megaloblastic anemia (cblE, cblG), or combined methylmalonic acidemia and homocystinuria (cblC, cblD, cblF, cblJ). Clinical manifestations span failure to thrive, megaloblastic anemia, neurocognitive impairment, seizures, thromboembolism, and ocular disease, with onset ranging from the neonatal period to adulthood. Treatment centers on hydroxocobalamin, betaine, and dietary management.
             </p>
 
         </header>
@@ -3948,7 +4016,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3969,7 +4037,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3978,7 +4046,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4005,7 +4073,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4054,8 +4122,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">11</span>
             </div>
+
+
+
+
 
 
 
@@ -4112,11 +4184,36 @@
                     <div class="item-name">
                         cblC type (MMACHC deficiency)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010184" target="_blank">MONDO:0010184</a>
+
 
 
                     </div>
                     <div class="subtype-meta">
 
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MMACHC
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:24525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:24525</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MMACHC (hgnc:24525). hgnc:24525 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
 
 
 
@@ -4131,7 +4228,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4146,6 +4243,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4154,6 +4252,31 @@
 
 
                 <div class="evidence-explanation">GeneReviews identifies cblC as the prototype and most common intracellular cobalamin disorder.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns MMACHC to the cblC complementation group.</div>
 
 
 
@@ -4174,11 +4297,36 @@
                     <div class="item-name">
                         cblA type (MMAA deficiency)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009613" target="_blank">MONDO:0009613</a>
+
 
 
                     </div>
                     <div class="subtype-meta">
 
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MMAA
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:18871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:18871</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MMAA (hgnc:18871). hgnc:18871 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
 
 
 
@@ -4191,6 +4339,68 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_5b81bb9e-5f71-47bf-b187-5eef83d91d57-2022-07-13T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_5b81bb9e-5f71-47bf-b187-5eef83d91d57-2022-07-13T160000.000Z" target="_blank">CGGV:assertion_5b81bb9e-5f71-47bf-b187-5eef83d91d57-2022-07-13T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MMAA | HGNC:18871 | methylmalonic aciduria, cblA type | MONDO:0009613 | AR | Definitive"</div>
+
+
+                <div class="evidence-explanation">ClinGen classifies the MMAA-cblA gene-disease relationship as Definitive with autosomal recessive inheritance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_5b81bb9e-5f71-47bf-b187-5eef83d91d57-2022-07-13T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_5b81bb9e-5f71-47bf-b187-5eef83d91d57-2022-07-13T160000.000Z" target="_blank">CGGV:assertion_5b81bb9e-5f71-47bf-b187-5eef83d91d57-2022-07-13T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients are responsive to treatment with Vitamin B12"</div>
+
+
+                <div class="evidence-explanation">ClinGen&#39;s evidence summary supports the vitamin B12-responsive character of cblA disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
@@ -4202,11 +4412,36 @@
                     <div class="item-name">
                         cblB type (MMAB deficiency)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009614" target="_blank">MONDO:0009614</a>
+
 
 
                     </div>
                     <div class="subtype-meta">
 
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MMAB
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:19331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:19331</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MMAB (hgnc:19331). hgnc:19331 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
 
 
 
@@ -4219,6 +4454,41 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_52b61ff5-afba-4ff7-adbc-51de6a837db7-2022-07-13T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_52b61ff5-afba-4ff7-adbc-51de6a837db7-2022-07-13T160000.000Z" target="_blank">CGGV:assertion_52b61ff5-afba-4ff7-adbc-51de6a837db7-2022-07-13T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MMAB | HGNC:19331 | methylmalonic aciduria, cblB type | MONDO:0009614 | AR | Definitive"</div>
+
+
+                <div class="evidence-explanation">ClinGen classifies the MMAB-cblB gene-disease relationship as Definitive with autosomal recessive inheritance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
@@ -4230,11 +4500,36 @@
                     <div class="item-name">
                         cblD type (MMADHC deficiency)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010185" target="_blank">MONDO:0010185</a>
+
 
 
                     </div>
                     <div class="subtype-meta">
 
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MMADHC
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:25221" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:25221</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MMADHC (hgnc:25221). hgnc:25221 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
 
 
 
@@ -4242,174 +4537,6 @@
                     </div>
 
                     <div class="item-desc">MMADHC defect that, depending on the variant position, produces isolated methylmalonic acidemia, isolated homocystinuria, or combined disease.</div>
-
-
-
-
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box anchor-target" id="subtype-cble">
-
-                    <div class="item-name">
-                        cblE type (MTRR deficiency)
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Methionine synthase reductase (MTRR) defect impairing reductive reactivation of methionine synthase, producing isolated homocystinuria with megaloblastic anemia.</div>
-
-
-
-
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box anchor-target" id="subtype-cblf">
-
-                    <div class="item-name">
-                        cblF type (LMBRD1 deficiency)
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">LMBRD1 defect impairing lysosomal export of cobalamin, producing combined methylmalonic acidemia and homocystinuria.</div>
-
-
-
-
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box anchor-target" id="subtype-cblg">
-
-                    <div class="item-name">
-                        cblG type (MTR deficiency)
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Methionine synthase (MTR) defect impairing homocysteine remethylation, producing isolated homocystinuria with megaloblastic anemia.</div>
-
-
-
-
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box anchor-target" id="subtype-cblj">
-
-                    <div class="item-name">
-                        cblJ type (ABCD4 deficiency)
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">ABCD4 defect impairing lysosomal cobalamin export, producing combined methylmalonic acidemia and homocystinuria.</div>
-
-
-
-
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box anchor-target" id="subtype-tcn2-deficiency">
-
-                    <div class="item-name">
-                        Transcobalamin II deficiency (TCN2)
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Transcobalamin II deficiency impairing plasma transport and cellular delivery of cobalamin, producing early infantile megaloblastic anemia, failure to thrive, and immunodeficiency.</div>
-
-
-
-
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box anchor-target" id="subtype-cblx">
-
-                    <div class="item-name">
-                        cblX type (HCFC1, X-linked)
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">X-linked disorder caused by hemizygous HCFC1 variants (with cblX-like forms from THAP11 and ZNF143) that downregulate MMACHC transcription, producing a cblC-like combined biochemical phenotype with prominent intractable epilepsy and severe neurodevelopmental impairment. Unlike the autosomal recessive complementation groups, cblX follows X-linked inheritance.</div>
 
 
 
@@ -4432,6 +4559,560 @@
 
 
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ),..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns MMADHC to the cblD group and records that it spans combined and homocystinuria-only presentations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-cble">
+
+                    <div class="item-name">
+                        cblE type (MTRR deficiency)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009354" target="_blank">MONDO:0009354</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MTRR
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7473" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:7473</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MTRR (hgnc:7473). hgnc:7473 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Methionine synthase reductase (MTRR) defect impairing reductive reactivation of methionine synthase, producing isolated homocystinuria with megaloblastic anemia.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ),..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns MTRR to the cblE complementation group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-cblf">
+
+                    <div class="item-name">
+                        cblF type (LMBRD1 deficiency)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010183" target="_blank">MONDO:0010183</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                LMBRD1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:23038" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:23038</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LMBRD1 (hgnc:23038). hgnc:23038 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">LMBRD1 defect impairing lysosomal export of cobalamin, producing combined methylmalonic acidemia and homocystinuria.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ),..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns LMBRD1 to the cblF complementation group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-cblg">
+
+                    <div class="item-name">
+                        cblG type (MTR deficiency)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009609" target="_blank">MONDO:0009609</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MTR
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:7468</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MTR (hgnc:7468). hgnc:7468 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Methionine synthase (MTR) defect impairing homocysteine remethylation, producing isolated homocystinuria with megaloblastic anemia.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ),..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns MTR to the cblG complementation group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-cblj">
+
+                    <div class="item-name">
+                        cblJ type (ABCD4 deficiency)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013925" target="_blank">MONDO:0013925</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                ABCD4
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:68" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:68</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ABCD4 (hgnc:68). hgnc:68 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">ABCD4 defect impairing lysosomal cobalamin export, producing combined methylmalonic acidemia and homocystinuria. ClinGen grades the ABCD4-cblJ gene-disease relationship Moderate rather than Definitive.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ),..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns ABCD4 to the cblJ complementation group.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_902c9288-f6bd-4068-9a5f-652b49583d93-2026-01-23T200000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_902c9288-f6bd-4068-9a5f-652b49583d93-2026-01-23T200000.000Z" target="_blank">CGGV:assertion_902c9288-f6bd-4068-9a5f-652b49583d93-2026-01-23T200000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ABCD4 | HGNC:68 | methylmalonic acidemia with homocystinuria, type cblJ | MONDO:0013925 | AR | Moderate"</div>
+
+
+                <div class="evidence-explanation">ClinGen grades the ABCD4-cblJ gene-disease relationship Moderate, the source of the caveat in this row&#39;s description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-tcn2-deficiency">
+
+                    <div class="item-name">
+                        Transcobalamin II deficiency (TCN2)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010149" target="_blank">MONDO:0010149</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                TCN2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11653" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:11653</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TCN2 (hgnc:11653). hgnc:11653 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Transcobalamin II deficiency impairing plasma transport and cellular delivery of cobalamin, producing early infantile megaloblastic anemia, failure to thrive, and immunodeficiency. Unlike the cbl complementation groups, the lesion is in extracellular delivery rather than in intracellular cofactor processing. ClinGen&#39;s curation of this gene-disease relationship was performed by its SCID-CID expert panel.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_c2336cc7-730e-4205-8b2b-f1e1acfbd1f3-2025-08-21T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c2336cc7-730e-4205-8b2b-f1e1acfbd1f3-2025-08-21T160000.000Z" target="_blank">CGGV:assertion_c2336cc7-730e-4205-8b2b-f1e1acfbd1f3-2025-08-21T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TCN2 | HGNC:11653 | transcobalamin II deficiency | MONDO:0010149 | AR | Definitive | SOP9 | SCID-CID Gene Curation Expert Panel"</div>
+
+
+                <div class="evidence-explanation">ClinGen classifies the TCN2-transcobalamin II deficiency relationship as Definitive, curated by the SCID-CID expert panel.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-cblx">
+
+                    <div class="item-name">
+                        cblX type (HCFC1, X-linked)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010657" target="_blank">MONDO:0010657</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                HCFC1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4839" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:4839</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HCFC1 (hgnc:4839). hgnc:4839 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">X-linked inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">X-linked disorder caused by hemizygous HCFC1 variants that reduce MMACHC expression, producing a cblC-like combined biochemical phenotype with prominent intractable epilepsy and severe neurodevelopmental impairment. Unlike the autosomal recessive complementation groups, cblX follows X-linked inheritance. HCFC1 acts in a complex with THAP11 and with the sequence-specific DNA-binding protein ZNF143; biallelic variants in either of those two partners cause autosomal recessive cblX-like disease, which is a different mode of inheritance and so is kept off this row. The THAP11 form has its own row below; ZNF143 has no gene-specific class in MONDO and is recorded in this entry&#39;s genetic section.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4440,6 +5121,169 @@
 
 
                 <div class="evidence-explanation">GeneReviews documents the X-linked HCFC1 (cblX) form as distinct from the autosomal recessive groups.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns hemizygous HCFC1 variants to cblX and records the cblC-like complementation behaviour.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-cbll">
+
+                    <div class="item-name">
+                        cblL type (THAP11 deficiency)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0975798" target="_blank">MONDO:0975798</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                THAP11
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:23194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:23194</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in THAP11 (hgnc:23194). hgnc:23194 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Autosomal recessive cblX-like disorder in which biallelic THAP11 variants reduce MMACHC expression, producing clinical and biochemical features that overlap cblX while MMACHC and HCFC1 are both normal. The originating report describes one patient, homozygous for a variant its authors called potentially pathogenic, and ClinGen grades the gene-disease relationship Limited. GeneReviews files this form as cblX-like; the cblL designation comes from OMIM 620940, the entry MONDO records as equivalent to the class bound here.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28449119" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28449119" target="_blank">PMID:28449119</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a patient who presented with clinical and biochemical phenotypic features that overlap cblX, but who does not have any mutations in either MMACHC or HCFC1."</div>
+
+
+                <div class="evidence-explanation">The report establishes a cblX-overlapping patient in whom MMACHC and HCFC1 were excluded, the clinical basis for a separate THAP11 group.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28449119" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28449119" target="_blank">PMID:28449119</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We sequenced THAP11 by Sanger sequencing and discovered a potentially pathogenic, homozygous variant"</div>
+
+
+                <div class="evidence-explanation">Source for the single reported homozygous THAP11 variant and for the authors&#39; own hedge on its pathogenicity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_6976fdb2-7650-46b7-887c-454666f23bc8-2024-02-09T170000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6976fdb2-7650-46b7-887c-454666f23bc8-2024-02-09T170000.000Z" target="_blank">CGGV:assertion_6976fdb2-7650-46b7-887c-454666f23bc8-2024-02-09T170000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"THAP11 | HGNC:23194 | methylmalonic aciduria and homocystinuria | MONDO:0016826 | AR | Limited"</div>
+
+
+                <div class="evidence-explanation">ClinGen records autosomal recessive inheritance and a Limited classification for this relationship.</div>
 
 
 
@@ -4471,11 +5315,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-cobalamin-absorption-transport-and-cellular-uptake" data-dismech-node="Defective cobalamin absorption, transport, and cellular uptake" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective cobalamin absorption, transport, and cellular uptake</div>
+
 
                 <div class="item-desc">Genetic defects in transcobalamin II (TCN2) and the lysosomal cobalamin exporters LMBRD1 (cblF) and ABCD4 (cblJ) impair the delivery of dietary cobalamin from the bloodstream into the cytosolic compartment where it is processed into active cofactors. Reduced cellular cobalamin availability functionally starves the downstream cofactor-dependent enzymes.</div>
 
@@ -4499,11 +5344,11 @@
         TCN2
 
 
-    <a href="https://bioregistry.io/hgnc:11653" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11653</a>
+    <a href="https://bioregistry.io/hgnc:11653" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:11653</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves TCN2 (hgnc:11653). hgnc:11653 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4538,11 +5383,11 @@ This pathophysiological event involves TCN2 (hgnc:11653). hgnc:11653 is a gene f
         LMBRD1
 
 
-    <a href="https://bioregistry.io/hgnc:23038" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:23038</a>
+    <a href="https://bioregistry.io/hgnc:23038" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:23038</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves LMBRD1 (hgnc:23038). hgnc:23038 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4577,11 +5422,11 @@ This pathophysiological event involves LMBRD1 (hgnc:23038). hgnc:23038 is a gene
         ABCD4
 
 
-    <a href="https://bioregistry.io/hgnc:68" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:68</a>
+    <a href="https://bioregistry.io/hgnc:68" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:68</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves ABCD4 (hgnc:68). hgnc:68 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4619,11 +5464,11 @@ This pathophysiological event involves ABCD4 (hgnc:68). hgnc:68 is a gene from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015889" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0015889</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015889" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0015889</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cobalamin transport (GO:0015889). GO:0015889 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4688,6 +5533,7 @@ This pathophysiological event involves decreased cobalamin transport (GO:0015889
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4708,8 +5554,299 @@ This pathophysiological event involves decreased cobalamin transport (GO:0015889
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mmachc-expression-from-hcfc1-thap11-znf143-transcriptional-dysfunction" data-dismech-node="Reduced MMACHC expression from HCFC1-THAP11-ZNF143 transcriptional dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">Reduced MMACHC expression from HCFC1-THAP11-ZNF143 transcriptional dysfunction</div>
+
+
+                <div class="item-desc">HCFC1 is a transcriptional cofactor that acts with the sequence-specific DNA-binding protein ZNF143 and with THAP11 (RONIN) to regulate MMACHC. Hemizygous HCFC1 variants (cblX) and biallelic THAP11 or ZNF143 variants (cblX-like) reduce MMACHC expression, so the cblC lesion is reproduced without any variant in MMACHC itself. Cells carrying these mutations behave as cblC phenocopies, and GeneReviews lists all three genes alongside MMACHC as genes in which a pathogenic variant confirms the diagnosis.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        HCFC1
+
+
+    <a href="https://bioregistry.io/hgnc:4839" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:4839</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HCFC1 (hgnc:4839). hgnc:4839 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        THAP11
+
+
+    <a href="https://bioregistry.io/hgnc:23194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:23194</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves THAP11 (hgnc:23194). hgnc:23194 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ZNF143
+
+
+    <a href="https://bioregistry.io/hgnc:12928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:12928</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ZNF143 (hgnc:12928). hgnc:12928 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        regulation of MMACHC transcription
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006355</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of MMACHC transcription, annotated with regulation of DNA-templated transcription (GO:0006355). GO:0006355 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired intracellular cobalamin cofactor synthesis</span>
+
+	                            <span class="crosslink-desc">Loss of MMACHC expression removes the same cytosolic cobalamin-processing step that biallelic MMACHC variants remove, so the two routes converge on one lesion.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35013307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35013307" target="_blank">PMID:35013307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recently, mutations in the transcriptional regulators HCFC1 and RONIN (THAP11) were shown to result in cellular phenocopies of cblC."</div>
+
+
+                <div class="evidence-explanation">Supports HCFC1 and THAP11 variants producing a cellular cblC phenocopy, the basis for treating this as one mechanism node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38617190" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38617190" target="_blank">PMID:38617190</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In humans, ZNF143 interacts with HCFC1, a transcriptional cofactor, to regulate the expression of downstream target genes, including MMACHC, which encodes an enzyme involved in cobalamin (cbl) metabolism."</div>
+
+
+                <div class="evidence-explanation">Establishes ZNF143 as the third member of the complex that regulates MMACHC, which is why it is bound on this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ),..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists HCFC1, THAP11 and ZNF143 alongside MMACHC as genes in which a pathogenic variant confirms the diagnosis, and records the cblC complementation behaviour of the HCFC1 form.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-intracellular-cobalamin-cofactor-synthesis" data-dismech-node="Impaired intracellular cobalamin cofactor synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired intracellular cobalamin cofactor synthesis</div>
+
 
                 <div class="item-desc">MMACHC (cblC) and MMADHC (cblD) process cytosolic cobalamin into a common intermediate that is partitioned into cytosolic methylcobalamin and mitochondrial adenosylcobalamin. Biallelic defects block synthesis of one or both active cofactor forms, the central convergent lesion of intracellular cobalamin disorders.</div>
 
@@ -4733,11 +5870,11 @@ This pathophysiological event involves decreased cobalamin transport (GO:0015889
         MMACHC
 
 
-    <a href="https://bioregistry.io/hgnc:24525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:24525</a>
+    <a href="https://bioregistry.io/hgnc:24525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:24525</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MMACHC (hgnc:24525). hgnc:24525 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4772,11 +5909,11 @@ This pathophysiological event involves MMACHC (hgnc:24525). hgnc:24525 is a gene
         MMADHC
 
 
-    <a href="https://bioregistry.io/hgnc:25221" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:25221</a>
+    <a href="https://bioregistry.io/hgnc:25221" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:25221</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MMADHC (hgnc:25221). hgnc:25221 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4814,11 +5951,11 @@ This pathophysiological event involves MMADHC (hgnc:25221). hgnc:25221 is a gene
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009235" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0009235</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009235" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0009235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cobalamin metabolic process (GO:0009235). GO:0009235 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4891,6 +6028,7 @@ This pathophysiological event involves abnormal cobalamin metabolic process (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4914,6 +6052,7 @@ This pathophysiological event involves abnormal cobalamin metabolic process (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-methionine-synthase-activity-and-remethylation" data-dismech-node="Impaired methionine synthase activity and remethylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired methionine synthase activity and remethylation</div>
 
+
                 <div class="item-desc">Methionine synthase (MTR) requires methylcobalamin and is kept active by methionine synthase reductase (MTRR). Defects in MTR (cblG), MTRR (cblE), or upstream methylcobalamin supply impair remethylation of homocysteine to methionine, causing homocysteine accumulation and methionine depletion, and trapping folate as 5-methyltetrahydrofolate (methylfolate trap).</div>
 
 
@@ -4936,11 +6075,11 @@ This pathophysiological event involves abnormal cobalamin metabolic process (GO:
         MTR
 
 
-    <a href="https://bioregistry.io/hgnc:7468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7468</a>
+    <a href="https://bioregistry.io/hgnc:7468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:7468</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MTR (hgnc:7468). hgnc:7468 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4975,11 +6114,11 @@ This pathophysiological event involves MTR (hgnc:7468). hgnc:7468 is a gene from
         MTRR
 
 
-    <a href="https://bioregistry.io/hgnc:7473" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:7473</a>
+    <a href="https://bioregistry.io/hgnc:7473" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:7473</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MTRR (hgnc:7473). hgnc:7473 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5017,11 +6156,11 @@ This pathophysiological event involves MTRR (hgnc:7473). hgnc:7473 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050667" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0050667</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050667" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0050667</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal homocysteine metabolic process (GO:0050667). GO:0050667 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5051,11 +6190,11 @@ This pathophysiological event involves abnormal homocysteine metabolic process (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006555" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006555</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006555" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0006555</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal L-methionine metabolic process (GO:0006555). GO:0006555 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5120,6 +6259,7 @@ This pathophysiological event involves abnormal L-methionine metabolic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5143,6 +6283,7 @@ This pathophysiological event involves abnormal L-methionine metabolic process (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-methylmalonyl-coa-mutase-activity-and-propionate-catabolism" data-dismech-node="Impaired methylmalonyl-CoA mutase activity and propionate catabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired methylmalonyl-CoA mutase activity and propionate catabolism</div>
 
+
                 <div class="item-desc">Methylmalonyl-CoA mutase (MMUT) requires adenosylcobalamin. The mitochondrial chaperones MMAA (cblA) and adenosyltransferase MMAB (cblB) are required for adenosylcobalamin handling and synthesis; their defects, or loss of upstream adenosylcobalamin supply, impair conversion of L-methylmalonyl-CoA to succinyl-CoA, causing methylmalonic acid accumulation.</div>
 
 
@@ -5165,11 +6306,11 @@ This pathophysiological event involves abnormal L-methionine metabolic process (
         MMAA
 
 
-    <a href="https://bioregistry.io/hgnc:18871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:18871</a>
+    <a href="https://bioregistry.io/hgnc:18871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:18871</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MMAA (hgnc:18871). hgnc:18871 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5204,11 +6345,11 @@ This pathophysiological event involves MMAA (hgnc:18871). hgnc:18871 is a gene f
         MMAB
 
 
-    <a href="https://bioregistry.io/hgnc:19331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:19331</a>
+    <a href="https://bioregistry.io/hgnc:19331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:19331</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MMAB (hgnc:19331). hgnc:19331 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5246,11 +6387,11 @@ This pathophysiological event involves MMAB (hgnc:19331). hgnc:19331 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1902859" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:1902859</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1902859" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:1902859</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased propionyl-CoA catabolic process (GO:1902859). GO:1902859 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5315,6 +6456,7 @@ This pathophysiological event involves decreased propionyl-CoA catabolic process
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5338,6 +6480,7 @@ This pathophysiological event involves decreased propionyl-CoA catabolic process
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-injury-from-homocystinuria-and-methylmalonic-acidemia" data-dismech-node="Multisystem injury from homocystinuria and methylmalonic acidemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem injury from homocystinuria and methylmalonic acidemia</div>
 
+
                 <div class="item-desc">The biochemical end-products of the two impaired cofactor branches converge on multisystem disease: hyperhomocysteinemia promotes endothelial injury and thromboembolism, methionine deficiency and impaired methylation impair myelination and neurodevelopment, methylmalonic acidemia causes metabolic decompensation and renal injury, and impaired one-carbon metabolism produces megaloblastic anemia.</div>
 
 
@@ -5352,11 +6495,11 @@ This pathophysiological event involves decreased propionyl-CoA catabolic process
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5382,11 +6525,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000838" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:1000838</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000838" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:1000838</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves kidney proximal convoluted tubule epithelial cell (CL:1000838). CL:1000838 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5439,6 +6582,7 @@ This pathophysiological event involves kidney proximal convoluted tubule epithel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5460,6 +6604,7 @@ This pathophysiological event involves kidney proximal convoluted tubule epithel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5508,7 +6653,7 @@ This pathophysiological event involves kidney proximal convoluted tubule epithel
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Defective cobalamin absorption, transport, and cellular uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetic defects in transcobalamin II (TCN2) and the lysosomal cobalamin exporters LMBRD1 (cblF) and ABCD4 (cblJ) impair the delivery of dietary cobalamin from the bloodstream into the cytosolic compartment where it is processed into active cofactors. Reduced cellular cobalamin availability functionally starves the downstream cofactor-dependent enzymes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cobalamin transport\"], \"genes\": [\"TCN2\", \"LMBRD1\", \"ABCD4\"], \"gene_terms\": [{\"label\": \"TCN2\", \"id\": \"hgnc:11653\"}, {\"label\": \"LMBRD1\", \"id\": \"hgnc:23038\"}, {\"label\": \"ABCD4\", \"id\": \"hgnc:68\"}]}}, {\"id\": \"Impaired intracellular cobalamin cofactor synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MMACHC (cblC) and MMADHC (cblD) process cytosolic cobalamin into a common intermediate that is partitioned into cytosolic methylcobalamin and mitochondrial adenosylcobalamin. Biallelic defects block synthesis of one or both active cofactor forms, the central convergent lesion of intracellular cobalamin disorders.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cobalamin metabolic process\"], \"genes\": [\"MMACHC\", \"MMADHC\"], \"gene_terms\": [{\"label\": \"MMACHC\", \"id\": \"hgnc:24525\"}, {\"label\": \"MMADHC\", \"id\": \"hgnc:25221\"}]}}, {\"id\": \"Impaired methionine synthase activity and remethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Methionine synthase (MTR) requires methylcobalamin and is kept active by methionine synthase reductase (MTRR). Defects in MTR (cblG), MTRR (cblE), or upstream methylcobalamin supply impair remethylation of homocysteine to methionine, causing homocysteine accumulation and methionine depletion, and trapping folate as 5-methyltetrahydrofolate (methylfolate trap).\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homocysteine metabolic process\", \"L-methionine metabolic process\"], \"genes\": [\"MTR\", \"MTRR\"], \"gene_terms\": [{\"label\": \"MTR\", \"id\": \"hgnc:7468\"}, {\"label\": \"MTRR\", \"id\": \"hgnc:7473\"}]}}, {\"id\": \"Impaired methylmalonyl-CoA mutase activity and propionate catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Methylmalonyl-CoA mutase (MMUT) requires adenosylcobalamin. The mitochondrial chaperones MMAA (cblA) and adenosyltransferase MMAB (cblB) are required for adenosylcobalamin handling and synthesis; their defects, or loss of upstream adenosylcobalamin supply, impair conversion of L-methylmalonyl-CoA to succinyl-CoA, causing methylmalonic acid accumulation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"propionyl-CoA catabolic process\"], \"genes\": [\"MMAA\", \"MMAB\"], \"gene_terms\": [{\"label\": \"MMAA\", \"id\": \"hgnc:18871\"}, {\"label\": \"MMAB\", \"id\": \"hgnc:19331\"}]}}, {\"id\": \"MMACHC (cblC)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"MMACHC\"], \"gene_terms\": [{\"label\": \"MMACHC\", \"id\": \"hgnc:24525\"}], \"variant_count\": 1}}, {\"id\": \"Multisystem injury from homocystinuria and methylmalonic acidemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biochemical end-products of the two impaired cofactor branches converge on multisystem disease: hyperhomocysteinemia promotes endothelial injury and thromboembolism, methionine deficiency and impaired methylation impair myelination and neurodevelopment, methylmalonic acidemia causes metabolic decompensation and renal injury, and impaired one-carbon metabolism produces megaloblastic anemia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"kidney proximal convoluted tubule epithelial cell\"]}}, {\"id\": \"c.482G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A common MMACHC missense variant associated with late-onset and milder cblC phenotypes, better hydroxocobalamin response, and more favorable neurological outcomes; frequently detected by newborn screening.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Defective cobalamin absorption, transport, and cellular uptake\", \"target\": \"Impaired intracellular cobalamin cofactor synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cellular cobalamin uptake limits the substrate available for conversion into methylcobalamin and adenosylcobalamin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired intracellular cobalamin cofactor synthesis\", \"target\": \"Impaired methionine synthase activity and remethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of methylcobalamin deprives cytosolic methionine synthase of its essential cofactor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired intracellular cobalamin cofactor synthesis\", \"target\": \"Impaired methylmalonyl-CoA mutase activity and propionate catabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adenosylcobalamin deprives mitochondrial methylmalonyl-CoA mutase of its essential cofactor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired methionine synthase activity and remethylation\", \"target\": \"Multisystem injury from homocystinuria and methylmalonic acidemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperhomocysteinemia and methionine depletion drive vascular, hematologic, and neurologic injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired methylmalonyl-CoA mutase activity and propionate catabolism\", \"target\": \"Multisystem injury from homocystinuria and methylmalonic acidemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Methylmalonic acid and propionyl-CoA accumulation cause metabolic acidosis, mitochondrial dysfunction, and end-organ injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MMACHC (cblC)\", \"target\": \"Impaired intracellular cobalamin cofactor synthesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.482G\u003eA\", \"target\": \"MMACHC (cblC)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Defective cobalamin absorption, transport, and cellular uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetic defects in transcobalamin II (TCN2) and the lysosomal cobalamin exporters LMBRD1 (cblF) and ABCD4 (cblJ) impair the delivery of dietary cobalamin from the bloodstream into the cytosolic compartment where it is processed into active cofactors. Reduced cellular cobalamin availability functionally starves the downstream cofactor-dependent enzymes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cobalamin transport\"], \"genes\": [\"TCN2\", \"LMBRD1\", \"ABCD4\"], \"gene_terms\": [{\"label\": \"TCN2\", \"id\": \"hgnc:11653\"}, {\"label\": \"LMBRD1\", \"id\": \"hgnc:23038\"}, {\"label\": \"ABCD4\", \"id\": \"hgnc:68\"}]}}, {\"id\": \"HCFC1 (cblX)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HCFC1\"], \"gene_terms\": [{\"label\": \"HCFC1\", \"id\": \"hgnc:4839\"}], \"subtypes\": [\"cblX\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Impaired intracellular cobalamin cofactor synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MMACHC (cblC) and MMADHC (cblD) process cytosolic cobalamin into a common intermediate that is partitioned into cytosolic methylcobalamin and mitochondrial adenosylcobalamin. Biallelic defects block synthesis of one or both active cofactor forms, the central convergent lesion of intracellular cobalamin disorders.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cobalamin metabolic process\"], \"genes\": [\"MMACHC\", \"MMADHC\"], \"gene_terms\": [{\"label\": \"MMACHC\", \"id\": \"hgnc:24525\"}, {\"label\": \"MMADHC\", \"id\": \"hgnc:25221\"}]}}, {\"id\": \"Impaired methionine synthase activity and remethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Methionine synthase (MTR) requires methylcobalamin and is kept active by methionine synthase reductase (MTRR). Defects in MTR (cblG), MTRR (cblE), or upstream methylcobalamin supply impair remethylation of homocysteine to methionine, causing homocysteine accumulation and methionine depletion, and trapping folate as 5-methyltetrahydrofolate (methylfolate trap).\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homocysteine metabolic process\", \"L-methionine metabolic process\"], \"genes\": [\"MTR\", \"MTRR\"], \"gene_terms\": [{\"label\": \"MTR\", \"id\": \"hgnc:7468\"}, {\"label\": \"MTRR\", \"id\": \"hgnc:7473\"}]}}, {\"id\": \"Impaired methylmalonyl-CoA mutase activity and propionate catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Methylmalonyl-CoA mutase (MMUT) requires adenosylcobalamin. The mitochondrial chaperones MMAA (cblA) and adenosyltransferase MMAB (cblB) are required for adenosylcobalamin handling and synthesis; their defects, or loss of upstream adenosylcobalamin supply, impair conversion of L-methylmalonyl-CoA to succinyl-CoA, causing methylmalonic acid accumulation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"propionyl-CoA catabolic process\"], \"genes\": [\"MMAA\", \"MMAB\"], \"gene_terms\": [{\"label\": \"MMAA\", \"id\": \"hgnc:18871\"}, {\"label\": \"MMAB\", \"id\": \"hgnc:19331\"}]}}, {\"id\": \"MMACHC (cblC)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"MMACHC\"], \"gene_terms\": [{\"label\": \"MMACHC\", \"id\": \"hgnc:24525\"}], \"subtypes\": [\"cblC\"], \"variant_count\": 1}}, {\"id\": \"Multisystem injury from homocystinuria and methylmalonic acidemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biochemical end-products of the two impaired cofactor branches converge on multisystem disease: hyperhomocysteinemia promotes endothelial injury and thromboembolism, methionine deficiency and impaired methylation impair myelination and neurodevelopment, methylmalonic acidemia causes metabolic decompensation and renal injury, and impaired one-carbon metabolism produces megaloblastic anemia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"kidney proximal convoluted tubule epithelial cell\"]}}, {\"id\": \"Reduced MMACHC expression from HCFC1-THAP11-ZNF143 transcriptional dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCFC1 is a transcriptional cofactor that acts with the sequence-specific DNA-binding protein ZNF143 and with THAP11 (RONIN) to regulate MMACHC. Hemizygous HCFC1 variants (cblX) and biallelic THAP11 or ZNF143 variants (cblX-like) reduce MMACHC expression, so the cblC lesion is reproduced without any variant in MMACHC itself. Cells carrying these mutations behave as cblC phenocopies, and GeneReviews lists all three genes alongside MMACHC as genes in which a pathogenic variant confirms the diagnosis.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of MMACHC transcription\"], \"genes\": [\"HCFC1\", \"THAP11\", \"ZNF143\"], \"gene_terms\": [{\"label\": \"HCFC1\", \"id\": \"hgnc:4839\"}, {\"label\": \"THAP11\", \"id\": \"hgnc:23194\"}, {\"label\": \"ZNF143\", \"id\": \"hgnc:12928\"}]}}, {\"id\": \"THAP11 (cblX-like)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"THAP11\"], \"gene_terms\": [{\"label\": \"THAP11\", \"id\": \"hgnc:23194\"}], \"subtypes\": [\"cblL\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ZNF143 (cblX-like)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZNF143\"], \"gene_terms\": [{\"label\": \"ZNF143\", \"id\": \"hgnc:12928\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"c.482G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A common MMACHC missense variant associated with late-onset and milder cblC phenotypes, better hydroxocobalamin response, and more favorable neurological outcomes; frequently detected by newborn screening.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Defective cobalamin absorption, transport, and cellular uptake\", \"target\": \"Impaired intracellular cobalamin cofactor synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cellular cobalamin uptake limits the substrate available for conversion into methylcobalamin and adenosylcobalamin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced MMACHC expression from HCFC1-THAP11-ZNF143 transcriptional dysfunction\", \"target\": \"Impaired intracellular cobalamin cofactor synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of MMACHC expression removes the same cytosolic cobalamin-processing step that biallelic MMACHC variants remove, so the two routes converge on one lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired intracellular cobalamin cofactor synthesis\", \"target\": \"Impaired methionine synthase activity and remethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of methylcobalamin deprives cytosolic methionine synthase of its essential cofactor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired intracellular cobalamin cofactor synthesis\", \"target\": \"Impaired methylmalonyl-CoA mutase activity and propionate catabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adenosylcobalamin deprives mitochondrial methylmalonyl-CoA mutase of its essential cofactor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired methionine synthase activity and remethylation\", \"target\": \"Multisystem injury from homocystinuria and methylmalonic acidemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperhomocysteinemia and methionine depletion drive vascular, hematologic, and neurologic injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired methylmalonyl-CoA mutase activity and propionate catabolism\", \"target\": \"Multisystem injury from homocystinuria and methylmalonic acidemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Methylmalonic acid and propionyl-CoA accumulation cause metabolic acidosis, mitochondrial dysfunction, and end-organ injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MMACHC (cblC)\", \"target\": \"Impaired intracellular cobalamin cofactor synthesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HCFC1 (cblX)\", \"target\": \"Reduced MMACHC expression from HCFC1-THAP11-ZNF143 transcriptional dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"THAP11 (cblX-like)\", \"target\": \"Reduced MMACHC expression from HCFC1-THAP11-ZNF143 transcriptional dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZNF143 (cblX-like)\", \"target\": \"Reduced MMACHC expression from HCFC1-THAP11-ZNF143 transcriptional dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.482G\u003eA\", \"target\": \"MMACHC (cblC)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5564,15 +6709,18 @@ This pathophysiological event involves kidney proximal convoluted tubule epithel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001889" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001889</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001889" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001889</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Megaloblastic anemia (HP:0001889). HP:0001889 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5592,6 +6740,7 @@ This clinical feature is Megaloblastic anemia (HP:0001889). HP:0001889 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5641,15 +6790,18 @@ This clinical feature is Megaloblastic anemia (HP:0001889). HP:0001889 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012120</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012120</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Methylmalonic aciduria (HP:0012120). HP:0012120 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5669,6 +6821,7 @@ This clinical feature is Methylmalonic aciduria (HP:0012120). HP:0012120 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5709,15 +6862,18 @@ This clinical feature is Methylmalonic aciduria (HP:0012120). HP:0012120 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Homocystinuria (HP:0002156). HP:0002156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5737,6 +6893,7 @@ This clinical feature is Homocystinuria (HP:0002156). HP:0002156 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5779,15 +6936,18 @@ This clinical feature is Homocystinuria (HP:0002156). HP:0002156 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005575" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005575</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005575" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0005575</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal thrombotic microangiopathy, annotated with Hemolytic-uremic syndrome (HP:0005575). HP:0005575 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5807,6 +6967,7 @@ This clinical feature is Renal thrombotic microangiopathy, annotated with Hemoly
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5858,15 +7019,18 @@ This clinical feature is Renal thrombotic microangiopathy, annotated with Hemoly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002160</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002160</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperhomocystinemia (HP:0002160). HP:0002160 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5892,15 +7056,18 @@ This clinical feature is Hyperhomocystinemia (HP:0002160). HP:0002160 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003658" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003658</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003658" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003658</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypomethioninemia (HP:0003658). HP:0003658 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5935,15 +7102,18 @@ This clinical feature is Hypomethioninemia (HP:0003658). HP:0003658 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5963,6 +7133,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6012,15 +7183,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6046,15 +7220,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6074,6 +7251,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6114,15 +7292,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6142,6 +7323,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6182,15 +7364,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001298</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6210,6 +7395,7 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6259,15 +7445,18 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6315,7 +7504,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-mmachc-cblc" data-dismech-node="MMACHC (cblC)" data-dismech-type="genetic">
@@ -6334,10 +7523,10 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         Gene: MMACHC
 
 
-    <a href="https://bioregistry.io/hgnc:24525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:24525</a>
+    <a href="https://bioregistry.io/hgnc:24525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:24525</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6345,6 +7534,9 @@ This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6367,6 +7559,12 @@ This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from t
         c.482G&gt;A
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A common MMACHC missense variant associated with late-onset and milder cblC phenotypes, better hydroxocobalamin response, and more favorable neurological outcomes; frequently detected by newborn screening.</div>
@@ -6396,6 +7594,7 @@ This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6419,6 +7618,299 @@ This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from t
 
 
                 </details>
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-hcfc1-cblx" data-dismech-node="HCFC1 (cblX)" data-dismech-type="genetic">
+                <div class="item-name">
+                    HCFC1 (cblX)
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HCFC1
+
+
+    <a href="https://bioregistry.io/hgnc:4839" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:4839</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HCFC1 (hgnc:4839). hgnc:4839 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns hemizygous HCFC1 variants to cblX as a molecular diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-thap11-cblx-like" data-dismech-node="THAP11 (cblX-like)" data-dismech-type="genetic">
+                <div class="item-name">
+                    THAP11 (cblX-like)
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: THAP11
+
+
+    <a href="https://bioregistry.io/hgnc:23194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:23194</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is THAP11 (hgnc:23194). hgnc:23194 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ),..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists THAP11 among the genes whose biallelic variants confirm a diagnosis in this disease group.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_6976fdb2-7650-46b7-887c-454666f23bc8-2024-02-09T170000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_6976fdb2-7650-46b7-887c-454666f23bc8-2024-02-09T170000.000Z" target="_blank">CGGV:assertion_6976fdb2-7650-46b7-887c-454666f23bc8-2024-02-09T170000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"THAP11 | HGNC:23194 | methylmalonic aciduria and homocystinuria | MONDO:0016826 | AR | Limited"</div>
+
+
+                <div class="evidence-explanation">ClinGen records the THAP11 relationship with autosomal recessive inheritance at a Limited classification.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-znf143-cblx-like" data-dismech-node="ZNF143 (cblX-like)" data-dismech-type="genetic">
+                <div class="item-name">
+                    ZNF143 (cblX-like)
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ZNF143
+
+
+    <a href="https://bioregistry.io/hgnc:12928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:12928</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZNF143 (hgnc:12928). hgnc:12928 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301503" target="_blank">PMID:20301503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ),..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists ZNF143 among the genes whose biallelic variants confirm a diagnosis in this disease group.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_d2961595-2f51-45d6-af4d-988ec5a7628a-2024-03-05T170000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_d2961595-2f51-45d6-af4d-988ec5a7628a-2024-03-05T170000.000Z" target="_blank">CGGV:assertion_d2961595-2f51-45d6-af4d-988ec5a7628a-2024-03-05T170000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ZNF143 | HGNC:12928 | methylmalonic aciduria and homocystinuria | MONDO:0016826 | AR | Moderate"</div>
+
+
+                <div class="evidence-explanation">ClinGen records the ZNF143 relationship with autosomal recessive inheritance at a Moderate classification.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
 
             </div>
 
@@ -6448,7 +7940,7 @@ This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6489,16 +7981,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27786" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:27786</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27786" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:27786</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6534,6 +8032,7 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6562,7 +8061,7 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">dietary supplementation<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">dietary supplementation<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary supplementation, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6598,6 +8097,9 @@ This treatment is dietary supplementation, annotated with Dietary Intervention (
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6608,6 +8110,9 @@ This treatment is dietary supplementation, annotated with Dietary Intervention (
 
 
     </div>
+
+
+
 
 
 
@@ -6635,6 +8140,7 @@ This treatment is dietary supplementation, annotated with Dietary Intervention (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6666,7 +8172,7 @@ This treatment is dietary supplementation, annotated with Dietary Intervention (
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">dietary supplementation<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">dietary supplementation<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary supplementation, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6708,16 +8214,19 @@ This treatment is dietary supplementation, annotated with Dietary Intervention (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16347" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:16347</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16347" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:16347</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses L-carnitine, annotated with (R)-carnitine (CHEBI:16347). CHEBI:16347 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6734,6 +8243,9 @@ This treatment uses L-carnitine, annotated with (R)-carnitine (CHEBI:16347). CHE
 
 
     </div>
+
+
+
 
 
 
@@ -6761,6 +8273,7 @@ This treatment uses L-carnitine, annotated with (R)-carnitine (CHEBI:16347). CHE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6792,7 +8305,7 @@ This treatment uses L-carnitine, annotated with (R)-carnitine (CHEBI:16347). CHE
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">newborn screening<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">newborn screening<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is newborn screening, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6833,6 +8346,12 @@ This treatment is newborn screening, annotated with Supportive Care (NCIT:C15747
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Newborn screening (elevated C3 propionylcarnitine with second-tier MMA/total homocysteine) enables presymptomatic diagnosis; early initiation of treatment is associated with markedly better neurodevelopmental outcomes, particularly in cblC.</div>
 
 
@@ -6854,6 +8373,7 @@ This treatment is newborn screening, annotated with Supportive Care (NCIT:C15747
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6885,7 +8405,7 @@ This treatment is newborn screening, annotated with Supportive Care (NCIT:C15747
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6926,6 +8446,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Agents and circumstances to avoid (per GeneReviews): the anesthetic nitrous oxide, which irreversibly inactivates methionine synthase, and methionine restriction including medical foods lacking methionine, as well as prolonged fasting.</div>
 
 
@@ -6947,6 +8473,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7045,14 +8572,17 @@ synonyms:
 - Inborn vitamin B12 deficiency
 description: &gt;-
   Inborn disorders of cobalamin (vitamin B12) metabolism and transport are a genetically
-  heterogeneous group of autosomal recessive inherited metabolic diseases that disrupt the
+  heterogeneous group of inherited metabolic diseases that disrupt the
   intestinal absorption, plasma transport, cellular uptake, or intracellular processing of
-  cobalamin. Cobalamin is the obligate cofactor for two enzymes: cytosolic methionine synthase
+  cobalamin. Most are autosomal recessive; the HCFC1 form (cblX) is X-linked. Cobalamin is the obligate cofactor for two enzymes: cytosolic methionine synthase
   (MTR), which uses methylcobalamin to remethylate homocysteine to methionine, and
   mitochondrial methylmalonyl-CoA mutase (MMUT), which uses adenosylcobalamin to convert
   L-methylmalonyl-CoA to succinyl-CoA. Defects are classified by complementation group: cblC
   (MMACHC, the most common), cblA (MMAA), cblB (MMAB), cblD (MMADHC), cblE (MTRR), cblF
-  (LMBRD1), cblG (MTR), cblJ (ABCD4), and transcobalamin II deficiency (TCN2). Depending on
+  (LMBRD1), cblG (MTR), cblJ (ABCD4), and transcobalamin II deficiency (TCN2). A further group
+  arises not from a defect in a cobalamin-handling protein but from loss of MMACHC expression:
+  cblX (HCFC1), cblL (THAP11), and the ZNF143 form, whose gene products act together as the
+  transcriptional complex that drives MMACHC. Depending on
   which cofactor branch is affected, patients develop isolated methylmalonic acidemia (cblA,
   cblB), isolated homocystinuria with megaloblastic anemia (cblE, cblG), or combined
   methylmalonic acidemia and homocystinuria (cblC, cblD, cblF, cblJ). Clinical manifestations
@@ -7079,6 +8609,23 @@ has_subtypes:
     Most common inborn error of intracellular cobalamin metabolism, caused by biallelic MMACHC
     variants. Impairs synthesis of both methylcobalamin and adenosylcobalamin, producing combined
     methylmalonic acidemia and homocystinuria.
+  subtype_term:
+    preferred_term: methylmalonic aciduria and homocystinuria type cblC
+    term:
+      id: MONDO:0010184
+      label: methylmalonic aciduria and homocystinuria type cblC
+  genes:
+  - preferred_term: MMACHC
+    term:
+      id: hgnc:24525
+      label: MMACHC
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
   evidence:
   - reference: PMID:20301503
     reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
@@ -7086,53 +8633,289 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The prototype and best understood phenotype is cblC; it is also the most common of these disorders.&#34;
     explanation: GeneReviews identifies cblC as the prototype and most common intracellular cobalamin disorder.
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ)&#34;
+    explanation: GeneReviews assigns MMACHC to the cblC complementation group.
 - name: cblA
   display_name: cblA type (MMAA deficiency)
   description: &gt;-
     MMAA defect impairing mitochondrial adenosylcobalamin handling, producing isolated,
     often vitamin B12-responsive, methylmalonic acidemia.
+  subtype_term:
+    preferred_term: methylmalonic aciduria, cblA type
+    term:
+      id: MONDO:0009613
+      label: methylmalonic aciduria, cblA type
+  genes:
+  - preferred_term: MMAA
+    term:
+      id: hgnc:18871
+      label: MMAA
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: CGGV:assertion_5b81bb9e-5f71-47bf-b187-5eef83d91d57-2022-07-13T160000.000Z
+    reference_title: &#34;MMAA / methylmalonic aciduria, cblA type (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MMAA | HGNC:18871 | methylmalonic aciduria, cblA type | MONDO:0009613 | AR | Definitive&#34;
+    explanation: ClinGen classifies the MMAA-cblA gene-disease relationship as Definitive with autosomal recessive inheritance.
+  - reference: CGGV:assertion_5b81bb9e-5f71-47bf-b187-5eef83d91d57-2022-07-13T160000.000Z
+    reference_title: &#34;MMAA / methylmalonic aciduria, cblA type (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Patients are responsive to treatment with Vitamin B12&#34;
+    explanation: ClinGen&#39;s evidence summary supports the vitamin B12-responsive character of cblA disease.
 - name: cblB
   display_name: cblB type (MMAB deficiency)
   description: &gt;-
     MMAB (cob(I)alamin adenosyltransferase) defect impairing adenosylcobalamin synthesis,
     producing isolated methylmalonic acidemia.
+  subtype_term:
+    preferred_term: methylmalonic aciduria, cblB type
+    term:
+      id: MONDO:0009614
+      label: methylmalonic aciduria, cblB type
+  genes:
+  - preferred_term: MMAB
+    term:
+      id: hgnc:19331
+      label: MMAB
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: CGGV:assertion_52b61ff5-afba-4ff7-adbc-51de6a837db7-2022-07-13T160000.000Z
+    reference_title: &#34;MMAB / methylmalonic aciduria, cblB type (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MMAB | HGNC:19331 | methylmalonic aciduria, cblB type | MONDO:0009614 | AR | Definitive&#34;
+    explanation: ClinGen classifies the MMAB-cblB gene-disease relationship as Definitive with autosomal recessive inheritance.
 - name: cblD
   display_name: cblD type (MMADHC deficiency)
   description: &gt;-
     MMADHC defect that, depending on the variant position, produces isolated methylmalonic
     acidemia, isolated homocystinuria, or combined disease.
+  subtype_term:
+    preferred_term: methylmalonic aciduria and homocystinuria type cblD
+    term:
+      id: MONDO:0010185
+      label: methylmalonic aciduria and homocystinuria type cblD
+  genes:
+  - preferred_term: MMADHC
+    term:
+      id: hgnc:25221
+      label: MMADHC
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ), THAP11(cblX-like), ZNF143(cblX-like), or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class).&#34;
+    explanation: GeneReviews assigns MMADHC to the cblD group and records that it spans combined and homocystinuria-only presentations.
 - name: cblE
   display_name: cblE type (MTRR deficiency)
   description: &gt;-
     Methionine synthase reductase (MTRR) defect impairing reductive reactivation of methionine
     synthase, producing isolated homocystinuria with megaloblastic anemia.
+  subtype_term:
+    preferred_term: methylcobalamin deficiency type cblE
+    term:
+      id: MONDO:0009354
+      label: methylcobalamin deficiency type cblE
+  genes:
+  - preferred_term: MTRR
+    term:
+      id: hgnc:7473
+      label: MTRR
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ), THAP11(cblX-like), ZNF143(cblX-like), or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class).&#34;
+    explanation: GeneReviews assigns MTRR to the cblE complementation group.
 - name: cblF
   display_name: cblF type (LMBRD1 deficiency)
   description: &gt;-
     LMBRD1 defect impairing lysosomal export of cobalamin, producing combined methylmalonic
     acidemia and homocystinuria.
+  subtype_term:
+    preferred_term: methylmalonic aciduria and homocystinuria type cblF
+    term:
+      id: MONDO:0010183
+      label: methylmalonic aciduria and homocystinuria type cblF
+  genes:
+  - preferred_term: LMBRD1
+    term:
+      id: hgnc:23038
+      label: LMBRD1
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ), THAP11(cblX-like), ZNF143(cblX-like), or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class).&#34;
+    explanation: GeneReviews assigns LMBRD1 to the cblF complementation group.
 - name: cblG
   display_name: cblG type (MTR deficiency)
   description: &gt;-
     Methionine synthase (MTR) defect impairing homocysteine remethylation, producing isolated
     homocystinuria with megaloblastic anemia.
+  subtype_term:
+    preferred_term: methylcobalamin deficiency type cblG
+    term:
+      id: MONDO:0009609
+      label: methylcobalamin deficiency type cblG
+  genes:
+  - preferred_term: MTR
+    term:
+      id: hgnc:7468
+      label: MTR
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ), THAP11(cblX-like), ZNF143(cblX-like), or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class).&#34;
+    explanation: GeneReviews assigns MTR to the cblG complementation group.
 - name: cblJ
   display_name: cblJ type (ABCD4 deficiency)
   description: &gt;-
     ABCD4 defect impairing lysosomal cobalamin export, producing combined methylmalonic
-    acidemia and homocystinuria.
+    acidemia and homocystinuria. ClinGen grades the ABCD4-cblJ gene-disease relationship
+    Moderate rather than Definitive.
+  subtype_term:
+    preferred_term: methylmalonic acidemia with homocystinuria, type cblJ
+    term:
+      id: MONDO:0013925
+      label: methylmalonic acidemia with homocystinuria, type cblJ
+  genes:
+  - preferred_term: ABCD4
+    term:
+      id: hgnc:68
+      label: ABCD4
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ), THAP11(cblX-like), ZNF143(cblX-like), or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class).&#34;
+    explanation: GeneReviews assigns ABCD4 to the cblJ complementation group.
+  - reference: CGGV:assertion_902c9288-f6bd-4068-9a5f-652b49583d93-2026-01-23T200000.000Z
+    reference_title: &#34;ABCD4 / methylmalonic acidemia with homocystinuria, type cblJ (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ABCD4 | HGNC:68 | methylmalonic acidemia with homocystinuria, type cblJ | MONDO:0013925 | AR | Moderate&#34;
+    explanation: ClinGen grades the ABCD4-cblJ gene-disease relationship Moderate, the source of the caveat in this row&#39;s description.
 - name: TCN2 deficiency
   display_name: Transcobalamin II deficiency (TCN2)
   description: &gt;-
     Transcobalamin II deficiency impairing plasma transport and cellular delivery of cobalamin,
-    producing early infantile megaloblastic anemia, failure to thrive, and immunodeficiency.
+    producing early infantile megaloblastic anemia, failure to thrive, and immunodeficiency. Unlike
+    the cbl complementation groups, the lesion is in extracellular delivery rather than in
+    intracellular cofactor processing. ClinGen&#39;s curation of this gene-disease relationship was
+    performed by its SCID-CID expert panel.
+  subtype_term:
+    preferred_term: transcobalamin II deficiency
+    term:
+      id: MONDO:0010149
+      label: transcobalamin II deficiency
+  genes:
+  - preferred_term: TCN2
+    term:
+      id: hgnc:11653
+      label: TCN2
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: CGGV:assertion_c2336cc7-730e-4205-8b2b-f1e1acfbd1f3-2025-08-21T160000.000Z
+    reference_title: &#34;TCN2 / transcobalamin II deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TCN2 | HGNC:11653 | transcobalamin II deficiency | MONDO:0010149 | AR | Definitive | SOP9 | SCID-CID Gene Curation Expert Panel&#34;
+    explanation: ClinGen classifies the TCN2-transcobalamin II deficiency relationship as Definitive, curated by the SCID-CID expert panel.
 - name: cblX
   display_name: cblX type (HCFC1, X-linked)
   description: &gt;-
-    X-linked disorder caused by hemizygous HCFC1 variants (with cblX-like forms from THAP11 and
-    ZNF143) that downregulate MMACHC transcription, producing a cblC-like combined biochemical
-    phenotype with prominent intractable epilepsy and severe neurodevelopmental impairment. Unlike
-    the autosomal recessive complementation groups, cblX follows X-linked inheritance.
+    X-linked disorder caused by hemizygous HCFC1 variants that reduce MMACHC expression, producing
+    a cblC-like combined biochemical phenotype with prominent intractable epilepsy and severe
+    neurodevelopmental impairment. Unlike the autosomal recessive complementation groups, cblX
+    follows X-linked inheritance. HCFC1 acts in a complex with THAP11 and with the
+    sequence-specific DNA-binding protein ZNF143; biallelic variants in either of those two
+    partners cause autosomal recessive cblX-like disease, which is a different mode of inheritance
+    and so is kept off this row. The THAP11 form has its own row below; ZNF143 has no
+    gene-specific class in MONDO and is recorded in this entry&#39;s genetic section.
+  subtype_term:
+    preferred_term: methylmalonic acidemia with homocystinuria, type cblX
+    term:
+      id: MONDO:0010657
+      label: methylmalonic acidemia with homocystinuria, type cblX
+  genes:
+  - preferred_term: HCFC1
+    term:
+      id: hgnc:4839
+      label: HCFC1
+  inheritance:
+  - name: X-linked
+    inheritance_term:
+      preferred_term: X-linked inheritance
+      term:
+        id: HP:0001417
+        label: X-linked inheritance
   evidence:
   - reference: PMID:20301503
     reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
@@ -7140,6 +8923,58 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The disorder of intracellular cobalamin metabolism caused by pathogenic variants in HCFC1 is inherited in an X-linked manner.&#34;
     explanation: GeneReviews documents the X-linked HCFC1 (cblX) form as distinct from the autosomal recessive groups.
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class)&#34;
+    explanation: GeneReviews assigns hemizygous HCFC1 variants to cblX and records the cblC-like complementation behaviour.
+- name: cblL
+  display_name: cblL type (THAP11 deficiency)
+  description: &gt;-
+    Autosomal recessive cblX-like disorder in which biallelic THAP11 variants reduce MMACHC
+    expression, producing clinical and biochemical features that overlap cblX while MMACHC and
+    HCFC1 are both normal. The originating report describes one patient, homozygous for a variant
+    its authors called potentially pathogenic, and ClinGen grades the gene-disease relationship
+    Limited.
+    GeneReviews files this form as cblX-like; the cblL designation comes from OMIM 620940, the
+    entry MONDO records as equivalent to the class bound here.
+  subtype_term:
+    preferred_term: methylmalonic aciduria and homocystinuria, cblL type
+    term:
+      id: MONDO:0975798
+      label: methylmalonic aciduria and homocystinuria, cb1L type
+  genes:
+  - preferred_term: THAP11
+    term:
+      id: hgnc:23194
+      label: THAP11
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:28449119
+    reference_title: &#34;Mutations in THAP11 cause an inborn error of cobalamin metabolism and developmental abnormalities.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We report a patient who presented with clinical and biochemical phenotypic features that overlap cblX, but who does not have any mutations in either MMACHC or HCFC1.&#34;
+    explanation: The report establishes a cblX-overlapping patient in whom MMACHC and HCFC1 were excluded, the clinical basis for a separate THAP11 group.
+  - reference: PMID:28449119
+    reference_title: &#34;Mutations in THAP11 cause an inborn error of cobalamin metabolism and developmental abnormalities.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We sequenced THAP11 by Sanger sequencing and discovered a potentially pathogenic, homozygous variant&#34;
+    explanation: Source for the single reported homozygous THAP11 variant and for the authors&#39; own hedge on its pathogenicity.
+  - reference: CGGV:assertion_6976fdb2-7650-46b7-887c-454666f23bc8-2024-02-09T170000.000Z
+    reference_title: &#34;THAP11 / methylmalonic aciduria and homocystinuria (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;THAP11 | HGNC:23194 | methylmalonic aciduria and homocystinuria | MONDO:0016826 | AR | Limited&#34;
+    explanation: ClinGen records autosomal recessive inheritance and a Limited classification for this relationship.
 pathophysiology:
 - name: Defective cobalamin absorption, transport, and cellular uptake
   description: &gt;-
@@ -7185,6 +9020,69 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Beyond inadequate dietary intake, vitamin B12 deficiency might be caused by insufficient bioavailability, blood transport disruptions, or impaired cellular uptake and metabolism.&#34;
     explanation: Supports defects of transport and cellular uptake as a mechanism producing functional cobalamin deficiency.
+- name: Reduced MMACHC expression from HCFC1-THAP11-ZNF143 transcriptional dysfunction
+  description: &gt;-
+    HCFC1 is a transcriptional cofactor that acts with the sequence-specific DNA-binding protein
+    ZNF143 and with THAP11 (RONIN) to regulate MMACHC. Hemizygous HCFC1 variants (cblX) and
+    biallelic THAP11 or ZNF143 variants (cblX-like) reduce MMACHC expression, so the cblC lesion
+    is reproduced without any variant in MMACHC itself. Cells carrying these mutations behave as
+    cblC phenocopies, and GeneReviews lists all three genes alongside MMACHC as genes in which a
+    pathogenic variant confirms the diagnosis.
+  biological_scale: MOLECULAR
+  genes:
+  - preferred_term: HCFC1
+    term:
+      id: hgnc:4839
+      label: HCFC1
+  - preferred_term: THAP11
+    term:
+      id: hgnc:23194
+      label: THAP11
+  - preferred_term: ZNF143
+    term:
+      id: hgnc:12928
+      label: ZNF143
+  biological_processes:
+  - preferred_term: regulation of MMACHC transcription
+    term:
+      id: GO:0006355
+      label: regulation of DNA-templated transcription
+    modifier: ABNORMAL
+  downstream:
+  - target: Impaired intracellular cobalamin cofactor synthesis
+    description: &gt;-
+      Loss of MMACHC expression removes the same cytosolic cobalamin-processing step that biallelic
+      MMACHC variants remove, so the two routes converge on one lesion.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:35013307
+      reference_title: &#34;Mutations in Hcfc1 and Ronin result in an inborn error of cobalamin metabolism and ribosomopathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: BACKGROUND
+      snippet: &#34;Since HCFC1/RONIN jointly regulate MMACHC, patients with mutations in these factors suffer from reduced MMACHC expression and exhibit a cblC-like disease.&#34;
+      explanation: States that reduced MMACHC expression is the route by which HCFC1 and THAP11 variants produce cblC-like disease.
+  evidence:
+  - reference: PMID:35013307
+    reference_title: &#34;Mutations in Hcfc1 and Ronin result in an inborn error of cobalamin metabolism and ribosomopathy.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    quote_role: BACKGROUND
+    snippet: &#34;Recently, mutations in the transcriptional regulators HCFC1 and RONIN (THAP11) were shown to result in cellular phenocopies of cblC.&#34;
+    explanation: Supports HCFC1 and THAP11 variants producing a cellular cblC phenocopy, the basis for treating this as one mechanism node.
+  - reference: PMID:38617190
+    reference_title: &#34;Overexpression of MMACHC Prevents Craniofacial Phenotypes Caused by Knockdown of znf143b.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
+    snippet: &#34;In humans, ZNF143 interacts with HCFC1, a transcriptional cofactor, to regulate the expression of downstream target genes, including MMACHC, which encodes an enzyme involved in cobalamin (cbl) metabolism.&#34;
+    explanation: Establishes ZNF143 as the third member of the complex that regulates MMACHC, which is why it is bound on this node.
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ), THAP11(cblX-like), ZNF143(cblX-like), or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class).&#34;
+    explanation: GeneReviews lists HCFC1, THAP11 and ZNF143 alongside MMACHC as genes in which a pathogenic variant confirms the diagnosis, and records the cblC complementation behaviour of the HCFC1 form.
 - name: Impaired intracellular cobalamin cofactor synthesis
   description: &gt;-
     MMACHC (cblC) and MMADHC (cblD) process cytosolic cobalamin into a common intermediate that is
@@ -7517,6 +9415,7 @@ phenotypes:
     explanation: Supports renal thrombotic microangiopathy as the predominant renal lesion in cblC disease.
 genetic:
 - name: MMACHC (cblC)
+  subtype: cblC
   gene_term:
     preferred_term: MMACHC
     term:
@@ -7544,6 +9443,108 @@ genetic:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The c.482G &gt; A variant in MMACHC is associated with late-onset and milder phenotypes of CblC disease.&#34;
       explanation: Directly supports the genotype-phenotype correlation for the MMACHC c.482G&gt;A variant.
+- name: HCFC1 (cblX)
+  subtype: cblX
+  gene_term:
+    preferred_term: HCFC1
+    term:
+      id: hgnc:4839
+      label: HCFC1
+  relationship_type: CAUSATIVE
+  notes: &gt;-
+    Hemizygous variants in this transcriptional cofactor reduce MMACHC expression and produce cblX,
+    the only X-linked member of this group. ClinGen&#39;s gene-validity record for HCFC1 is against
+    X-linked intellectual disability rather than against a cobalamin disorder, so it is not cited
+    here for the cblX relationship; the cblX assignment rests on the GeneReviews chapter.
+  inheritance:
+  - name: X-linked
+    inheritance_term:
+      preferred_term: X-linked inheritance
+      term:
+        id: HP:0001417
+        label: X-linked inheritance
+    evidence:
+    - reference: PMID:20301503
+      reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The disorder of intracellular cobalamin metabolism caused by pathogenic variants in HCFC1 is inherited in an X-linked manner.&#34;
+      explanation: GeneReviews states the mode of inheritance for the HCFC1 form.
+  evidence:
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class)&#34;
+    explanation: GeneReviews assigns hemizygous HCFC1 variants to cblX as a molecular diagnosis.
+- name: THAP11 (cblX-like)
+  subtype: cblL
+  gene_term:
+    preferred_term: THAP11
+    term:
+      id: hgnc:23194
+      label: THAP11
+  relationship_type: CAUSATIVE
+  notes: &gt;-
+    Also known as RONIN. Biallelic variants produce a cblX-like combined methylmalonic acidemia and
+    homocystinuria through reduced MMACHC expression; the cblL subtype row carries this form.
+    ClinGen grades the relationship Limited and curated it against the grouping class
+    methylmalonic aciduria and homocystinuria, not against the gene-specific class
+    MONDO:0975798.
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ), THAP11(cblX-like), ZNF143(cblX-like), or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class).&#34;
+    explanation: GeneReviews lists THAP11 among the genes whose biallelic variants confirm a diagnosis in this disease group.
+  - reference: CGGV:assertion_6976fdb2-7650-46b7-887c-454666f23bc8-2024-02-09T170000.000Z
+    reference_title: &#34;THAP11 / methylmalonic aciduria and homocystinuria (Limited)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;THAP11 | HGNC:23194 | methylmalonic aciduria and homocystinuria | MONDO:0016826 | AR | Limited&#34;
+    explanation: ClinGen records the THAP11 relationship with autosomal recessive inheritance at a Limited classification.
+- name: ZNF143 (cblX-like)
+  gene_term:
+    preferred_term: ZNF143
+    term:
+      id: hgnc:12928
+      label: ZNF143
+  relationship_type: CAUSATIVE
+  notes: &gt;-
+    Sequence-specific DNA-binding partner of HCFC1. Biallelic variants produce a cblX-like disorder
+    through reduced MMACHC expression. ClinGen grades the relationship Moderate, curated against the
+    grouping class methylmalonic aciduria and homocystinuria. A synonym-inclusive OLS4 search of
+    MONDO for ZNF143 returns no class, and the children of MONDO:0016826 are the cblC, cblD, cblF,
+    cblJ, cblX and cblL classes, so there is no ZNF143-specific class for this form to bind and it
+    is held here rather than as a subtype row.
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301503
+    reference_title: &#34;Disorders of Intracellular Cobalamin Metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Diagnosis is confirmed by identification of biallelic pathogenic variants in one of the following genes (associated complementation groups indicated in parentheses): MMACHC (cblC), MMADHC (cblD-combined and cblD-homocystinuria), MTRR (cblE), LMBRD1 (cblF), MTR (cblG), ABCD4 (cblJ), THAP11(cblX-like), ZNF143(cblX-like), or a hemizygous variant in HCFC1 (cblX, which can show a cblC complementation class).&#34;
+    explanation: GeneReviews lists ZNF143 among the genes whose biallelic variants confirm a diagnosis in this disease group.
+  - reference: CGGV:assertion_d2961595-2f51-45d6-af4d-988ec5a7628a-2024-03-05T170000.000Z
+    reference_title: &#34;ZNF143 / methylmalonic aciduria and homocystinuria (Moderate)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;ZNF143 | HGNC:12928 | methylmalonic aciduria and homocystinuria | MONDO:0016826 | AR | Moderate&#34;
+    explanation: ClinGen records the ZNF143 relationship with autosomal recessive inheritance at a Moderate classification.
 treatments:
 - name: Hydroxocobalamin therapy
   description: &gt;-
@@ -7639,6 +9640,34 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;methionine restriction including use of medical foods that do not contain methionine; and the anesthetic nitrous oxide&#34;
     explanation: GeneReviews lists nitrous oxide and methionine restriction among agents/circumstances to avoid.
+notes: &gt;-
+  Scope and anchor. This entry is the umbrella class MONDO:0019220, which asserts no causal gene of
+  its own, and every subtype row below binds a class that resolves inside that class&#39;s subtree. The
+  rows are the complementation groups plus transcobalamin II deficiency, which is a transport rather
+  than a processing defect.
+
+
+  Imerslund-Grasbeck syndrome. MONDO:0009853 and its two gene-specific children sit under this
+  umbrella, but the disease belongs to the intestinal-absorption arm of the group rather than to
+  intracellular cobalamin processing: the GeneReviews chapter on disorders of intracellular
+  cobalamin metabolism, which supplies the gene-to-group assignments used above, names neither CUBN
+  nor AMN nor Imerslund-Grasbeck syndrome. MONDO:0100156 is the disease_term of
+  kb/disorders/Imerslund-Grasbeck_Syndrome_Type_1.yaml and MONDO:0100157, the AMN form, is bound as
+  a differential diagnosis in that same entry, so neither is repeated as a subtype row here.
+
+
+  The cblL class. MONDO:0975798 carries no definition, no synonym and no causal-gene axiom; its
+  OMIM equivalence, OMIM:620940, is the only record of what it denotes, and that OMIM entry is the
+  THAP11 disorder. Its MONDO primary label spells the group &#34;cb1L&#34; with the digit one, the spelling
+  GTR supplies for the same concept, while OMIM spells it cblL; term.label above copies MONDO
+  verbatim and preferred_term carries the intended spelling.
+
+
+  Forms with no class to bind. A synonym-inclusive OLS4 search of MONDO for ZNF143 returns nothing,
+  so the ZNF143 cblX-like form is held in the genetic section rather than as a subtype row. Searches
+  for &#34;epi-cblC&#34; and for PRDX1 likewise return nothing, so the epi-cblC form, in which MMACHC is
+  silenced epigenetically rather than mutated, has no class to bind and is not represented here
+  either.
 datasets: []
 </pre>
             </div>
@@ -7683,6 +9712,8 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8682,7 +10713,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Inborn Disorder of Cobalamin Metabolism and Transport", "mondoId": "MONDO:0019220", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Inborn_Disorder_of_Cobalamin_Metabolism_and_Transport", "yamlRevision": "11a574a24eda"};
+        const OS_CONFIG = {"diseaseName": "Inborn Disorder of Cobalamin Metabolism and Transport", "mondoId": "MONDO:0019220", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Inborn_Disorder_of_Cobalamin_Metabolism_and_Transport", "yamlRevision": "654d8cafff05"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

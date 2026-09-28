@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4106,6 +4174,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We provide further support for a distinct “15q overgrowth syndrome” caused by either trisomy or tetrasomy resulting in increased dosage of distal 15q."</div>
@@ -4166,6 +4235,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Here, we have identified the genetic etiology and the pathogenetic mechanism underlying a rare autosomal recessive overgrowth syndrome in three affected siblings."</div>
@@ -4208,6 +4278,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-15q-dosage-gain" data-dismech-node="Distal 15q Dosage Gain" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal 15q Dosage Gain</div>
+
 
                 <div class="item-desc">In one major subtype branch, distal chromosome 15q trisomy or tetrasomy increases dosage of growth-regulatory genes, especially IGF1R, creating a syndromic overgrowth and renal-anomaly phenotype.</div>
 
@@ -4304,6 +4375,7 @@ This pathophysiological event involves IGF1R (hgnc:5465). hgnc:5465 is a gene fr
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We provide further support for a distinct “15q overgrowth syndrome” caused by either trisomy or tetrasomy resulting in increased dosage of distal 15q."</div>
@@ -4324,6 +4396,7 @@ This pathophysiological event involves IGF1R (hgnc:5465). hgnc:5465 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-igf1r-overexpression-and-growth-signaling-activation" data-dismech-node="IGF1R Overexpression and Growth Signaling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">IGF1R Overexpression and Growth Signaling Activation</div>
+
 
                 <div class="item-desc">Increased IGF1R dosage and expression amplify downstream growth signaling, contributing to postnatal overgrowth and syndromic developmental abnormalities.</div>
 
@@ -4542,6 +4615,7 @@ This pathophysiological event involves increased cell growth (GO:0016049). GO:00
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We found a 1.8-fold increase in the IGF1R mRNA and a 1.3-fold increase in the IGF1R protein expression (P &lt; 0.05)."</div>
@@ -4562,6 +4636,7 @@ This pathophysiological event involves increased cell growth (GO:0016049). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibp-dysfunction" data-dismech-node="FIBP Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">FIBP Dysfunction</div>
+
 
                 <div class="item-desc">In another subtype branch, biallelic FIBP variants alter a fibroblast growth factor-signaling mediator and define an autosomal recessive overgrowth syndrome with developmental and renal involvement.</div>
 
@@ -4658,6 +4733,7 @@ This pathophysiological event involves FIBP (hgnc:3705). hgnc:3705 is a gene fro
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The disease was mapped to 3p21.1‐p14.2 and 11q13.1‐q13.4, where an in‐frame insertion (c.175_176insTAA) inFIBPgene was revealed."</div>
@@ -4678,6 +4754,7 @@ This pathophysiological event involves FIBP (hgnc:3705). hgnc:3705 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-fibroblast-proliferation" data-dismech-node="Increased Fibroblast Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Fibroblast Proliferation</div>
+
 
                 <div class="item-desc">Patient-derived fibroblasts with FIBP dysfunction show increased proliferative capacity, providing a cellular explanation for the overgrowth phenotype.</div>
 
@@ -4896,6 +4973,7 @@ This pathophysiological event involves abnormal fibroblast growth factor recepto
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5011,6 +5089,9 @@ This clinical feature is abnormal renal morphology (HP:0012210). HP:0012210 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5028,6 +5109,7 @@ This clinical feature is abnormal renal morphology (HP:0012210). HP:0012210 is a
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Renal anomalies included renal agenesis, horseshoe kidney, and hydronephrosis."</div>
@@ -5039,10 +5121,10 @@ This clinical feature is abnormal renal morphology (HP:0012210). HP:0012210 is a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/ajmg.a.37741" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37876348" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.37741" target="_blank">DOI:10.1002/ajmg.a.37741</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37876348" target="_blank">PMID:37876348</a>
                     </span>
 
 
@@ -5050,12 +5132,15 @@ This clinical feature is abnormal renal morphology (HP:0012210). HP:0012210 is a
 
 
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
-                <div class="evidence-snippet">"A recessive syndrome of intellectual disability, moderate overgrowth, and renal dysplasia predisposing to Wilms tumor is caused by a mutation in&lt;i&gt;FIBP&lt;/i&gt;gene"</div>
+                <div class="evidence-snippet">"Herein, two new cases of Thauvin-Robinet-Faivre syndrome are reported with overgrowth, intellectual disability, typical dysmorphic signs in one dysplastic kidney, and a novel homozygous FIBP gene variant."</div>
 
 
-                <div class="evidence-explanation">The title directly supports renal dysplasia in the FIBP-related subtype.</div>
+                <div class="evidence-explanation">This primary case report describes a dysplastic kidney in the FIBP-related Thauvin-Robinet-Faivre subtype, directly supporting renal involvement.</div>
 
 
 
@@ -5101,6 +5186,9 @@ This clinical feature is nephroblastoma (HP:0002667). HP:0002667 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5115,6 +5203,7 @@ This clinical feature is nephroblastoma (HP:0002667). HP:0002667 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5169,6 +5258,9 @@ This clinical feature is horseshoe kidney (HP:0000085). HP:0000085 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5183,6 +5275,7 @@ This clinical feature is horseshoe kidney (HP:0000085). HP:0000085 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5246,6 +5339,9 @@ This clinical feature is long face (HP:0000276). HP:0000276 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5260,6 +5356,7 @@ This clinical feature is long face (HP:0000276). HP:0000276 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5323,6 +5420,9 @@ This clinical feature is intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5337,6 +5437,7 @@ This clinical feature is intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5359,6 +5460,7 @@ This clinical feature is intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5422,6 +5524,9 @@ This clinical feature is tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5436,6 +5541,7 @@ This clinical feature is tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5458,6 +5564,7 @@ This clinical feature is tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5554,6 +5661,9 @@ This disease-associated gene is IGF1R (hgnc:5465). hgnc:5465 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5568,6 +5678,7 @@ This disease-associated gene is IGF1R (hgnc:5465). hgnc:5465 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5623,6 +5734,9 @@ This disease-associated gene is FIBP (hgnc:3705). hgnc:3705 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5637,6 +5751,7 @@ This disease-associated gene is FIBP (hgnc:3705). hgnc:3705 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5725,6 +5840,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is appropriate because the syndrome includes both chromosomal dosage-gain and autosomal recessive FIBP-related subtypes.</div>
 
 
@@ -5746,6 +5867,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5816,6 +5938,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary follow-up is relevant for TROFAS because later reports have broadened the subtype phenotype to include ophthalmologic, airway, skeletal, and cardiac manifestations.</div>
 
 
@@ -5837,6 +5965,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5943,6 +6072,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"To elucidate the genetic etiology of the disorder, whole‐genome genotyping and whole‐exome sequencing were used."</div>
@@ -6025,6 +6155,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6113,6 +6244,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We provide further support for a distinct “15q overgrowth syndrome” caused by either trisomy or tetrasomy resulting in increased dosage of distal 15q."</div>
@@ -6195,6 +6327,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6678,19 +6811,19 @@ phenotypes:
         explanation: &gt;-
           This directly supports congenital renal anomalies in the distal 15q
           subtype.
-      - reference: DOI:10.1002/ajmg.a.37741
+      - reference: &#34;PMID:37876348&#34;
         reference_title: &gt;-
-          A recessive syndrome of intellectual disability, moderate overgrowth,
-          and renal dysplasia predisposing to Wilms tumor is caused by a
-          mutation in&lt;i&gt;FIBP&lt;/i&gt;gene
+          New cases of recently described Thauvin-Robinet-Faivre syndrome with a novel homozygous
+          FIBP gene variant.
         supports: SUPPORT
+        evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
-          A recessive syndrome of intellectual disability, moderate overgrowth,
-          and renal dysplasia predisposing to Wilms tumor is caused by a
-          mutation in&lt;i&gt;FIBP&lt;/i&gt;gene
+          Herein, two new cases of Thauvin-Robinet-Faivre syndrome are reported with overgrowth,
+          intellectual disability, typical dysmorphic signs in one dysplastic kidney, and a novel
+          homozygous FIBP gene variant.
         explanation: &gt;-
-          The title directly supports renal dysplasia in the FIBP-related
-          subtype.
+          This primary case report describes a dysplastic kidney in the FIBP-related
+          Thauvin-Robinet-Faivre subtype, directly supporting renal involvement.
   - name: Nephroblastoma Predisposition
     subtype: Thauvin-Robinet-Faivre syndrome
     description: &gt;-
@@ -6990,6 +7123,18 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Falcon deep research and the primary literature indicate that this MONDO label currently behaves as a heterogeneous syndrome concept rather than a single molecular entity. The best-supported subtype branches in the available literature are distal 15q dosage-gain overgrowth syndrome and FIBP-related Thauvin-Robinet-Faivre syndrome.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7400,7 +7545,7 @@ Prawitt &amp; Eggermann (2024) summarize emerging omics and emphasize early mole
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tall Stature-Intellectual Disability-Renal Anomalies Syndrome", "mondoId": "MONDO:0014918", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tall_Stature-Intellectual_Disability-Renal_Anomalies_Syndrome", "yamlRevision": "c7ef854ca171"};
+        const OS_CONFIG = {"diseaseName": "Tall Stature-Intellectual Disability-Renal Anomalies Syndrome", "mondoId": "MONDO:0014918", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tall_Stature-Intellectual_Disability-Renal_Anomalies_Syndrome", "yamlRevision": "cd3bf4344802"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

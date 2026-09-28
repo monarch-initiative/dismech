@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4234,6 +4302,7 @@ Carrier females are not uniformly unaffected. Mosaic cutaneous lesions along Bla
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4258,6 +4327,7 @@ Carrier females are not uniformly unaffected. Mosaic cutaneous lesions along Bla
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4279,6 +4349,7 @@ Carrier females are not uniformly unaffected. Mosaic cutaneous lesions along Bla
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4368,6 +4439,7 @@ Curated as a subtype rather than a separate disease because it is the severe end
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4389,6 +4461,7 @@ Curated as a subtype rather than a separate disease because it is the severe end
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4677,6 +4750,7 @@ The SREBF1 comparison also has a limit worth stating. SREBF1 disease is dominant
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4698,6 +4772,7 @@ The SREBF1 comparison also has a limit worth stating. SREBF1 disease is dominant
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4878,6 +4953,7 @@ dismech is in an unusual position to notice this, because it already carries ent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4912,6 +4988,13 @@ dismech is in an unusual position to notice this, because it already carries ent
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomorphic-mbtps2-variant" data-dismech-node="Hypomorphic MBTPS2 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomorphic MBTPS2 Variant</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Missense variants exchanging highly conserved residues, and splice-site variants, in MBTPS2. The allelic spectrum is hypomorphic rather than null: every reported variant leaves some residual protease activity, and the amount left is what the phenotype tracks.
 That is not merely an observation about severity - it constrains what kind of variant can be pathogenic here. A curator or laboratory assessing a novel MBTPS2 variant should expect partial loss of function, and a variant predicted to abolish the protein entirely would be atypical for this entity rather than a confidently severe allele.</div>
@@ -5045,6 +5128,7 @@ This pathophysiological event involves decreased site-2 protease intramembrane c
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5066,6 +5150,7 @@ This pathophysiological event involves decreased site-2 protease intramembrane c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5091,6 +5176,13 @@ This pathophysiological event involves decreased site-2 protease intramembrane c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-regulated-intramembrane-proteolysis" data-dismech-node="Reduced Regulated Intramembrane Proteolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Regulated Intramembrane Proteolysis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">S2P makes the second cut of a two-cut cascade. SREBP and ATF6 are cleaved first by site-1 protease and then, within the membrane, by S2P, which releases the active transcription-factor domain into the cytosol. Reduce S2P activity and both substrates are released less efficiently.
 This node is the reason the disease looks pleiotropic. Two entirely unrelated transcriptional programmes share one protease, so a single hypomorphic allele hits lipid synthesis and the stress response together rather than choosing one.</div>
@@ -5170,6 +5262,7 @@ This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5191,6 +5284,7 @@ This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5216,6 +5310,13 @@ This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-srebp-driven-lipid-synthesis" data-dismech-node="Impaired SREBP-Driven Lipid Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired SREBP-Driven Lipid Synthesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Less active SREBP reaches the nucleus, so cholesterol and fatty-acid synthesis genes are under-induced. The functional signature of this in the assays used to prove variant pathogenicity is failure to grow in cholesterol-depleted medium - a cell that cannot make its own lipid and is no longer given any.
 In the epidermis this is the barrier-lipid arm: the cornified envelope depends on locally synthesised lipids, and a follicular hyperkeratosis is what a failing keratinisation programme looks like at the skin surface.</div>
@@ -5398,6 +5499,7 @@ Curated as MEASURES rather than RECAPITULATES on purpose: the cell line does not
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5419,6 +5521,7 @@ Curated as MEASURES rather than RECAPITULATES on purpose: the cell line does not
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5444,6 +5547,13 @@ Curated as MEASURES rather than RECAPITULATES on purpose: the cell line does not
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-atf6-endoplasmic-reticulum-stress-response" data-dismech-node="Impaired ATF6 Endoplasmic Reticulum Stress Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ATF6 Endoplasmic Reticulum Stress Response</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ATF6 is the second S2P substrate, and it is the arm of the unfolded protein response that depends on the same two cuts. A BRESHECK-associated variant was shown to fail to activate the ER stress response entirely, alongside its attenuated SREBP effect.
 Graded PROVISIONAL rather than ESTABLISHED, and the distinction from the SREBP node is deliberate. The biochemistry is not in doubt - S2P cleaves ATF6, and the assay result is clear. What is not established is that this arm *contributes to the human phenotype*: no clinical feature of IFAP has been tied to loss of ATF6 signalling specifically, and every phenotype the entry curates could in principle be explained by the SREBP arm alone. The node is kept because a mechanism curated only where it is convenient is not a mechanism, and because it predicts things the SREBP arm does not.</div>
@@ -5555,6 +5665,7 @@ This pathophysiological event involves decreased response to endoplasmic reticul
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5576,6 +5687,7 @@ This pathophysiological event involves decreased response to endoplasmic reticul
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5602,6 +5714,13 @@ Graded IN_VITRO despite the sentence being about phenotypic expression in patien
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-epidermal-and-follicular-keratinization" data-dismech-node="Defective Epidermal and Follicular Keratinization" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Epidermal and Follicular Keratinization</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The skin and hair phenotype: spiny follicular hyperkeratosis and near-total absence of scalp hair, eyebrows and eyelashes from birth.
 Graded PROVISIONAL because the step from an impaired lipid-synthesis programme to this specific histology is inferred, not demonstrated. No study reviewed here measures barrier lipids, cornified envelope composition or follicular differentiation markers in IFAP skin. The disease is defined clinically at this level and mechanistically two levels up, with the connection assumed.</div>
@@ -5751,6 +5870,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5773,6 +5893,13 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-vascularising-keratopathy" data-dismech-node="Progressive Vascularising Keratopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Vascularising Keratopathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The ocular phenotype, and the one that carries the morbidity. Photophobia is the symptom; the disease is a keratopathy that progresses through spontaneous epithelial defects, superficial and deep corneal vascularisation, and scarring to counting-fingers acuity.
 The most informative observation is developmental rather than static. An infant diagnosed at six days had clear corneas; the epithelial defects appeared at six months, and imaging then showed limbal thickening, peripheral pannus, conjunctivalisation and abnormal hyperreflective epithelium - the picture of limbal stem cell dysfunction. So the cornea is not malformed, it fails to maintain itself, which is a different therapeutic target.
@@ -5851,6 +5978,7 @@ This pathophysiological event occurs in corneal epithelium (UBERON:0001772). UBE
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5875,6 +6003,7 @@ This pathophysiological event occurs in corneal epithelium (UBERON:0001772). UBE
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5896,6 +6025,7 @@ This pathophysiological event occurs in corneal epithelium (UBERON:0001772). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5944,7 +6074,7 @@ This pathophysiological event occurs in corneal epithelium (UBERON:0001772). UBE
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Amniotic Membrane Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard intervention for limbal stem cell deficiency, and on this entry\u0027s reading of the ocular disease it is the treatment aimed at the actual lesion rather than at the surface consequence.\\nThe one published IFAP case combined it with systemic acitretin, so the two cannot be separated in that report - which is stated rather than glossed, because the improvement reported includes neuropsychomotor development, which no ocular surface procedure explains.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CHO M19 site-2-protease-deficient complementation assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Chinese hamster ovary M19 cells lack endogenous S2P and therefore cannot grow without exogenous cholesterol and lipid. Transfecting human MBTPS2 rescues them, and patient variants rescue them only partially - read out both by an SRE-regulated reporter and by growth in lipid-free medium.\\nThis is the assay the entire pathogenicity classification of MBTPS2 variants rests on, and it is the reason the severity relationship in this disease is quantitative rather than categorical.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Defective Epidermal and Follicular Keratinization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skin and hair phenotype: spiny follicular hyperkeratosis and near-total absence of scalp hair, eyebrows and eyelashes from birth.\\nGraded PROVISIONAL because the step from an impaired lipid-synthesis programme to this specific histology is inferred, not demonstrated. No study reviewed here measures barrier lipids, cornified envelope composition or follicular differentiation markers in IFAP skin. The disease is defined clinically at this level and mechanistically two levels up, with the connection assumed.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinocyte differentiation\"], \"role\": \"consequence\", \"locations\": [\"skin epidermis\", \"hair follicle\"]}}, {\"id\": \"Emollients and Urea Keratolytics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cutaneous mainstay, and the treatment most IFAP patients are actually on. Topical urea for the plantar keratoderma and constant moisturisers for the generalized xerosis.\\nCurated because its absence left the entry offering nothing for the skin except a systemic retinoid evidenced by one three-year-old - which misrepresents ordinary care for this disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"urea\"]}}, {\"id\": \"Hypomorphic MBTPS2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense variants exchanging highly conserved residues, and splice-site variants, in MBTPS2. The allelic spectrum is hypomorphic rather than null: every reported variant leaves some residual protease activity, and the amount left is what the phenotype tracks.\\nThat is not merely an observation about severity - it constrains what kind of variant can be pathogenic here. A curator or laboratory assessing a novel MBTPS2 variant should expect partial loss of function, and a variant predicted to abolish the protein entirely would be atypical for this entity rather than a confidently severe allele.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"site-2 protease intramembrane cleavage activity\"], \"genes\": [\"MBTPS2\"], \"gene_terms\": [{\"label\": \"MBTPS2\", \"id\": \"hgnc:15455\"}], \"role\": \"trigger\"}}, {\"id\": \"Impaired ATF6 Endoplasmic Reticulum Stress Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATF6 is the second S2P substrate, and it is the arm of the unfolded protein response that depends on the same two cuts. A BRESHECK-associated variant was shown to fail to activate the ER stress response entirely, alongside its attenuated SREBP effect.\\nGraded PROVISIONAL rather than ESTABLISHED, and the distinction from the SREBP node is deliberate. The biochemistry is not in doubt - S2P cleaves ATF6, and the assay result is clear. What is not established is that this arm *contributes to the human phenotype*: no clinical feature of IFAP has been tied to loss of ATF6 signalling specifically, and every phenotype the entry curates could in principle be explained by the SREBP arm alone. The node is kept because a mechanism curated only where it is convenient is not a mechanism, and because it predicts things the SREBP arm does not.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ATF6-mediated unfolded protein response\", \"response to endoplasmic reticulum stress\"], \"role\": \"effector\"}}, {\"id\": \"Impaired SREBP-Driven Lipid Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Less active SREBP reaches the nucleus, so cholesterol and fatty-acid synthesis genes are under-induced. The functional signature of this in the assays used to prove variant pathogenicity is failure to grow in cholesterol-depleted medium - a cell that cannot make its own lipid and is no longer given any.\\nIn the epidermis this is the barrier-lipid arm: the cornified envelope depends on locally synthesised lipids, and a follicular hyperkeratosis is what a failing keratinisation programme looks like at the skin surface.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"SREBP signaling pathway\", \"cholesterol biosynthesis\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"CHO M19 site-2-protease-deficient complementation assay\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantifies residual S2P activity through its SREBP output, which is what makes the activity-severity correlation measurable.\\nCurated as MEASURES rather than RECAPITULATES on purpose: the cell line does not model IFAP, it assays one function of the mutant protein. Nothing about a hamster ovary cell reproduces a hair follicle or a corneal limbus.\"}]}}, {\"id\": \"MBTPS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"MBTPS2\"], \"gene_terms\": [{\"label\": \"MBTPS2\", \"id\": \"hgnc:15455\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Ocular Surface Protection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mainstay of ocular care, and on the limbal-failure reading of the disease it is a holding measure rather than a treatment of the lesion. Aggressive lubrication, prophylactic antibiotics and lateral tarsorrhaphy maintained a stable corneal surface in the one infant followed prospectively from diagnosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Vascularising Keratopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular phenotype, and the one that carries the morbidity. Photophobia is the symptom; the disease is a keratopathy that progresses through spontaneous epithelial defects, superficial and deep corneal vascularisation, and scarring to counting-fingers acuity.\\nThe most informative observation is developmental rather than static. An infant diagnosed at six days had clear corneas; the epithelial defects appeared at six months, and imaging then showed limbal thickening, peripheral pannus, conjunctivalisation and abnormal hyperreflective epithelium - the picture of limbal stem cell dysfunction. So the cornea is not malformed, it fails to maintain itself, which is a different therapeutic target.\\nGraded PROVISIONAL: the limbal-failure account rests on one prospectively followed infant, and no histology or limbal-marker study has been published.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\", \"locations\": [\"cornea\", \"corneal epithelium\"]}}, {\"id\": \"Reduced Regulated Intramembrane Proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"S2P makes the second cut of a two-cut cascade. SREBP and ATF6 are cleaved first by site-1 protease and then, within the membrane, by S2P, which releases the active transcription-factor domain into the cytosol. Reduce S2P activity and both substrates are released less efficiently.\\nThis node is the reason the disease looks pleiotropic. Two entirely unrelated transcriptional programmes share one protease, so a single hypomorphic allele hits lipid synthesis and the stress response together rather than choosing one.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Systemic Acitretin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A systemic retinoid, tried for the cutaneous and corneal features. The reported response is partial in a specific and consistent way: skin and corneal erosions improve, alopecia and photophobia do not.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"acitretin\"]}}], \"edges\": [{\"source\": \"Hypomorphic MBTPS2 Variant\", \"target\": \"Reduced Regulated Intramembrane Proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Regulated Intramembrane Proteolysis\", \"target\": \"Impaired SREBP-Driven Lipid Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Regulated Intramembrane Proteolysis\", \"target\": \"Impaired ATF6 Endoplasmic Reticulum Stress Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired SREBP-Driven Lipid Synthesis\", \"target\": \"Defective Epidermal and Follicular Keratinization\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired SREBP-Driven Lipid Synthesis\", \"target\": \"Progressive Vascularising Keratopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Acitretin\", \"target\": \"Defective Epidermal and Follicular Keratinization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ocular Surface Protection\", \"target\": \"Progressive Vascularising Keratopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Emollients and Urea Keratolytics\", \"target\": \"Defective Epidermal and Follicular Keratinization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Amniotic Membrane Transplantation\", \"target\": \"Progressive Vascularising Keratopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CHO M19 site-2-protease-deficient complementation assay\", \"target\": \"Impaired SREBP-Driven Lipid Synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies residual S2P activity through its SREBP output, which is what makes the activity-severity correlation measurable.\\nCurated as MEASURES rather than RECAPITULATES on purpose: the cell line does not model IFAP, it assays one function of the mutant protein. Nothing about a hamster ovary cell reproduces a hair follicle or a corneal limbus.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Two limits worth stating. The readout is the SREBP arm; the assay in its original form says nothing about ATF6, which is why the ER-stress node is graded lower. And a rodent ovary-derived line carries none of the tissue-specific context that determines why the phenotype falls on skin, hair and cornea rather than on the many other tissues that need SREBP.\"}, {\"source\": \"MBTPS2\", \"target\": \"Hypomorphic MBTPS2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Amniotic Membrane Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard intervention for limbal stem cell deficiency, and on this entry\u0027s reading of the ocular disease it is the treatment aimed at the actual lesion rather than at the surface consequence.\\nThe one published IFAP case combined it with systemic acitretin, so the two cannot be separated in that report - which is stated rather than glossed, because the improvement reported includes neuropsychomotor development, which no ocular surface procedure explains.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CHO M19 site-2-protease-deficient complementation assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Chinese hamster ovary M19 cells lack endogenous S2P and therefore cannot grow without exogenous cholesterol and lipid. Transfecting human MBTPS2 rescues them, and patient variants rescue them only partially - read out both by an SRE-regulated reporter and by growth in lipid-free medium.\\nThis is the assay the entire pathogenicity classification of MBTPS2 variants rests on, and it is the reason the severity relationship in this disease is quantitative rather than categorical.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Defective Epidermal and Follicular Keratinization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skin and hair phenotype: spiny follicular hyperkeratosis and near-total absence of scalp hair, eyebrows and eyelashes from birth.\\nGraded PROVISIONAL because the step from an impaired lipid-synthesis programme to this specific histology is inferred, not demonstrated. No study reviewed here measures barrier lipids, cornified envelope composition or follicular differentiation markers in IFAP skin. The disease is defined clinically at this level and mechanistically two levels up, with the connection assumed.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinocyte differentiation\"], \"role\": \"consequence\", \"locations\": [\"skin epidermis\", \"hair follicle\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Emollients and Urea Keratolytics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cutaneous mainstay, and the treatment most IFAP patients are actually on. Topical urea for the plantar keratoderma and constant moisturisers for the generalized xerosis.\\nCurated because its absence left the entry offering nothing for the skin except a systemic retinoid evidenced by one three-year-old - which misrepresents ordinary care for this disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"urea\"]}}, {\"id\": \"Hypomorphic MBTPS2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense variants exchanging highly conserved residues, and splice-site variants, in MBTPS2. The allelic spectrum is hypomorphic rather than null: every reported variant leaves some residual protease activity, and the amount left is what the phenotype tracks.\\nThat is not merely an observation about severity - it constrains what kind of variant can be pathogenic here. A curator or laboratory assessing a novel MBTPS2 variant should expect partial loss of function, and a variant predicted to abolish the protein entirely would be atypical for this entity rather than a confidently severe allele.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"site-2 protease intramembrane cleavage activity\"], \"genes\": [\"MBTPS2\"], \"gene_terms\": [{\"label\": \"MBTPS2\", \"id\": \"hgnc:15455\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired ATF6 Endoplasmic Reticulum Stress Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATF6 is the second S2P substrate, and it is the arm of the unfolded protein response that depends on the same two cuts. A BRESHECK-associated variant was shown to fail to activate the ER stress response entirely, alongside its attenuated SREBP effect.\\nGraded PROVISIONAL rather than ESTABLISHED, and the distinction from the SREBP node is deliberate. The biochemistry is not in doubt - S2P cleaves ATF6, and the assay result is clear. What is not established is that this arm *contributes to the human phenotype*: no clinical feature of IFAP has been tied to loss of ATF6 signalling specifically, and every phenotype the entry curates could in principle be explained by the SREBP arm alone. The node is kept because a mechanism curated only where it is convenient is not a mechanism, and because it predicts things the SREBP arm does not.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ATF6-mediated unfolded protein response\", \"response to endoplasmic reticulum stress\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired SREBP-Driven Lipid Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Less active SREBP reaches the nucleus, so cholesterol and fatty-acid synthesis genes are under-induced. The functional signature of this in the assays used to prove variant pathogenicity is failure to grow in cholesterol-depleted medium - a cell that cannot make its own lipid and is no longer given any.\\nIn the epidermis this is the barrier-lipid arm: the cornified envelope depends on locally synthesised lipids, and a follicular hyperkeratosis is what a failing keratinisation programme looks like at the skin surface.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"SREBP signaling pathway\", \"cholesterol biosynthesis\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"CHO M19 site-2-protease-deficient complementation assay\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantifies residual S2P activity through its SREBP output, which is what makes the activity-severity correlation measurable.\\nCurated as MEASURES rather than RECAPITULATES on purpose: the cell line does not model IFAP, it assays one function of the mutant protein. Nothing about a hamster ovary cell reproduces a hair follicle or a corneal limbus.\"}]}}, {\"id\": \"MBTPS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"MBTPS2\"], \"gene_terms\": [{\"label\": \"MBTPS2\", \"id\": \"hgnc:15455\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Ocular Surface Protection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mainstay of ocular care, and on the limbal-failure reading of the disease it is a holding measure rather than a treatment of the lesion. Aggressive lubrication, prophylactic antibiotics and lateral tarsorrhaphy maintained a stable corneal surface in the one infant followed prospectively from diagnosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Vascularising Keratopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular phenotype, and the one that carries the morbidity. Photophobia is the symptom; the disease is a keratopathy that progresses through spontaneous epithelial defects, superficial and deep corneal vascularisation, and scarring to counting-fingers acuity.\\nThe most informative observation is developmental rather than static. An infant diagnosed at six days had clear corneas; the epithelial defects appeared at six months, and imaging then showed limbal thickening, peripheral pannus, conjunctivalisation and abnormal hyperreflective epithelium - the picture of limbal stem cell dysfunction. So the cornea is not malformed, it fails to maintain itself, which is a different therapeutic target.\\nGraded PROVISIONAL: the limbal-failure account rests on one prospectively followed infant, and no histology or limbal-marker study has been published.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\", \"locations\": [\"cornea\", \"corneal epithelium\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced Regulated Intramembrane Proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"S2P makes the second cut of a two-cut cascade. SREBP and ATF6 are cleaved first by site-1 protease and then, within the membrane, by S2P, which releases the active transcription-factor domain into the cytosol. Reduce S2P activity and both substrates are released less efficiently.\\nThis node is the reason the disease looks pleiotropic. Two entirely unrelated transcriptional programmes share one protease, so a single hypomorphic allele hits lipid synthesis and the stress response together rather than choosing one.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Systemic Acitretin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A systemic retinoid, tried for the cutaneous and corneal features. The reported response is partial in a specific and consistent way: skin and corneal erosions improve, alopecia and photophobia do not.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"acitretin\"]}}], \"edges\": [{\"source\": \"Hypomorphic MBTPS2 Variant\", \"target\": \"Reduced Regulated Intramembrane Proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Regulated Intramembrane Proteolysis\", \"target\": \"Impaired SREBP-Driven Lipid Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Regulated Intramembrane Proteolysis\", \"target\": \"Impaired ATF6 Endoplasmic Reticulum Stress Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired SREBP-Driven Lipid Synthesis\", \"target\": \"Defective Epidermal and Follicular Keratinization\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired SREBP-Driven Lipid Synthesis\", \"target\": \"Progressive Vascularising Keratopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Acitretin\", \"target\": \"Defective Epidermal and Follicular Keratinization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ocular Surface Protection\", \"target\": \"Progressive Vascularising Keratopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Emollients and Urea Keratolytics\", \"target\": \"Defective Epidermal and Follicular Keratinization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Amniotic Membrane Transplantation\", \"target\": \"Progressive Vascularising Keratopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CHO M19 site-2-protease-deficient complementation assay\", \"target\": \"Impaired SREBP-Driven Lipid Synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies residual S2P activity through its SREBP output, which is what makes the activity-severity correlation measurable.\\nCurated as MEASURES rather than RECAPITULATES on purpose: the cell line does not model IFAP, it assays one function of the mutant protein. Nothing about a hamster ovary cell reproduces a hair follicle or a corneal limbus.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Two limits worth stating. The readout is the SREBP arm; the assay in its original form says nothing about ATF6, which is why the ER-stress node is graded lower. And a rodent ovary-derived line carries none of the tissue-specific context that determines why the phenotype falls on skin, hair and cornea rather than on the many other tissues that need SREBP.\"}, {\"source\": \"MBTPS2\", \"target\": \"Hypomorphic MBTPS2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6008,6 +6138,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6022,6 +6155,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6078,6 +6212,9 @@ This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6092,6 +6229,7 @@ This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6148,6 +6286,9 @@ This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6162,6 +6303,7 @@ This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6227,6 +6369,9 @@ This clinical feature is Ichthyosis follicularis (HP:0031291). HP:0031291 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6241,6 +6386,7 @@ This clinical feature is Ichthyosis follicularis (HP:0031291). HP:0031291 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6297,6 +6443,9 @@ This clinical feature is Atrichia (HP:0500262). HP:0500262 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6311,6 +6460,7 @@ This clinical feature is Atrichia (HP:0500262). HP:0500262 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6335,6 +6485,7 @@ This clinical feature is Atrichia (HP:0500262). HP:0500262 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6391,6 +6542,9 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6405,6 +6559,7 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6461,6 +6616,9 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6475,6 +6633,7 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6575,6 +6734,9 @@ This disease-associated gene is MBTPS2 (hgnc:15455). hgnc:15455 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6589,6 +6751,7 @@ This disease-associated gene is MBTPS2 (hgnc:15455). hgnc:15455 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6616,6 +6779,7 @@ This disease-associated gene is MBTPS2 (hgnc:15455). hgnc:15455 is a gene from t
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6637,6 +6801,7 @@ This disease-associated gene is MBTPS2 (hgnc:15455). hgnc:15455 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6746,6 +6911,9 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6756,6 +6924,9 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -6792,6 +6963,7 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6835,6 +7007,7 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6901,6 +7074,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6911,6 +7087,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6947,6 +7126,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6990,6 +7170,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7078,6 +7259,9 @@ This treatment uses urea (CHEBI:16199). CHEBI:16199 is a therapeutic agent from 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7088,6 +7272,9 @@ This treatment uses urea (CHEBI:16199). CHEBI:16199 is a therapeutic agent from 
 
 
     </div>
+
+
+
 
 
 
@@ -7125,6 +7312,7 @@ Curated because its absence left the entry offering nothing for the skin except 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,6 +7356,7 @@ Curated because its absence left the entry offering nothing for the skin except 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7234,6 +7423,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7244,6 +7436,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7281,6 +7476,7 @@ The one published IFAP case combined it with systemic acitretin, so the two cann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7324,6 +7520,7 @@ The one published IFAP case combined it with systemic acitretin, so the two cann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7403,6 +7600,7 @@ The one published IFAP case combined it with systemic acitretin, so the two cann
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7458,6 +7656,7 @@ The one published IFAP case combined it with systemic acitretin, so the two cann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7517,6 +7716,7 @@ This entry&#39;s `pathophysiology` leans on that reframing, so leaving the modal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7592,6 +7792,7 @@ It is curated because it is the only quantitative anchor available and because a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7694,6 +7895,7 @@ Note the naming. MONDO carries this as MONDO:0100221 &#34;IFAP syndrome 2&#34;, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7718,6 +7920,7 @@ Note the naming. MONDO carries this as MONDO:0100221 &#34;IFAP syndrome 2&#34;, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7739,6 +7942,7 @@ Note the naming. MONDO carries this as MONDO:0100221 &#34;IFAP syndrome 2&#34;, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7810,6 +8014,7 @@ Note the naming. MONDO carries this as MONDO:0100221 &#34;IFAP syndrome 2&#34;, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7878,6 +8083,7 @@ Note the naming. MONDO carries this as MONDO:0100221 &#34;IFAP syndrome 2&#34;, 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7941,6 +8147,7 @@ Note the naming. MONDO carries this as MONDO:0100221 &#34;IFAP syndrome 2&#34;, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8061,6 +8268,7 @@ Curated as MEASURES rather than RECAPITULATES on purpose: the cell line does not
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8100,6 +8308,7 @@ Curated as MEASURES rather than RECAPITULATES on purpose: the cell line does not
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9833,6 +10042,30 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump/split calls. BRESHECK is a has_subtypes entry, not a separate disease - the MONDO label itself lumps them, the gene and allele class are the same, and the functional assay shows the same two pathways impaired. The other MBTPS2 diseases are kept separate, and that asymmetry is deliberate: BRESHECK is the severe end of the same phenotype, while KFSD, Olmsted syndrome and osteogenesis imperfecta type XIX are different phenotypes that happen to share a gene. Two of those already have dismech entries.
+Nomenclature. The disease name uses &#34;atrichia&#34; in some sources and &#34;alopecia&#34; in others, and both spellings are in the published titles cited here. The synonym list carries both because a search on one alone will miss papers.
+What is deliberately not curated. The disease is described in the literature as X-linked recessive, and the entry uses HP:0001419 accordingly - but the carrier findings, mosaic Blaschko-linear skin lesions and retinal vascular tortuosity, sit awkwardly with a strictly recessive label, and no source reviewed here resolves that.
+Recurrent infections, and why the phenotype is left out rather than just the mechanism. The proposed SREBP-NF-kB explanation is excluded because it rests on LPS-stimulation experiments in an unrelated system with no IFAP patient data attached. The phenotype itself is excluded for a separate reason: no source fetched here reports it with a denominator or in a named patient. It appears in review prose as a listed feature, which is a citation chain rather than an observation, and recurrent angular cheilitis - which is reported in one patient - is a different thing. If a series reports infection frequency this should be curated; the omission is a gap, not a judgement that the feature is absent.
+Also not curated: the Hodgkin lymphoma association, which is a single case and the source itself presents as a first report rather than an established risk; and Drosophila S2P mutants, which are informative about the enzyme but are not a disease model.
+On GeneReviews. There is no GeneReviews chapter for MBTPS2 or IFAP - a PubMed search of GeneReviews[Book] against MBTPS2, &#34;IFAP syndrome&#34;, &#34;ichthyosis follicularis&#34; and &#34;keratosis follicularis spinulosa&#34; returns nothing. Only the general Ichthyosis Overview exists, which is not disease-specific. Recorded so the next curator does not have to re-derive it.
+Provenance. Built from primary literature with an OpenScientist deep-research report run alongside and committed under research/. The report supplied most of the reference set, each verified on PubMed and fetched through &#39;just fetch-reference&#39; before use. Two of its ontology suggestions were rejected on its own validation evidence: NCIT:C29496 for &#34;Acitretin ~1 mg/kg&#34;, which does not exist in NCIT, and HP:0033052 offered as &#34;Angular cheilitis / periorificial keratotic plaques&#34; when that identifier is &#34;Non-epileptic seizure&#34; - a mislabelling that would have put a seizure phenotype into a genodermatosis. It also gave MBTPS2 as HGNC:7375; the correct identifier is hgnc:15455, as the curation stub recorded. The &#34;40 cases reported&#34; figure it surfaced is curated but graded PARTIAL, because its source is a background sentence in a case report about Hodgkin lymphoma rather than a systematic count.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: IFAP Syndrome 1</strong> · 2026-08-29T12:28:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/IFAP_Syndrome_1/2026-08-29T122842Z-claude-code-d66385.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of IFAP syndrome (hypomorphic MBTPS2 variants) from primary literature, with an OpenScientist deep-research report run alongside and committed under research/. Six-node pathograph: hypomorphic MBTPS2 reduces regulated intramembrane proteolysis, which forks into an SREBP lipid-synthesis arm and an ATF6 ER-stress arm; the SREBP arm reaches defective epidermal and follicular keratinization and a progressive vascularising keratopathy. BRESHECK curated as a has_subtypes entry on the same activity continuum. Eight references, all fetched via &#39;just fetch-reference&#39;; 40/40 snippets verified. Three of the deep-research report&#39;s ontology suggestions were rejected on its own validation evidence: NCIT:C29496 which does not exist, HP:0033052 offered as &#39;Angular cheilitis&#39; when it is &#39;Non-epileptic seizure&#39;, and HGNC:7375 for MBTPS2 when the correct identifier is hgnc:15455. The commonly repeated &#39;40 cases reported&#39; figure is curated but graded PARTIAL because its source is a background sentence in a Hodgkin lymphoma case report. Two discussions: the ATF6 arm is measured but attached to no clinical feature, and the MBTPS2 allelic series produces skin and bone diseases for reasons the review literature states are unresolved. Validated with validate, validate-terms, count-verified-snippets, check-entity-refs, check-duplicate-keys and validate-disorders.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

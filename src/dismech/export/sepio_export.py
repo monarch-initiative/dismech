@@ -24,6 +24,7 @@ the object carrying ``evidence`` ``Statement`` (subject / predicate / object)
 ``evidence[].evidence_source``   ``EvidenceLine.evidence_type``
 ``evidence[].supports``          ``EvidenceLine.direction_of_evidence_provided``
 ``evidence[].directness``        ``EvidenceLine.dismech_directness`` (no SEPIO slot)
+``evidence[].quote_role``        ``EvidenceLine.dismech_quote_role`` (no SEPIO slot)
 ``evidence[].snippet``           ``DataItem.value`` (``data_type: TextSpan``)
 ``evidence[].reference``         ``Document.id`` (via ``DataItem.reported_in``)
 ``evidence[].reference_title``   ``Document.title``
@@ -152,6 +153,11 @@ class EvidenceLine(SepioEntity):
     # How directly the quote bears on the claim. dismech-native: SEPIO has no
     # directness slot, and this is not a strength grade.
     dismech_directness: str | None = None
+    # Where in the cited document's own argument the quote sits. dismech-native
+    # for the same reason. The schema maps the values out to CiTO, so an
+    # export that wants `cito:obtainsBackgroundFrom` can resolve it from the
+    # enum rather than from a second hand-maintained map here.
+    dismech_quote_role: str | None = None
 
 
 class Statement(SepioEntity):
@@ -239,6 +245,7 @@ def evidence_item_to_line(evidence_item: dict[str, Any], statement_id: str, inde
         description=evidence_item.get("explanation"),
         dismech_supports=supports or None,
         dismech_directness=evidence_item.get("directness") or None,
+        dismech_quote_role=evidence_item.get("quote_role") or None,
     )
 
 
@@ -281,16 +288,45 @@ def statement_from_association(
     if not lines:
         return None
 
+    # Carry the association's qualifiers across. Without this the sidecar
+    # restates the bare triple and loses everything the qualifier encodes —
+    # including the exposure polarity that keeps a deficiency entry from
+    # reading as its own opposite (#8468), and the `direction:` qualifiers the
+    # Disease→GO edges have always carried.
+    qualifiers = getattr(association, "qualifiers", None)
+
     return Statement(
         id=association.id,
         subject=association.subject,
         predicate=association.predicate,
         object=association.object,
+        qualifiers=list(qualifiers) if qualifiers else None,
         has_evidence_lines=lines,
         source_disease=disease_name,
         dismech_section=section,
         evidence_inherited_from=inherited_from,
     )
+
+
+def _causal_link_curie(causal_link_type: str | None) -> str | None:
+    """CURIE for a ``CausalLinkTypeEnum`` value, for the ``qualifiers`` list.
+
+    Biolink types that slot as ``range: ontology class``, so a bare ``DIRECT``
+    is not a legal entry any more than ``direction:increased`` was.
+    ``CausalLinkTypeEnum`` binds none of its four values to an ontology term, so
+    they take the dismech namespace -- ``dismech:`` is declared in the schema
+    prefix map and is ``default_prefix``, making these resolvable CURIEs into
+    our own model rather than invented ones.
+
+    Qualified by the enum rather than flat: ``DIRECT`` is a very generic local
+    name to plant at the root of a shared namespace, and 18 permissible-value
+    names in this schema already belong to more than one enum. Matches the
+    ``dismech:{...}#{...}`` fragment convention used by
+    :func:`pathophysiology_node_id`.
+    """
+    if not causal_link_type:
+        return None
+    return f"dismech:CausalLinkTypeEnum#{causal_link_type}"
 
 
 def pathophysiology_node_id(disease_name: str, node_name: str) -> str:
@@ -385,7 +421,7 @@ def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
             edge_lines = evidence_to_lines(edge.get("evidence"), edge_statement_id)
             if not edge_lines:
                 continue
-            causal_link_type = edge.get("causal_link_type")
+            causal_link_type = _causal_link_curie(edge.get("causal_link_type"))
             yield Statement(
                 id=edge_statement_id,
                 subject=node_id,

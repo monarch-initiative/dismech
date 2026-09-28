@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4104,6 +4172,7 @@ Two limits on the evidence are worth carrying. All of it comes from two French k
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4188,6 +4257,7 @@ Two limits on the evidence are worth carrying. All of it comes from two French k
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4209,6 +4279,7 @@ Two limits on the evidence are worth carrying. All of it comes from two French k
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4454,6 +4525,7 @@ Two limits on the evidence are worth carrying. All of it comes from two French k
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomorphic-cybb-missense-alleles" data-dismech-node="Hypomorphic CYBB Missense Alleles" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomorphic CYBB Missense Alleles</div>
 
+
                 <div class="item-desc">Q231P or T178P substitutes a disruptive proline into gp91phox at a residue conserved across species. The substitution does not abolish the protein; it makes it conditionally non-functional, and the condition turns out to be cell lineage.
 </div>
 
@@ -4506,6 +4578,8 @@ This genetic context concerns CYBB (hgnc:2578). hgnc:2578 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4521,6 +4595,9 @@ This genetic context concerns CYBB (hgnc:2578). hgnc:2578 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Partial loss of function, and the partiality is by cell type rather than by degree: the allele behaves as null in macrophages and as wild type in neutrophils.</div>
 
@@ -4568,6 +4645,7 @@ This genetic context concerns CYBB (hgnc:2578). hgnc:2578 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4590,6 +4668,7 @@ This genetic context concerns CYBB (hgnc:2578). hgnc:2578 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-type-restricted-failure-of-nadph-oxidase-assembly" data-dismech-node="Cell-Type-Restricted Failure of NADPH Oxidase Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell-Type-Restricted Failure of NADPH Oxidase Assembly</div>
+
 
                 <div class="item-desc">The NADPH oxidase fails to assemble in macrophages and in EBV-transformed B cells, and assembles normally in neutrophils and monocytes. Assembly, not expression, is the affected step. This is the pivot of the whole disorder: the same allele in the same person is null in one lineage and silent in another, which is what dissociates the mycobacterial phenotype from the rest of CGD.
 </div>
@@ -4709,6 +4788,7 @@ This pathophysiological event involves decreased NADPH oxidase complex (GO:00430
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4730,6 +4810,7 @@ This pathophysiological event involves decreased NADPH oxidase complex (GO:00430
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4759,6 +4840,7 @@ This pathophysiological event involves decreased NADPH oxidase complex (GO:00430
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4781,6 +4863,7 @@ This pathophysiological event involves decreased NADPH oxidase complex (GO:00430
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abolished-macrophage-respiratory-burst" data-dismech-node="Abolished Macrophage Respiratory Burst" data-dismech-type="pathophysiology">
                 <div class="item-name">Abolished Macrophage Respiratory Burst</div>
+
 
                 <div class="item-desc">Monocyte-derived macrophages release no detectable hydrogen peroxide and reduce almost no nitroblue tetrazolium after activation with BCG, PPD or interferon-gamma followed by a PMA trigger. The defect was near-total for Q231P and severe for T178P, so there is an allelic gradient within a phenotype that is otherwise uniform. Note the measurement caveat carried through this entry: these are macrophages differentiated in vitro, because tissue macrophages were not available.
 </div>
@@ -4939,6 +5022,7 @@ This pathophysiological event involves decreased superoxide anion generation (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4960,6 +5044,7 @@ This pathophysiological event involves decreased superoxide anion generation (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4985,6 +5070,7 @@ This pathophysiological event involves decreased superoxide anion generation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-neutrophil-and-monocyte-respiratory-burst" data-dismech-node="Preserved Neutrophil and Monocyte Respiratory Burst" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Neutrophil and Monocyte Respiratory Burst</div>
+
 
                 <div class="item-desc">Superoxide and hydrogen peroxide output is normal in blood neutrophils and monocytes across cytochrome c reduction, dihydrorhodamine flow cytometry, nitroblue tetrazolium and chemiluminescence assays, and granulocyte killing of Staphylococcus aureus is normal. This node records a mechanistic negative, and it is the diagnostically important one: the standard CGD screening tests are run on exactly the lineage that is spared here.
 </div>
@@ -5135,6 +5221,7 @@ This pathophysiological event involves respiratory burst (GO:0045730). GO:004573
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5156,6 +5243,7 @@ This pathophysiological event involves respiratory burst (GO:0045730). GO:004573
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5181,6 +5269,7 @@ This pathophysiological event involves respiratory burst (GO:0045730). GO:004573
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-restrict-intramacrophage-mycobacterial-growth" data-dismech-node="Failure to Restrict Intramacrophage Mycobacterial Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Restrict Intramacrophage Mycobacterial Growth</div>
+
 
                 <div class="item-desc">Patient macrophages control BCG growth significantly less well than control macrophages, and the deficit widens over three weeks of culture. Because mycobacteria live inside macrophages, this is the step that connects the oxidase defect to the clinical disease. Adding exogenous interferon-gamma abolished the difference, which is the closest thing in this literature to a rescue experiment and is the mechanistic basis for using interferon-gamma therapeutically.
 </div>
@@ -5323,6 +5412,7 @@ This pathophysiological event involves decreased defense response to bacterium (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5344,6 +5434,7 @@ This pathophysiological event involves decreased defense response to bacterium (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5369,6 +5460,7 @@ This pathophysiological event involves decreased defense response to bacterium (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-the-chronic-granulomatous-disease-infection-spectrum" data-dismech-node="Absence of the Chronic Granulomatous Disease Infection Spectrum" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of the Chronic Granulomatous Disease Infection Spectrum</div>
+
 
                 <div class="item-desc">Affected individuals do not develop the staphylococcal, other bacterial and fungal disease that defines chronic granulomatous disease, and this holds in affected adults of advanced age rather than merely reflecting short follow-up. This node has no downstream edges by design: it records what does not happen, and it is the reason the disorder is curated apart from CGD.
 </div>
@@ -5408,6 +5500,7 @@ This pathophysiological event involves decreased defense response to bacterium (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5429,6 +5522,7 @@ This pathophysiological event involves decreased defense response to bacterium (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5454,6 +5548,7 @@ This pathophysiological event involves decreased defense response to bacterium (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-respiratory-burst-in-ebv-transformed-b-cells" data-dismech-node="Loss of the Respiratory Burst in EBV-Transformed B Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the Respiratory Burst in EBV-Transformed B Cells</div>
+
 
                 <div class="item-desc">EBV-transformed B cells from all seven patients produce no detectable superoxide or hydrogen peroxide, matching X-linked CGD cells and the patients&#39; own macrophages. The authors are explicit that this is irrelevant to pathogenesis, since B-cell-deficient patients are not prone to mycobacterial disease, and that they used it as an accessible experimental surrogate for the macrophage phenotype. It is curated here because it is the system in which the alleles were shown to be hypomorphic, not because it causes anything; it therefore has no downstream edges.
 </div>
@@ -5565,6 +5660,7 @@ This pathophysiological event involves decreased respiratory burst (GO:0045730).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5586,6 +5682,7 @@ This pathophysiological event involves decreased respiratory burst (GO:0045730).
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -5634,7 +5731,7 @@ This pathophysiological event involves decreased respiratory burst (GO:0045730).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abolished Macrophage Respiratory Burst\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Monocyte-derived macrophages release no detectable hydrogen peroxide and reduce almost no nitroblue tetrazolium after activation with BCG, PPD or interferon-gamma followed by a PMA trigger. The defect was near-total for Q231P and severe for T178P, so there is an allelic gradient within a phenotype that is otherwise uniform. Note the measurement caveat carried through this entry: these are macrophages differentiated in vitro, because tissue macrophages were not available.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"respiratory burst\", \"superoxide anion generation\"]}}, {\"id\": \"Absence of the Chronic Granulomatous Disease Infection Spectrum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals do not develop the staphylococcal, other bacterial and fungal disease that defines chronic granulomatous disease, and this holds in affected adults of advanced age rather than merely reflecting short follow-up. This node has no downstream edges by design: it records what does not happen, and it is the reason the disorder is curated apart from CGD.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Antimycobacterial Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prolonged multidrug antimycobacterial chemotherapy treats the infection itself and is the mainstay of MSMD management regardless of the underlying immune defect. Regimen composition follows species identification and susceptibility testing rather than a fixed block, and this entry asserts no specific regimen or duration. Note the recommendation is to start three or four drugs after a diagnosis of BCG disease even before the genetic defect is known, which matters here because the CYBB genotype is reached by sequencing weeks or months later.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"antitubercular agent\", \"rifampicin\", \"isoniazid\"]}}, {\"id\": \"BCG vaccination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Live attenuated Mycobacterium bovis BCG vaccine. The exposure is what converts the genotype into disease in most reported patients, and its absence is the most plausible explanation for unaffected obligate male carriers in earlier generations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CYBB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CYBB\"], \"gene_terms\": [{\"label\": \"CYBB\", \"id\": \"hgnc:2578\"}], \"association\": \"CAUSATIVE\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The NADPH oxidase fails to assemble in macrophages and in EBV-transformed B cells, and assembles normally in neutrophils and monocytes. Assembly, not expression, is the affected step. This is the pivot of the whole disorder: the same allele in the same person is null in one lineage and silent in another, which is what dissociates the mycobacterial phenotype from the rest of CGD.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"macrophage\"]}}, {\"id\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient macrophages control BCG growth significantly less well than control macrophages, and the deficit widens over three weeks of culture. Because mycobacteria live inside macrophages, this is the step that connects the oxidase defect to the clinical disease. Adding exogenous interferon-gamma abolished the difference, which is the closest thing in this literature to a rescue experiment and is the mechanistic basis for using interferon-gamma therapeutically.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"defense response to bacterium\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever, the second commonest MSMD manifestation. As with lymphadenopathy, the frequency is MSMD-wide rather than CYBB-specific.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reported as the only curative option in MSMD, since it replaces the defective haematopoietic compartment rather than treating the infection or supplementing the cytokine. Its standing in this disorder specifically is unestablished: no CYBB-MSMD patient\u0027s transplant outcome is reported in the sources curated here, and the risk-benefit calculation is not obviously the same as for a global phagocyte defect, given that these patients have normal neutrophil function and a phenotype restricted to mycobacteria. Curated as an option with that caveat rather than as a recommendation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypomorphic CYBB Missense Alleles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Q231P or T178P substitutes a disruptive proline into gp91phox at a residue conserved across species. The substitution does not abolish the protein; it makes it conditionally non-functional, and the condition turns out to be cell lineage.\\n\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Partial loss of function, and the partiality is by cell type rather than by degree: the allele behaves as null in macrophages and as wild type in neutrophils.\", \"gene_terms\": [{\"label\": \"CYBB\", \"id\": \"hgnc:2578\"}]}}}, {\"id\": \"Interferon-gamma Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanistically motivated rather than trial-proven in this disorder. Exogenous interferon-gamma abolished the difference in BCG growth control between patient and control macrophages, which is the only manipulation reported to correct the cellular phenotype. Note that interferon-gamma alone did not restore the respiratory burst in Q231P macrophages, so the rescue of growth control is presumably through oxidase-independent antimycobacterial mechanisms. No clinical outcome data exist for these patients, and the entry should not be read as reporting efficacy.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"interferon gamma-1b\"]}}, {\"id\": \"Loss of the Respiratory Burst in EBV-Transformed B Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EBV-transformed B cells from all seven patients produce no detectable superoxide or hydrogen peroxide, matching X-linked CGD cells and the patients\u0027 own macrophages. The authors are explicit that this is irrelevant to pathogenesis, since B-cell-deficient patients are not prone to mycobacterial disease, and that they used it as an accessible experimental surrogate for the macrophage phenotype. It is curated here because it is the system in which the alleles were shown to be hypomorphic, not because it causes anything; it therefore has no downstream edges.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"respiratory burst\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lymphadenopathy, frequently multifocal, is the commonest clinical manifestation of MSMD as a whole. The frequency below is the MSMD-wide figure across 830 reported patients of all genotypes, not a CYBB-specific one: with seven reported CYBB patients there is no genotype-specific frequency to give, and CYBB is not among the genes accounting for the bulk of that cohort. Curated so the entry carries the expected presentation, with the provenance of the number stated rather than implied.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Preserved Neutrophil and Monocyte Respiratory Burst\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Superoxide and hydrogen peroxide output is normal in blood neutrophils and monocytes across cytochrome c reduction, dihydrorhodamine flow cytometry, nitroblue tetrazolium and chemiluminescence assays, and granulocyte killing of Staphylococcus aureus is normal. This node records a mechanistic negative, and it is the diagnostically important one: the standard CGD screening tests are run on exactly the lineage that is spared here.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"monocyte\"], \"biological_processes\": [\"respiratory burst\"]}}, {\"id\": \"Recurrent mycobacterial infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disease caused by weakly virulent mycobacteria, chiefly BCG vaccine strains and environmental non-tuberculous mycobacteria. BCG disease was present in six of the seven reported patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011274\"}}, {\"id\": \"Tuberculosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disease caused by fully virulent Mycobacterium tuberculosis, including in an unvaccinated patient. This extends the phenotype beyond MSMD sensu stricto and is what makes the disorder relevant to tuberculosis susceptibility genetics generally.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:5210111\"}}, {\"id\": \"c.532A\u003eC (p.Thr178Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in exon 6 identified in kindred B, giving a milder macrophage phenotype than Q231P with low or occasionally normal hydrogen peroxide release.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.692A\u003eC (p.Gln231Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in exon 7 identified in kindred A, abolishing the macrophage respiratory burst while sparing neutrophils and monocytes. The more severe of the two alleles.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Hypomorphic CYBB Missense Alleles\", \"target\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"target\": \"Abolished Macrophage Respiratory Burst\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"target\": \"Preserved Neutrophil and Monocyte Respiratory Burst\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"target\": \"Loss of the Respiratory Burst in EBV-Transformed B Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abolished Macrophage Respiratory Burst\", \"target\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Preserved Neutrophil and Monocyte Respiratory Burst\", \"target\": \"Absence of the Chronic Granulomatous Disease Infection Spectrum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"target\": \"Recurrent mycobacterial infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"target\": \"Tuberculosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BCG vaccination\", \"target\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Introduces the live mycobacterium that the oxidase-deficient macrophage cannot restrict.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antimycobacterial Therapy\", \"target\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Interferon-gamma Therapy\", \"target\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"c.692A\u003eC (p.Gln231Pro)\", \"target\": \"CYBB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.532A\u003eC (p.Thr178Pro)\", \"target\": \"CYBB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abolished Macrophage Respiratory Burst\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Monocyte-derived macrophages release no detectable hydrogen peroxide and reduce almost no nitroblue tetrazolium after activation with BCG, PPD or interferon-gamma followed by a PMA trigger. The defect was near-total for Q231P and severe for T178P, so there is an allelic gradient within a phenotype that is otherwise uniform. Note the measurement caveat carried through this entry: these are macrophages differentiated in vitro, because tissue macrophages were not available.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"respiratory burst\", \"superoxide anion generation\"]}}, {\"id\": \"Absence of the Chronic Granulomatous Disease Infection Spectrum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals do not develop the staphylococcal, other bacterial and fungal disease that defines chronic granulomatous disease, and this holds in affected adults of advanced age rather than merely reflecting short follow-up. This node has no downstream edges by design: it records what does not happen, and it is the reason the disorder is curated apart from CGD.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Antimycobacterial Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prolonged multidrug antimycobacterial chemotherapy treats the infection itself and is the mainstay of MSMD management regardless of the underlying immune defect. Regimen composition follows species identification and susceptibility testing rather than a fixed block, and this entry asserts no specific regimen or duration. Note the recommendation is to start three or four drugs after a diagnosis of BCG disease even before the genetic defect is known, which matters here because the CYBB genotype is reached by sequencing weeks or months later.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"antitubercular agent\", \"rifampicin\", \"isoniazid\"]}}, {\"id\": \"BCG vaccination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Live attenuated Mycobacterium bovis BCG vaccine. The exposure is what converts the genotype into disease in most reported patients, and its absence is the most plausible explanation for unaffected obligate male carriers in earlier generations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CYBB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CYBB\"], \"gene_terms\": [{\"label\": \"CYBB\", \"id\": \"hgnc:2578\"}], \"association\": \"CAUSATIVE\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The NADPH oxidase fails to assemble in macrophages and in EBV-transformed B cells, and assembles normally in neutrophils and monocytes. Assembly, not expression, is the affected step. This is the pivot of the whole disorder: the same allele in the same person is null in one lineage and silent in another, which is what dissociates the mycobacterial phenotype from the rest of CGD.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"macrophage\"]}}, {\"id\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient macrophages control BCG growth significantly less well than control macrophages, and the deficit widens over three weeks of culture. Because mycobacteria live inside macrophages, this is the step that connects the oxidase defect to the clinical disease. Adding exogenous interferon-gamma abolished the difference, which is the closest thing in this literature to a rescue experiment and is the mechanistic basis for using interferon-gamma therapeutically.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"defense response to bacterium\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever, the second commonest MSMD manifestation. As with lymphadenopathy, the frequency is MSMD-wide rather than CYBB-specific.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reported as the only curative option in MSMD, since it replaces the defective haematopoietic compartment rather than treating the infection or supplementing the cytokine. Its standing in this disorder specifically is unestablished: no CYBB-MSMD patient\u0027s transplant outcome is reported in the sources curated here, and the risk-benefit calculation is not obviously the same as for a global phagocyte defect, given that these patients have normal neutrophil function and a phenotype restricted to mycobacteria. Curated as an option with that caveat rather than as a recommendation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypomorphic CYBB Missense Alleles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Q231P or T178P substitutes a disruptive proline into gp91phox at a residue conserved across species. The substitution does not abolish the protein; it makes it conditionally non-functional, and the condition turns out to be cell lineage.\\n\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Partial loss of function, and the partiality is by cell type rather than by degree: the allele behaves as null in macrophages and as wild type in neutrophils.\", \"gene_terms\": [{\"label\": \"CYBB\", \"id\": \"hgnc:2578\"}]}}}, {\"id\": \"Interferon-gamma Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanistically motivated rather than trial-proven in this disorder. Exogenous interferon-gamma abolished the difference in BCG growth control between patient and control macrophages, which is the only manipulation reported to correct the cellular phenotype. Note that interferon-gamma alone did not restore the respiratory burst in Q231P macrophages, so the rescue of growth control is presumably through oxidase-independent antimycobacterial mechanisms. No clinical outcome data exist for these patients, and the entry should not be read as reporting efficacy.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"interferon gamma-1b\"]}}, {\"id\": \"Loss of the Respiratory Burst in EBV-Transformed B Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EBV-transformed B cells from all seven patients produce no detectable superoxide or hydrogen peroxide, matching X-linked CGD cells and the patients\u0027 own macrophages. The authors are explicit that this is irrelevant to pathogenesis, since B-cell-deficient patients are not prone to mycobacterial disease, and that they used it as an accessible experimental surrogate for the macrophage phenotype. It is curated here because it is the system in which the alleles were shown to be hypomorphic, not because it causes anything; it therefore has no downstream edges.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"respiratory burst\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lymphadenopathy, frequently multifocal, is the commonest clinical manifestation of MSMD as a whole. The frequency below is the MSMD-wide figure across 830 reported patients of all genotypes, not a CYBB-specific one: with seven reported CYBB patients there is no genotype-specific frequency to give, and CYBB is not among the genes accounting for the bulk of that cohort. Curated so the entry carries the expected presentation, with the provenance of the number stated rather than implied.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Preserved Neutrophil and Monocyte Respiratory Burst\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Superoxide and hydrogen peroxide output is normal in blood neutrophils and monocytes across cytochrome c reduction, dihydrorhodamine flow cytometry, nitroblue tetrazolium and chemiluminescence assays, and granulocyte killing of Staphylococcus aureus is normal. This node records a mechanistic negative, and it is the diagnostically important one: the standard CGD screening tests are run on exactly the lineage that is spared here.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"monocyte\"], \"biological_processes\": [\"respiratory burst\"]}}, {\"id\": \"Recurrent mycobacterial infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disease caused by weakly virulent mycobacteria, chiefly BCG vaccine strains and environmental non-tuberculous mycobacteria. BCG disease was present in six of the seven reported patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011274\"}}, {\"id\": \"Tuberculosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disease caused by fully virulent Mycobacterium tuberculosis, including in an unvaccinated patient. This extends the phenotype beyond MSMD sensu stricto and is what makes the disorder relevant to tuberculosis susceptibility genetics generally.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:5210111\"}}, {\"id\": \"c.532A\u003eC (p.Thr178Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in exon 6 identified in kindred B, giving a milder macrophage phenotype than Q231P with low or occasionally normal hydrogen peroxide release.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.692A\u003eC (p.Gln231Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in exon 7 identified in kindred A, abolishing the macrophage respiratory burst while sparing neutrophils and monocytes. The more severe of the two alleles.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Hypomorphic CYBB Missense Alleles\", \"target\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"target\": \"Abolished Macrophage Respiratory Burst\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"target\": \"Preserved Neutrophil and Monocyte Respiratory Burst\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"target\": \"Loss of the Respiratory Burst in EBV-Transformed B Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abolished Macrophage Respiratory Burst\", \"target\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Preserved Neutrophil and Monocyte Respiratory Burst\", \"target\": \"Absence of the Chronic Granulomatous Disease Infection Spectrum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"target\": \"Recurrent mycobacterial infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"target\": \"Tuberculosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BCG vaccination\", \"target\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Introduces the live mycobacterium that the oxidase-deficient macrophage cannot restrict.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antimycobacterial Therapy\", \"target\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Cell-Type-Restricted Failure of NADPH Oxidase Assembly\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Interferon-gamma Therapy\", \"target\": \"Failure to Restrict Intramacrophage Mycobacterial Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CYBB\", \"target\": \"Hypomorphic CYBB Missense Alleles\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.692A\u003eC (p.Gln231Pro)\", \"target\": \"CYBB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.532A\u003eC (p.Thr178Pro)\", \"target\": \"CYBB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5655,11 +5752,9 @@ This pathophysiological event involves decreased respiratory burst (GO:0045730).
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5700,6 +5795,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5717,6 +5815,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5748,7 +5847,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-mycobacterial-infections" data-dismech-node="Recurrent mycobacterial infections" data-dismech-type="phenotype">
@@ -5781,6 +5880,9 @@ This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5795,6 +5897,7 @@ This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5822,6 +5925,7 @@ This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5830,6 +5934,105 @@ This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:001
 
 
                 <div class="evidence-explanation">Defines the organism spectrum that characterises this phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tuberculosis" data-dismech-node="Tuberculosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tuberculosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Tuberculosis infection</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210111" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:5210111</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tuberculosis, annotated with Tuberculosis infection (HP:5210111). HP:5210111 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21278736" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21278736" target="_blank">PMID:21278736</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This &#39;experiment of nature&#39; indicates that CYBB is associated with MSMD and demonstrates that the respiratory burst in human macrophages is a crucial mechanism for protective immunity to tuberculous mycobacteria."</div>
+
+
+                <div class="evidence-explanation">States the extension of susceptibility to tuberculous mycobacteria, the claim behind this phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21278736" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21278736" target="_blank">PMID:21278736</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These patients are also vulnerable to more virulent Mycobacterium tuberculosis2."</div>
+
+
+                <div class="evidence-explanation">States vulnerability to fully virulent M. tuberculosis in MSMD patients.</div>
 
 
 
@@ -5868,15 +6071,18 @@ This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5901,6 +6107,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5909,109 +6116,6 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                 <div class="evidence-explanation">Gives the MSMD-wide frequency of fever. Graded INDIRECT for the same reason as lymphadenopathy: the cohort is not genotype-restricted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tuberculosis" data-dismech-node="Tuberculosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tuberculosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Tuberculosis infection</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210111" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:5210111</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tuberculosis, annotated with Tuberculosis infection (HP:5210111). HP:5210111 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21278736" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21278736" target="_blank">PMID:21278736</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This &#39;experiment of nature&#39; indicates that CYBB is associated with MSMD and demonstrates that the respiratory burst in human macrophages is a crucial mechanism for protective immunity to tuberculous mycobacteria."</div>
-
-
-                <div class="evidence-explanation">States the extension of susceptibility to tuberculous mycobacteria, the claim behind this phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21278736" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21278736" target="_blank">PMID:21278736</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These patients are also vulnerable to more virulent Mycobacterium tuberculosis2."</div>
-
-
-                <div class="evidence-explanation">States vulnerability to fully virulent M. tuberculosis in MSMD patients.</div>
 
 
 
@@ -6103,6 +6207,9 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6117,6 +6224,7 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6144,6 +6252,7 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6165,6 +6274,7 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6201,6 +6311,12 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense allele in exon 7 identified in kindred A, abolishing the macrophage respiratory burst while sparing neutrophils and monocytes. The more severe of the two alleles.</div>
 
 
@@ -6225,6 +6341,12 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Missense allele in exon 6 identified in kindred B, giving a milder macrophage phenotype than Q231P with low or occasionally normal hydrogen peroxide release.</div>
@@ -6364,6 +6486,9 @@ This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:603
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6374,6 +6499,9 @@ This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:603
 
 
     </div>
+
+
+
 
 
 
@@ -6425,6 +6553,7 @@ This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:603
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6449,6 +6578,7 @@ This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:603
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6514,6 +6644,9 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6524,6 +6657,9 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -6573,6 +6709,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6660,6 +6797,9 @@ This treatment uses interferon gamma-1b (NCIT:C100089). NCIT:C100089 is a therap
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6670,6 +6810,9 @@ This treatment uses interferon gamma-1b (NCIT:C100089). NCIT:C100089 is a therap
 
 
     </div>
+
+
+
 
 
 
@@ -6707,6 +6850,7 @@ This treatment uses interferon gamma-1b (NCIT:C100089). NCIT:C100089 is a therap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6750,6 +6894,7 @@ This treatment uses interferon gamma-1b (NCIT:C100089). NCIT:C100089 is a therap
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6816,6 +6961,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6826,6 +6974,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6857,6 +7008,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6878,6 +7030,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6905,6 +7058,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6970,6 +7124,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7018,6 +7173,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7097,6 +7253,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7118,6 +7275,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7195,6 +7353,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7219,6 +7378,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4019,6 +4087,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#differentials">
@@ -4339,6 +4415,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4360,6 +4437,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4387,6 +4465,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4411,6 +4490,199 @@
 
 
         <!-- Subtypes -->
+
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-digeorge">
+
+                    <div class="item-name">
+                        DiGeorge syndrome
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008564" target="_blank">MONDO:0008564</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                TBX1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11592</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TBX1 (hgnc:11592). hgnc:11592 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The historical label for the thymic, parathyroid and conotruncal presentation of the 22q11.2 deletion. It is carried here as a named clinical presentation rather than a separate mechanism: the lesion is the same contiguous-gene deletion this entry curates, and the entry already models the immunodeficiency and cardiac arms as pathophysiology nodes. This row exists so that the MONDO concept, and the gene MONDO attaches to it, are addressable in the same place as the presentation they describe.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14585638" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14585638" target="_blank">PMID:14585638</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified three mutations of TBX1 in two unrelated patients without the 22q11.2 deletion-one with sporadic conotruncal anomaly face syndrome/velocardiofacial syndrome and one with sporadic DiGeorge&#39;s syndrome-and in three patients from a family with conotruncal anomaly face..."</div>
+
+
+                <div class="evidence-explanation">Identifies a patient with sporadic DiGeorge syndrome carrying a TBX1 point mutation and no 22q11.2 deletion, which is the human evidence that TBX1 alone can produce this presentation and so the basis for binding the gene on this row.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-velocardiofacial">
+
+                    <div class="item-name">
+                        Velocardiofacial (Shprintzen) syndrome
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008644" target="_blank">MONDO:0008644</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                TBX1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11592</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TBX1 (hgnc:11592). hgnc:11592 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The historical Shprintzen label, emphasising the velopharyngeal, cardiac and facial features. As with DiGeorge syndrome it names a presentation of the same deletion rather than a distinct lesion, and the entry models its mechanistic substrate as the &#34;Velopharyngeal structural and myogenic insufficiency&#34; node. This entry&#39;s own description records both, along with CATCH22, as historical labels for the same deletion, which is why the entry is anchored on the deletion and carries them as subtypes rather than splitting into separate disease files.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14585638" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14585638" target="_blank">PMID:14585638</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified three mutations of TBX1 in two unrelated patients without the 22q11.2 deletion-one with sporadic conotruncal anomaly face syndrome/velocardiofacial syndrome and one with sporadic DiGeorge&#39;s syndrome-and in three patients from a family with conotruncal anomaly face..."</div>
+
+
+                <div class="evidence-explanation">Reports TBX1 point mutations without a 22q11.2 deletion in a sporadic case and in a three-member family with conotruncal anomaly face/velocardiofacial syndrome, which is the basis for binding the gene on this row.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+        </div>
 
 
         <!-- Comorbidities -->
@@ -4543,6 +4815,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4672,6 +4945,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-lcr22-mediated-multigene-deletion" data-dismech-node="Recurrent LCR22-mediated multigene deletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent LCR22-mediated multigene deletion</div>
 
+
                 <div class="item-desc">Low-copy repeats at 22q11.2 predispose to non-allelic homologous recombination and recurrent deletions. The common A-D interval removes more than 40 coding genes, so the syndrome reflects combined dosage effects and background modifiers rather than a single-gene lesion.</div>
 
 
@@ -4694,11 +4968,11 @@
         TBX1
 
 
-    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11592</a>
+    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11592</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves TBX1 (hgnc:11592). hgnc:11592 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4733,11 +5007,11 @@ This pathophysiological event involves TBX1 (hgnc:11592). hgnc:11592 is a gene f
         DGCR8
 
 
-    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2847</a>
+    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2847</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves DGCR8 (hgnc:2847). hgnc:2847 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4830,6 +5104,7 @@ This pathophysiological event involves DGCR8 (hgnc:2847). hgnc:2847 is a gene fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4853,6 +5128,7 @@ either deletion or duplication of these intervals."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4880,6 +5156,7 @@ either deletion or duplication of these intervals."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4903,6 +5180,7 @@ either deletion or duplication of these intervals."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tbx1-associated-pharyngeal-developmental-vulnerability" data-dismech-node="TBX1-associated pharyngeal developmental vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">TBX1-associated pharyngeal developmental vulnerability</div>
 
+
                 <div class="item-desc">TBX1 dosage is an important contributor to pharyngeal-apparatus and cardiac outflow development. Heterozygous Tbx1 mice model aortic/outflow anomalies, whereas the broader phenotype occurs mainly after homozygous loss; those dosage differences limit extrapolation to the human multigene deletion.</div>
 
 
@@ -4925,11 +5203,11 @@ either deletion or duplication of these intervals."</div>
         TBX1
 
 
-    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11592</a>
+    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11592</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves TBX1 (hgnc:11592). hgnc:11592 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4967,11 +5245,11 @@ This pathophysiological event involves TBX1 (hgnc:11592). hgnc:11592 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0060037</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0060037</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves pharyngeal system development (GO:0060037). GO:0060037 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5004,11 +5282,11 @@ This pathophysiological event involves pharyngeal system development (GO:0060037
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0002539</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002539</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON:0002539 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5061,6 +5339,7 @@ This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5084,6 +5363,7 @@ This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-velopharyngeal-structural-and-myogenic-insufficiency" data-dismech-node="Velopharyngeal structural and myogenic insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Velopharyngeal structural and myogenic insufficiency</div>
 
+
                 <div class="item-desc">The velopharyngeal port fails to close during speech because of combined structural and muscular factors - a deep pharynx, palatal anomalies that are often submucous rather than overt, and hypodynamic pharyngeal musculature. This is the mechanistic substrate of the historical velocardiofacial presentation, and it is the proposed explanation for resonance persisting after a purely palatal repair - proposed rather than established, since the supporting surgical comparison is a 14-patient series.</div>
 
 
@@ -5105,11 +5385,11 @@ This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0060021</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0060021</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves palate development, annotated with roof of mouth development (GO:0060021). GO:0060021 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5142,11 +5422,11 @@ This pathophysiological event involves palate development, annotated with roof o
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001733" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001733</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001733" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001733</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in soft palate (UBERON:0001733). UBERON:0001733 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5159,11 +5439,11 @@ This pathophysiological event occurs in soft palate (UBERON:0001733). UBERON:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001042" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001042</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001042" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001042</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in pharynx, annotated with chordate pharynx (UBERON:0001042). UBERON:0001042 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5216,6 +5496,7 @@ This pathophysiological event occurs in pharynx, annotated with chordate pharynx
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5239,6 +5520,7 @@ This pathophysiological event occurs in pharynx, annotated with chordate pharynx
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dgcr8-associated-mirna-processing-disruption" data-dismech-node="DGCR8-associated miRNA-processing disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">DGCR8-associated miRNA-processing disruption</div>
 
+
                 <div class="item-desc">DGCR8 hemizygosity can perturb microRNA biogenesis and downstream gene regulation. This is a candidate contributor to variable expression, not a proven explanation for any single clinical feature.</div>
 
 
@@ -5261,11 +5543,11 @@ This pathophysiological event occurs in pharynx, annotated with chordate pharynx
         DGCR8
 
 
-    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:2847</a>
+    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:2847</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves DGCR8 (hgnc:2847). hgnc:2847 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5303,11 +5585,11 @@ This pathophysiological event involves DGCR8 (hgnc:2847). hgnc:2847 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035196" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0035196</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035196" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0035196</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves miRNA processing (GO:0035196). GO:0035196 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5353,6 +5635,7 @@ This pathophysiological event involves miRNA processing (GO:0035196). GO:0035196
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5376,6 +5659,7 @@ This pathophysiological event involves miRNA processing (GO:0035196). GO:0035196
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thymic-developmental-impairment" data-dismech-node="Thymic developmental impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Thymic developmental impairment</div>
 
+
                 <div class="item-desc">Reduced thymic tissue can lower thymic T-cell output. Most immune phenotypes are milder T-cell lymphopenia rather than congenital athymia, and clinical appearance alone does not reliably identify the immune severity.</div>
 
 
@@ -5390,11 +5674,11 @@ This pathophysiological event involves miRNA processing (GO:0035196). GO:0035196
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002364" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002364</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002364" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002364</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cortical thymic epithelial cell (CL:0002364). CL:0002364 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5420,11 +5704,11 @@ This pathophysiological event involves cortical thymic epithelial cell (CL:00023
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000084</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5461,11 +5745,11 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048538" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0048538</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048538" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0048538</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves thymus development (GO:0048538). GO:0048538 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5498,11 +5782,11 @@ This pathophysiological event involves thymus development (GO:0048538). GO:00485
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002370</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002370</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5555,6 +5839,7 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5578,6 +5863,7 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-candidate-cortical-and-neurotransmitter-mechanisms" data-dismech-node="Candidate cortical and neurotransmitter mechanisms" data-dismech-type="pathophysiology">
                 <div class="item-name">Candidate cortical and neurotransmitter mechanisms</div>
 
+
                 <div class="item-desc">RANBP1-null mice show impaired upper-layer cortical neuron generation, and a small human study found a COMT-genotype-by-proline association with selected neurophysiologic measures. These observations are candidate mechanisms; they do not establish a causal path from an individual interval gene to human learning difficulties or schizophrenia.</div>
 
 
@@ -5592,11 +5878,11 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0011020</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5634,11 +5920,11 @@ This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0
         RANBP1
 
 
-    <a href="https://bioregistry.io/hgnc:9847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:9847</a>
+    <a href="https://bioregistry.io/hgnc:9847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:9847</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves RANBP1 (hgnc:9847). hgnc:9847 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5673,11 +5959,11 @@ This pathophysiological event involves RANBP1 (hgnc:9847). hgnc:9847 is a gene f
         COMT
 
 
-    <a href="https://bioregistry.io/hgnc:2228" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:2228</a>
+    <a href="https://bioregistry.io/hgnc:2228" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2228</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves COMT (hgnc:2228). hgnc:2228 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5712,11 +5998,11 @@ This pathophysiological event involves COMT (hgnc:2228). hgnc:2228 is a gene fro
         PRODH
 
 
-    <a href="https://bioregistry.io/hgnc:9453" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:9453</a>
+    <a href="https://bioregistry.io/hgnc:9453" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:9453</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves PRODH (hgnc:9453). hgnc:9453 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5754,11 +6040,11 @@ This pathophysiological event involves PRODH (hgnc:9453). hgnc:9453 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0022008</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0022008</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves neurogenesis (GO:0022008). GO:0022008 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5791,11 +6077,11 @@ This pathophysiological event involves neurogenesis (GO:0022008). GO:0022008 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5825,6 +6111,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5846,6 +6133,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5894,7 +6182,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Calcium supplementation and endocrine management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treat documented hypocalcemia with calcium replacement and specialist endocrine follow-up; long-term supplementation requires monitoring for renal complications. This entry does not infer a universal calcitriol regimen.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Candidate cortical and neurotransmitter mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RANBP1-null mice show impaired upper-layer cortical neuron generation, and a small human study found a COMT-genotype-by-proline association with selected neurophysiologic measures. These observations are candidate mechanisms; they do not establish a causal path from an individual interval gene to human learning difficulties or schizophrenia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"neurogenesis\"], \"genes\": [\"RANBP1\", \"COMT\", \"PRODH\"], \"gene_terms\": [{\"label\": \"RANBP1\", \"id\": \"hgnc:9847\"}, {\"label\": \"COMT\", \"id\": \"hgnc:2228\"}, {\"label\": \"PRODH\", \"id\": \"hgnc:9453\"}], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Cardiovascular evaluation and lesion-directed intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Congenital cardiac lesions require cardiology assessment and, for many severe lesions, surgery or catheter-based intervention in infancy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cellular immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"T-cell lymphopenia varies from mild laboratory reduction to clinically important immune dysfunction; immune severity cannot be inferred from external syndromic features alone.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005374\"}}, {\"id\": \"Congenital athymia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital absence of thymus function causes profound T-cell deficiency in a small subset and requires specialized immune management.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0005359\"}}, {\"id\": \"Conotruncal heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart disease is heterogeneous and often conotruncal, including tetralogy of Fallot, interrupted aortic arch, truncus arteriosus, and septal defects. A recent 3,016-person specialist-center cohort found congenital heart disease in 59% and conotruncal defects in 40%.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001710\"}}, {\"id\": \"Cultured thymus tissue implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cultured thymus tissue implantation is reserved for confirmed congenital athymia, not routine T-cell lymphopenia. Immune reconstitution takes months and specialized infection prophylaxis is required during that interval.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"DGCR8-associated miRNA-processing disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DGCR8 hemizygosity can perturb microRNA biogenesis and downstream gene regulation. This is a candidate contributor to variable expression, not a proven explanation for any single clinical feature.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"miRNA processing\"], \"genes\": [\"DGCR8\"], \"gene_terms\": [{\"label\": \"DGCR8\", \"id\": \"hgnc:2847\"}]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss may be conductive, sensorineural, or mixed.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hypernasal speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypernasal resonance is the audible speech consequence of the incompetent velopharyngeal port and is the feature that most often brings affected children to speech surgery. Its persistence after palatoplasty in this syndrome is attributed to pharyngeal anatomy and muscle tone rather than to a residual palatal cleft.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001611\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Parathyroid dysfunction in 22q11.2 deletion syndrome ranges from severe neonatal hypocalcemia to subclinical hypoparathyroidism. No frequency band is assigned here because the retained sources do not provide a directly applicable population estimate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002901\"}}, {\"id\": \"Irradiated, leukocyte-reduced, CMV-negative blood products when indicated\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Use appropriately treated cellular blood products for congenital athymia or severe/suspected T-cell deficiency, including when immune evaluation cannot be completed before surgery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Learning difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Learning difficulties and developmental differences are common clinical concerns, but they should not be equated automatically with intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001328\"}}, {\"id\": \"Palatal abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The palatal spectrum includes velopharyngeal incompetence, bifid uvula, submucous cleft palate, and overt cleft palate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000174\"}}, {\"id\": \"Palatal, speech, developmental, and hearing support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Coordinate palate/ENT assessment, speech and language therapy, developmental and educational intervention, feeding support, and audiology or hearing aids according to the individual\u0027s findings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent LCR22-mediated multigene deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Low-copy repeats at 22q11.2 predispose to non-allelic homologous recombination and recurrent deletions. The common A-D interval removes more than 40 coding genes, so the syndrome reflects combined dosage effects and background modifiers rather than a single-gene lesion.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"TBX1\", \"DGCR8\"], \"gene_terms\": [{\"label\": \"TBX1\", \"id\": \"hgnc:11592\"}, {\"label\": \"DGCR8\", \"id\": \"hgnc:2847\"}]}}, {\"id\": \"TBX1 dosage contribution\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TBX1\"], \"gene_terms\": [{\"label\": \"TBX1\", \"id\": \"hgnc:11592\"}], \"association\": \"Major contributor to pharyngeal-apparatus and cardiovascular developmental phenotypes; not sufficient to explain the full deletion syndrome.\"}}, {\"id\": \"TBX1-associated pharyngeal developmental vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX1 dosage is an important contributor to pharyngeal-apparatus and cardiac outflow development. Heterozygous Tbx1 mice model aortic/outflow anomalies, whereas the broader phenotype occurs mainly after homozygous loss; those dosage differences limit extrapolation to the human multigene deletion.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"pharyngeal system development\"], \"genes\": [\"TBX1\"], \"gene_terms\": [{\"label\": \"TBX1\", \"id\": \"hgnc:11592\"}], \"locations\": [\"pharyngeal arch\"]}}, {\"id\": \"Thymic developmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced thymic tissue can lower thymic T-cell output. Most immune phenotypes are milder T-cell lymphopenia rather than congenital athymia, and clinical appearance alone does not reliably identify the immune severity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical thymic epithelial cell\", \"T cell\"], \"biological_processes\": [\"thymus development\"], \"locations\": [\"thymus\"]}}, {\"id\": \"Velopharyngeal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure of the velopharyngeal port to close during speech is the \\\"velo\\\" component of the historical velocardiofacial (Shprintzen) presentation. GeneReviews lists velopharyngeal incompetence alongside - rather than as a consequence of - submucous and overt cleft palate, so it is curated separately from the palatal structural anomalies above. Note that the literature treats velopharyngeal dysfunction in this syndrome as broader than velopharyngeal insufficiency alone; this phenotype is bound to the insufficiency term, and the additional contributors are modelled in the upstream mechanism node.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000220\"}}, {\"id\": \"Velopharyngeal structural and myogenic insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The velopharyngeal port fails to close during speech because of combined structural and muscular factors - a deep pharynx, palatal anomalies that are often submucous rather than overt, and hypodynamic pharyngeal musculature. This is the mechanistic substrate of the historical velocardiofacial presentation, and it is the proposed explanation for resonance persisting after a purely palatal repair - proposed rather than established, since the supporting surgical comparison is a 14-patient series.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"palate development\"], \"locations\": [\"soft palate\", \"pharynx\"]}}, {\"id\": \"Velopharyngeal surgery for persistent hypernasality\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech surgery for velopharyngeal insufficiency that persists after speech therapy. A small single-centre series (14 patients, 7 per arm) reported that pharyngoplasty resolved hypernasality where palatoplasty did not, which the authors attributed to the deficit being pharyngeal and myogenic as well as palatal; the comparison is underpowered and is reported by its authors as a \\\"may be less effective\\\" signal rather than a settled preference. Separately, and in a larger matched cohort, outcomes after sphincter pharyngoplasty are comparable to those in non-syndromic patients, so the deletion is not by itself a reason to expect surgical failure.\\nNCIT has no pharyngoplasty or velopharyngeal-repair term reachable from NCIT:C25218, so the binding is the generic surgical action and the specificity is carried in preferred_term.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Recurrent LCR22-mediated multigene deletion\", \"target\": \"TBX1-associated pharyngeal developmental vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent proximal deletion makes TBX1 hemizygous.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent LCR22-mediated multigene deletion\", \"target\": \"DGCR8-associated miRNA-processing disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent proximal deletion makes DGCR8 hemizygous.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent LCR22-mediated multigene deletion\", \"target\": \"Thymic developmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Combined deleted-region dosage effects can impair thymic development, but individual-gene attribution and modifiers remain incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Recurrent LCR22-mediated multigene deletion\", \"target\": \"Candidate cortical and neurotransmitter mechanisms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deleted-region dosage creates several candidate neurodevelopmental mechanisms whose human causal contributions remain uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TBX1-associated pharyngeal developmental vulnerability\", \"target\": \"Velopharyngeal structural and myogenic insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same pharyngeal-apparatus vulnerability that underlies the outflow lesion also underlies the velopharyngeal and palatal phenotype. The mouse evidence is homozygous-null and so is dosage-mismatched to the human heterozygous deletion; it supports developmental plausibility rather than a direct human causal claim.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Pharyngeal arch and palatal shelf patterning, and pharyngeal muscle development.\"]}, {\"source\": \"TBX1-associated pharyngeal developmental vulnerability\", \"target\": \"Conotruncal heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TBX1 dosage contributes to conotruncal and aortic-arch susceptibility, but other deleted genes and genome-wide modifiers also shape the human lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Pharyngeal arch artery, second-heart-field, and outflow-tract development.\"]}, {\"source\": \"Velopharyngeal structural and myogenic insufficiency\", \"target\": \"Velopharyngeal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete closure of the velopharyngeal port is the direct functional expression of this combined structural and myogenic deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Velopharyngeal structural and myogenic insufficiency\", \"target\": \"Hypernasal speech\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Air escape through the incompletely closed port produces hypernasal resonance, which resists palatoplasty in this syndrome because the pharyngeal and myogenic components are not addressed by palatal repair.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thymic developmental impairment\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced thymic tissue lowers T-cell output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thymic developmental impairment\", \"target\": \"Congenital athymia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete absence of thymic function is the rare severe end of the developmental defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular evaluation and lesion-directed intervention\", \"target\": \"Conotruncal heart defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Calcium supplementation and endocrine management\", \"target\": \"Hypocalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Irradiated, leukocyte-reduced, CMV-negative blood products when indicated\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cultured thymus tissue implantation\", \"target\": \"Congenital athymia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cultured thymus tissue implantation\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Palatal, speech, developmental, and hearing support\", \"target\": \"Palatal abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Palatal, speech, developmental, and hearing support\", \"target\": \"Learning difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Palatal, speech, developmental, and hearing support\", \"target\": \"Hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Velopharyngeal surgery for persistent hypernasality\", \"target\": \"Velopharyngeal structural and myogenic insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Velopharyngeal surgery for persistent hypernasality\", \"target\": \"Velopharyngeal insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Velopharyngeal surgery for persistent hypernasality\", \"target\": \"Hypernasal speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TBX1 dosage contribution\", \"target\": \"Recurrent LCR22-mediated multigene deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBX1 dosage contribution\", \"target\": \"TBX1-associated pharyngeal developmental vulnerability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Calcium supplementation and endocrine management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treat documented hypocalcemia with calcium replacement and specialist endocrine follow-up; long-term supplementation requires monitoring for renal complications. This entry does not infer a universal calcitriol regimen.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Candidate cortical and neurotransmitter mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RANBP1-null mice show impaired upper-layer cortical neuron generation, and a small human study found a COMT-genotype-by-proline association with selected neurophysiologic measures. These observations are candidate mechanisms; they do not establish a causal path from an individual interval gene to human learning difficulties or schizophrenia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"neurogenesis\"], \"genes\": [\"RANBP1\", \"COMT\", \"PRODH\"], \"gene_terms\": [{\"label\": \"RANBP1\", \"id\": \"hgnc:9847\"}, {\"label\": \"COMT\", \"id\": \"hgnc:2228\"}, {\"label\": \"PRODH\", \"id\": \"hgnc:9453\"}], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Cardiovascular evaluation and lesion-directed intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Congenital cardiac lesions require cardiology assessment and, for many severe lesions, surgery or catheter-based intervention in infancy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cellular immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"T-cell lymphopenia varies from mild laboratory reduction to clinically important immune dysfunction; immune severity cannot be inferred from external syndromic features alone.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005374\"}}, {\"id\": \"Congenital athymia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital absence of thymus function causes profound T-cell deficiency in a small subset and requires specialized immune management.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0005359\"}}, {\"id\": \"Conotruncal heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart disease is heterogeneous and often conotruncal, including tetralogy of Fallot, interrupted aortic arch, truncus arteriosus, and septal defects. A recent 3,016-person specialist-center cohort found congenital heart disease in 59% and conotruncal defects in 40%.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001710\"}}, {\"id\": \"Cultured thymus tissue implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cultured thymus tissue implantation is reserved for confirmed congenital athymia, not routine T-cell lymphopenia. Immune reconstitution takes months and specialized infection prophylaxis is required during that interval.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"DGCR8-associated miRNA-processing disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DGCR8 hemizygosity can perturb microRNA biogenesis and downstream gene regulation. This is a candidate contributor to variable expression, not a proven explanation for any single clinical feature.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"miRNA processing\"], \"genes\": [\"DGCR8\"], \"gene_terms\": [{\"label\": \"DGCR8\", \"id\": \"hgnc:2847\"}]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss may be conductive, sensorineural, or mixed.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hypernasal speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypernasal resonance is the audible speech consequence of the incompetent velopharyngeal port and is the feature that most often brings affected children to speech surgery. Its persistence after palatoplasty in this syndrome is attributed to pharyngeal anatomy and muscle tone rather than to a residual palatal cleft.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001611\"}}, {\"id\": \"Hypocalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Parathyroid dysfunction in 22q11.2 deletion syndrome ranges from severe neonatal hypocalcemia to subclinical hypoparathyroidism. No frequency band is assigned here because the retained sources do not provide a directly applicable population estimate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002901\"}}, {\"id\": \"Irradiated, leukocyte-reduced, CMV-negative blood products when indicated\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Use appropriately treated cellular blood products for congenital athymia or severe/suspected T-cell deficiency, including when immune evaluation cannot be completed before surgery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Learning difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Learning difficulties and developmental differences are common clinical concerns, but they should not be equated automatically with intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001328\"}}, {\"id\": \"Palatal abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The palatal spectrum includes velopharyngeal incompetence, bifid uvula, submucous cleft palate, and overt cleft palate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000174\"}}, {\"id\": \"Palatal, speech, developmental, and hearing support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Coordinate palate/ENT assessment, speech and language therapy, developmental and educational intervention, feeding support, and audiology or hearing aids according to the individual\u0027s findings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent LCR22-mediated multigene deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Low-copy repeats at 22q11.2 predispose to non-allelic homologous recombination and recurrent deletions. The common A-D interval removes more than 40 coding genes, so the syndrome reflects combined dosage effects and background modifiers rather than a single-gene lesion.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"TBX1\", \"DGCR8\"], \"gene_terms\": [{\"label\": \"TBX1\", \"id\": \"hgnc:11592\"}, {\"label\": \"DGCR8\", \"id\": \"hgnc:2847\"}]}}, {\"id\": \"TBX1 dosage contribution\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TBX1\"], \"gene_terms\": [{\"label\": \"TBX1\", \"id\": \"hgnc:11592\"}], \"association\": \"Major contributor to pharyngeal-apparatus and cardiovascular developmental phenotypes; not sufficient to explain the full deletion syndrome.\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TBX1-associated pharyngeal developmental vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBX1 dosage is an important contributor to pharyngeal-apparatus and cardiac outflow development. Heterozygous Tbx1 mice model aortic/outflow anomalies, whereas the broader phenotype occurs mainly after homozygous loss; those dosage differences limit extrapolation to the human multigene deletion.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"pharyngeal system development\"], \"genes\": [\"TBX1\"], \"gene_terms\": [{\"label\": \"TBX1\", \"id\": \"hgnc:11592\"}], \"locations\": [\"pharyngeal arch\"]}}, {\"id\": \"Thymic developmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced thymic tissue can lower thymic T-cell output. Most immune phenotypes are milder T-cell lymphopenia rather than congenital athymia, and clinical appearance alone does not reliably identify the immune severity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical thymic epithelial cell\", \"T cell\"], \"biological_processes\": [\"thymus development\"], \"locations\": [\"thymus\"]}}, {\"id\": \"Velopharyngeal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure of the velopharyngeal port to close during speech is the \\\"velo\\\" component of the historical velocardiofacial (Shprintzen) presentation. GeneReviews lists velopharyngeal incompetence alongside - rather than as a consequence of - submucous and overt cleft palate, so it is curated separately from the palatal structural anomalies above. Note that the literature treats velopharyngeal dysfunction in this syndrome as broader than velopharyngeal insufficiency alone; this phenotype is bound to the insufficiency term, and the additional contributors are modelled in the upstream mechanism node.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000220\"}}, {\"id\": \"Velopharyngeal structural and myogenic insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The velopharyngeal port fails to close during speech because of combined structural and muscular factors - a deep pharynx, palatal anomalies that are often submucous rather than overt, and hypodynamic pharyngeal musculature. This is the mechanistic substrate of the historical velocardiofacial presentation, and it is the proposed explanation for resonance persisting after a purely palatal repair - proposed rather than established, since the supporting surgical comparison is a 14-patient series.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"palate development\"], \"locations\": [\"soft palate\", \"pharynx\"]}}, {\"id\": \"Velopharyngeal surgery for persistent hypernasality\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech surgery for velopharyngeal insufficiency that persists after speech therapy. A small single-centre series (14 patients, 7 per arm) reported that pharyngoplasty resolved hypernasality where palatoplasty did not, which the authors attributed to the deficit being pharyngeal and myogenic as well as palatal; the comparison is underpowered and is reported by its authors as a \\\"may be less effective\\\" signal rather than a settled preference. Separately, and in a larger matched cohort, outcomes after sphincter pharyngoplasty are comparable to those in non-syndromic patients, so the deletion is not by itself a reason to expect surgical failure.\\nNCIT has no pharyngoplasty or velopharyngeal-repair term reachable from NCIT:C25218, so the binding is the generic surgical action and the specificity is carried in preferred_term.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Recurrent LCR22-mediated multigene deletion\", \"target\": \"TBX1-associated pharyngeal developmental vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent proximal deletion makes TBX1 hemizygous.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent LCR22-mediated multigene deletion\", \"target\": \"DGCR8-associated miRNA-processing disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent proximal deletion makes DGCR8 hemizygous.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent LCR22-mediated multigene deletion\", \"target\": \"Thymic developmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Combined deleted-region dosage effects can impair thymic development, but individual-gene attribution and modifiers remain incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Recurrent LCR22-mediated multigene deletion\", \"target\": \"Candidate cortical and neurotransmitter mechanisms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deleted-region dosage creates several candidate neurodevelopmental mechanisms whose human causal contributions remain uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TBX1-associated pharyngeal developmental vulnerability\", \"target\": \"Velopharyngeal structural and myogenic insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same pharyngeal-apparatus vulnerability that underlies the outflow lesion also underlies the velopharyngeal and palatal phenotype. The mouse evidence is homozygous-null and so is dosage-mismatched to the human heterozygous deletion; it supports developmental plausibility rather than a direct human causal claim.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Pharyngeal arch and palatal shelf patterning, and pharyngeal muscle development.\"]}, {\"source\": \"TBX1-associated pharyngeal developmental vulnerability\", \"target\": \"Conotruncal heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TBX1 dosage contributes to conotruncal and aortic-arch susceptibility, but other deleted genes and genome-wide modifiers also shape the human lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Pharyngeal arch artery, second-heart-field, and outflow-tract development.\"]}, {\"source\": \"Velopharyngeal structural and myogenic insufficiency\", \"target\": \"Velopharyngeal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete closure of the velopharyngeal port is the direct functional expression of this combined structural and myogenic deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Velopharyngeal structural and myogenic insufficiency\", \"target\": \"Hypernasal speech\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Air escape through the incompletely closed port produces hypernasal resonance, which resists palatoplasty in this syndrome because the pharyngeal and myogenic components are not addressed by palatal repair.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thymic developmental impairment\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced thymic tissue lowers T-cell output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thymic developmental impairment\", \"target\": \"Congenital athymia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete absence of thymic function is the rare severe end of the developmental defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular evaluation and lesion-directed intervention\", \"target\": \"Conotruncal heart defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Calcium supplementation and endocrine management\", \"target\": \"Hypocalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Irradiated, leukocyte-reduced, CMV-negative blood products when indicated\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cultured thymus tissue implantation\", \"target\": \"Congenital athymia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cultured thymus tissue implantation\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Palatal, speech, developmental, and hearing support\", \"target\": \"Palatal abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Palatal, speech, developmental, and hearing support\", \"target\": \"Learning difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Palatal, speech, developmental, and hearing support\", \"target\": \"Hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Velopharyngeal surgery for persistent hypernasality\", \"target\": \"Velopharyngeal structural and myogenic insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Velopharyngeal surgery for persistent hypernasality\", \"target\": \"Velopharyngeal insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Velopharyngeal surgery for persistent hypernasality\", \"target\": \"Hypernasal speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TBX1 dosage contribution\", \"target\": \"Recurrent LCR22-mediated multigene deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBX1 dosage contribution\", \"target\": \"TBX1-associated pharyngeal developmental vulnerability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5958,15 +6246,18 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001710</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001710</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Conotruncal defect (HP:0001710). HP:0001710 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5986,6 +6277,7 @@ This clinical feature is Conotruncal defect (HP:0001710). HP:0001710 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6010,6 +6302,7 @@ This clinical feature is Conotruncal defect (HP:0001710). HP:0001710 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6054,15 +6347,18 @@ This clinical feature is Conotruncal defect (HP:0001710). HP:0001710 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0005359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia of the thymus (HP:0005359). HP:0005359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6082,6 +6378,7 @@ This clinical feature is Aplasia of the thymus (HP:0005359). HP:0005359 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6135,15 +6432,18 @@ termed congenital athymia [14, 15]."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6163,6 +6463,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6214,15 +6515,24 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of the genitourinary system (HP:0000119). HP:0000119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification" title="Bound at organ-system level deliberately: the cited source characterizes the finding no further, so a narrower term would assert more than the evidence.">Coarse binding: source unspecified</span>
+
+    </div>
+
 
 
 
@@ -6242,6 +6552,7 @@ This clinical feature is Abnormality of the genitourinary system (HP:0000119). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6293,15 +6604,18 @@ This clinical feature is Abnormality of the genitourinary system (HP:0000119). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000174</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000174</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal palate morphology (HP:0000174). HP:0000174 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6321,6 +6635,7 @@ This clinical feature is Abnormal palate morphology (HP:0000174). HP:0000174 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6363,15 +6678,18 @@ This clinical feature is Abnormal palate morphology (HP:0000174). HP:0000174 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000220</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000220</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Velopharyngeal insufficiency (HP:0000220). HP:0000220 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6391,6 +6709,7 @@ This clinical feature is Velopharyngeal insufficiency (HP:0000220). HP:0000220 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6418,6 +6737,7 @@ This clinical feature is Velopharyngeal insufficiency (HP:0000220). HP:0000220 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6442,6 +6762,7 @@ This clinical feature is Velopharyngeal insufficiency (HP:0000220). HP:0000220 i
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6483,15 +6804,18 @@ This clinical feature is Velopharyngeal insufficiency (HP:0000220). HP:0000220 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6511,6 +6835,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6562,15 +6887,18 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005374</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0005374</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cellular immunodeficiency (HP:0005374). HP:0005374 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6590,6 +6918,7 @@ This clinical feature is Cellular immunodeficiency (HP:0005374). HP:0005374 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6630,15 +6959,18 @@ This clinical feature is Cellular immunodeficiency (HP:0005374). HP:0005374 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6658,6 +6990,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6707,15 +7040,18 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002901</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002901</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6735,6 +7071,7 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6759,6 +7096,7 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6810,15 +7148,18 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6838,6 +7179,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6865,6 +7207,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6906,15 +7249,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001328</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6934,6 +7280,7 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6976,15 +7323,18 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100753" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0100753</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100753" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0100753</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Schizophrenia (HP:0100753). HP:0100753 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7004,6 +7354,7 @@ This clinical feature is Schizophrenia (HP:0100753). HP:0100753 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7053,15 +7404,18 @@ This clinical feature is Schizophrenia (HP:0100753). HP:0100753 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001611" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001611</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001611" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001611</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7081,6 +7435,7 @@ This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7154,6 +7509,19 @@ This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
 
 
 
@@ -7171,6 +7539,7 @@ This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7195,6 +7564,7 @@ This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7237,26 +7607,83 @@ This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenoty
                         Gene: TBX1
 
 
-    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:11592</a>
+    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:11592</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
 
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
                 </div>
+
+
+
 
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14585638" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14585638" target="_blank">PMID:14585638</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified three mutations of TBX1 in two unrelated patients without the 22q11.2 deletion-one with sporadic conotruncal anomaly face syndrome/velocardiofacial syndrome and one with sporadic DiGeorge&#39;s syndrome-and in three patients from a family with conotruncal anomaly face..."</div>
+
+
+                <div class="evidence-explanation">Human evidence that TBX1 point mutations without a 22q11.2 deletion reproduce the DiGeorge and velocardiofacial presentations. It is cited here because the only other support on this record is a mouse study, and a human phenotype should not rest on model-organism evidence alone.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14585638" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14585638" target="_blank">PMID:14585638</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our results suggest that the TBX1 mutation is responsible for five major phenotypes in del22q11.2 syndrome."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own conclusion, quoted for the &#34;major contributor&#34; wording of this record&#39;s `association`. Marked INDIRECT because it is an inference the authors draw from five deletion-negative patients rather than a measurement of TBX1&#39;s contribution within the deletion.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:11242110" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -7266,6 +7693,7 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7318,7 +7746,7 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Cardiac Surgery<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Cardiac Surgery<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7358,6 +7786,12 @@ This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Congenital cardiac lesions require cardiology assessment and, for many severe lesions, surgery or catheter-based intervention in infancy.</div>
 
 
@@ -7373,11 +7807,11 @@ This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001710</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001710</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Conotruncal defect (HP:0001710). HP:0001710 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7401,6 +7835,7 @@ This treatment targets Conotruncal defect (HP:0001710). HP:0001710 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7434,7 +7869,7 @@ This treatment targets Conotruncal defect (HP:0001710). HP:0001710 is a phenotyp
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7475,6 +7910,12 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Treat documented hypocalcemia with calcium replacement and specialist endocrine follow-up; long-term supplementation requires monitoring for renal complications. This entry does not infer a universal calcitriol regimen.</div>
 
 
@@ -7490,11 +7931,11 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002901</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002901</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7518,6 +7959,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7551,7 +7993,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7579,6 +8021,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7616,6 +8064,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7640,6 +8089,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7661,6 +8111,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7697,7 +8148,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7738,6 +8189,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Use appropriately treated cellular blood products for congenital athymia or severe/suspected T-cell deficiency, including when immune evaluation cannot be completed before surgery.</div>
 
 
@@ -7753,11 +8210,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0005374</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0005374</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Cellular immunodeficiency (HP:0005374). HP:0005374 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7781,6 +8238,7 @@ This treatment targets Cellular immunodeficiency (HP:0005374). HP:0005374 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7814,7 +8272,7 @@ This treatment targets Cellular immunodeficiency (HP:0005374). HP:0005374 is a p
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7850,6 +8308,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7860,6 +8321,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7881,11 +8345,11 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0005359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0005359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Aplasia of the thymus (HP:0005359). HP:0005359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7898,11 +8362,11 @@ This treatment targets Aplasia of the thymus (HP:0005359). HP:0005359 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0005374</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0005374</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Cellular immunodeficiency (HP:0005374). HP:0005374 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7929,6 +8393,7 @@ This treatment targets Cellular immunodeficiency (HP:0005374). HP:0005374 is a p
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7950,6 +8415,7 @@ This treatment targets Cellular immunodeficiency (HP:0005374). HP:0005374 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7983,7 +8449,7 @@ This treatment targets Cellular immunodeficiency (HP:0005374). HP:0005374 is a p
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8019,6 +8485,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8029,6 +8498,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -8050,11 +8522,11 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000174</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000174</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Abnormal palate morphology (HP:0000174). HP:0000174 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8067,11 +8539,11 @@ This treatment targets Abnormal palate morphology (HP:0000174). HP:0000174 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001328</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8084,11 +8556,11 @@ This treatment targets Specific learning disability (HP:0001328). HP:0001328 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000365</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8112,6 +8584,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8145,7 +8618,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">velopharyngeal (pharyngoplasty) surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">velopharyngeal (pharyngoplasty) surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is velopharyngeal (pharyngoplasty) surgical procedure, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8181,6 +8654,9 @@ This treatment is velopharyngeal (pharyngoplasty) surgical procedure, annotated 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8191,6 +8667,9 @@ This treatment is velopharyngeal (pharyngoplasty) surgical procedure, annotated 
 
 
     </div>
+
+
+
 
 
 
@@ -8231,6 +8710,7 @@ NCIT has no pharyngoplasty or velopharyngeal-repair term reachable from NCIT:C25
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8265,11 +8745,11 @@ NCIT has no pharyngoplasty or velopharyngeal-repair term reachable from NCIT:C25
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000220</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000220</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Velopharyngeal insufficiency (HP:0000220). HP:0000220 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8282,11 +8762,11 @@ This treatment targets Velopharyngeal insufficiency (HP:0000220). HP:0000220 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001611" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001611</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001611" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001611</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypernasal speech (HP:0001611). HP:0001611 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8313,6 +8793,7 @@ This treatment targets Hypernasal speech (HP:0001611). HP:0001611 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8334,6 +8815,7 @@ This treatment targets Hypernasal speech (HP:0001611). HP:0001611 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8367,7 +8849,7 @@ This treatment targets Hypernasal speech (HP:0001611). HP:0001611 is a phenotype
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8408,6 +8890,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Surveillance should be individualized across cardiology, immune function, calcium and thyroid status, blood counts, palate/feeding and ENT, hearing, vision, renal and skeletal findings, development, and psychiatric health, with planned transition from pediatric to adult care.</div>
 
 
@@ -8432,6 +8920,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8453,6 +8942,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8486,7 +8976,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8526,6 +9016,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Offer parental testing, deletion-class-specific recurrence counseling, and reproductive counseling. An affected parent has a 50% transmission risk, but phenotype severity cannot be predicted prenatally.</div>
 
 
@@ -8547,6 +9043,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8610,11 +9107,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-55">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8657,6 +9154,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8684,207 +9182,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 </div>
 
                 <div class="item-desc">FISH, MLPA, or other targeted testing can evaluate a known familial deletion, but common proximal FISH probes may miss atypical or distal deletions. Use a genome-wide microarray when the familial interval is not already defined.</div>
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-treatment">
-
-        genetic testing
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C15709</a>
-
-
-
-        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)</span>
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36648576" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36648576" target="_blank">PMID:36648576</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"FISH is specific for identification of 22q11.2 dele-
-tion but may not detect individuals with an atypical or
-distal deletion that does not include the more proximal
-part of the commonly deleted region (LCR A-B)."</div>
-
-
-                <div class="evidence-explanation">This supports the stated limitation of common targeted FISH testing.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301696" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Once the 22q11.2 deletion has been identified in an affected family member, prenatal testing using FISH, MLPA, or array studies for a pregnancy at increased risk and preimplantation genetic testing are possible."</div>
-
-
-                <div class="evidence-explanation">GeneReviews supports targeted familial and reproductive testing after the deletion is defined.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-            </div>
-
-            <div class="item-box anchor-target" id="diagnosis-prenatal-screening-followed-by-diagnostic-confirmation">
-                <div class="item-name">
-                    Prenatal screening followed by diagnostic confirmation
-
-                </div>
-
-                <div class="item-desc">Cell-free-DNA/NIPS is a screening test, not a molecular diagnosis. A positive screen or suggestive fetal imaging finding should be followed by genetic counseling and diagnostic testing of chorionic villi or amniocytes using chromosomal microarray.</div>
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-treatment">
-
-        genetic testing
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C15709</a>
-
-
-
-        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36672900" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36672900" target="_blank">PMID:36672900</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Definitive diagnosis by genetic testing of chorionic villi or amniocytes using a chromosomal microarray will detect clinically relevant microdeletions. Screening options include noninvasive prenatal screening (NIPS) and imaging."</div>
-
-
-                <div class="evidence-explanation">The prenatal guidance clearly separates screening from diagnostic CMA.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-            </div>
-
-            <div class="item-box anchor-target" id="diagnosis-second-diagnosis-sequencing-for-atypical-metabolic-crises">
-                <div class="item-name">
-                    Second-diagnosis sequencing for atypical metabolic crises
-
-                </div>
-
-                <div class="item-desc">Recurrent or otherwise unexplained metabolic crises with severe rhabdomyolysis, especially when accompanied by cardiac arrhythmias or neurodegeneration, should prompt evaluation for a second diagnosis. When the deletion includes TANGO2, evaluate for a pathogenic variant on the remaining allele.</div>
 
 
 
@@ -8934,6 +9231,210 @@ part of the commonly deleted region (LCR A-B)."</div>
         </summary>
         <div class="evidence-list">
 
+            <div class="evidence-item" data-dismech-evidence="PMID:36648576" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36648576" target="_blank">PMID:36648576</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FISH is specific for identification of 22q11.2 dele-
+tion but may not detect individuals with an atypical or
+distal deletion that does not include the more proximal
+part of the commonly deleted region (LCR A-B)."</div>
+
+
+                <div class="evidence-explanation">This supports the stated limitation of common targeted FISH testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301696" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301696" target="_blank">PMID:20301696</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Once the 22q11.2 deletion has been identified in an affected family member, prenatal testing using FISH, MLPA, or array studies for a pregnancy at increased risk and preimplantation genetic testing are possible."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports targeted familial and reproductive testing after the deletion is defined.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-prenatal-screening-followed-by-diagnostic-confirmation">
+                <div class="item-name">
+                    Prenatal screening followed by diagnostic confirmation
+
+                </div>
+
+                <div class="item-desc">Cell-free-DNA/NIPS is a screening test, not a molecular diagnosis. A positive screen or suggestive fetal imaging finding should be followed by genetic counseling and diagnostic testing of chorionic villi or amniocytes using chromosomal microarray.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36672900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36672900" target="_blank">PMID:36672900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Definitive diagnosis by genetic testing of chorionic villi or amniocytes using a chromosomal microarray will detect clinically relevant microdeletions. Screening options include noninvasive prenatal screening (NIPS) and imaging."</div>
+
+
+                <div class="evidence-explanation">The prenatal guidance clearly separates screening from diagnostic CMA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-second-diagnosis-sequencing-for-atypical-metabolic-crises">
+                <div class="item-name">
+                    Second-diagnosis sequencing for atypical metabolic crises
+
+                </div>
+
+                <div class="item-desc">Recurrent or otherwise unexplained metabolic crises with severe rhabdomyolysis, especially when accompanied by cardiac arrhythmias or neurodegeneration, should prompt evaluation for a second diagnosis. When the deletion includes TANGO2, evaluate for a pathogenic variant on the remaining allele.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-60">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
             <div class="evidence-item" data-dismech-evidence="PMID:42420940" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
@@ -8942,6 +9443,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8966,6 +9468,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9036,6 +9539,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9088,6 +9592,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9137,6 +9642,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9211,6 +9717,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9266,6 +9773,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9357,6 +9865,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9409,6 +9918,7 @@ part of the commonly deleted region (LCR A-B)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9494,6 +10004,7 @@ loss, and renal dysplasia [64]."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9802,11 +10313,11 @@ loss, and renal dysplasia [64]."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0005374</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0005374</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Cellular immunodeficiency (HP:0005374). HP:0005374 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9819,11 +10330,11 @@ This clinical trial targets Cellular immunodeficiency (HP:0005374). HP:0005374 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0005359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0005359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Aplasia of the thymus (HP:0005359). HP:0005359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9846,6 +10357,7 @@ This clinical trial targets Aplasia of the thymus (HP:0005359). HP:0005359 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9947,6 +10459,91 @@ mappings:
       historical label already listed in this entry&#39;s synonyms. narrowMatch
       because MONDO models VCF as a child of the deletion syndrome rather than
       an equivalent class.
+has_subtypes:
+- name: DiGeorge
+  display_name: DiGeorge syndrome
+  subtype_term:
+    preferred_term: DiGeorge syndrome
+    term:
+      id: MONDO:0008564
+      label: DiGeorge syndrome
+  genes:
+  - preferred_term: TBX1
+    description: &gt;-
+      Bound as the dosage-sensitive gene whose loss drives the
+      thymic/parathyroid/conotruncal arm of this presentation, and the gene in
+      which the cited report found point mutations reproducing it in patients
+      with no 22q11.2 deletion. That report screened TBX1 and does not
+      establish that no other interval gene behaves the same way. In nearly
+      every patient the lesion is the deletion, not a TBX1 sequence variant;
+      see the &#34;Recurrent 22q11.2 deletion&#34; record in `genetic`.
+    term:
+      id: hgnc:11592
+      label: TBX1
+  description: &gt;-
+    The historical label for the thymic, parathyroid and conotruncal
+    presentation of the 22q11.2 deletion. It is carried here as a named
+    clinical presentation rather than a separate mechanism: the lesion is the
+    same contiguous-gene deletion this entry curates, and the entry already
+    models the immunodeficiency and cardiac arms as pathophysiology nodes.
+    This row exists so that the MONDO concept, and the gene MONDO attaches to
+    it, are addressable in the same place as the presentation they describe.
+  evidence:
+  - reference: PMID:14585638
+    reference_title: Role of TBX1 in human del22q11.2 syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We identified three mutations of TBX1 in two unrelated patients without the
+      22q11.2 deletion-one with sporadic conotruncal anomaly face
+      syndrome/velocardiofacial syndrome and one with sporadic DiGeorge&#39;s
+      syndrome-and in three patients from a family with conotruncal anomaly face
+      syndrome/velocardiofacial syndrome.
+    explanation: &gt;-
+      Identifies a patient with sporadic DiGeorge syndrome carrying a TBX1
+      point mutation and no 22q11.2 deletion, which is the human evidence that
+      TBX1 alone can produce this presentation and so the basis for binding the
+      gene on this row.
+- name: Velocardiofacial
+  display_name: Velocardiofacial (Shprintzen) syndrome
+  subtype_term:
+    preferred_term: velocardiofacial syndrome
+    term:
+      id: MONDO:0008644
+      label: velocardiofacial syndrome
+  genes:
+  - preferred_term: TBX1
+    description: &gt;-
+      Bound for the same reason as on the DiGeorge row: TBX1 point mutations
+      without a deletion have been reported in patients with this presentation.
+    term:
+      id: hgnc:11592
+      label: TBX1
+  description: &gt;-
+    The historical Shprintzen label, emphasising the velopharyngeal, cardiac
+    and facial features. As with DiGeorge syndrome it names a presentation of
+    the same deletion rather than a distinct lesion, and the entry models its
+    mechanistic substrate as the &#34;Velopharyngeal structural and myogenic
+    insufficiency&#34; node. This entry&#39;s own description records both, along with
+    CATCH22, as historical labels for the same deletion, which is why the entry
+    is anchored on the deletion and carries them as subtypes rather than
+    splitting into separate disease files.
+  evidence:
+  - reference: PMID:14585638
+    reference_title: Role of TBX1 in human del22q11.2 syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We identified three mutations of TBX1 in two unrelated patients without the
+      22q11.2 deletion-one with sporadic conotruncal anomaly face
+      syndrome/velocardiofacial syndrome and one with sporadic DiGeorge&#39;s
+      syndrome-and in three patients from a family with conotruncal anomaly face
+      syndrome/velocardiofacial syndrome.
+    explanation: &gt;-
+      Reports TBX1 point mutations without a 22q11.2 deletion in a sporadic
+      case and in a three-member family with conotruncal anomaly
+      face/velocardiofacial syndrome, which is the basis for binding the gene
+      on this row.
 gene_sets:
 - gene_set: MYGENESET:WP_22Q112_COPY_NUMBER_VARIATION_SYNDROME
   relationship: CANONICAL_PATHWAY
@@ -10744,6 +11341,7 @@ phenotypes:
     term:
       id: HP:0000119
       label: Abnormality of the genitourinary system
+    coarse_binding_basis: SOURCE_UNSPECIFIED
   evidence:
   - reference: PMID:20301696
     reference_title: 22q11.2 Deletion Syndrome.
@@ -10790,6 +11388,8 @@ phenotypes:
 genetic:
 - name: Recurrent 22q11.2 deletion
   association: Causal heterozygous copy-number loss spanning multiple dosage-sensitive genes
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   features: &gt;-
     The common proximal deletion is bounded by LCR22A-D; smaller A-B and A-C
     recurrent deletions also occur. Standard G-banded karyotyping does not
@@ -10820,11 +11420,49 @@ genetic:
   association: &gt;-
     Major contributor to pharyngeal-apparatus and cardiovascular developmental
     phenotypes; not sufficient to explain the full deletion syndrome.
+  variant_origin: GERMLINE
+  review_notes: &gt;-
+    `relationship_type` is deliberately left unset. This record&#39;s claim is that
+    TBX1 is the principal dosage-sensitive driver of the pharyngeal and
+    conotruncal features within a contiguous-gene deletion, and none of the
+    permissible values says that: CAUSATIVE asserts variants in the gene are
+    sufficient for the disease, which the record&#39;s own `association` denies for
+    the full syndrome; MODIFIER denies it is a primary driver; UNKNOWN denies
+    the Yagi finding below. Left absent rather than forced to a value that
+    would be false.
   features: &gt;-
     Mouse and rare single-gene observations support TBX1 dosage sensitivity,
     while deletion cohorts and rescue models support contributions from
     additional interval genes and background modifiers.
   evidence:
+  - reference: PMID:14585638
+    reference_title: Role of TBX1 in human del22q11.2 syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We identified three mutations of TBX1 in two unrelated patients without the
+      22q11.2 deletion-one with sporadic conotruncal anomaly face
+      syndrome/velocardiofacial syndrome and one with sporadic DiGeorge&#39;s
+      syndrome-and in three patients from a family with conotruncal anomaly face
+      syndrome/velocardiofacial syndrome.
+    explanation: &gt;-
+      Human evidence that TBX1 point mutations without a 22q11.2 deletion
+      reproduce the DiGeorge and velocardiofacial presentations. It is cited
+      here because the only other support on this record is a mouse study, and
+      a human phenotype should not rest on model-organism evidence alone.
+  - reference: PMID:14585638
+    reference_title: Role of TBX1 in human del22q11.2 syndrome.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Our results suggest that the TBX1 mutation is responsible for five major
+      phenotypes in del22q11.2 syndrome.
+    explanation: &gt;-
+      The authors&#39; own conclusion, quoted for the &#34;major contributor&#34; wording
+      of this record&#39;s `association`. Marked INDIRECT because it is an
+      inference the authors draw from five deletion-negative patients rather
+      than a measurement of TBX1&#39;s contribution within the deletion.
   - reference: PMID:11242110
     reference_title: DiGeorge syndrome phenotype in mice mutant for the T-box gene, Tbx1.
     supports: SUPPORT
@@ -11900,6 +12538,31 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">4</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Edit: 22q11.2 Deletion Syndrome - address PR #10355 review (phenotype frequencies, stronger evidence)</strong> · 2026-09-01T09:40:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/22q11.2_Deletion_Syndrome/2026-09-01T094023Z-claude-code-26f6b5.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses the ai4c-reviewer review on PR #10355, which requested changes on one point. Every quote the reviewer proposed was verified as an exact substring of references_cache/PMID_39056299.md before use. Blocking item, phenotype frequencies: the reviewer noted that population frequencies for two of the three new phenotypes were quotable from the full text of PMID:39056299, a paper this PR already cited on an adjacent node, and that four peer phenotypes in the entry already carry frequency. Velopharyngeal insufficiency now carries frequency FREQUENT, supported by &#39;up to 80% of people with 22q present with VPI&#39;; FREQUENT rather than VERY_FREQUENT because 80 percent is stated as an upper bound, and the deep-research report&#39;s own phenotype table independently gives roughly 65-70 percent. Delayed speech and language development now carries VERY_FREQUENT, supported by &#39;most people (95%) with 22q present with a speech-language disorder&#39;. Both explanations record that these sentences are the paper&#39;s introductory summary of prior literature rather than findings of its own 14-patient cohort. Hypernasal speech is deliberately left without a frequency, as the reviewer agreed no clean population figure exists. Accepted suggestion on evidence quality: the reviewer identified selection bias in the Hypernasal speech evidence. The previous snippet quoted the preoperative severity split of the surgical arm, but inclusion criterion 3 of that study was &#39;presence of hypernasality on preoperative speech evaluation&#39;, so those proportions are true by construction and cannot evidence the phenotype. Verified against the cached methods section and replaced with a population-level statement that hypernasality is part of the syndrome&#39;s speech phenotype; the explanation records why the earlier quote was withdrawn. Accepted suggestion on the mechanism edge: a second evidence item was added to the Velopharyngeal structural and myogenic insufficiency -&gt; Velopharyngeal insufficiency edge, quoting the sentence that enumerates the anatomic and physiologic velopharyngeal differences contributing to VPI. The prior snippet was Objective-section framing; it is retained for the multifactorial claim with a narrowed explanation. Declined suggestion, node splitting: the reviewer suggested splitting the mechanism node into increased pharyngeal depth and hypodynamic musculature, while explicitly not blocking. Declined because the newly added quote lists seven contributing differences rather than two, so a split into exactly two would impose a division the source does not make; both halves are also TISSUE scale, so this is a conjunction rather than the bundled-causal-step case the single-value biological_scale rule targets. Deferred suggestion, parkinsonism: out of the declared velocardiofacial scope of this PR and would widen it; left for a follow-up. A YAML indentation error was introduced while applying these edits, caught immediately by just validate, and fixed before any push. Revalidated: just validate and just validate-disorders pass with 72/74 snippets verified, up from 69/71, with the same two pre-existing DOI-prefix skips; check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms, check-snippet-grading, check-snippet-length, check-title-snippets and check-folded-hyphens all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Edit: 22q11.2 Deletion Syndrome - openscientist deep-research report and edge evidence</strong> · 2026-09-01T06:13:37Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/22q11.2_Deletion_Syndrome/2026-09-01T061337Z-claude-code-d003eb.yaml">View source</a></p>
+                        <p class="research-review-text">Follow-up to the velocardiofacial curation in the preceding record. The requested deep-research provider falcon was unreachable (403 ProviderAuthError, confirmed by &#39;deep-research-client providers --check&#39;), so the run was re-issued with --fallback; it selected openscientist, which completed after the first commit. The report is committed as research/22q11.2_Deletion_Syndrome-deep-research-openscientist.md with its citations sidecar and two artifacts, and its frontmatter records the substitution (fell_back: true, requested_provider: falcon, provider_attempts including the falcon 403). Report validation: 39/39 references verified, confabulation_rate 0.0, 28/39 assessed on topic; term validation 38/44 verified with needs_review true, driven by one obsolete term (CL:4023070, replaced by CL:4023064) and six label variants that are table-parsing artifacts rather than wrong bindings. None of the six touch terms used in this entry, and CL:4023070 is not used anywhere in kb/disorders. The report independently proposed HP:0000220 for velopharyngeal insufficiency, matching the binding already curated. One substantive addition taken from it: PMID:40038168 (2025 review) supplies a human-level statement that pharyngeal neural-crest disruption causes both the conotruncal lesions and velopharyngeal deficiency, which is added to the TBX1-associated pharyngeal developmental vulnerability -&gt; Velopharyngeal structural and myogenic insufficiency edge. That edge previously rested only on homozygous-mouse evidence graded INDIRECT; the new item is graded DIRECT and HUMAN_CLINICAL, and the mouse item is retained alongside it. Repository hygiene note: two deep-research invocations overlapped, and one wrote its openscientist output over the committed falcon report, citations and artifact directory. The committed falcon files were restored from git and verified byte-identical to a pre-run backup, the openscientist artifacts that had landed in the falcon artifact directory were removed, and falcon&#39;s artifact-00.md was removed from the openscientist artifact directory after confirming by sha256 that it was the relocated committed file rather than a regenerated one. No committed falcon content was lost. Revalidated with just validate, just validate-disorders (69/71 snippets verified, 2 pre-existing DOI-prefix skips) and the ungated gates.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Edit: 22q11.2 Deletion Syndrome - velocardiofacial (velopharyngeal/speech) arm</strong> · 2026-09-01T05:59:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/22q11.2_Deletion_Syndrome/2026-09-01T055906Z-claude-code-fcd9ed.yaml">View source</a></p>
+                        <p class="research-review-text">Curated the velocardiofacial (Shprintzen) presentation. Requested disorder &#39;velocardiofacial syndrome&#39; resolves to this entry: MONDO:0008644 is already bound here as a skos:narrowMatch (added in PR #7391) and the entry&#39;s description records VCFS/DiGeorge/CATCH22 as historical labels, so this is an augmentation rather than a new entry. Gap closed: velopharyngeal insufficiency existed only as prose inside the Palatal abnormality description, with no mechanism node and no speech-surgery treatment. Added phenotypes Velopharyngeal insufficiency (HP:0000220), Hypernasal speech (HP:0001611) and Delayed speech and language development (HP:0000750); added pathophysiology node &#39;Velopharyngeal structural and myogenic insufficiency&#39; (biological_scale TISSUE; UBERON:0001733 soft palate, UBERON:0001042 chordate pharynx, GO:0060021) wired as TBX1-associated pharyngeal developmental vulnerability -&gt; new node -&gt; VPI and hypernasal speech; added treatment &#39;Velopharyngeal surgery for persistent hypernasality&#39; with a target_mechanisms link to that node. Four new references (PMID:36695155, PMID:39056299, PMID:36512754, PMID:41800660), all specifically about 22q11.2 deletion syndrome. Deep research: the requested provider falcon was unreachable (403, confirmed by &#39;deep-research-client providers --check&#39;), so the run was re-issued with --fallback so the substitution is recorded rather than made by hand; it selected openscientist and was still running when this entry was committed, so the curated content here derives from direct PubMed searches plus the pre-existing committed falcon report, which had already flagged HP:0000220 and HP:0001611 as unused term suggestions. Two claims were deliberately softened to match their sources: the pharyngoplasty-over-palatoplasty preference rests on a 14-patient series whose authors report it as a &#39;may be less effective&#39; signal, and the mechanism node&#39;s explanation of post-palatoplasty resonance is labelled proposed rather than established. Delayed speech and language development was left unconnected in the pathograph because the cited cohort explicitly finds language impairment not explained by speech ability, and no source supports a causal edge. NCIT has no pharyngoplasty term reachable from NCIT:C25218, so the treatment binds the generic surgical action with specificity carried in preferred_term. Validated with just validate, just validate-terms, just validate-disorders (68/70 snippets verified, 2 pre-existing DOI-prefix skips), and the ungated gates check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms, check-snippet-length, check-snippet-grading, check-title-snippets, check-folded-hyphens and check-not4curation.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14014,7 +14677,7 @@ A highly cited genetics/epigenetics review links pathology to defective remodeli
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "22q11.2 Deletion Syndrome", "mondoId": "MONDO:0018923", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "22q11.2_Deletion_Syndrome", "yamlRevision": "707372f79cef"};
+        const OS_CONFIG = {"diseaseName": "22q11.2 Deletion Syndrome", "mondoId": "MONDO:0018923", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "22q11.2_Deletion_Syndrome", "yamlRevision": "d51184ed6e7b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

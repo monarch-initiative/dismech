@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4118,6 +4186,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4142,6 +4211,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4163,6 +4233,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4268,6 +4339,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4303,6 +4375,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pot1-loss-of-function" data-dismech-node="POT1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">POT1 Loss of Function</div>
 
+
                 <div class="item-desc">Heterozygous germline variants throughout the POT1 reading frame, most commonly missense and nonsense changes. They act either by disrupting the oligonucleotide binding folds that contact the single stranded telomeric overhang, or by disrupting the interface between POT1 and its shelterin partner ACD/TPP1.</div>
 
 
@@ -4313,6 +4386,8 @@
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4332,6 +4407,9 @@
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline missense, nonsense, frameshift, and splice site variants distributed across the POT1 reading frame, converging on loss of telomeric single stranded DNA binding or loss of the POT1 to ACD interaction.</div>
 
@@ -4417,6 +4495,7 @@ This pathophysiological event involves single-stranded telomeric DNA binding (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4438,6 +4517,7 @@ This pathophysiological event involves single-stranded telomeric DNA binding (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4463,6 +4543,7 @@ This pathophysiological event involves single-stranded telomeric DNA binding (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-shelterin-capping-of-the-telomeric-overhang" data-dismech-node="Defective Shelterin Capping of the Telomeric Overhang" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Shelterin Capping of the Telomeric Overhang</div>
+
 
                 <div class="item-desc">Less POT1 is bound at the telomere, so the single stranded 3&#39; overhang is incompletely capped by shelterin. Carriers show reduced telomere bound POT1 directly, not merely a predicted structural defect.</div>
 
@@ -4558,6 +4639,7 @@ This pathophysiological event involves decreased telomere capping (GO:0016233). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4580,6 +4662,7 @@ This pathophysiological event involves decreased telomere capping (GO:0016233). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestrained-telomerase-access-and-telomere-elongation" data-dismech-node="Unrestrained Telomerase Access and Telomere Elongation" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained Telomerase Access and Telomere Elongation</div>
+
 
                 <div class="item-desc">POT1 normally limits telomerase access to the 3&#39; overhang. Losing that restraint lets telomerase extend the telomere, so POT1-TPD telomeres are abnormally long. This is the mechanistic inversion that separates this syndrome from the short telomere biology disorders.</div>
 
@@ -4689,6 +4772,7 @@ This pathophysiological event involves decreased negative regulation of telomere
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4710,6 +4794,7 @@ This pathophysiological event involves decreased negative regulation of telomere
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4735,6 +4820,13 @@ This pathophysiological event involves decreased negative regulation of telomere
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-telomere-fragility-and-genomic-instability" data-dismech-node="Telomere Fragility and Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Telomere Fragility and Genomic Instability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">An uncapped overhang also leaves the telomere structurally fragile, and tumors carrying POT1 variants show increased genomic instability. Whether this or the elongation is what actually drives tumorigenesis is not settled; see the discussion recorded on this entry.</div>
 
@@ -4786,6 +4878,7 @@ This pathophysiological event involves decreased negative regulation of telomere
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4807,6 +4900,7 @@ This pathophysiological event involves decreased negative regulation of telomere
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4832,6 +4926,7 @@ This pathophysiological event involves decreased negative regulation of telomere
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extended-replicative-capacity-of-incipient-cancer-cells" data-dismech-node="Extended Replicative Capacity of Incipient Cancer Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Extended Replicative Capacity of Incipient Cancer Cells</div>
+
 
                 <div class="item-desc">Longer telomeres postpone replicative senescence, so a cell that has acquired an initiating oncogenic lesion can keep dividing and accumulate further hits. This is the currently favoured account of why POT1 variants are selected for during cancer progression.</div>
 
@@ -5071,6 +5166,7 @@ This pathophysiological event involves decreased replicative senescence (GO:0090
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5116,7 +5212,7 @@ This pathophysiological event involves decreased replicative senescence (GO:0090
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiosarcoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac angiosarcoma is the characteristic sarcoma, and was the phenotype through which the syndrome was originally identified in TP53-negative Li-Fraumeni-like families.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0200058\", \"animal_models\": [{\"name\": \"Pot1a R117C knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Pot1a p.R117C knock-in, heterozygous (Pot1a+/ki)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous mice spontaneously develop angiosarcomas including cardiac angiosarcomas, reproducing the defining tumor of the human families from which this allele came, with long telomeres localized to endothelial cells.\"}]}}, {\"id\": \"Avoidance of Ultraviolet and Ionizing Radiation Exposure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tanning beds and unprotected sun exposure are to be avoided, as is radiation in diagnostic procedures. The radiation caution is why the imaging surveillance above is built on MRI rather than CT.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic Lymphatic Leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005550\"}}, {\"id\": \"Cutaneous Melanoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Often multiple primary melanomas. Onset spans a wide age range, from the second decade onward.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012056\"}}, {\"id\": \"Defective Shelterin Capping of the Telomeric Overhang\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Less POT1 is bound at the telomere, so the single stranded 3\u0027 overhang is incompletely capped by shelterin. Carriers show reduced telomere bound POT1 directly, not merely a predicted structural defect.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"telomere capping\"]}}, {\"id\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Longer telomeres postpone replicative senescence, so a cell that has acquired an initiating oncogenic lesion can keep dividing and accumulate further hits. This is the currently favoured account of why POT1 variants are selected for during cancer progression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\", \"endothelial cell\", \"B cell\", \"glial cell\"], \"biological_processes\": [\"replicative senescence\"]}}, {\"id\": \"Glioma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009733\"}}, {\"id\": \"Melanoma Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Full skin examination by a dermatologist from age 18 years at least six monthly, with excision of suspicious lesions, intensified to three monthly for those with multiple atypical nevi or a melanoma history. Monthly self examination is encouraged alongside it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"POT1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous germline variants throughout the POT1 reading frame, most commonly missense and nonsense changes. They act either by disrupting the oligonucleotide binding folds that contact the single stranded telomeric overhang, or by disrupting the interface between POT1 and its shelterin partner ACD/TPP1.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"single-stranded telomeric DNA binding\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline missense, nonsense, frameshift, and splice site variants distributed across the POT1 reading frame, converging on loss of telomeric single stranded DNA binding or loss of the POT1 to ACD interaction.\"}}}, {\"id\": \"Pot1a R117C knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The discovery allele from the human cardiac angiosarcoma families, knocked into the endogenous Pot1a locus in the heterozygous state that matches the human syndrome. It is the model that ties this entry\u0027s three central claims together: telomere elongation, telomerase dependence of that elongation, and dominant-negative action of the allele.\"}, {\"id\": \"Telomere Fragility and Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An uncapped overhang also leaves the telomere structurally fragile, and tumors carrying POT1 variants show increased genomic instability. Whether this or the elongation is what actually drives tumorigenesis is not settled; see the discussion recorded on this entry.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the broader phenotype described by extended-pedigree studies, as papillary thyroid cancer. Part of the expanding rather than the established spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002890\"}}, {\"id\": \"Unrestrained Telomerase Access and Telomere Elongation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POT1 normally limits telomerase access to the 3\u0027 overhang. Losing that restraint lets telomerase extend the telomere, so POT1-TPD telomeres are abnormally long. This is the mechanistic inversion that separates this syndrome from the short telomere biology disorders.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"negative regulation of telomere maintenance via telomerase\"], \"animal_models\": [{\"name\": \"Pot1a R117C knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Pot1a p.R117C knock-in, heterozygous (Pot1a+/ki)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous knock-in fibroblasts and tissues carry longer telomeres than wild type, and the elongation disappears on a telomerase-null background, which is direct evidence that the mechanism runs through telomerase access rather than through some other route to long telomeres.\"}]}}, {\"id\": \"Whole-Body MRI and Hematologic Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual whole body MRI from age 18 years for non-cutaneous, non-brain malignancies, annual complete blood count with differential to screen for chronic lymphocytic leukemia, and brain MRI every one to two years depending on the family history of glioma.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"POT1 Loss of Function\", \"target\": \"Defective Shelterin Capping of the Telomeric Overhang\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Shelterin Capping of the Telomeric Overhang\", \"target\": \"Unrestrained Telomerase Access and Telomere Elongation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Shelterin Capping of the Telomeric Overhang\", \"target\": \"Telomere Fragility and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unrestrained Telomerase Access and Telomere Elongation\", \"target\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Telomere Fragility and Genomic Instability\", \"target\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Angiosarcoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Glioma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Chronic Lymphatic Leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the expanding rather than the established spectrum; the edge is drawn because the same telomere mechanism is the only one proposed for it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Melanoma Surveillance\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Whole-Body MRI and Hematologic Surveillance\", \"target\": \"Chronic Lymphatic Leukemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Whole-Body MRI and Hematologic Surveillance\", \"target\": \"Angiosarcoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Whole-Body MRI and Hematologic Surveillance\", \"target\": \"Glioma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Ultraviolet and Ionizing Radiation Exposure\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pot1a R117C knock-in mouse\", \"target\": \"Unrestrained Telomerase Access and Telomere Elongation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Heterozygous knock-in fibroblasts and tissues carry longer telomeres than wild type, and the elongation disappears on a telomerase-null background, which is direct evidence that the mechanism runs through telomerase access rather than through some other route to long telomeres.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mice carry two paralogues, Pot1a and Pot1b, which split the functions of the single human POT1 protein, so the mapping from mouse Pot1a to human POT1 is not one to one and quantitative extrapolation is bounded.\"}, {\"source\": \"Pot1a R117C knock-in mouse\", \"target\": \"Angiosarcoma\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Heterozygous mice spontaneously develop angiosarcomas including cardiac angiosarcomas, reproducing the defining tumor of the human families from which this allele came, with long telomeres localized to endothelial cells.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model reproduces the angiosarcoma arm of the spectrum; melanoma, glioma and chronic lymphocytic leukemia are not reported in it, so it does not speak to the rest of the human tumor spectrum.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiosarcoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac angiosarcoma is the characteristic sarcoma, and was the phenotype through which the syndrome was originally identified in TP53-negative Li-Fraumeni-like families.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0200058\", \"animal_models\": [{\"name\": \"Pot1a R117C knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Pot1a p.R117C knock-in, heterozygous (Pot1a+/ki)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous mice spontaneously develop angiosarcomas including cardiac angiosarcomas, reproducing the defining tumor of the human families from which this allele came, with long telomeres localized to endothelial cells.\"}]}}, {\"id\": \"Avoidance of Ultraviolet and Ionizing Radiation Exposure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tanning beds and unprotected sun exposure are to be avoided, as is radiation in diagnostic procedures. The radiation caution is why the imaging surveillance above is built on MRI rather than CT.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic Lymphatic Leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005550\"}}, {\"id\": \"Cutaneous Melanoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Often multiple primary melanomas. Onset spans a wide age range, from the second decade onward.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012056\"}}, {\"id\": \"Defective Shelterin Capping of the Telomeric Overhang\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Less POT1 is bound at the telomere, so the single stranded 3\u0027 overhang is incompletely capped by shelterin. Carriers show reduced telomere bound POT1 directly, not merely a predicted structural defect.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"telomere capping\"]}}, {\"id\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Longer telomeres postpone replicative senescence, so a cell that has acquired an initiating oncogenic lesion can keep dividing and accumulate further hits. This is the currently favoured account of why POT1 variants are selected for during cancer progression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\", \"endothelial cell\", \"B cell\", \"glial cell\"], \"biological_processes\": [\"replicative senescence\"]}}, {\"id\": \"Glioma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009733\"}}, {\"id\": \"Melanoma Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Full skin examination by a dermatologist from age 18 years at least six monthly, with excision of suspicious lesions, intensified to three monthly for those with multiple atypical nevi or a melanoma history. Monthly self examination is encouraged alongside it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"POT1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous germline variants throughout the POT1 reading frame, most commonly missense and nonsense changes. They act either by disrupting the oligonucleotide binding folds that contact the single stranded telomeric overhang, or by disrupting the interface between POT1 and its shelterin partner ACD/TPP1.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"single-stranded telomeric DNA binding\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline missense, nonsense, frameshift, and splice site variants distributed across the POT1 reading frame, converging on loss of telomeric single stranded DNA binding or loss of the POT1 to ACD interaction.\"}}}, {\"id\": \"Pot1a R117C knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The discovery allele from the human cardiac angiosarcoma families, knocked into the endogenous Pot1a locus in the heterozygous state that matches the human syndrome. It is the model that ties this entry\u0027s three central claims together: telomere elongation, telomerase dependence of that elongation, and dominant-negative action of the allele.\"}, {\"id\": \"Telomere Fragility and Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An uncapped overhang also leaves the telomere structurally fragile, and tumors carrying POT1 variants show increased genomic instability. Whether this or the elongation is what actually drives tumorigenesis is not settled; see the discussion recorded on this entry.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the broader phenotype described by extended-pedigree studies, as papillary thyroid cancer. Part of the expanding rather than the established spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002890\"}}, {\"id\": \"Unrestrained Telomerase Access and Telomere Elongation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POT1 normally limits telomerase access to the 3\u0027 overhang. Losing that restraint lets telomerase extend the telomere, so POT1-TPD telomeres are abnormally long. This is the mechanistic inversion that separates this syndrome from the short telomere biology disorders.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"negative regulation of telomere maintenance via telomerase\"], \"animal_models\": [{\"name\": \"Pot1a R117C knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Pot1a p.R117C knock-in, heterozygous (Pot1a+/ki)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous knock-in fibroblasts and tissues carry longer telomeres than wild type, and the elongation disappears on a telomerase-null background, which is direct evidence that the mechanism runs through telomerase access rather than through some other route to long telomeres.\"}]}}, {\"id\": \"Whole-Body MRI and Hematologic Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual whole body MRI from age 18 years for non-cutaneous, non-brain malignancies, annual complete blood count with differential to screen for chronic lymphocytic leukemia, and brain MRI every one to two years depending on the family history of glioma.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"POT1 Loss of Function\", \"target\": \"Defective Shelterin Capping of the Telomeric Overhang\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Shelterin Capping of the Telomeric Overhang\", \"target\": \"Unrestrained Telomerase Access and Telomere Elongation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Shelterin Capping of the Telomeric Overhang\", \"target\": \"Telomere Fragility and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unrestrained Telomerase Access and Telomere Elongation\", \"target\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Telomere Fragility and Genomic Instability\", \"target\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Angiosarcoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Glioma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Chronic Lymphatic Leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extended Replicative Capacity of Incipient Cancer Cells\", \"target\": \"Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the expanding rather than the established spectrum; the edge is drawn because the same telomere mechanism is the only one proposed for it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Melanoma Surveillance\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Whole-Body MRI and Hematologic Surveillance\", \"target\": \"Chronic Lymphatic Leukemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Whole-Body MRI and Hematologic Surveillance\", \"target\": \"Angiosarcoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Whole-Body MRI and Hematologic Surveillance\", \"target\": \"Glioma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Ultraviolet and Ionizing Radiation Exposure\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pot1a R117C knock-in mouse\", \"target\": \"Unrestrained Telomerase Access and Telomere Elongation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Heterozygous knock-in fibroblasts and tissues carry longer telomeres than wild type, and the elongation disappears on a telomerase-null background, which is direct evidence that the mechanism runs through telomerase access rather than through some other route to long telomeres.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mice carry two paralogues, Pot1a and Pot1b, which split the functions of the single human POT1 protein, so the mapping from mouse Pot1a to human POT1 is not one to one and quantitative extrapolation is bounded.\"}, {\"source\": \"Pot1a R117C knock-in mouse\", \"target\": \"Angiosarcoma\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Heterozygous mice spontaneously develop angiosarcomas including cardiac angiosarcomas, reproducing the defining tumor of the human families from which this allele came, with long telomeres localized to endothelial cells.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model reproduces the angiosarcoma arm of the spectrum; melanoma, glioma and chronic lymphocytic leukemia are not reported in it, so it does not speak to the rest of the human tumor spectrum.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5184,6 +5280,9 @@ This clinical feature is Chronic lymphatic leukemia (HP:0005550). HP:0005550 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5198,6 +5297,7 @@ This clinical feature is Chronic lymphatic leukemia (HP:0005550). HP:0005550 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5263,6 +5363,9 @@ This clinical feature is Thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5277,6 +5380,7 @@ This clinical feature is Thyroid carcinoma (HP:0002890). HP:0002890 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5342,6 +5446,9 @@ This clinical feature is Cutaneous melanoma (HP:0012056). HP:0012056 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5356,6 +5463,7 @@ This clinical feature is Cutaneous melanoma (HP:0012056). HP:0012056 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5380,6 +5488,7 @@ This clinical feature is Cutaneous melanoma (HP:0012056). HP:0012056 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5445,6 +5554,9 @@ This clinical feature is Angiosarcoma (HP:0200058). HP:0200058 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5459,6 +5571,7 @@ This clinical feature is Angiosarcoma (HP:0200058). HP:0200058 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5483,6 +5596,7 @@ This clinical feature is Angiosarcoma (HP:0200058). HP:0200058 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5539,6 +5653,9 @@ This clinical feature is Glioma (HP:0009733). HP:0009733 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5553,6 +5670,7 @@ This clinical feature is Glioma (HP:0009733). HP:0009733 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5655,6 +5773,9 @@ This disease-associated gene is POT1 (hgnc:17284). hgnc:17284 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5669,6 +5790,7 @@ This disease-associated gene is POT1 (hgnc:17284). hgnc:17284 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5696,6 +5818,7 @@ This disease-associated gene is POT1 (hgnc:17284). hgnc:17284 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5717,6 +5840,7 @@ This disease-associated gene is POT1 (hgnc:17284). hgnc:17284 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5807,6 +5931,12 @@ This treatment is Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Full skin examination by a dermatologist from age 18 years at least six monthly, with excision of suspicious lesions, intensified to three monthly for those with multiple atypical nevi or a melanoma history. Monthly self examination is encouraged alongside it.</div>
 
 
@@ -5844,6 +5974,7 @@ This treatment is Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5902,6 +6033,12 @@ This treatment is Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -5977,6 +6114,7 @@ This treatment is Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5998,6 +6136,7 @@ This treatment is Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6069,6 +6208,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Tanning beds and unprotected sun exposure are to be avoided, as is radiation in diagnostic procedures. The radiation caution is why the imaging surveillance above is built on MRI rather than CT.</div>
 
 
@@ -6109,6 +6254,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6130,6 +6276,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6201,6 +6348,12 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Targeted testing for the familial POT1 variant in first-degree relatives. This is the step that moves a relative from unknown risk into the surveillance protocol, which is why it is modeled as an intervention rather than left in counselling prose. GeneReviews does not generally recommend it below age 18, since the associated cancers are predominantly adult onset, unless the family history includes early cancers.</div>
 
 
@@ -6225,6 +6378,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6246,6 +6400,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6354,6 +6509,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6375,6 +6531,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6493,6 +6650,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6565,6 +6723,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6643,6 +6802,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6714,6 +6874,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6863,6 +7024,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6922,6 +7084,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6961,6 +7124,7 @@ This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7834,6 +7998,41 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Take review suggestions on PR #10450 (POT1-TPD)</strong> · 2026-09-01T23:50:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/POT1_Tumor_Predisposition_Syndrome/2026-09-01T235038Z-claude-code-c424f2.yaml">View source</a></p>
+                        <p class="research-review-text">Second response round on PR #10450, after the reviewer approved the blocking fixes and left six non-blocking notes. Four taken.
+
+The substantive one was fidelity on both Pot1a R117C mouse links, changed from HIGH to MODERATE. The entry contradicted itself: its own limitations lines said the Pot1a/Pot1b paralogue split bounds extrapolation to human POT1, and that the model covers only the angiosarcoma arm of a four-tumour spectrum, while the fidelity grade said the model captures the human mechanism faithfully. MODERATE is what those caveats already imply. This was the same misreading of the slot made on the SGBS1 entry in this series, where HIGH sat on a FAILS_TO_RECAPITULATE link; in both cases the value being encoded was how well characterised the result is rather than how faithfully the model maps to human biology, which is not what the slot means.
+
+Also taken: diagnosis_term bound to NCIT:C15709 (Genetic Testing), matching 416 other disorder entries; the telomerase-dependence readout now states that it is measured in Pot1a+/ki Tert-/- double mutants rather than the declared Pot1a+/ki genotype, since the comparison is the experiment and a reader should not have to infer it; and the GeneReviews genetic counseling gap closed with the 50% per-child transmission figure on inheritance and cascade testing of first-degree relatives as a treatment, carrying the age-18 threshold and its early-cancer exception.
+
+Not done, and the reason is the same for both. Genetic.case_fractions and the Ashkenazi p.Ile78Thr founder allele both need PMID:32987645 as full text; it is cached abstract_only, and the per-cohort figures the reviewer quoted (4/105, 7/56, 2/55) appear in the deep-research report rather than in anything a snippet can be verified against. Copying them from the report into a citation is the fabrication risk the evidence SOP exists to prevent. Re-fetching that paper as full text makes both straightforward. PMID:38573059 stays uncited for the same reason: its POT1 content could not be isolated to a quotable sentence.
+
+Validation: 41/41 snippets verified; validate, reference-titles, entity-refs, causal-targets, duplicate-keys, enum-values and snippet-grading all clean.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: POT1 Tumor Predisposition Syndrome</strong> · 2026-09-01T19:05:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/POT1_Tumor_Predisposition_Syndrome/2026-09-01T190553Z-claude-code-c01324.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of POT1 tumor predisposition (MONDO:0014368, POT1) from a falcon/Edison deep-research report (research/POT1_Tumor_Predisposition_Syndrome-deep-research-falcon.md), with the GeneReviews POT1 Tumor Predisposition chapter (PMID:33119245) as the phenotype baseline.
+
+This was the cleanest of the three reports: its own validation recorded 9/9 references resolved and 17/17 terms resolved, with 7 of 9 references assessed on topic. It cited by DOI rather than PMID, so every DOI was converted through the PMC ID converter and the PMID cited in preference, per the reference-validator skip-prefix rule.
+
+Entry-type decision: MONDO places this term under two susceptibility parents (susceptibility to familial cutaneous melanoma, glioma susceptibility) and several synonyms are locus-style labels, which is the shape the claim-disease guidance treats as usually out of scope. It is curated as a DISEASE because it is a single-gene syndrome with one conserved mechanism upstream of a defined tumor spectrum and published surveillance guidance, matching the germline predisposition syndromes design decisions section 3a keeps as their own entries. The file is named POT1_Tumor_Predisposition_Syndrome rather than the MONDO label, which remains the disease_term binding.
+
+Mechanism is curated with its open question intact rather than resolved. Calvete 2015 (PMID:26403419) measured reduced telomere-bound POT1, long telomeres and increased fragility in human carriers; Kim 2021 (PMID:33934394) found no telomere damage response in CRISPR-engineered hESCs and HSCs and argues elongation is the selected property. The instability node carries mechanism_confidence PROVISIONAL and a REFUTE item from Kim, and an OPEN KNOWLEDGE_GAP discussion records the elongation-versus-instability question with the authors&#39; own statement that it is unclear.
+
+Named Entity Confusion preflight PASS (POT1 mentioned 69 times; report OMIM 615848 matches MONDO). Validation: just validate passed; 28/28 snippets verified; validate-terms passed; check-entity-refs and check-causal-targets clean; whole-KB gates clean. Stub stubs/Tumor_Predisposition_Syndrome_3.yaml deleted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

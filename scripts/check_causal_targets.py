@@ -49,12 +49,21 @@ causes and different fixes:
     a committed backlog, so it is baselined rather than gating outright.
 
 ``self``
-    A node listing itself as its own downstream target. Reported, never gating:
-    the two committed cases are both a *pathophysiology node and a phenotype
-    sharing one name*, which the flat node namespace collapses into a single
-    node, turning a legitimate mechanism→phenotype edge into a self-loop. That
-    is a graph-model bug (issue #9896), not a curation error, and deleting the
-    edges would destroy evidenced content.
+    A node listing itself as its own downstream target, in any of the
+    :data:`BARE_TARGET_SLOTS`. This script still reports every instance but
+    does not gate on it: most committed cases are a node and a same-named
+    node in another section (typically a pathophysiology node and a
+    phenotype sharing one name), which the flat node namespace collapses into
+    a single node, turning a legitimate mechanism→phenotype edge into a
+    self-loop rather than a literal self-causation claim (issue #9896).
+
+    The ``pathophysiology`` / ``downstream`` case only is now gated
+    separately by ``downstream_self_loop_errors`` in
+    ``src/dismech/entity_refs.py`` (``just check-entity-refs`` and
+    ``test_entity_ref_foreign_keys``), which resolves against the raw YAML
+    rather than the built graph and so is not fooled by the name collision.
+    The other four slots below are not covered by that gate and still rely on
+    this script's report-only pass.
 
 Relationship to `just validate-graphs`
 --------------------------------------
@@ -167,13 +176,36 @@ def find_in(data: dict[str, Any], display: str) -> list[Finding]:
     return findings
 
 
-def iter_yaml_files(paths: list[str]) -> list[Path]:
-    if paths:
-        return [Path(p) for p in paths]
-    files: list[Path] = []
-    for root in DEFAULT_ROOTS:
-        files.extend(sorted((ROOT / root).rglob("*.yaml")))
-    return files
+def iter_yaml_files(paths: list[str]) -> tuple[list[Path], list[str]]:
+    """Return ``(files, usage_errors)`` for the CLI's path arguments.
+
+    Same convention as ``check_disconnected_phenotypes.resolve_paths`` (#11939):
+    a directory argument is expanded into the ``*.yaml`` files under it, and a
+    named directory holding none is a usage error, because a root typed one
+    level too high would otherwise scan nothing and print OK. A path that does
+    not exist is passed through, so reading it raises and :func:`collect`
+    reports it. The no-argument default walk is not held to this: the operator
+    named no path, so there is no argument of theirs to be wrong.
+    """
+    if not paths:
+        files: list[Path] = []
+        for root in DEFAULT_ROOTS:
+            files.extend(sorted((ROOT / root).rglob("*.yaml")))
+        return files, []
+    files = []
+    usage_errors: list[str] = []
+    for raw in paths:
+        path = Path(raw)
+        if path.is_dir():
+            found = sorted(path.rglob("*.yaml"))
+            if not found:
+                usage_errors.append(
+                    f"{_display(path)}: directory contains no *.yaml files"
+                )
+            files.extend(found)
+        else:
+            files.append(path)
+    return files, usage_errors
 
 
 def _display(path: Path) -> str:
@@ -183,18 +215,30 @@ def _display(path: Path) -> str:
         return str(path)
 
 
-def collect(paths: list[str]) -> list[Finding]:
+def collect(paths: list[str]) -> tuple[list[Finding], list[str]]:
+    """Return ``(findings, usage_errors)``.
+
+    A path that cannot be read is a usage error, never a skip: nothing else
+    reports it, because the argument names no file for any other gate to see,
+    and swallowing it let a mistyped path print OK and exit 0 (#11939).
+    """
     findings: list[Finding] = []
-    for path in iter_yaml_files(paths):
+    files, usage_errors = iter_yaml_files(paths)
+    for path in files:
         try:
-            data = safe_load(path.read_text(encoding="utf-8"))
-        except (OSError, yaml.YAMLError):
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            usage_errors.append(f"{_display(path)}: {exc.strerror or exc}")
+            continue
+        try:
+            data = safe_load(text)
+        except yaml.YAMLError:
             # `check-duplicate-keys` and `linkml-validate` report a parse
             # failure with better detail; don't fail the build twice for it.
             continue
         if isinstance(data, dict):
             findings.extend(find_in(data, _display(path)))
-    return findings
+    return findings, usage_errors
 
 
 def load_baseline() -> set[str]:
@@ -248,7 +292,15 @@ def main() -> int:
             "to individual files; re-run it with no paths."
         )
 
-    findings = collect(args.paths)
+    findings, usage_errors = collect(args.paths)
+    if usage_errors:
+        # Exit 2 before any mode runs, so a mistyped path can never read as a
+        # pass, a report, or (worst) a baseline rewritten from a partial scan.
+        # 2 keeps a usage error distinct from the gate's own exit 1, matching
+        # `check_disconnected_phenotypes.py`.
+        for message in usage_errors:
+            print(f"ERROR: {message}", file=sys.stderr)
+        return 2
     by_kind: dict[str, list[Finding]] = {"prefixed": [], "dangling": [], "self": []}
     for f in findings:
         by_kind[f.kind].append(f)

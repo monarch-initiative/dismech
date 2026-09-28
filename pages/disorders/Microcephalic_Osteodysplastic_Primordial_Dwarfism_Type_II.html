@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4213,6 +4281,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4234,6 +4303,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4463,6 +4533,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pcnt-loss-of-function" data-dismech-node="Biallelic PCNT Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PCNT Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic nonsense, frameshift, splice-site, or small indel variants in PCNT (21q22.3) abolish production of functional pericentrin, an unusually large coiled-coil scaffold protein of the pericentriolar material. Sequence analysis detects the great majority of pathogenic alleles; missense variants are a minor contributor. Some individuals originally reported as having Seckel syndrome carry PCNT loss-of-function variants and are, on review, clinically compatible with MOPD II.</div>
 
 
@@ -4577,6 +4648,7 @@ This pathophysiological event involves abnormal pericentriolar material (GO:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4598,6 +4670,7 @@ This pathophysiological event involves abnormal pericentriolar material (GO:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4623,6 +4696,7 @@ This pathophysiological event involves abnormal pericentriolar material (GO:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-centrosome-and-mitotic-spindle-disorganization" data-dismech-node="Centrosome and Mitotic Spindle Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Centrosome and Mitotic Spindle Disorganization</div>
+
 
                 <div class="item-desc">Pericentrin anchors both structural and regulatory proteins at the centrosome, including gamma-tubulin ring complexes that nucleate spindle microtubules. Its absence disorganizes the mitotic spindle and causes chromosome missegregation in dividing cells. This node substitutes PCNT for the generic centrosome/spindle lesion of the neural progenitor centrosome-spindle module.</div>
 
@@ -4914,6 +4988,7 @@ This pathophysiological event involves abnormal centrosome (GO:0005813). GO:0005
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4935,6 +5010,7 @@ This pathophysiological event involves abnormal centrosome (GO:0005813). GO:0005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4960,6 +5036,7 @@ This pathophysiological event involves abnormal centrosome (GO:0005813). GO:0005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-atr-dependent-checkpoint-signaling" data-dismech-node="Defective ATR-Dependent Checkpoint Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective ATR-Dependent Checkpoint Signaling</div>
+
 
                 <div class="item-desc">Pericentrin loss also impairs ATR-dependent DNA damage checkpoint signaling, the same pathway disrupted by hypomorphic ATR variants in Seckel syndrome. This provides the first mechanistic link between a structural centrosomal protein and DNA damage signaling and explains why the centrosomal and DNA-damage-response classes of microcephalic primordial dwarfism converge on one clinical phenotype.</div>
 
@@ -5049,6 +5126,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5071,6 +5149,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-progenitor-proliferation-and-global-cell-number-deficit" data-dismech-node="Reduced Progenitor Proliferation and Global Cell Number Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Progenitor Proliferation and Global Cell Number Deficit</div>
+
 
                 <div class="item-desc">Impaired mitotic fidelity and checkpoint signaling reduce the proliferative output of rapidly dividing progenitor pools during embryonic and fetal development — neural progenitors in the cortical germinal zones, and growth plate chondrocytes and osteoblasts in the skeleton. Because the lesion is in a ubiquitously required mitotic apparatus rather than a tissue-restricted program, the deficit is global rather than organ-selective, which is what makes the resulting growth failure &#34;primordial&#34; (prenatal in onset and never caught up).</div>
 
@@ -5462,6 +5541,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5483,6 +5563,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5508,6 +5589,13 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-vasculopathy" data-dismech-node="Global Vasculopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Vasculopathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Beyond the growth deficit, MOPD II carries a distinctive systemic vasculopathy affecting the intracranial, coronary, renal, and external carotid circulations. Neurovascular disease (moyamoya vasculopathy and intracranial aneurysms) is the leading cause of premature death; moyamoya tends to present earlier than aneurysms, and aneurysm risk persists across the shortened lifespan. Hypertension, hypercholesterolemia, and premature coronary artery disease with myocardial infarction in young adults complete the picture. This is a parallel arm that is not fully explained by the proliferation deficit alone; the intervening cell biology is curated as an explicit knowledge gap rather than asserted.</div>
 
@@ -5635,6 +5723,7 @@ This pathophysiological event involves vascular associated smooth muscle cell (C
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5656,6 +5745,7 @@ This pathophysiological event involves vascular associated smooth muscle cell (C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5683,6 +5773,7 @@ This pathophysiological event involves vascular associated smooth muscle cell (C
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5705,6 +5796,7 @@ This pathophysiological event involves vascular associated smooth muscle cell (C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-resistance-and-diabetes" data-dismech-node="Insulin Resistance and Diabetes" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin Resistance and Diabetes</div>
+
 
                 <div class="item-desc">Severe insulin resistance and early-onset diabetes are common in PCNT deficiency but are not congenital — they emerge during childhood and adolescence. Pericentrin knockdown in adipocytes does not impair proximal insulin signaling but does impair insulin-stimulated glucose uptake in proportion to a defect in cell proliferation and adipogenesis, suggesting partial failure of adipocyte differentiation rather than a receptor-proximal signaling lesion.</div>
 
@@ -5774,6 +5866,7 @@ This pathophysiological event involves vascular associated smooth muscle cell (C
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5795,6 +5888,7 @@ This pathophysiological event involves vascular associated smooth muscle cell (C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5843,7 +5937,7 @@ This pathophysiological event involves vascular associated smooth muscle cell (C
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Dentition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small, often dysplastic or missing teeth. Dental disease is near-universal and progressive, culminating in the need for prosthodontic rehabilitation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000691\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia, defined in the registry cohort as hemoglobin below 12 g/dL, is common and usually mild.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Biallelic PCNT Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic nonsense, frameshift, splice-site, or small indel variants in PCNT (21q22.3) abolish production of functional pericentrin, an unusually large coiled-coil scaffold protein of the pericentriolar material. Sequence analysis detects the great majority of pathogenic alleles; missense variants are a minor contributor. Some individuals originally reported as having Seckel syndrome carry PCNT loss-of-function variants and are, on review, clinically compatible with MOPD II.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCNT\"], \"gene_terms\": [{\"label\": \"PCNT\", \"id\": \"hgnc:16068\"}], \"role\": \"trigger\"}}, {\"id\": \"Blood Pressure Control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hypertension is common and contributes to the vascular risk. A blood pressure of 110/70 mmHg has been recommended as a starting point for an upper limit, particularly in individuals with neurovascular disease, chronic kidney disease, and/or diabetes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Centrosome and Mitotic Spindle Disorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pericentrin anchors both structural and regulatory proteins at the centrosome, including gamma-tubulin ring complexes that nucleate spindle microtubules. Its absence disorganizes the mitotic spindle and causes chromosome missegregation in dividing cells. This node substitutes PCNT for the generic centrosome/spindle lesion of the neural progenitor centrosome-spindle module.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"skin fibroblast\"], \"biological_processes\": [\"mitotic spindle organization\", \"mitotic sister chromatid segregation\", \"microtubule nucleation\"], \"genes\": [\"PCNT\"], \"gene_terms\": [{\"label\": \"PCNT\", \"id\": \"hgnc:16068\"}]}}, {\"id\": \"Cerebral Revascularization and Aneurysm Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Moyamoya disease is treated with extracranial-intracranial revascularization (usually indirect), and intracranial aneurysms with clipping or endovascular treatment. Surgery is technically demanding given patient size but is feasible at expert centers with good long-term outcomes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Kidney Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic kidney disease affects roughly a third of affected individuals, with a minority progressing to kidney transplantation. Renal function should be assessed by cystatin C or clearance methods rather than creatinine alone, given the very low muscle mass in this population.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cryptorchidism or retractile testes affect a substantial minority of males in the registry cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Defective ATR-Dependent Checkpoint Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pericentrin loss also impairs ATR-dependent DNA damage checkpoint signaling, the same pathway disrupted by hypomorphic ATR variants in Seckel syndrome. This provides the first mechanistic link between a structural centrosomal protein and DNA damage signaling and explains why the centrosomal and DNA-damage-response classes of microcephalic primordial dwarfism converge on one clinical phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes develops in a substantial minority, at a mean age of onset of about 15 years.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Global Vasculopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond the growth deficit, MOPD II carries a distinctive systemic vasculopathy affecting the intracranial, coronary, renal, and external carotid circulations. Neurovascular disease (moyamoya vasculopathy and intracranial aneurysms) is the leading cause of premature death; moyamoya tends to present earlier than aneurysms, and aneurysm risk persists across the shortened lifespan. Hypertension, hypercholesterolemia, and premature coronary artery disease with myocardial infarction in young adults complete the picture. This is a parallel arm that is not fully explained by the proliferation deficit alone; the intervening cell biology is curated as an explicit knowledge gap rather than asserted.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular associated smooth muscle cell\"]}}, {\"id\": \"High-Pitched Voice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A high, squeaky voice is a characteristic and readily noted feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001620\"}}, {\"id\": \"Hip Pathology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip disease is one of the two skeletal manifestations GeneReviews singles out as potentially requiring treatment. In the most detailed radiographic study, just over half of observed hips were affected, with coxa vara the most frequent specific lesion.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001384\"}}, {\"id\": \"Hypercholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypercholesterolemia develops in about a third of individuals, with a median onset around 18 years. It is mechanistically relevant given the premature coronary and cerebrovascular disease this entry already models, and is part of the rationale for lipid surveillance.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003124\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension is common and multifactorial given the coexisting renal, vascular, and metabolic comorbidities. A lower-than-usual upper blood pressure limit is recommended in this population.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"Increased Susceptibility to Infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some individuals appear to have increased susceptibility to infection, although this is less prominent and less well characterized than in the RNU4ATAC-related disorders.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Insulin Resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe insulin resistance is present in the large majority of individuals with PCNT defects, but is acquired rather than congenital \\u2014 all patients without insulin resistance in the reference cohort were younger than 4 years.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000855\"}}, {\"id\": \"Insulin Resistance and Diabetes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe insulin resistance and early-onset diabetes are common in PCNT deficiency but are not congenital \\u2014 they emerge during childhood and adolescence. Pericentrin knockdown in adipocytes does not impair proximal insulin signaling but does impair insulin-stimulated glucose uptake in proportion to a defect in cell proliferation and adipogenesis, suggesting partial failure of adipocyte differentiation rather than a receptor-proximal signaling lesion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intracranial Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial aneurysms occur across childhood and adulthood and carry the risk of subarachnoid hemorrhage; ruptured aneurysm is a leading cause of death in this population.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004944\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head size is relatively proportionate at birth but progresses to true, disproportionate microcephaly; adult brain size is comparable to that of a 3-month-old infant.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Moyamoya Vasculopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive stenosis of the supraclinoid internal carotid artery and proximal anterior/middle cerebral artery segments, initially often asymmetric, progressing to bilateral stenosis with occlusion and collateral formation. Moyamoya tends to present at younger ages than aneurysms and is a major cause of ischemic stroke.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011834\"}}, {\"id\": \"Orthopedic Surgery for Hip Deformity and Scoliosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hip deformity and progressive scoliosis are the skeletal manifestations that most often require surgical correction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PCNT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCNT\"], \"gene_terms\": [{\"label\": \"PCNT\", \"id\": \"hgnc:16068\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Premature Coronary Artery Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature coronary artery disease leads to myocardial infarction in young adults, an unusual and frequently unanticipated cause of death in this population.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001677\"}}, {\"id\": \"Prominent Nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unusual facial features including a prominent nose, eyes that appear prominent in infancy and early childhood, and proportionate but mildly dysplastic ears usually lacking the lobule.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000448\"}}, {\"id\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitotic fidelity and checkpoint signaling reduce the proliferative output of rapidly dividing progenitor pools during embryonic and fetal development \\u2014 neural progenitors in the cortical germinal zones, and growth plate chondrocytes and osteoblasts in the skeleton. Because the lesion is in a ubiquitously required mitotic apparatus rather than a tissue-restricted program, the deficit is global rather than organ-selective, which is what makes the resulting growth failure \\\"primordial\\\" (prenatal in onset and never caught up).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"radial glial cell\", \"chondrocyte\", \"osteoblast\"], \"biological_processes\": [\"cell population proliferation\", \"cerebral cortex development\", \"skeletal system development\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis develops over time and may require spinal fusion; together with hip deformity it is a principal indication for orthopedic surgery.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Severe Pre- and Postnatal Growth Restriction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe intrauterine growth retardation followed by severe postnatal growth failure. Adult stature averages approximately 100 cm. Short stature becomes progressively disproportionate through childhood because of shortening of the distal and middle limb segments.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Severe Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extreme short stature; adult height averages about 100 cm.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003510\"}}, {\"id\": \"Slender-Bone Skeletal Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A progressive bony dysplasia with metaphyseal changes in the limbs and epiphyseal delay, together with progressive loose-jointedness and occasional dislocation or subluxation of the knees, radial heads, and hips. Hip deformity and scoliosis are the manifestations that most often require orthopedic intervention.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002652\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both ischemic stroke (from moyamoya) and hemorrhagic stroke (from aneurysm rupture) occur, and are the dominant determinants of acquired neurological and cognitive impairment in MOPD II.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001297\"}}, {\"id\": \"Thrombocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated platelet counts are a recognized MOPD II hallmark, present in the large majority of the registry cohort and usually asymptomatic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001894\"}}], \"edges\": [{\"source\": \"Biallelic PCNT Loss of Function\", \"target\": \"Centrosome and Mitotic Spindle Disorganization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Centrosome and Mitotic Spindle Disorganization\", \"target\": \"Defective ATR-Dependent Checkpoint Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Centrosome and Mitotic Spindle Disorganization\", \"target\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective ATR-Dependent Checkpoint Signaling\", \"target\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Global Vasculopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Insulin Resistance and Diabetes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Severe Pre- and Postnatal Growth Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The organism-level growth endpoint of a global cell-number deficit.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Severe Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal expression of the same deficit.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neural progenitors are disproportionately affected by centrosome and spindle disorganization.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Slender-Bone Skeletal Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-plate and cortical bone expression of the proliferation deficit; the slender-bone pattern is what places the disorder in this nosology group.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial skeletal consequence of the dysplasia.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Hip Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal consequence of the dysplasia.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Abnormal Dentition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dental hard tissue shares the proliferation-dependent development; the specific route is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Prominent Nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial consequence; grouped with the dysmorphic features, with no established route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Thrombocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Haematopoietic finding reported in this disorder; grouped with the other marrow-derived abnormalities, with no established mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"As for the thrombocytosis: a reported haematologic finding without an established mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Increased Susceptibility to Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lymphoid progenitor proliferation shares the deficit; the immune phenotype has not been characterized mechanistically.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Grouped with the developmental findings; no specific route is established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"High-Pitched Voice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Laryngeal size follows overall body size; grouped with the growth consequences.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Moyamoya Vasculopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The characteristic cerebrovascular lesion of MOPD II and the main cause of neurological morbidity.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Intracranial Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second cerebrovascular lesion of the vasculopathy.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct consequence of the moyamoya vasculopathy and aneurysms, and the reason cerebrovascular surveillance matters in this disorder.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic arterial expression of the vasculopathy.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Premature Coronary Artery Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coronary expression of the same systemic vasculopathy.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal vascular expression; grouped with the systemic vasculopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Insulin Resistance and Diabetes\", \"target\": \"Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The metabolic endpoint of this node.\"}, {\"source\": \"Insulin Resistance and Diabetes\", \"target\": \"Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progression of the insulin resistance to overt diabetes.\"}, {\"source\": \"Insulin Resistance and Diabetes\", \"target\": \"Hypercholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Grouped with the metabolic arm; part of the insulin-resistance phenotype rather than an independent finding.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Revascularization and Aneurysm Repair\", \"target\": \"Moyamoya Vasculopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cerebral Revascularization and Aneurysm Repair\", \"target\": \"Intracranial Aneurysm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgery for Hip Deformity and Scoliosis\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood Pressure Control\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PCNT\", \"target\": \"Biallelic PCNT Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCNT\", \"target\": \"Centrosome and Mitotic Spindle Disorganization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Dentition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small, often dysplastic or missing teeth. Dental disease is near-universal and progressive, culminating in the need for prosthodontic rehabilitation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000691\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia, defined in the registry cohort as hemoglobin below 12 g/dL, is common and usually mild.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Biallelic PCNT Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic nonsense, frameshift, splice-site, or small indel variants in PCNT (21q22.3) abolish production of functional pericentrin, an unusually large coiled-coil scaffold protein of the pericentriolar material. Sequence analysis detects the great majority of pathogenic alleles; missense variants are a minor contributor. Some individuals originally reported as having Seckel syndrome carry PCNT loss-of-function variants and are, on review, clinically compatible with MOPD II.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCNT\"], \"gene_terms\": [{\"label\": \"PCNT\", \"id\": \"hgnc:16068\"}], \"role\": \"trigger\"}}, {\"id\": \"Blood Pressure Control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hypertension is common and contributes to the vascular risk. A blood pressure of 110/70 mmHg has been recommended as a starting point for an upper limit, particularly in individuals with neurovascular disease, chronic kidney disease, and/or diabetes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Centrosome and Mitotic Spindle Disorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pericentrin anchors both structural and regulatory proteins at the centrosome, including gamma-tubulin ring complexes that nucleate spindle microtubules. Its absence disorganizes the mitotic spindle and causes chromosome missegregation in dividing cells. This node substitutes PCNT for the generic centrosome/spindle lesion of the neural progenitor centrosome-spindle module.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"skin fibroblast\"], \"biological_processes\": [\"mitotic spindle organization\", \"mitotic sister chromatid segregation\", \"microtubule nucleation\"], \"genes\": [\"PCNT\"], \"gene_terms\": [{\"label\": \"PCNT\", \"id\": \"hgnc:16068\"}]}}, {\"id\": \"Cerebral Revascularization and Aneurysm Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Moyamoya disease is treated with extracranial-intracranial revascularization (usually indirect), and intracranial aneurysms with clipping or endovascular treatment. Surgery is technically demanding given patient size but is feasible at expert centers with good long-term outcomes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Kidney Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic kidney disease affects roughly a third of affected individuals, with a minority progressing to kidney transplantation. Renal function should be assessed by cystatin C or clearance methods rather than creatinine alone, given the very low muscle mass in this population.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cryptorchidism or retractile testes affect a substantial minority of males in the registry cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Defective ATR-Dependent Checkpoint Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pericentrin loss also impairs ATR-dependent DNA damage checkpoint signaling, the same pathway disrupted by hypomorphic ATR variants in Seckel syndrome. This provides the first mechanistic link between a structural centrosomal protein and DNA damage signaling and explains why the centrosomal and DNA-damage-response classes of microcephalic primordial dwarfism converge on one clinical phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes develops in a substantial minority, at a mean age of onset of about 15 years.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Global Vasculopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond the growth deficit, MOPD II carries a distinctive systemic vasculopathy affecting the intracranial, coronary, renal, and external carotid circulations. Neurovascular disease (moyamoya vasculopathy and intracranial aneurysms) is the leading cause of premature death; moyamoya tends to present earlier than aneurysms, and aneurysm risk persists across the shortened lifespan. Hypertension, hypercholesterolemia, and premature coronary artery disease with myocardial infarction in young adults complete the picture. This is a parallel arm that is not fully explained by the proliferation deficit alone; the intervening cell biology is curated as an explicit knowledge gap rather than asserted.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"High-Pitched Voice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A high, squeaky voice is a characteristic and readily noted feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001620\"}}, {\"id\": \"Hip Pathology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip disease is one of the two skeletal manifestations GeneReviews singles out as potentially requiring treatment. In the most detailed radiographic study, just over half of observed hips were affected, with coxa vara the most frequent specific lesion.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001384\"}}, {\"id\": \"Hypercholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypercholesterolemia develops in about a third of individuals, with a median onset around 18 years. It is mechanistically relevant given the premature coronary and cerebrovascular disease this entry already models, and is part of the rationale for lipid surveillance.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003124\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension is common and multifactorial given the coexisting renal, vascular, and metabolic comorbidities. A lower-than-usual upper blood pressure limit is recommended in this population.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"Increased Susceptibility to Infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some individuals appear to have increased susceptibility to infection, although this is less prominent and less well characterized than in the RNU4ATAC-related disorders.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Insulin Resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe insulin resistance is present in the large majority of individuals with PCNT defects, but is acquired rather than congenital \\u2014 all patients without insulin resistance in the reference cohort were younger than 4 years.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000855\"}}, {\"id\": \"Insulin Resistance and Diabetes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe insulin resistance and early-onset diabetes are common in PCNT deficiency but are not congenital \\u2014 they emerge during childhood and adolescence. Pericentrin knockdown in adipocytes does not impair proximal insulin signaling but does impair insulin-stimulated glucose uptake in proportion to a defect in cell proliferation and adipogenesis, suggesting partial failure of adipocyte differentiation rather than a receptor-proximal signaling lesion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intracranial Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial aneurysms occur across childhood and adulthood and carry the risk of subarachnoid hemorrhage; ruptured aneurysm is a leading cause of death in this population.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004944\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head size is relatively proportionate at birth but progresses to true, disproportionate microcephaly; adult brain size is comparable to that of a 3-month-old infant.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Moyamoya Vasculopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive stenosis of the supraclinoid internal carotid artery and proximal anterior/middle cerebral artery segments, initially often asymmetric, progressing to bilateral stenosis with occlusion and collateral formation. Moyamoya tends to present at younger ages than aneurysms and is a major cause of ischemic stroke.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011834\"}}, {\"id\": \"Orthopedic Surgery for Hip Deformity and Scoliosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hip deformity and progressive scoliosis are the skeletal manifestations that most often require surgical correction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PCNT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCNT\"], \"gene_terms\": [{\"label\": \"PCNT\", \"id\": \"hgnc:16068\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Premature Coronary Artery Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature coronary artery disease leads to myocardial infarction in young adults, an unusual and frequently unanticipated cause of death in this population.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001677\"}}, {\"id\": \"Prominent Nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unusual facial features including a prominent nose, eyes that appear prominent in infancy and early childhood, and proportionate but mildly dysplastic ears usually lacking the lobule.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000448\"}}, {\"id\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitotic fidelity and checkpoint signaling reduce the proliferative output of rapidly dividing progenitor pools during embryonic and fetal development \\u2014 neural progenitors in the cortical germinal zones, and growth plate chondrocytes and osteoblasts in the skeleton. Because the lesion is in a ubiquitously required mitotic apparatus rather than a tissue-restricted program, the deficit is global rather than organ-selective, which is what makes the resulting growth failure \\\"primordial\\\" (prenatal in onset and never caught up).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"radial glial cell\", \"chondrocyte\", \"osteoblast\"], \"biological_processes\": [\"cell population proliferation\", \"cerebral cortex development\", \"skeletal system development\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis develops over time and may require spinal fusion; together with hip deformity it is a principal indication for orthopedic surgery.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Severe Pre- and Postnatal Growth Restriction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe intrauterine growth retardation followed by severe postnatal growth failure. Adult stature averages approximately 100 cm. Short stature becomes progressively disproportionate through childhood because of shortening of the distal and middle limb segments.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Severe Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extreme short stature; adult height averages about 100 cm.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003510\"}}, {\"id\": \"Slender-Bone Skeletal Dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A progressive bony dysplasia with metaphyseal changes in the limbs and epiphyseal delay, together with progressive loose-jointedness and occasional dislocation or subluxation of the knees, radial heads, and hips. Hip deformity and scoliosis are the manifestations that most often require orthopedic intervention.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002652\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both ischemic stroke (from moyamoya) and hemorrhagic stroke (from aneurysm rupture) occur, and are the dominant determinants of acquired neurological and cognitive impairment in MOPD II.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001297\"}}, {\"id\": \"Thrombocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated platelet counts are a recognized MOPD II hallmark, present in the large majority of the registry cohort and usually asymptomatic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001894\"}}], \"edges\": [{\"source\": \"Biallelic PCNT Loss of Function\", \"target\": \"Centrosome and Mitotic Spindle Disorganization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Centrosome and Mitotic Spindle Disorganization\", \"target\": \"Defective ATR-Dependent Checkpoint Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Centrosome and Mitotic Spindle Disorganization\", \"target\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective ATR-Dependent Checkpoint Signaling\", \"target\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Global Vasculopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Insulin Resistance and Diabetes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Severe Pre- and Postnatal Growth Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The organism-level growth endpoint of a global cell-number deficit.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Severe Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal expression of the same deficit.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neural progenitors are disproportionately affected by centrosome and spindle disorganization.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Slender-Bone Skeletal Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-plate and cortical bone expression of the proliferation deficit; the slender-bone pattern is what places the disorder in this nosology group.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial skeletal consequence of the dysplasia.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Hip Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal consequence of the dysplasia.\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Abnormal Dentition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dental hard tissue shares the proliferation-dependent development; the specific route is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Prominent Nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial consequence; grouped with the dysmorphic features, with no established route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Thrombocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Haematopoietic finding reported in this disorder; grouped with the other marrow-derived abnormalities, with no established mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"As for the thrombocytosis: a reported haematologic finding without an established mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Increased Susceptibility to Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lymphoid progenitor proliferation shares the deficit; the immune phenotype has not been characterized mechanistically.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Grouped with the developmental findings; no specific route is established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Progenitor Proliferation and Global Cell Number Deficit\", \"target\": \"High-Pitched Voice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Laryngeal size follows overall body size; grouped with the growth consequences.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Moyamoya Vasculopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The characteristic cerebrovascular lesion of MOPD II and the main cause of neurological morbidity.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Intracranial Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second cerebrovascular lesion of the vasculopathy.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct consequence of the moyamoya vasculopathy and aneurysms, and the reason cerebrovascular surveillance matters in this disorder.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic arterial expression of the vasculopathy.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Premature Coronary Artery Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coronary expression of the same systemic vasculopathy.\"}, {\"source\": \"Global Vasculopathy\", \"target\": \"Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal vascular expression; grouped with the systemic vasculopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Insulin Resistance and Diabetes\", \"target\": \"Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The metabolic endpoint of this node.\"}, {\"source\": \"Insulin Resistance and Diabetes\", \"target\": \"Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progression of the insulin resistance to overt diabetes.\"}, {\"source\": \"Insulin Resistance and Diabetes\", \"target\": \"Hypercholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Grouped with the metabolic arm; part of the insulin-resistance phenotype rather than an independent finding.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Revascularization and Aneurysm Repair\", \"target\": \"Moyamoya Vasculopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cerebral Revascularization and Aneurysm Repair\", \"target\": \"Intracranial Aneurysm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgery for Hip Deformity and Scoliosis\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood Pressure Control\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PCNT\", \"target\": \"Biallelic PCNT Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCNT\", \"target\": \"Centrosome and Mitotic Spindle Disorganization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5925,6 +6019,9 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5939,6 +6036,7 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5963,6 +6061,7 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6019,6 +6118,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6033,6 +6135,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6118,6 +6221,9 @@ This clinical feature is Moyamoya phenomenon (HP:0011834), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6132,6 +6238,7 @@ This clinical feature is Moyamoya phenomenon (HP:0011834), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6190,6 +6297,9 @@ This clinical feature is Dilatation of the cerebral artery (HP:0004944). HP:0004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6204,6 +6314,7 @@ This clinical feature is Dilatation of the cerebral artery (HP:0004944). HP:0004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6228,6 +6339,7 @@ This clinical feature is Dilatation of the cerebral artery (HP:0004944). HP:0004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6284,6 +6396,9 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6298,6 +6413,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6322,6 +6438,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6378,6 +6495,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6392,6 +6512,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6450,6 +6571,9 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:000167
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6464,6 +6588,7 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:000167
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6488,6 +6613,7 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:000167
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6553,6 +6679,9 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6567,6 +6696,7 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6632,6 +6762,9 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6646,6 +6779,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6702,6 +6836,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6716,6 +6853,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6799,6 +6937,9 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6813,6 +6954,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6871,6 +7013,9 @@ This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6885,6 +7030,7 @@ This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6909,6 +7055,7 @@ This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6965,6 +7112,9 @@ This clinical feature is Prominent nose (HP:0000448). HP:0000448 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6979,6 +7129,7 @@ This clinical feature is Prominent nose (HP:0000448). HP:0000448 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7046,6 +7197,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7060,6 +7214,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7127,6 +7282,9 @@ This clinical feature is Abnormal hip joint morphology (HP:0001384). HP:0001384 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7141,6 +7299,7 @@ This clinical feature is Abnormal hip joint morphology (HP:0001384). HP:0001384 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7165,6 +7324,7 @@ This clinical feature is Abnormal hip joint morphology (HP:0001384). HP:0001384 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7230,6 +7390,9 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7244,6 +7407,7 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7300,6 +7464,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7314,6 +7481,7 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7397,6 +7565,9 @@ This clinical feature is Skeletal dysplasia (HP:0002652), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7411,6 +7582,7 @@ This clinical feature is Skeletal dysplasia (HP:0002652), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7485,6 +7657,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7499,6 +7674,7 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7523,6 +7699,7 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7588,6 +7765,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7602,6 +7782,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7626,6 +7807,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7684,6 +7866,9 @@ This clinical feature is Abnormally high-pitched voice (HP:0001620). HP:0001620 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7698,6 +7883,7 @@ This clinical feature is Abnormally high-pitched voice (HP:0001620). HP:0001620 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7765,6 +7951,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7779,6 +7968,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7835,6 +8025,9 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7849,6 +8042,7 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7949,6 +8143,9 @@ This disease-associated gene is PCNT (hgnc:16068). hgnc:16068 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7963,6 +8160,7 @@ This disease-associated gene is PCNT (hgnc:16068). hgnc:16068 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7987,6 +8185,7 @@ This disease-associated gene is PCNT (hgnc:16068). hgnc:16068 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8072,6 +8271,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8082,6 +8284,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8109,6 +8314,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8175,6 +8381,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8185,6 +8394,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8212,6 +8424,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8278,6 +8491,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8288,6 +8504,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8357,6 +8576,7 @@ This treatment targets Dilatation of the cerebral artery (HP:0004944). HP:000494
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8420,6 +8640,9 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8430,6 +8653,9 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -8479,6 +8705,7 @@ This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8545,6 +8772,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8555,6 +8785,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8604,6 +8837,7 @@ This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8670,6 +8904,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8680,6 +8917,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8707,6 +8947,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8782,6 +9023,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8833,6 +9075,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8901,6 +9144,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8966,6 +9210,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9076,6 +9321,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9149,6 +9395,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10833,6 +11080,61 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">MOPD II and MOPD type I share a clinical name and a place in the microcephalic primordial dwarfism group but are distinct diseases with distinct genes, distinct mechanisms, distinct natural histories, distinct MONDO and OMIM identifiers, and separate GeneReviews chapters. They are therefore curated as two dismech entries, not one; see the differential_diagnoses block and the Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_I entry.
+Deep-research provenance: research/Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_II-deep-research-claude_code.md (claude_code provider; the falcon/Edison provider returned HTTP 402 Payment Required and could not be run). Two identifier errors in that report were caught and corrected during curation: the MONDO ID (report said MONDO:0008034; the correct term verified with OAK is MONDO:0008872) and the PCNT HGNC ID (report said HGNC:8720; the correct ID verified with OAK is hgnc:16068). The report&#39;s smooth-muscle-cell HSF1/HMGCR atherogenesis mechanism and its statin-repurposing proposal were deliberately NOT curated as pathophysiology or treatment: the supporting article is a 2023 JCI Insight paper with no PMID recoverable in this session, so no snippet could be verified against a cached abstract. The vascular mechanism is instead recorded as an explicit KNOWLEDGE_GAP discussion.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Microcephalic Osteodysplastic Primordial Dwarfism Type II</strong> · 2026-07-31T17:47:56Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_II/2026-07-31T174756Z-claude-code-e5d170.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MOPD II (Majewski osteodysplastic primordial dwarfism type II;
+PCNT; MONDO:0008872).
+
+Lump-vs-split decision, made before curation: MOPD I and MOPD II were curated as TWO
+records, not one, for the reasons recorded in the companion MOPD I history record
+(distinct genes, mechanisms, natural histories, identifiers, and GeneReviews chapters).
+Each entry carries the other as an explicit differential diagnosis with structured
+distinguishing_features.
+
+Deep research: the falcon/Edison provider returned HTTP 402 Payment Required and could
+not be run, so the claude_code provider was used instead
+(research/Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_II-deep-research-claude_code.md).
+
+GeneReviews baseline: PMID:34978779 was found, fetched, cached, tagged in the top-level
+references block, and cross-referenced. Its Agents/Circumstances to Avoid section
+(growth hormone supplementation without documented GH deficiency; excessive nutritional
+supplementation in infancy) is curated as a dedicated treatment entry so the
+contraindication is machine-visible.
+
+Pathograph curated: biallelic PCNT loss of function -&gt; centrosome and mitotic spindle
+disorganization (conforms_to
+neural_progenitor_centrosome_spindle_dysfunction#Centrosome and Mitotic Spindle
+Perturbation) -&gt; defective ATR-dependent checkpoint signaling -&gt; reduced progenitor
+proliferation and global cell number deficit, with parallel global-vasculopathy and
+insulin-resistance arms.
+
+DR errors caught and corrected during curation: the MONDO ID (report gave MONDO:0008034;
+OAK-verified correct term is MONDO:0008872) and the PCNT HGNC ID (report gave HGNC:8720;
+OAK-verified correct ID is hgnc:16068). The report&#39;s smooth-muscle-cell HSF1/HMGCR
+atherogenesis mechanism and its statin-repurposing proposal were deliberately NOT curated
+as pathophysiology or treatment: the supporting 2023 JCI Insight article had no PMID
+recoverable in this session, so no snippet could be verified against a cached abstract.
+That mechanism is recorded as an explicit KNOWLEDGE_GAP discussion attached to the
+Global Vasculopathy node instead.
+
+Validation: just validate passes schema, term, and reference validation;
+52/52 snippets verified against cached references; weighted compliance 92.1%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

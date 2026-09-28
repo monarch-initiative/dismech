@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4151,6 +4219,7 @@ This subtype is caused by variation in SMARCB1 (hgnc:11103). hgnc:11103 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4172,6 +4241,7 @@ This subtype is caused by variation in SMARCB1 (hgnc:11103). hgnc:11103 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4262,6 +4332,7 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4324,6 +4395,7 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4345,6 +4417,7 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4392,6 +4465,7 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-smarcb1-or-lztr1-loss-of-function-first-hit" data-dismech-node="Germline SMARCB1 or LZTR1 Loss of Function (First Hit)" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline SMARCB1 or LZTR1 Loss of Function (First Hit)</div>
+
 
                 <div class="item-desc">The predisposing event is a germline loss-of-function variant in SMARCB1 (a core SWI/SNF chromatin-remodeling subunit) or LZTR1 (a CUL3 ubiquitin-ligase substrate adaptor), both located on chromosome 22q. This heterozygous germline &#34;first hit&#34; sensitizes Schwann-cell precursors to subsequent somatic events that complete tumorigenesis.</div>
 
@@ -4566,6 +4640,7 @@ This pathophysiological event involves LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-composite-4-hit-3-event-22q-inactivation" data-dismech-node="Composite 4-Hit/3-Event 22q Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Composite 4-Hit/3-Event 22q Inactivation</div>
 
+
                 <div class="item-desc">Schwannomas in SMARCB1/LZTR1-related schwannomatosis arise through a characteristic composite mechanism involving four mutational hits across three events: the germline first hit in SMARCB1 or LZTR1, somatic inactivation of the remaining wild-type SMARCB1/LZTR1 allele, and somatic biallelic inactivation of NF2. Because SMARCB1, LZTR1, and NF2 all lie on chromosome 22q, a single somatic loss of one 22q copy can simultaneously remove the remaining predisposition-gene allele and one NF2 allele, leaving a second somatic NF2 mutation to complete the process.</div>
 
 
@@ -4733,6 +4808,7 @@ This pathophysiological event involves decreased negative regulation of cell pop
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4754,6 +4830,7 @@ This pathophysiological event involves decreased negative regulation of cell pop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4781,6 +4858,7 @@ This pathophysiological event involves decreased negative regulation of cell pop
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4803,6 +4881,7 @@ This pathophysiological event involves decreased negative regulation of cell pop
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smarcb1-swi-snf-chromatin-remodeling-dysfunction" data-dismech-node="SMARCB1 SWI/SNF Chromatin-Remodeling Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">SMARCB1 SWI/SNF Chromatin-Remodeling Dysfunction</div>
+
 
                 <div class="item-desc">SMARCB1 (INI1/BAF47) is a core subunit of the SWI/SNF (BAF) ATP-dependent chromatin-remodeling complex. Loss of SMARCB1 impairs SWI/SNF-mediated nucleosome remodeling and gene regulation, contributing to Schwann-cell transformation and underlying the higher malignancy risk in SMARCB1-related disease (epithelioid morphology with INI1 loss).</div>
 
@@ -4967,6 +5046,7 @@ This pathophysiological event involves decreased chromatin remodeling (GO:000633
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lztr1-cul3-substrate-adaptor-dysfunction" data-dismech-node="LZTR1-CUL3 Substrate Adaptor Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">LZTR1-CUL3 Substrate Adaptor Dysfunction</div>
+
 
                 <div class="item-desc">LZTR1 functions as a substrate-specific adaptor for the CUL3 E3 ubiquitin ligase, targeting substrates including RAS GTPases for ubiquitination and membrane-level regulation. Loss of LZTR1 impairs this ubiquitin-mediated control and can enhance RAS-MAPK signaling, contributing to Schwann-cell proliferation in LZTR1-related schwannomatosis.</div>
 
@@ -5169,6 +5249,7 @@ This pathophysiological event involves increased Ras protein signal transduction
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5191,6 +5272,7 @@ This pathophysiological event involves increased Ras protein signal transduction
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-merlin-loss-and-schwann-cell-tumorigenesis" data-dismech-node="Merlin Loss and Schwann-Cell Tumorigenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Merlin Loss and Schwann-Cell Tumorigenesis</div>
+
 
                 <div class="item-desc">Somatic biallelic NF2 inactivation eliminates the tumor suppressor merlin/schwannomin, the convergent effector shared with sporadic and NF2-related schwannoma. Merlin loss removes contact-dependent growth inhibition and de-represses mitogenic and Hippo/YAP-TAZ signaling, driving clonal proliferation of neoplastic Schwann cells into multiple benign schwannomas.</div>
 
@@ -5388,6 +5470,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5409,6 +5492,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5434,6 +5518,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-neuropathic-pain" data-dismech-node="Chronic Neuropathic Pain" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Neuropathic Pain</div>
+
 
                 <div class="item-desc">Multiple schwannomas impinging on peripheral and spinal nerves produce chronic, often severe pain that is the most prominent and most frequently presenting clinical feature of schwannomatosis, distinguishing it clinically from NF2-related disease.</div>
 
@@ -5633,6 +5718,9 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5647,6 +5735,7 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5710,6 +5799,9 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5724,6 +5816,7 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5748,6 +5841,7 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5803,6 +5897,7 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
             </div>
 
 
+
             <div class="context-notes">GeneReviews reports that affected individuals most commonly present between the second and fourth decade of life.</div>
 
 
@@ -5821,6 +5916,7 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5877,6 +5973,9 @@ This clinical feature is Meningioma (HP:0002858). HP:0002858 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5891,6 +5990,7 @@ This clinical feature is Meningioma (HP:0002858). HP:0002858 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5989,6 +6089,9 @@ This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6014,6 +6117,7 @@ This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6035,6 +6139,7 @@ This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6092,6 +6197,9 @@ This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6117,6 +6225,7 @@ This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6138,6 +6247,7 @@ This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6224,6 +6334,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6234,6 +6347,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6261,6 +6377,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6333,6 +6450,12 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Periodic neurologic examination, pain assessment, and brain/spine or whole-body MRI surveillance are recommended for schwannomatosis patients.</div>
 
 
@@ -6354,6 +6477,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6426,6 +6550,12 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Therapeutic radiation should be avoided when possible in schwannomatosis because it can increase the risk of malignant transformation of nerve sheath tumors. This is the principal &#34;agents/circumstances to avoid&#34; management recommendation in GeneReviews.</div>
 
 
@@ -6447,6 +6577,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6519,6 +6650,12 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because chronic pain is the dominant and often treatment-resistant symptom of schwannomatosis, GeneReviews recommends a comprehensive, multimodal approach to pain management guided by a pain specialist or neurologist.</div>
 
 
@@ -6562,6 +6699,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6938,6 +7076,7 @@ This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"improves pain relief in schwannomatosis patients receiving background non-NSAID therapy"</div>
@@ -7008,6 +7147,7 @@ This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7748,6 +7888,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

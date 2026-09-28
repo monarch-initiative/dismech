@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4101,6 +4169,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4125,6 +4194,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4235,6 +4305,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4259,6 +4330,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4295,6 +4367,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-passive-oscillatory-motion-exposure" data-dismech-node="Prolonged Passive Oscillatory Motion Exposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged Passive Oscillatory Motion Exposure</div>
+
 
                 <div class="item-desc">The initiating exposure: hours of passive, periodic, oscillatory motion - a ship, aircraft, car or train, but also a swaying building, a waterbed or moving exercise equipment. What matters mechanistically is the oscillatory or periodic character of the stimulus coupled with a minimum duration on the order of hours, not the mode of transport. A concurrent physical or psychological stressor during the exposure is commonly reported, and perimenstrual or perimenopausal hormonal state at the time of exposure has been proposed as a risk factor. Notably the triggering journey is not otherwise remarkable - it need not involve seasickness or illness.</div>
 
@@ -4350,6 +4423,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4372,6 +4446,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-velocity-storage-cross-axis-maladaptation" data-dismech-node="Velocity Storage Cross-Axis Maladaptation" data-dismech-type="pathophysiology">
                 <div class="item-name">Velocity Storage Cross-Axis Maladaptation</div>
+
 
                 <div class="item-desc">The core lesion. Velocity storage is the central vestibular integrator that prolongs the response to rotation well beyond the cupula&#39;s own time constant; roll-while-rotating conditioning maladapts the vestibulo-ocular reflex through it. The dependence on velocity storage is not assumed - in the monkey experiments the maladaptation appeared only in animals with long VOR time constants and not when the time constant approached the cupula&#39;s, which is what implicates the central integrator rather than the periphery. Modelled as a three-by-three dynamical system, normal upright orientation gives a diagonal system matrix whose yaw eigenvector aligns with gravity; in MdDS off-diagonal terms appear, representing cross-axis coupling and a misalignment between the yaw eigenvector and the head vertical, which is experienced as a directional pull. No GO term is bound here because none describes the vestibulo-ocular reflex.</div>
 
@@ -4455,6 +4530,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4481,6 +4557,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4503,6 +4580,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-oscillatory-self-motion-perception" data-dismech-node="Persistent Oscillatory Self-Motion Perception" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Oscillatory Self-Motion Perception</div>
+
 
                 <div class="item-desc">The cardinal symptom and the state that defines the disease: a continuous non-spinning perception of rocking, bobbing or swaying, present most or all of the day, persisting for months or years after a motion exposure of hours. Its signature behaviour is that it is transiently nulled by re-exposure to passive motion and rebounds when that motion stops - the percept behaves as though the brain has adopted a model of the world in which the motion is still happening.</div>
 
@@ -4558,6 +4636,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4584,6 +4663,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4606,6 +4686,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limbic-vestibular-network-reorganization" data-dismech-node="Limbic-Vestibular Network Reorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Limbic-Vestibular Network Reorganization</div>
+
 
                 <div class="item-desc">Downstream of the maladapted reflex, functional imaging shows a limbic focus of hypermetabolism in the left entorhinal cortex and amygdala, increased functional connectivity from that focus to posterior visual and vestibular processing areas including motion-sensitive MT/V5, and reduced connectivity to frontal and temporal cortices. Resting-state EEG frames the same state as entrainment to oscillating motion, with treatment response tracking inter-regional alpha-band phase coherence. This is a network-level dysrhythmia rather than a focal lesion, which is consistent with structural imaging being normal.</div>
 
@@ -4646,6 +4727,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4670,6 +4752,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4698,6 +4781,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4720,6 +4804,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-impairment-and-secondary-affective-burden" data-dismech-node="Functional Impairment and Secondary Affective Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Impairment and Secondary Affective Burden</div>
+
 
                 <div class="item-desc">The clinical endpoint. Beyond the motion illusion itself, patients develop spatial disorientation, visual motion intolerance, chronic fatigue, impaired cognition, insomnia, and exacerbation of headache, anxiety and depression. Whether the affective symptoms are secondary to a relentless perceptual disturbance or share the limbic substrate is not resolved; the imaging studies covaried for mood and anxiety precisely because of that ambiguity.</div>
 
@@ -4758,6 +4843,7 @@ MdDS falls disproportionately on women in the fourth to sixth decades, often aro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4893,6 +4979,9 @@ This clinical feature is Non-spinning oscillatory vertigo, annotated with Non-sp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4910,6 +4999,7 @@ This clinical feature is Non-spinning oscillatory vertigo, annotated with Non-sp
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4965,6 +5055,9 @@ This clinical feature is Visual motion intolerance, annotated with Abnormal vest
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4982,6 +5075,7 @@ This clinical feature is Visual motion intolerance, annotated with Abnormal vest
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5037,6 +5131,9 @@ This clinical feature is Spatial disorientation, annotated with Abnormal vestibu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5054,6 +5151,7 @@ This clinical feature is Spatial disorientation, annotated with Abnormal vestibu
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5116,6 +5214,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5133,6 +5234,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5195,6 +5297,9 @@ This clinical feature is Gait imbalance (HP:0002141). HP:0002141 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5212,6 +5317,7 @@ This clinical feature is Gait imbalance (HP:0002141). HP:0002141 is a phenotype 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5267,6 +5373,9 @@ This clinical feature is Impaired cognition, annotated with Cognitive impairment
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5284,6 +5393,7 @@ This clinical feature is Impaired cognition, annotated with Cognitive impairment
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5337,6 +5447,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5354,6 +5467,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5407,6 +5521,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5424,6 +5541,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5477,6 +5595,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5494,6 +5615,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5574,6 +5696,9 @@ This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5591,6 +5716,7 @@ This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic.
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5707,6 +5833,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5717,6 +5846,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -5767,6 +5899,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5793,6 +5926,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5817,6 +5951,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5882,6 +6017,9 @@ This treatment is Transcranial Magnetic Stimulation (NCIT:C116655). NCIT:C116655
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5892,6 +6030,9 @@ This treatment is Transcranial Magnetic Stimulation (NCIT:C116655). NCIT:C116655
 
 
     </div>
+
+
+
 
 
 
@@ -5942,6 +6083,7 @@ This treatment is Transcranial Magnetic Stimulation (NCIT:C116655). NCIT:C116655
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5966,6 +6108,7 @@ This treatment is Transcranial Magnetic Stimulation (NCIT:C116655). NCIT:C116655
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6031,6 +6174,9 @@ This treatment is Transcranial Magnetic Stimulation (NCIT:C116655). NCIT:C116655
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6041,6 +6187,9 @@ This treatment is Transcranial Magnetic Stimulation (NCIT:C116655). NCIT:C116655
 
 
     </div>
+
+
+
 
 
 
@@ -6071,6 +6220,7 @@ This treatment is Transcranial Magnetic Stimulation (NCIT:C116655). NCIT:C116655
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6136,6 +6286,9 @@ This treatment is Transcranial Direct Current Stimulation (NCIT:C129862). NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6146,6 +6299,9 @@ This treatment is Transcranial Direct Current Stimulation (NCIT:C129862). NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -6194,6 +6350,7 @@ This treatment is Transcranial Direct Current Stimulation (NCIT:C129862). NCIT:C
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6259,6 +6416,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6269,6 +6429,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6299,6 +6462,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6388,6 +6552,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6439,6 +6604,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6516,6 +6682,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6583,6 +6750,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6633,6 +6801,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6687,6 +6856,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6713,6 +6883,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6737,6 +6908,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6809,6 +6981,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6872,6 +7045,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6898,6 +7072,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6922,6 +7097,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6977,6 +7153,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7042,6 +7219,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7113,6 +7291,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7305,6 +7484,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7347,6 +7527,7 @@ This environmental factor is exposure to passive oscillatory motion during trave
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8354,6 +8535,25 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Ontology note. The central mechanism of this entry is maladaptation of the vestibulo-ocular reflex, and no adequate GO term for that process exists: GO has no vestibulo-ocular reflex class, and GO:0060013 - which the deep-research report offered under that name - is `righting reflex`, a different process. The mechanism nodes therefore carry no GO binding rather than a near-miss one, and name the process in prose instead. See the wider term note in the PR.
+Scope note. The three temporal designations in the Bárány criteria - `in evolution`, `transient` and `persistent` - are observation-window qualifiers on one disease, not distinct entities, so they are curated as `progression` phases rather than as `has_subtypes`. The genuine subtype axis is motion-triggered versus non-motion-triggered onset, and that one is contested; see the discussion attached to the trigger node.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Mal De Debarquement</strong> · 2026-08-29T15:56:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mal_De_Debarquement/2026-08-29T155614Z-claude-code-47abe6.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of mal de Debarquement syndrome, MONDO:0016217, as a Disease. Deep research: OpenScientist, research/Mal_De_Debarquement-deep-research-openscientist.md, 21 citations, 798s, 22/22 references verified with 0 percent confabulation. Mechanism curated as a five-node chain: prolonged passive oscillatory motion exposure, velocity storage cross-axis maladaptation, persistent oscillatory self-motion perception, limbic-vestibular network reorganization, and functional impairment. The Barany Society consensus criteria are curated as a definitions block with derivation_basis ESTABLISHED_CRITERIA, and the three temporal designations are curated as progression phases rather than has_subtypes because they are observation-window qualifiers on one disease. The non-motion-triggered presentation is recorded as an open KNOWLEDGE_GAP rather than folded into the entry, since the entry&#39;s mechanism starts from an oscillatory conditioning stimulus that such cases lack. Uses the post-issue-7439 evidence model throughout: supports carries direction only and directness is set separately, with INDIRECT on the monkey conditioning data, the computational velocity-storage model, and the inference from treatment response back to mechanism. One REFUTE item records that iTBS added no benefit over VOR rehabilitation in a randomised trial. No GO term is bound for the vestibulo-ocular reflex: the research report offered GO:0060013 under that name, the report&#39;s own term_validation block flagged the label mismatch, and OLS confirms GO:0060013 is righting reflex, so the nodes name the process in prose instead. ECTO:6000033 exposure to travel is bound for the trigger with its imprecision recorded in notes. Validated with just validate-disorders, 32/32 snippets verified, validate-terms, check-entity-refs, check-duplicate-keys, all five snippet gates, a 10-pair reference-title cross-check against the cache, and 15509 structural and conformance tests.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4267,6 +4335,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4348,6 +4417,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4369,6 +4439,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4406,6 +4477,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hhv-8-kshv-viral-pathogenesis" data-dismech-node="HHV-8/KSHV Viral Pathogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">HHV-8/KSHV Viral Pathogenesis</div>
+
 
                 <div class="item-desc">In HHV-8+ MCD, lytic replication of Kaposi sarcoma-associated herpesvirus in plasmablasts produces viral IL-6 (vIL-6) and other inflammatory mediators. vIL-6 signals through gp130 independently of the IL-6 receptor, bypassing normal regulatory checkpoints. The disease course is characterized by recurrent flares of lytic viral activity. In contrast, Viral-Track analysis of UCD (n=22) and iMCD (n=19) found no shared viral signature, indicating that active viral infection is not a driver of the HHV-8-negative subtypes.</div>
 
@@ -4567,6 +4639,7 @@ This pathophysiological event involves increased Lytic viral genome replication,
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4588,6 +4661,7 @@ This pathophysiological event involves increased Lytic viral genome replication,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4615,6 +4689,7 @@ This pathophysiological event involves increased Lytic viral genome replication,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4637,6 +4712,7 @@ This pathophysiological event involves increased Lytic viral genome replication,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-6-vil-6-overproduction" data-dismech-node="IL-6 / vIL-6 Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-6 / vIL-6 Overproduction</div>
+
 
                 <div class="item-desc">Lytically infected plasmablasts produce a viral IL-6 homolog (vIL-6) that signals through gp130 independently of the IL-6 receptor, bypassing the checkpoint that normally limits IL-6 signaling. Human IL-6 and IL-10 are also elevated, so the hypercytokinemia is a mixture of viral and host cytokine, and both fall when lytic replication is suppressed. This is the one Castleman subtype in which the source of the cytokine excess is known.</div>
 
@@ -4790,6 +4866,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4811,6 +4888,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4836,6 +4914,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat3-signaling-activation" data-dismech-node="JAK-STAT3 Signaling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT3 Signaling Activation</div>
+
 
                 <div class="item-desc">vIL-6 and human IL-6 both engage gp130 and activate downstream JAK kinases and STAT3 transcription factor signaling. vIL-6 does so without the IL-6 receptor, which is why anti-IL-6-receptor blockade is a poorer fit for this subtype than for the idiopathic forms, and why first-line therapy here targets the infected B cell rather than the cytokine.</div>
 
@@ -4947,6 +5026,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-cell-b-cell-proliferation" data-dismech-node="Plasma Cell / B Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasma Cell / B Cell Proliferation</div>
+
 
                 <div class="item-desc">JAK-STAT3 signaling drives proliferation of B cells and plasma cells within affected lymph nodes. In this subtype the expanding plasmablasts are themselves KSHV-infected and frequently express lytic viral genes, which is what makes them targetable both by anti-CD20 antibody and by lytic-gene-activated antiviral therapy.</div>
 
@@ -5164,6 +5244,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5186,6 +5267,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-acute-phase-response" data-dismech-node="Hepatic Acute-Phase Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Acute-Phase Response</div>
+
 
                 <div class="item-desc">IL-6 and vIL-6 signaling reprogrammes hepatic protein synthesis: C-reactive protein is induced, albumin synthesis falls, and hepcidin induction restricts iron availability. Kept separate from the B-lineage arm because it acts on a different cell lineage with a different clinical read-out. C-reactive protein, albumin and platelet count all improve together when lytic viral replication is suppressed.</div>
 
@@ -5319,6 +5401,7 @@ This pathophysiological event involves increased Acute-phase response (GO:000695
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5341,6 +5424,7 @@ This pathophysiological event involves increased Acute-phase response (GO:000695
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiofollicular-lymph-node-hyperplasia" data-dismech-node="Angiofollicular Lymph Node Hyperplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Angiofollicular Lymph Node Hyperplasia</div>
+
 
                 <div class="item-desc">The unifying histopathologic feature across all CD subtypes: lymph nodes show abnormal germinal centers (regressed/atretic in hyaline-vascular UCD, hyperplastic with plasma cell infiltrates in plasma-cell variant MCD), penetrating &#34;lollipop&#34; vessels, mantle-zone expansion (&#34;onion-skinning&#34;), and interfollicular plasmacytosis and vascular proliferation driven by IL-6 and VEGF.</div>
 
@@ -5532,6 +5616,7 @@ This pathophysiological event involves increased Angiogenesis (GO:0001525). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5647,6 +5732,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">Anemia of inflammation, driven by the same IL-6 axis as the acute-phase response, and one of the parameters that improves when lytic replication is suppressed.</div>
 
 
@@ -5666,6 +5754,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5726,6 +5815,9 @@ This clinical feature is Generalized lymphadenopathy (HP:0008940). HP:0008940 is
                     </div>
 
 
+
+
+
                     <div class="item-desc">Multiple enlarged lymph node regions, which is what makes the disease multicentric. Nodes are typically bulkier than in iMCD-TAFRO and enlarge during a flare of lytic viral activity.</div>
 
 
@@ -5745,6 +5837,7 @@ This clinical feature is Generalized lymphadenopathy (HP:0008940). HP:0008940 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5798,6 +5891,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Present in 89.2% of HHV8+ MCD patients versus 48.2% of iMCD by meta-analysis - one of the two features that most sharply separates this subtype from the idiopathic form.</div>
 
 
@@ -5817,6 +5913,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5841,6 +5938,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5903,6 +6001,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Part of the organomegaly that accompanies splenomegaly during an attack.</div>
 
 
@@ -5922,6 +6023,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5986,6 +6088,9 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in 17.4% of HHV8+ MCD versus 36.9% of iMCD by meta-analysis. Renal involvement is therefore real but substantially less frequent here than in the idiopathic form.</div>
 
 
@@ -6005,6 +6110,7 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6065,6 +6171,9 @@ This clinical feature is Kaposi sarcoma, annotated with Kaposi&#39;s sarcoma (HP
                     </div>
 
 
+
+
+
                     <div class="item-desc">Kaposi sarcoma and KSHV-associated lymphoma arise from the same uncontrolled KSHV infection that drives HHV-8+ MCD and frequently co-occur with it. In a 61-patient HIV-associated MCD cohort, 7% had histologic evidence of coexisting lymphoma at MCD diagnosis, with an incidence of 28 lymphomas per 1,000 patient-years.</div>
 
 
@@ -6084,6 +6193,7 @@ This clinical feature is Kaposi sarcoma, annotated with Kaposi&#39;s sarcoma (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6111,6 +6221,7 @@ This clinical feature is Kaposi sarcoma, annotated with Kaposi&#39;s sarcoma (HP
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6132,6 +6243,7 @@ This clinical feature is Kaposi sarcoma, annotated with Kaposi&#39;s sarcoma (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6196,6 +6308,9 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Near-universal in this subtype: constitutional symptoms were present in 98.6% of HHV8+ MCD patients versus 46.6% of iMCD in a 1,998-patient meta-analysis. Fever tracks flares of lytic viral replication.</div>
 
 
@@ -6218,6 +6333,7 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6270,6 +6386,9 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reflects the reprioritized hepatic protein synthesis of a sustained acute-phase response. Albumin improves alongside CRP and platelet count when lytic viral replication is suppressed.</div>
 
 
@@ -6289,6 +6408,7 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6342,6 +6462,9 @@ This clinical feature is Elevated C-reactive protein, annotated with Elevated ci
                     </div>
 
 
+
+
+
                     <div class="item-desc">The routine marker used to follow attack activity and treatment response in this subtype, alongside plasma KSHV viral load.</div>
 
 
@@ -6361,6 +6484,7 @@ This clinical feature is Elevated C-reactive protein, annotated with Elevated ci
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6419,6 +6543,9 @@ This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). H
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6462,6 +6589,9 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
@@ -6487,6 +6617,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6530,6 +6663,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6655,6 +6791,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6665,6 +6804,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -6713,6 +6855,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6737,6 +6880,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6758,6 +6902,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6863,6 +7008,9 @@ This treatment uses valganciclovir (NCIT:C2629). NCIT:C2629 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6873,6 +7021,9 @@ This treatment uses valganciclovir (NCIT:C2629). NCIT:C2629 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -6921,6 +7072,7 @@ This treatment uses valganciclovir (NCIT:C2629). NCIT:C2629 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6942,6 +7094,7 @@ This treatment uses valganciclovir (NCIT:C2629). NCIT:C2629 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7009,6 +7162,9 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7019,6 +7175,9 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -7046,6 +7205,7 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7134,6 +7294,9 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7144,6 +7307,9 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -7174,6 +7340,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7240,6 +7407,9 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7250,6 +7420,9 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7277,6 +7450,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7346,6 +7520,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7411,6 +7586,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7515,6 +7691,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7604,6 +7781,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7690,6 +7868,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7802,6 +7981,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7905,6 +8085,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7965,6 +8146,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7986,6 +8168,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8055,6 +8238,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8130,6 +8314,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8151,6 +8336,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

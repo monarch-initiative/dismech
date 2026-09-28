@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4288,6 +4356,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4520,6 +4589,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4609,6 +4679,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4749,6 +4820,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4770,6 +4842,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4853,6 +4926,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4975,6 +5049,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4996,6 +5071,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5033,6 +5109,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complete-or-partial-loss-of-one-x-chromosome" data-dismech-node="Complete or Partial Loss of One X Chromosome" data-dismech-type="pathophysiology">
                 <div class="item-name">Complete or Partial Loss of One X Chromosome</div>
+
 
                 <div class="item-desc">A meiotic or post-zygotic mitotic error leaves a phenotypically female individual with one intact X and either no second sex chromosome (45,X), a structurally abnormal second X (ring, isochromosome, deletion), or a mosaic mixture of cell lines. This is the only whole-chromosome haploinsufficiency compatible with postnatal life, which is itself the first mechanistic fact about the disease: survival is possible because X-inactivation has already reduced most X-linked genes to one functional copy in typical cells, so only the genes exempt from that silencing are actually rendered haploinsufficient by the loss.
 </div>
@@ -5088,6 +5165,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5109,6 +5187,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5134,6 +5213,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haploinsufficiency-of-pseudoautosomal-and-x-inactivation-escape-genes" data-dismech-node="Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes</div>
+
 
                 <div class="item-desc">Genes in the pseudoautosomal regions and the subset of X-linked genes that escape X-inactivation are normally transcribed from both sex chromosomes. With one sex chromosome absent or truncated they drop to a single functional dose. This node is the convergence point of the disease: every downstream arm is a tissue-specific consequence of a dosage shortfall in one or more of these genes. Only SHOX is confidently assigned to its phenotype; the identity of the escape genes responsible for the gonadal, cardiovascular, renal, auditory and immune arms is unresolved, and is curated here as an explicit knowledge gap rather than as a mechanism.
 </div>
@@ -5292,6 +5372,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5314,6 +5395,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5342,6 +5424,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5365,6 +5448,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shox-haploinsufficiency" data-dismech-node="SHOX Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SHOX Haploinsufficiency</div>
+
 
                 <div class="item-desc">A single functional copy of SHOX, the PAR1 homeobox transcription factor that escapes X-inactivation. This is the molecular lesion itself — reduced SHOX gene dose — held separately from the cellular programme it dysregulates, because the same dosage lesion arises in Léri-Weill dyschondrosteosis from PAR1 deletion in individuals with two intact sex chromosomes. It is the one arm of Turner syndrome where the responsible gene is named with confidence.
 </div>
@@ -5420,6 +5504,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5441,6 +5526,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5467,6 +5553,7 @@ Clinically the syndrome is therefore not a single-organ endocrine disorder but a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-chondrocyte-dysregulation" data-dismech-node="Growth-Plate Chondrocyte Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth-Plate Chondrocyte Dysregulation</div>
+
 
                 <div class="item-desc">The growth-plate chondrocyte programme downstream of SHOX. SHOX acts on chondrocyte apoptosis through targets including BNP, FGFR3, aggrecan and CTGF, so halving its dose alters the proliferation-to-hypertrophy-to-apoptosis sequence that converts cartilage into bone at the growth plate.
 </div>
@@ -5594,6 +5681,7 @@ This pathophysiological event involves dysregulated apoptotic process (GO:000691
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5616,6 +5704,7 @@ This pathophysiological event involves dysregulated apoptotic process (GO:000691
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-growth-failure-and-mesomelic-dysmorphism" data-dismech-node="Skeletal Growth Failure and Mesomelic Dysmorphism" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Growth Failure and Mesomelic Dysmorphism</div>
+
 
                 <div class="item-desc">Reduced endochondral bone growth produces the near-universal short stature and the mesomelic skeletal signature — cubitus valgus, short fourth metacarpals, Madelung deformity of the wrist, and a broad chest. Because the deficit is in the growth plate rather than in growth hormone secretion, growth hormone works here pharmacologically, by driving a partially responsive plate harder, not by replacing a missing hormone.
 </div>
@@ -5727,6 +5816,7 @@ This pathophysiological event involves decreased endochondral bone growth (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5749,6 +5839,13 @@ This pathophysiological event involves decreased endochondral bone growth (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulosa-cell-apelin-apj-signaling-dysfunction" data-dismech-node="Granulosa-Cell Apelin/APJ Signaling Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulosa-Cell Apelin/APJ Signaling Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Reduced apelin/APJ signaling observed in 45,X patient-derived granulosa-like cells. Ligand and downstream Akt activation partly rescue the cellular phenotype, supporting a signaling contribution in this model. The state has not yet been demonstrated in intact human Turner ovaries and its connection to a specific X-dosage-sensitive gene remains unknown.
 </div>
@@ -5844,6 +5941,7 @@ This pathophysiological event involves decreased endochondral bone growth (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5866,6 +5964,13 @@ This pathophysiological event involves decreased endochondral bone growth (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulosa-cell-differentiation-and-cell-cycle-dysfunction" data-dismech-node="Granulosa-Cell Differentiation and Cell-Cycle Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulosa-Cell Differentiation and Cell-Cycle Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Turner patient-derived granulosa-like cells show reduced differentiation markers and abnormal cell-cycle progression. This provides a candidate somatic-cell contribution to the ovarian phenotype, but it is not yet a demonstrated lesion in an intact human ovary and does not exclude a germ-cell-autonomous contribution.
 </div>
@@ -6033,6 +6138,7 @@ This pathophysiological event involves dysregulated cell cycle (GO:0007049). GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6054,6 +6160,7 @@ This pathophysiological event involves dysregulated cell cycle (GO:0007049). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6079,6 +6186,13 @@ This pathophysiological event involves dysregulated cell cycle (GO:0007049). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-turner-cardiomyocyte-transcriptome-and-contractile-dysregulation" data-dismech-node="Turner Cardiomyocyte Transcriptome and Contractile Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Turner Cardiomyocyte Transcriptome and Contractile Dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Patient-derived 45,X iPSC cardiomyocytes exhibit altered coding and non-coding RNA profiles, lower beating frequency, and increased mitochondrial DNA copy number. These observations nominate a cardiac-cell dosage response but do not demonstrate a cause of bicuspid valve, coarctation, generalized arteriopathy, or dissection.
 </div>
@@ -6208,6 +6322,7 @@ This pathophysiological event involves dysregulated heart development (GO:000750
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6229,6 +6344,7 @@ This pathophysiological event involves dysregulated heart development (GO:000750
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6254,6 +6370,7 @@ This pathophysiological event involves dysregulated heart development (GO:000750
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-ovarian-germ-cell-attrition-and-follicular-atresia" data-dismech-node="Accelerated Ovarian Germ Cell Attrition and Follicular Atresia" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Ovarian Germ Cell Attrition and Follicular Atresia</div>
+
 
                 <div class="item-desc">Germ cells are laid down in the Turner ovary but are then lost at an accelerated rate through follicular atresia, so the process is depletion rather than failure of germ-cell formation. The distinction is what makes the fertility picture graded rather than absolute: the rate of loss varies, it is slower in mosaic karyotypes, and it is the reason ovarian tissue or oocyte cryopreservation is even discussed — there is a window before the reserve is exhausted rather than an ovary that never had one.
 </div>
@@ -6475,6 +6592,7 @@ This pathophysiological event involves decreased germ cell development (GO:00072
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6497,6 +6615,7 @@ This pathophysiological event involves decreased germ cell development (GO:00072
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6523,6 +6642,7 @@ This pathophysiological event involves decreased germ cell development (GO:00072
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ovarian-dysgenesis-with-streak-gonad" data-dismech-node="Ovarian Dysgenesis with Streak Gonad" data-dismech-type="pathophysiology">
                 <div class="item-name">Ovarian Dysgenesis with Streak Gonad</div>
+
 
                 <div class="item-desc">The involuted, fibrous streak gonad that remains once the follicular reserve is exhausted. This is the tissue-level lesion, held separately from the systemic endocrine state it produces, because the two are separated in time and in what they respond to: the streak gonad is irreversible, whereas the endocrine consequence downstream of it is fully replaceable.
 </div>
@@ -6621,6 +6741,7 @@ This pathophysiological event involves ovarian stromal cell, annotated with stro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6642,6 +6763,7 @@ This pathophysiological event involves ovarian stromal cell, annotated with stro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6668,6 +6790,7 @@ This pathophysiological event involves ovarian stromal cell, annotated with stro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypergonadotropic-hypogonadism-and-estrogen-deficiency" data-dismech-node="Hypergonadotropic Hypogonadism and Estrogen Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypergonadotropic Hypogonadism and Estrogen Deficiency</div>
+
 
                 <div class="item-desc">The systemic endocrine state: gonadotropins are high, gonadal steroid output is absent, and puberty does not start spontaneously in most individuals. Estrogen deficiency from an age at which the skeleton, uterus and secondary sexual characteristics all depend on it is what converts a gonadal lesion into a systemic one, and it is the reason hormone replacement is continued to the age of normal menopause rather than being used only to induce puberty.
 </div>
@@ -6770,6 +6893,7 @@ This pathophysiological event involves decreased estrogen biosynthetic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6792,6 +6916,7 @@ This pathophysiological event involves decreased estrogen biosynthetic process (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6818,6 +6943,7 @@ This pathophysiological event involves decreased estrogen biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-jugular-lymphatic-sac-obstruction-and-lymphatic-network-dysplasia" data-dismech-node="Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia</div>
+
 
                 <div class="item-desc">The fetal jugular lymphatic sacs fail to drain properly into the venous system, raising lymphatic pressure and distending the posterior nuchal region into a cystic hygroma. Most hygromas resolve before birth; what survives is their imprint — the webbed neck, low posterior hairline and rotated ears are the healed residue of an intrauterine distension that has already gone. Peripheral lymphatic dysplasia in the same process gives the dorsal hand and foot lymphedema characteristic of the neonate.
 </div>
@@ -6985,6 +7111,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7008,6 +7135,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-sided-cardiac-outflow-tract-malformation" data-dismech-node="Left-Sided Cardiac Outflow Tract Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Left-Sided Cardiac Outflow Tract Malformation</div>
+
 
                 <div class="item-desc">Bicuspid aortic valve and coarctation of the aorta dominate the congenital cardiac phenotype. Their importance is not primarily neonatal — many are haemodynamically tolerated in childhood — but that they identify a subgroup with substantially increased adult aortic-dilation and dissection risk.
 </div>
@@ -7079,6 +7207,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7100,6 +7229,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7126,6 +7256,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-aortic-dilation" data-dismech-node="Progressive Aortic Dilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Aortic Dilation</div>
+
 
                 <div class="item-desc">The chronic, silent, measurable state: an ascending aorta enlarging over years. It is held separate from the acute dissection event downstream of it because the two differ in everything that matters clinically — time course, detectability, and above all treatment join point. Dilation is what surveillance imaging measures and what antihypertensive therapy and elective surgery are aimed at; dissection is the event those measures exist to prevent. The decisive feature of the dilation is one of calibration rather than biology: it becomes dangerous at absolute diameters that are unremarkable in an average-height adult, which is why surveillance is indexed to body surface area and why an aortic size index above 2.5 cm/m2 triggers surgical consideration.
 </div>
@@ -7181,6 +7312,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7202,6 +7334,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7228,6 +7361,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-dissection-and-rupture" data-dismech-node="Aortic Dissection and Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Dissection and Rupture</div>
+
 
                 <div class="item-desc">The acute catastrophic event and the leading avoidable cause of sudden death in the syndrome. It occurs at a young age relative to other aortopathies and is frequently recognised late. Dissection is also reported in individuals with no cardiac malformation at all, so a structurally normal valve reduces but does not abolish the risk.
 </div>
@@ -7282,6 +7416,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7303,6 +7438,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7330,6 +7466,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7353,6 +7490,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-par1-haploinsufficiency-and-the-turner-neurocognitive-phenotype" data-dismech-node="PAR1 Haploinsufficiency and the Turner Neurocognitive Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">PAR1 Haploinsufficiency and the Turner Neurocognitive Phenotype</div>
+
 
                 <div class="item-desc">A characteristic cognitive profile with preserved verbal ability and selectively impaired visuospatial and perceptual processing. Deletion mapping localises it to under 2 Mb of PAR1, independent of parent of origin and of X-inactivation skewing — which is what makes it a gene-dosage phenotype rather than a consequence of estrogen deficiency or of the psychosocial impact of short stature.
 </div>
@@ -7407,6 +7545,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7428,6 +7567,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7477,7 +7617,7 @@ This pathophysiological event involves decreased lymph vessel development (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"39,X (XO) mouse ovarian-reserve background series\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A background-comparison series that resolves an important limitation of the generic XO mouse. Mixed-background XO females retain fewer neonatal oocytes but remain normally fertile, whereas C57BL/6J XO females have much more severe early oocyte loss and reduced fertility. The model therefore captures a background-modified ovarian-reserve phenotype, not a stable mouse analogue of human Turner infertility.\\n\"}, {\"id\": \"45,X patient-derived iPSC cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived cardiac-cell system that measures the transcriptomic and contractile response to 45,X dosage in differentiated cardiomyocytes.\\n\", \"meta\": {\"cell_types\": [\"cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"45,X Turner syndrome-derived iPSCs and cardiomyocytes\", \"46,XX healthy-donor-derived iPSCs and cardiomyocytes\"], \"publication\": \"PMID:38124119\"}}, {\"id\": \"45,X patient-derived iPSC granulosa-like cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human patient-derived system used to test granulosa differentiation, cell-cycle progression, apelin/APJ signaling, and pathway rescue. It is the first direct cellular model represented here for a candidate somatic-cell contribution to Turner ovarian attrition.\\n\", \"meta\": {\"cell_types\": [\"granulosa cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"45,X Turner syndrome-derived granulosa-like cells\", \"Unaffected control-derived granulosa-like cells\", \"Apelin/APJ ligand and Akt/PKB rescue conditions\"], \"publication\": \"PMID:39543104\"}}, {\"id\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germ cells are laid down in the Turner ovary but are then lost at an accelerated rate through follicular atresia, so the process is depletion rather than failure of germ-cell formation. The distinction is what makes the fertility picture graded rather than absolute: the rate of loss varies, it is slower in mosaic karyotypes, and it is the reason ovarian tissue or oocyte cryopreservation is even discussed \\u2014 there is a window before the reserve is exhausted rather than an ovary that never had one.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oocyte\", \"granulosa cell\"], \"biological_processes\": [\"ovarian follicle atresia\", \"germ cell development\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"39,X (XO) mouse ovarian-reserve background series\", \"species\": \"Mouse\", \"genotype\": \"39,X (XO) on mixed N2(C3H.B6) and inbred C57BL/6J genetic backgrounds\\n\", \"background\": \"Mixed N2(C3H.B6) compared with C57BL/6J\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"C57BL/6J XO females reproduce early oocyte loss and infertility or subfertility, while mixed-background XO females show a milder reserve loss without the human fertility endpoint.\\n\"}]}}, {\"id\": \"Antihypertensive Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual blood-pressure assessment with treatment of confirmed hypertension, preferentially with a beta-blocker, an angiotensin receptor blocker, or both where aortic dilation is also present. The mechanistic honesty here matters: the drug-class preference is imported from other genetically triggered aortopathies, and the guideline states plainly that no study has shown antihypertensive therapy to slow or prevent aortic dilation in Turner syndrome specifically. It is curated because it is a graded recommendation acting on a node this entry models, not because the aortic benefit is established.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"beta-blocker\", \"angiotensin receptor blocker\"]}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The leading avoidable cause of sudden death, occurring at younger ages and smaller aortic diameters than in the general population.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Dissection and Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute catastrophic event and the leading avoidable cause of sudden death in the syndrome. It occurs at a young age relative to other aortopathies and is frequently recognised late. Dissection is also reported in individuals with no cardiac malformation at all, so a structurally normal valve reduces but does not abolish the risk.\\n\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\"}}, {\"id\": \"Bicuspid Aortic Valve\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The commonest congenital cardiac lesion in the syndrome and the principal marker of aortic dissection risk.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001647\"}}, {\"id\": \"Coarctation of the Aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left-heart obstructive lesion, strongly co-associated with the neck web.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001680\"}}, {\"id\": \"Complete or Partial Loss of One X Chromosome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A meiotic or post-zygotic mitotic error leaves a phenotypically female individual with one intact X and either no second sex chromosome (45,X), a structurally abnormal second X (ring, isochromosome, deletion), or a mosaic mixture of cell lines. This is the only whole-chromosome haploinsufficiency compatible with postnatal life, which is itself the first mechanistic fact about the disease: survival is possible because X-inactivation has already reduced most X-linked genes to one functional copy in typical cells, so only the genes exempt from that silencing are actually rendered haploinsufficient by the loss.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Cubitus Valgus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased carrying angle at the elbow, part of the mesomelic skeletal signature of SHOX haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002967\"}}, {\"id\": \"Elevated follicle-stimulating hormone (FSH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C181076\", \"term_label\": \"Follicle-Stimulating Hormone\", \"readouts\": [{\"target\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A rising FSH without pubertal signs is the biochemical definition of the hypergonadotropic state this node represents, and is the trigger for hormone replacement.\\n\"}]}}, {\"id\": \"Elevated luteinizing hormone (LH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C190789\", \"term_label\": \"Luteinizing Hormone\", \"readouts\": [{\"target\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated LH reports the same loss of gonadal negative feedback as FSH.\\n\"}]}}, {\"id\": \"Estrogen Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Estrogen to induce puberty at a physiological age, then continued replacement to the age of normal menopause. Unlike growth hormone this is true replacement \\u2014 it substitutes for the hormone the streak gonad cannot make \\u2014 and its end-organ targets are the skeleton and the uterus as well as secondary sexual development.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"estradiol\"]}}, {\"id\": \"Fertility Preservation by Oocyte Cryopreservation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Controlled ovarian stimulation followed by oocyte cryopreservation, offered to post-menarcheal individuals with residual fertility potential. The treatment exists because the ovarian lesion is attrition rather than absent germ cells: there is a window before the reserve is exhausted, and the intervention is an attempt to act inside it. The guideline is explicit that it should not be offered to premenarcheal children, which is a limit on the window as much as an ethical constraint.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The fetal jugular lymphatic sacs fail to drain properly into the venous system, raising lymphatic pressure and distending the posterior nuchal region into a cystic hygroma. Most hygromas resolve before birth; what survives is their imprint \\u2014 the webbed neck, low posterior hairline and rotated ears are the healed residue of an intrauterine distension that has already gone. Peripheral lymphatic dysplasia in the same process gives the dorsal hand and foot lymphedema characteristic of the neonate.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"lymphatic endothelial cell\"], \"biological_processes\": [\"lymph vessel development\"], \"role\": \"effector\"}}, {\"id\": \"Gonadal Dysgenesis with Streak Ovaries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The fibrous streak gonad left after accelerated follicular atresia exhausts the ovarian reserve.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000133\"}}, {\"id\": \"Granulosa-Cell Apelin/APJ Signaling Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced apelin/APJ signaling observed in 45,X patient-derived granulosa-like cells. Ligand and downstream Akt activation partly rescue the cellular phenotype, supporting a signaling contribution in this model. The state has not yet been demonstrated in intact human Turner ovaries and its connection to a specific X-dosage-sensitive gene remains unknown.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"experimental_models\": [{\"name\": \"45,X patient-derived iPSC granulosa-like cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The system measures reduced pathway signaling and demonstrates partial rescue with apelin ligands or downstream Akt activation.\\n\"}]}}, {\"id\": \"Granulosa-Cell Differentiation and Cell-Cycle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Turner patient-derived granulosa-like cells show reduced differentiation markers and abnormal cell-cycle progression. This provides a candidate somatic-cell contribution to the ovarian phenotype, but it is not yet a demonstrated lesion in an intact human ovary and does not exclude a germ-cell-autonomous contribution.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"granulosa cell\"], \"biological_processes\": [\"cell cycle\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"45,X patient-derived iPSC granulosa-like cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The system reproduces reduced granulosa marker expression and abnormal cell-cycle progression associated with 45,X donor cells.\\n\"}]}}, {\"id\": \"Growth-Plate Chondrocyte Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The growth-plate chondrocyte programme downstream of SHOX. SHOX acts on chondrocyte apoptosis through targets including BNP, FGFR3, aggrecan and CTGF, so halving its dose alters the proliferation-to-hypertrophy-to-apoptosis sequence that converts cartilage into bone at the growth plate.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"growth-plate chondrocyte\"], \"biological_processes\": [\"apoptotic process\"], \"role\": \"effector\"}}, {\"id\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genes in the pseudoautosomal regions and the subset of X-linked genes that escape X-inactivation are normally transcribed from both sex chromosomes. With one sex chromosome absent or truncated they drop to a single functional dose. This node is the convergence point of the disease: every downstream arm is a tissue-specific consequence of a dosage shortfall in one or more of these genes. Only SHOX is confidently assigned to its phenotype; the identity of the escape genes responsible for the gonadal, cardiovascular, renal, auditory and immune arms is unresolved, and is curated here as an explicit knowledge gap rather than as a mechanism.\\n\", \"meta\": {\"evidence_count\": 3, \"role\": \"central_effector\"}}, {\"id\": \"High-Frequency Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive high-frequency sensorineural loss that worsens with age and is more severe in non-mosaic 45,X. Distinct from, and not explained by, the conductive loss of recurrent childhood otitis media.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Horseshoe Kidney and Renal Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural renal malformations, of which horseshoe kidney is the most characteristic, are markedly more frequent in non-mosaic 45,X than in mosaic or structurally abnormal karyotypes.\\n\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000085\"}}, {\"id\": \"Hypergonadotropic Hypogonadism and Delayed Puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent gonadal steroid and inhibin output releases pituitary feedback, raising gonadotropins; spontaneous puberty fails in most individuals.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The systemic endocrine state: gonadotropins are high, gonadal steroid output is absent, and puberty does not start spontaneously in most individuals. Estrogen deficiency from an age at which the skeleton, uterus and secondary sexual characteristics all depend on it is what converts a gonadal lesion into a systemic one, and it is the reason hormone replacement is continued to the age of normal menopause rather than being used only to induce puberty.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"estrogen biosynthetic process\"], \"role\": \"consequence\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systemic hypertension, present in a substantial minority of children and in the majority of adults. It matters here beyond its general cardiovascular weight because it is one of the risk factors that compounds aortic dilation and dissection \\u2014 the arm of the disease with the highest avoidable mortality \\u2014 and it is the indication for the antihypertensive therapy curated in treatments.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Impaired Visuospatial and Perceptual Cognition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Selective impairment of visuospatial and perceptual processing with preserved verbal ability, mapped to PAR1 haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010794\"}}, {\"id\": \"Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A consequence of exhausted ovarian reserve. Not absolute \\u2014 mosaic individuals with slower attrition may retain fertility for a period.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000789\"}}, {\"id\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bicuspid aortic valve and coarctation of the aorta dominate the congenital cardiac phenotype. Their importance is not primarily neonatal \\u2014 many are haemodynamically tolerated in childhood \\u2014 but that they identify a subgroup with substantially increased adult aortic-dilation and dissection risk.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Low anti-M\\u00fcllerian hormone (AMH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C101737\", \"term_label\": \"Muellerian-Inhibiting Factor\", \"readouts\": [{\"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PROGNOSTIC\", \"interpretation\": \"A falling AMH tracks depletion of the follicle pool, which is the process this node represents; it is used prognostically to time fertility preservation before the reserve is gone.\\n\"}]}}, {\"id\": \"Lymphedema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral lymphedema, classically of the dorsum of the hands and feet in the neonate, from the same lymphatic network dysplasia that produces the nuchal hygroma. Often present at birth and improving through infancy, but with a relapsing course into adult life. Lymphoscintigraphy shows abnormal lymphatic vessel development even in individuals with no clinically visible swelling, so the curated frequency band understates the underlying lesion.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001004\"}}, {\"id\": \"Madelung Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dorsal subluxation of the distal ulna from disordered distal radial growth \\u2014 the wrist lesion shared with L\\u00e9ri-Weill dyschondrosteosis, the other SHOX haploinsufficiency disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003067\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density, driven substantially by estrogen deficiency from the age at which peak bone mass would normally accrue \\u2014 hence its responsiveness to timely hormone replacement.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Otologic and Audiologic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tympanostomy tube insertion and hearing aids for the conductive loss of middle ear disease in childhood, and hearing aids or cochlear implantation for the progressive sensorineural loss. The two arms are separate interventions on separate lesions and are curated on one entry only because they share a care pathway.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ovarian Dysgenesis with Streak Gonad\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The involuted, fibrous streak gonad that remains once the follicular reserve is exhausted. This is the tissue-level lesion, held separately from the systemic endocrine state it produces, because the two are separated in time and in what they respond to: the streak gonad is irreversible, whereas the endocrine consequence downstream of it is fully replaceable.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ovarian stromal cell\"], \"role\": \"effector\"}}, {\"id\": \"PAR1 Haploinsufficiency and the Turner Neurocognitive Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A characteristic cognitive profile with preserved verbal ability and selectively impaired visuospatial and perceptual processing. Deletion mapping localises it to under 2 Mb of PAR1, independent of parent of origin and of X-inactivation skewing \\u2014 which is what makes it a gene-dosage phenotype rather than a consequence of estrogen deficiency or of the psychosocial impact of short stature.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Progressive Aortic Dilation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The chronic, silent, measurable state: an ascending aorta enlarging over years. It is held separate from the acute dissection event downstream of it because the two differ in everything that matters clinically \\u2014 time course, detectability, and above all treatment join point. Dilation is what surveillance imaging measures and what antihypertensive therapy and elective surgery are aimed at; dissection is the event those measures exist to prevent. The decisive feature of the dilation is one of calibration rather than biology: it becomes dangerous at absolute diameters that are unremarkable in an average-height adult, which is why surveillance is indexed to body surface area and why an aortic size index above 2.5 cm/m2 triggers surgical consideration.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Prophylactic Aortic Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Elective replacement of the ascending aorta in individuals reaching an indexed size threshold, undertaken before dissection rather than in response to it. It is the only intervention that acts on the syndrome\u0027s leading cause of avoidable sudden death.\\n\"}, {\"id\": \"Recombinant Growth Hormone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Somatropin given from childhood to increase adult height. Mechanistically it is not replacement \\u2014 growth hormone secretion is not deficient in Turner syndrome \\u2014 but pharmacological stimulation of a growth plate whose SHOX dosage deficit has blunted its output. The randomised evidence to adult height gives roughly +7 cm, which is the honest size of the effect. The PROTEIN_REPLACEMENT modality tag records the therapeutic platform \\u2014 somatropin is a 191-amino-acid recombinant protein \\u2014 and is not a claim that the treatment replaces a deficient hormone, which it does not.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Recurrent Otitis Media and Middle Ear Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent middle ear effusion and recurrent acute otitis media through childhood, with a conductive hearing loss that is mechanistically distinct from the progressive high-frequency sensorineural loss curated separately. Its consequences are cumulative \\u2014 tympanic membrane perforation, scarring, retraction and cholesteatoma \\u2014 which is why the guideline treats it as a high-risk rather than an ordinary paediatric problem.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000388\"}}, {\"id\": \"SHOX Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single functional copy of SHOX, the PAR1 homeobox transcription factor that escapes X-inactivation. This is the molecular lesion itself \\u2014 reduced SHOX gene dose \\u2014 held separately from the cellular programme it dysregulates, because the same dosage lesion arises in L\\u00e9ri-Weill dyschondrosteosis from PAR1 deletion in individuals with two intact sex chromosomes. It is the one arm of Turner syndrome where the responsible gene is named with confidence.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The most consistent feature of the syndrome and usually the one that prompts diagnosis. Attributable to SHOX haploinsufficiency acting at the growth plate.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced endochondral bone growth produces the near-universal short stature and the mesomelic skeletal signature \\u2014 cubitus valgus, short fourth metacarpals, Madelung deformity of the wrist, and a broad chest. Because the deficit is in the growth plate rather than in growth hormone secretion, growth hormone works here pharmacologically, by driving a partially responsive plate harder, not by replacing a missing hormone.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"endochondral bone growth\"], \"role\": \"consequence\"}}, {\"id\": \"Turner Cardiomyocyte Transcriptome and Contractile Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived 45,X iPSC cardiomyocytes exhibit altered coding and non-coding RNA profiles, lower beating frequency, and increased mitochondrial DNA copy number. These observations nominate a cardiac-cell dosage response but do not demonstrate a cause of bicuspid valve, coarctation, generalized arteriopathy, or dissection.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"heart development\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"45,X patient-derived iPSC cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces altered coding and non-coding RNA profiles, reduced beating frequency, and increased mitochondrial DNA copy number.\\n\"}]}}, {\"id\": \"Webbed Neck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Residual skin fold from an intrauterine nuchal cystic hygroma; a marker of the fetal lymphatic lesion rather than an active abnormality.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000465\"}}], \"edges\": [{\"source\": \"Complete or Partial Loss of One X Chromosome\", \"target\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the second sex chromosome halves the dose of exactly those genes that are normally expressed from both copies.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"SHOX Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SHOX lies in PAR1 and is one of the escape genes rendered haploinsufficient.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gonadal involution is a dosage consequence of the missing X, but the specific escape gene(s) responsible have not been identified \\u2014 hence INDIRECT rather than DIRECT.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fetal lymphatic defect is attributed to the chromosomal loss; no individual escape gene has been assigned to it.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Granulosa-Cell Apelin/APJ Signaling Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A patient-derived iPSC study nominates impaired apelin/APJ signaling as one route by which the 45,X dosage state may disrupt granulosa-cell development. The responsible X-dosage relay is not known, so the edge is indirect and belongs to an emerging hypothesis rather than the canonical disease path.\\n\", \"hypothesis_groups\": [\"granulosa_apelin_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Turner Cardiomyocyte Transcriptome and Contractile Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-derived 45,X cardiomyocytes show transcriptomic and beating abnormalities downstream of the chromosome-dosage state. Which escape-gene deficits produce those changes, and whether they participate in congenital valve, arch, or aortic-wall disease in vivo, remain unresolved.\\n\", \"hypothesis_groups\": [\"cardiomyocyte_ceRNA_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Horseshoe Kidney and Renal Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal developmental malformations are strongly karyotype-dependent, but the dosage-sensitive gene or developmental relay is not assigned. The edge therefore records a major Turner arm without inventing an intermediate renal mechanism.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"High-Frequency Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive sensorineural loss is more severe in non-mosaic 45,X, but the responsible escape gene and cochlear mechanism remain unresolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"PAR1 Haploinsufficiency and the Turner Neurocognitive Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A \u003c2 Mb PAR1 interval is the mapped critical region for the neurocognitive profile.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX Haploinsufficiency\", \"target\": \"Growth-Plate Chondrocyte Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halved SHOX dose is transduced into a disordered chondrocyte programme at the growth plate.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth-Plate Chondrocyte Dysregulation\", \"target\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-plate dysregulation is expressed at tissue level as reduced endochondral bone growth with disproportionate forearm and lower-leg involvement.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced endochondral growth at the SHOX-deficient growth plate produces the characteristic short stature.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"target\": \"Cubitus Valgus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cubitus valgus is part of the Turner mesomelic skeletal pattern attributed to SHOX-deficient growth, but the cached source supports the skeletal class rather than naming this deformity individually.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mesomelic disturbance of endochondral growth at the elbow\"]}, {\"source\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"target\": \"Madelung Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Madelung deformity lies in the SHOX-haploinsufficiency skeletal spectrum, but the available excerpt establishes the shared L\\u00e9ri-Weill aetiology rather than naming the Turner manifestation directly.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disordered distal radial growth shared with L\\u00e9ri-Weill dyschondrosteosis\"]}, {\"source\": \"Granulosa-Cell Apelin/APJ Signaling Dysfunction\", \"target\": \"Granulosa-Cell Differentiation and Cell-Cycle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apelin ligands and downstream Akt activation partly restored cell-cycle progression and granulosa marker expression, placing impaired signaling upstream of the model\u0027s cellular defect without establishing that it is the only cause.\\n\", \"hypothesis_groups\": [\"granulosa_apelin_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"APJ signaling through Akt/PKB and CTPS2 regulation\"]}, {\"source\": \"Granulosa-Cell Differentiation and Cell-Cycle Dysfunction\", \"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The study proposes that defective granulosa-cell support during ovarian development contributes to early oocyte loss. This is an emerging human-cell-model hypothesis, not proof that the in-vitro state causes follicular attrition in vivo.\\n\", \"hypothesis_groups\": [\"granulosa_apelin_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"target\": \"Ovarian Dysgenesis with Streak Gonad\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exhaustion of the follicular reserve leaves a fibrous streak gonad incapable of steroidogenesis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"target\": \"Infertility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated follicular loss depletes the ovarian reserve and thereby removes the reproductive capacity, with residual fertility possible when mosaicism slows or limits that depletion.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"depletion of the ovarian follicle reserve and primary ovarian insufficiency\"]}, {\"source\": \"Ovarian Dysgenesis with Streak Gonad\", \"target\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A gonad that makes neither estrogen nor inhibin releases the pituitary from negative feedback, so gonadotropins rise and the systemic consequences of estrogen deficiency follow.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ovarian Dysgenesis with Streak Gonad\", \"target\": \"Gonadal Dysgenesis with Streak Ovaries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level streak-gonad state is the substrate of the corresponding clinical gonadal-dysgenesis phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"target\": \"Hypergonadotropic Hypogonadism and Delayed Puberty\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic endocrine state is expressed clinically as elevated gonadotropins and failure or delay of spontaneous puberty.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Estrogen deficiency during the period of peak bone-mass accrual and across adult life contributes to low bone density; improvement with estrogen supplementation supports this direction while not excluding SHOX, vitamin-D, or other contributors.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired pubertal bone accrual and chronic loss of estrogen support\"]}, {\"source\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"target\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clark\u0027s hemodynamic hypothesis: distended thoracic ducts compress the ascending aorta and redirect intracardiac flow, producing left-heart obstructive lesions. This edge is curated as belonging to a named hypothesis rather than as established fact \\u2014 the epidemiological association between neck web and coarctation is strong and reproducible, but the mechanism connecting them is inferred, not observed.\\n\", \"hypothesis_groups\": [\"lymphatic_obstruction_hemodynamic_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"target\": \"Webbed Neck\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resolution of the fetal nuchal lymphatic distension leaves the persistent lateral neck folds recorded clinically as webbing.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"target\": \"Lymphedema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysplastic peripheral lymphatic drainage produces the neonatal and relapsing limb swelling.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"target\": \"Progressive Aortic Dilation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A malformed valve and arch mark increased dilation risk through altered hemodynamics, but they are neither necessary nor sufficient: a parallel Turner arteriopathy can produce dilation even without structural heart disease.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal valve and arch hemodynamics\"]}, {\"source\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"target\": \"Bicuspid Aortic Valve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malformed outflow-tract state includes the bicuspid-valve phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"target\": \"Coarctation of the Aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malformed outflow-tract state includes narrowing of the aortic arch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Aortic Dilation\", \"target\": \"Aortic Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A dilated ascending aorta is the substrate on which dissection occurs; the dilation is progressive and the dissection is the discrete event that terminates it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aortic Dissection and Rupture\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute aortic-wall event is the corresponding clinical phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAR1 Haploinsufficiency and the Turner Neurocognitive Phenotype\", \"target\": \"Impaired Visuospatial and Perceptual Cognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mapped PAR1 dosage state produces the characteristic cognitive phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recombinant Growth Hormone\", \"target\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Estrogen Replacement Therapy\", \"target\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prophylactic Aortic Surgery\", \"target\": \"Progressive Aortic Dilation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antihypertensive Therapy\", \"target\": \"Hypertension\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antihypertensive Therapy\", \"target\": \"Progressive Aortic Dilation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fertility Preservation by Oocyte Cryopreservation\", \"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Otologic and Audiologic Management\", \"target\": \"Recurrent Otitis Media and Middle Ear Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"45,X patient-derived iPSC granulosa-like cells\", \"target\": \"Granulosa-Cell Apelin/APJ Signaling Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The system measures reduced pathway signaling and demonstrates partial rescue with apelin ligands or downstream Akt activation.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The comparison is non-isogenic and includes two Turner donors. Cultures were not purified by surface markers before bulk transcriptomics, so the observed difference cannot be assigned solely to a cell-autonomous pathway defect, and intact ovarian confirmation is absent.\\n\"}, {\"source\": \"45,X patient-derived iPSC granulosa-like cells\", \"target\": \"Granulosa-Cell Differentiation and Cell-Cycle Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The system reproduces reduced granulosa marker expression and abnormal cell-cycle progression associated with 45,X donor cells.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The cells are in-vitro granulosa-like derivatives rather than purified fetal ovarian granulosa cells, the donor count is small, and genetic background is not controlled isogenically. The model cannot show oocyte loss or follicular atresia directly.\\n\"}, {\"source\": \"45,X patient-derived iPSC cardiomyocytes\", \"target\": \"Turner Cardiomyocyte Transcriptome and Contractile Dysregulation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model reproduces altered coding and non-coding RNA profiles, reduced beating frequency, and increased mitochondrial DNA copy number.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Only three Turner and three control donor lines were profiled, the design is non-isogenic, and the cardiomyocytes are immature two-dimensional cells. The system does not form an aortic valve, arch, or vessel wall, so it cannot establish a mechanism for the syndrome\u0027s structural cardiac or aortic phenotypes; proposed ceRNA circuits also lacked direct miRNA profiling.\\n\"}, {\"source\": \"39,X (XO) mouse ovarian-reserve background series\", \"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"C57BL/6J XO females reproduce early oocyte loss and infertility or subfertility, while mixed-background XO females show a milder reserve loss without the human fertility endpoint.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fidelity is strongly strain-dependent: mixed-background XO females retain normal fertility, and even the C57BL/6J phenotype does not reproduce the profound prenatal lethality or near-universal ovarian failure of human non-mosaic 45,X. The series can test modifiers of oocyte loss but cannot be treated as a generic model of the full Turner ovarian phenotype.\\n\"}, {\"source\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"target\": \"Elevated follicle-stimulating hormone (FSH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A rising FSH without pubertal signs is the biochemical definition of the hypergonadotropic state this node represents, and is the trigger for hormone replacement.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"target\": \"Elevated luteinizing hormone (LH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated LH reports the same loss of gonadal negative feedback as FSH.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"target\": \"Low anti-M\\u00fcllerian hormone (AMH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A falling AMH tracks depletion of the follicle pool, which is the process this node represents; it is used prognostically to time fertility preservation before the reserve is gone.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PROGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"39,X (XO) mouse ovarian-reserve background series\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A background-comparison series that resolves an important limitation of the generic XO mouse. Mixed-background XO females retain fewer neonatal oocytes but remain normally fertile, whereas C57BL/6J XO females have much more severe early oocyte loss and reduced fertility. The model therefore captures a background-modified ovarian-reserve phenotype, not a stable mouse analogue of human Turner infertility.\\n\"}, {\"id\": \"45,X patient-derived iPSC cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived cardiac-cell system that measures the transcriptomic and contractile response to 45,X dosage in differentiated cardiomyocytes.\\n\", \"meta\": {\"cell_types\": [\"cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"45,X Turner syndrome-derived iPSCs and cardiomyocytes\", \"46,XX healthy-donor-derived iPSCs and cardiomyocytes\"], \"publication\": \"PMID:38124119\"}}, {\"id\": \"45,X patient-derived iPSC granulosa-like cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human patient-derived system used to test granulosa differentiation, cell-cycle progression, apelin/APJ signaling, and pathway rescue. It is the first direct cellular model represented here for a candidate somatic-cell contribution to Turner ovarian attrition.\\n\", \"meta\": {\"cell_types\": [\"granulosa cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"45,X Turner syndrome-derived granulosa-like cells\", \"Unaffected control-derived granulosa-like cells\", \"Apelin/APJ ligand and Akt/PKB rescue conditions\"], \"publication\": \"PMID:39543104\"}}, {\"id\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germ cells are laid down in the Turner ovary but are then lost at an accelerated rate through follicular atresia, so the process is depletion rather than failure of germ-cell formation. The distinction is what makes the fertility picture graded rather than absolute: the rate of loss varies, it is slower in mosaic karyotypes, and it is the reason ovarian tissue or oocyte cryopreservation is even discussed \\u2014 there is a window before the reserve is exhausted rather than an ovary that never had one.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oocyte\", \"granulosa cell\"], \"biological_processes\": [\"ovarian follicle atresia\", \"germ cell development\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"39,X (XO) mouse ovarian-reserve background series\", \"species\": \"Mouse\", \"genotype\": \"39,X (XO) on mixed N2(C3H.B6) and inbred C57BL/6J genetic backgrounds\\n\", \"background\": \"Mixed N2(C3H.B6) compared with C57BL/6J\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"C57BL/6J XO females reproduce early oocyte loss and infertility or subfertility, while mixed-background XO females show a milder reserve loss without the human fertility endpoint.\\n\"}]}}, {\"id\": \"Antihypertensive Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual blood-pressure assessment with treatment of confirmed hypertension, preferentially with a beta-blocker, an angiotensin receptor blocker, or both where aortic dilation is also present. The mechanistic honesty here matters: the drug-class preference is imported from other genetically triggered aortopathies, and the guideline states plainly that no study has shown antihypertensive therapy to slow or prevent aortic dilation in Turner syndrome specifically. It is curated because it is a graded recommendation acting on a node this entry models, not because the aortic benefit is established.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"beta-blocker\", \"angiotensin receptor blocker\"]}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The leading avoidable cause of sudden death, occurring at younger ages and smaller aortic diameters than in the general population.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Dissection and Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute catastrophic event and the leading avoidable cause of sudden death in the syndrome. It occurs at a young age relative to other aortopathies and is frequently recognised late. Dissection is also reported in individuals with no cardiac malformation at all, so a structurally normal valve reduces but does not abolish the risk.\\n\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\"}}, {\"id\": \"Bicuspid Aortic Valve\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The commonest congenital cardiac lesion in the syndrome and the principal marker of aortic dissection risk.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001647\"}}, {\"id\": \"Coarctation of the Aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left-heart obstructive lesion, strongly co-associated with the neck web.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001680\"}}, {\"id\": \"Complete or Partial Loss of One X Chromosome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A meiotic or post-zygotic mitotic error leaves a phenotypically female individual with one intact X and either no second sex chromosome (45,X), a structurally abnormal second X (ring, isochromosome, deletion), or a mosaic mixture of cell lines. This is the only whole-chromosome haploinsufficiency compatible with postnatal life, which is itself the first mechanistic fact about the disease: survival is possible because X-inactivation has already reduced most X-linked genes to one functional copy in typical cells, so only the genes exempt from that silencing are actually rendered haploinsufficient by the loss.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Cubitus Valgus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased carrying angle at the elbow, part of the mesomelic skeletal signature of SHOX haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002967\"}}, {\"id\": \"Elevated follicle-stimulating hormone (FSH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C181076\", \"term_label\": \"Follicle-Stimulating Hormone\", \"readouts\": [{\"target\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A rising FSH without pubertal signs is the biochemical definition of the hypergonadotropic state this node represents, and is the trigger for hormone replacement.\\n\"}]}}, {\"id\": \"Elevated luteinizing hormone (LH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C190789\", \"term_label\": \"Luteinizing Hormone\", \"readouts\": [{\"target\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated LH reports the same loss of gonadal negative feedback as FSH.\\n\"}]}}, {\"id\": \"Estrogen Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Estrogen to induce puberty at a physiological age, then continued replacement to the age of normal menopause. Unlike growth hormone this is true replacement \\u2014 it substitutes for the hormone the streak gonad cannot make \\u2014 and its end-organ targets are the skeleton and the uterus as well as secondary sexual development.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"estradiol\"]}}, {\"id\": \"Fertility Preservation by Oocyte Cryopreservation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Controlled ovarian stimulation followed by oocyte cryopreservation, offered to post-menarcheal individuals with residual fertility potential. The treatment exists because the ovarian lesion is attrition rather than absent germ cells: there is a window before the reserve is exhausted, and the intervention is an attempt to act inside it. The guideline is explicit that it should not be offered to premenarcheal children, which is a limit on the window as much as an ethical constraint.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The fetal jugular lymphatic sacs fail to drain properly into the venous system, raising lymphatic pressure and distending the posterior nuchal region into a cystic hygroma. Most hygromas resolve before birth; what survives is their imprint \\u2014 the webbed neck, low posterior hairline and rotated ears are the healed residue of an intrauterine distension that has already gone. Peripheral lymphatic dysplasia in the same process gives the dorsal hand and foot lymphedema characteristic of the neonate.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"lymphatic endothelial cell\"], \"biological_processes\": [\"lymph vessel development\"], \"role\": \"effector\"}}, {\"id\": \"Gonadal Dysgenesis with Streak Ovaries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The fibrous streak gonad left after accelerated follicular atresia exhausts the ovarian reserve.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000133\"}}, {\"id\": \"Granulosa-Cell Apelin/APJ Signaling Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced apelin/APJ signaling observed in 45,X patient-derived granulosa-like cells. Ligand and downstream Akt activation partly rescue the cellular phenotype, supporting a signaling contribution in this model. The state has not yet been demonstrated in intact human Turner ovaries and its connection to a specific X-dosage-sensitive gene remains unknown.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"45,X patient-derived iPSC granulosa-like cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The system measures reduced pathway signaling and demonstrates partial rescue with apelin ligands or downstream Akt activation.\\n\"}]}}, {\"id\": \"Granulosa-Cell Differentiation and Cell-Cycle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Turner patient-derived granulosa-like cells show reduced differentiation markers and abnormal cell-cycle progression. This provides a candidate somatic-cell contribution to the ovarian phenotype, but it is not yet a demonstrated lesion in an intact human ovary and does not exclude a germ-cell-autonomous contribution.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"granulosa cell\"], \"biological_processes\": [\"cell cycle\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"45,X patient-derived iPSC granulosa-like cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The system reproduces reduced granulosa marker expression and abnormal cell-cycle progression associated with 45,X donor cells.\\n\"}]}}, {\"id\": \"Growth-Plate Chondrocyte Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The growth-plate chondrocyte programme downstream of SHOX. SHOX acts on chondrocyte apoptosis through targets including BNP, FGFR3, aggrecan and CTGF, so halving its dose alters the proliferation-to-hypertrophy-to-apoptosis sequence that converts cartilage into bone at the growth plate.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"growth-plate chondrocyte\"], \"biological_processes\": [\"apoptotic process\"], \"role\": \"effector\"}}, {\"id\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genes in the pseudoautosomal regions and the subset of X-linked genes that escape X-inactivation are normally transcribed from both sex chromosomes. With one sex chromosome absent or truncated they drop to a single functional dose. This node is the convergence point of the disease: every downstream arm is a tissue-specific consequence of a dosage shortfall in one or more of these genes. Only SHOX is confidently assigned to its phenotype; the identity of the escape genes responsible for the gonadal, cardiovascular, renal, auditory and immune arms is unresolved, and is curated here as an explicit knowledge gap rather than as a mechanism.\\n\", \"meta\": {\"evidence_count\": 3, \"role\": \"central_effector\"}}, {\"id\": \"High-Frequency Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive high-frequency sensorineural loss that worsens with age and is more severe in non-mosaic 45,X. Distinct from, and not explained by, the conductive loss of recurrent childhood otitis media.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Horseshoe Kidney and Renal Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural renal malformations, of which horseshoe kidney is the most characteristic, are markedly more frequent in non-mosaic 45,X than in mosaic or structurally abnormal karyotypes.\\n\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000085\"}}, {\"id\": \"Hypergonadotropic Hypogonadism and Delayed Puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent gonadal steroid and inhibin output releases pituitary feedback, raising gonadotropins; spontaneous puberty fails in most individuals.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The systemic endocrine state: gonadotropins are high, gonadal steroid output is absent, and puberty does not start spontaneously in most individuals. Estrogen deficiency from an age at which the skeleton, uterus and secondary sexual characteristics all depend on it is what converts a gonadal lesion into a systemic one, and it is the reason hormone replacement is continued to the age of normal menopause rather than being used only to induce puberty.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"estrogen biosynthetic process\"], \"role\": \"consequence\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systemic hypertension, present in a substantial minority of children and in the majority of adults. It matters here beyond its general cardiovascular weight because it is one of the risk factors that compounds aortic dilation and dissection \\u2014 the arm of the disease with the highest avoidable mortality \\u2014 and it is the indication for the antihypertensive therapy curated in treatments.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Impaired Visuospatial and Perceptual Cognition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Selective impairment of visuospatial and perceptual processing with preserved verbal ability, mapped to PAR1 haploinsufficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010794\"}}, {\"id\": \"Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A consequence of exhausted ovarian reserve. Not absolute \\u2014 mosaic individuals with slower attrition may retain fertility for a period.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000789\"}}, {\"id\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bicuspid aortic valve and coarctation of the aorta dominate the congenital cardiac phenotype. Their importance is not primarily neonatal \\u2014 many are haemodynamically tolerated in childhood \\u2014 but that they identify a subgroup with substantially increased adult aortic-dilation and dissection risk.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Low anti-M\\u00fcllerian hormone (AMH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C101737\", \"term_label\": \"Muellerian-Inhibiting Factor\", \"readouts\": [{\"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PROGNOSTIC\", \"interpretation\": \"A falling AMH tracks depletion of the follicle pool, which is the process this node represents; it is used prognostically to time fertility preservation before the reserve is gone.\\n\"}]}}, {\"id\": \"Lymphedema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral lymphedema, classically of the dorsum of the hands and feet in the neonate, from the same lymphatic network dysplasia that produces the nuchal hygroma. Often present at birth and improving through infancy, but with a relapsing course into adult life. Lymphoscintigraphy shows abnormal lymphatic vessel development even in individuals with no clinically visible swelling, so the curated frequency band understates the underlying lesion.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001004\"}}, {\"id\": \"Madelung Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dorsal subluxation of the distal ulna from disordered distal radial growth \\u2014 the wrist lesion shared with L\\u00e9ri-Weill dyschondrosteosis, the other SHOX haploinsufficiency disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003067\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density, driven substantially by estrogen deficiency from the age at which peak bone mass would normally accrue \\u2014 hence its responsiveness to timely hormone replacement.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Otologic and Audiologic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tympanostomy tube insertion and hearing aids for the conductive loss of middle ear disease in childhood, and hearing aids or cochlear implantation for the progressive sensorineural loss. The two arms are separate interventions on separate lesions and are curated on one entry only because they share a care pathway.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ovarian Dysgenesis with Streak Gonad\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The involuted, fibrous streak gonad that remains once the follicular reserve is exhausted. This is the tissue-level lesion, held separately from the systemic endocrine state it produces, because the two are separated in time and in what they respond to: the streak gonad is irreversible, whereas the endocrine consequence downstream of it is fully replaceable.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ovarian stromal cell\"], \"role\": \"effector\"}}, {\"id\": \"PAR1 Haploinsufficiency and the Turner Neurocognitive Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A characteristic cognitive profile with preserved verbal ability and selectively impaired visuospatial and perceptual processing. Deletion mapping localises it to under 2 Mb of PAR1, independent of parent of origin and of X-inactivation skewing \\u2014 which is what makes it a gene-dosage phenotype rather than a consequence of estrogen deficiency or of the psychosocial impact of short stature.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Progressive Aortic Dilation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The chronic, silent, measurable state: an ascending aorta enlarging over years. It is held separate from the acute dissection event downstream of it because the two differ in everything that matters clinically \\u2014 time course, detectability, and above all treatment join point. Dilation is what surveillance imaging measures and what antihypertensive therapy and elective surgery are aimed at; dissection is the event those measures exist to prevent. The decisive feature of the dilation is one of calibration rather than biology: it becomes dangerous at absolute diameters that are unremarkable in an average-height adult, which is why surveillance is indexed to body surface area and why an aortic size index above 2.5 cm/m2 triggers surgical consideration.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Prophylactic Aortic Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Elective replacement of the ascending aorta in individuals reaching an indexed size threshold, undertaken before dissection rather than in response to it. It is the only intervention that acts on the syndrome\u0027s leading cause of avoidable sudden death.\\n\"}, {\"id\": \"Recombinant Growth Hormone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Somatropin given from childhood to increase adult height. Mechanistically it is not replacement \\u2014 growth hormone secretion is not deficient in Turner syndrome \\u2014 but pharmacological stimulation of a growth plate whose SHOX dosage deficit has blunted its output. The randomised evidence to adult height gives roughly +7 cm, which is the honest size of the effect. The PROTEIN_REPLACEMENT modality tag records the therapeutic platform \\u2014 somatropin is a 191-amino-acid recombinant protein \\u2014 and is not a claim that the treatment replaces a deficient hormone, which it does not.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Recurrent Otitis Media and Middle Ear Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent middle ear effusion and recurrent acute otitis media through childhood, with a conductive hearing loss that is mechanistically distinct from the progressive high-frequency sensorineural loss curated separately. Its consequences are cumulative \\u2014 tympanic membrane perforation, scarring, retraction and cholesteatoma \\u2014 which is why the guideline treats it as a high-risk rather than an ordinary paediatric problem.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000388\"}}, {\"id\": \"SHOX Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single functional copy of SHOX, the PAR1 homeobox transcription factor that escapes X-inactivation. This is the molecular lesion itself \\u2014 reduced SHOX gene dose \\u2014 held separately from the cellular programme it dysregulates, because the same dosage lesion arises in L\\u00e9ri-Weill dyschondrosteosis from PAR1 deletion in individuals with two intact sex chromosomes. It is the one arm of Turner syndrome where the responsible gene is named with confidence.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The most consistent feature of the syndrome and usually the one that prompts diagnosis. Attributable to SHOX haploinsufficiency acting at the growth plate.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced endochondral bone growth produces the near-universal short stature and the mesomelic skeletal signature \\u2014 cubitus valgus, short fourth metacarpals, Madelung deformity of the wrist, and a broad chest. Because the deficit is in the growth plate rather than in growth hormone secretion, growth hormone works here pharmacologically, by driving a partially responsive plate harder, not by replacing a missing hormone.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"endochondral bone growth\"], \"role\": \"consequence\"}}, {\"id\": \"Turner Cardiomyocyte Transcriptome and Contractile Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived 45,X iPSC cardiomyocytes exhibit altered coding and non-coding RNA profiles, lower beating frequency, and increased mitochondrial DNA copy number. These observations nominate a cardiac-cell dosage response but do not demonstrate a cause of bicuspid valve, coarctation, generalized arteriopathy, or dissection.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"heart development\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"45,X patient-derived iPSC cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces altered coding and non-coding RNA profiles, reduced beating frequency, and increased mitochondrial DNA copy number.\\n\"}]}}, {\"id\": \"Webbed Neck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Residual skin fold from an intrauterine nuchal cystic hygroma; a marker of the fetal lymphatic lesion rather than an active abnormality.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000465\"}}], \"edges\": [{\"source\": \"Complete or Partial Loss of One X Chromosome\", \"target\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the second sex chromosome halves the dose of exactly those genes that are normally expressed from both copies.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"SHOX Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SHOX lies in PAR1 and is one of the escape genes rendered haploinsufficient.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gonadal involution is a dosage consequence of the missing X, but the specific escape gene(s) responsible have not been identified \\u2014 hence INDIRECT rather than DIRECT.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fetal lymphatic defect is attributed to the chromosomal loss; no individual escape gene has been assigned to it.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Granulosa-Cell Apelin/APJ Signaling Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A patient-derived iPSC study nominates impaired apelin/APJ signaling as one route by which the 45,X dosage state may disrupt granulosa-cell development. The responsible X-dosage relay is not known, so the edge is indirect and belongs to an emerging hypothesis rather than the canonical disease path.\\n\", \"hypothesis_groups\": [\"granulosa_apelin_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Turner Cardiomyocyte Transcriptome and Contractile Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-derived 45,X cardiomyocytes show transcriptomic and beating abnormalities downstream of the chromosome-dosage state. Which escape-gene deficits produce those changes, and whether they participate in congenital valve, arch, or aortic-wall disease in vivo, remain unresolved.\\n\", \"hypothesis_groups\": [\"cardiomyocyte_ceRNA_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"Horseshoe Kidney and Renal Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal developmental malformations are strongly karyotype-dependent, but the dosage-sensitive gene or developmental relay is not assigned. The edge therefore records a major Turner arm without inventing an intermediate renal mechanism.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"High-Frequency Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive sensorineural loss is more severe in non-mosaic 45,X, but the responsible escape gene and cochlear mechanism remain unresolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Haploinsufficiency of Pseudoautosomal and X-Inactivation Escape Genes\", \"target\": \"PAR1 Haploinsufficiency and the Turner Neurocognitive Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A \u003c2 Mb PAR1 interval is the mapped critical region for the neurocognitive profile.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SHOX Haploinsufficiency\", \"target\": \"Growth-Plate Chondrocyte Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halved SHOX dose is transduced into a disordered chondrocyte programme at the growth plate.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth-Plate Chondrocyte Dysregulation\", \"target\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-plate dysregulation is expressed at tissue level as reduced endochondral bone growth with disproportionate forearm and lower-leg involvement.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced endochondral growth at the SHOX-deficient growth plate produces the characteristic short stature.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"target\": \"Cubitus Valgus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cubitus valgus is part of the Turner mesomelic skeletal pattern attributed to SHOX-deficient growth, but the cached source supports the skeletal class rather than naming this deformity individually.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mesomelic disturbance of endochondral growth at the elbow\"]}, {\"source\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"target\": \"Madelung Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Madelung deformity lies in the SHOX-haploinsufficiency skeletal spectrum, but the available excerpt establishes the shared L\\u00e9ri-Weill aetiology rather than naming the Turner manifestation directly.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disordered distal radial growth shared with L\\u00e9ri-Weill dyschondrosteosis\"]}, {\"source\": \"Granulosa-Cell Apelin/APJ Signaling Dysfunction\", \"target\": \"Granulosa-Cell Differentiation and Cell-Cycle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apelin ligands and downstream Akt activation partly restored cell-cycle progression and granulosa marker expression, placing impaired signaling upstream of the model\u0027s cellular defect without establishing that it is the only cause.\\n\", \"hypothesis_groups\": [\"granulosa_apelin_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"APJ signaling through Akt/PKB and CTPS2 regulation\"]}, {\"source\": \"Granulosa-Cell Differentiation and Cell-Cycle Dysfunction\", \"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The study proposes that defective granulosa-cell support during ovarian development contributes to early oocyte loss. This is an emerging human-cell-model hypothesis, not proof that the in-vitro state causes follicular attrition in vivo.\\n\", \"hypothesis_groups\": [\"granulosa_apelin_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"target\": \"Ovarian Dysgenesis with Streak Gonad\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exhaustion of the follicular reserve leaves a fibrous streak gonad incapable of steroidogenesis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"target\": \"Infertility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated follicular loss depletes the ovarian reserve and thereby removes the reproductive capacity, with residual fertility possible when mosaicism slows or limits that depletion.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"depletion of the ovarian follicle reserve and primary ovarian insufficiency\"]}, {\"source\": \"Ovarian Dysgenesis with Streak Gonad\", \"target\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A gonad that makes neither estrogen nor inhibin releases the pituitary from negative feedback, so gonadotropins rise and the systemic consequences of estrogen deficiency follow.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ovarian Dysgenesis with Streak Gonad\", \"target\": \"Gonadal Dysgenesis with Streak Ovaries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level streak-gonad state is the substrate of the corresponding clinical gonadal-dysgenesis phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"target\": \"Hypergonadotropic Hypogonadism and Delayed Puberty\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic endocrine state is expressed clinically as elevated gonadotropins and failure or delay of spontaneous puberty.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Estrogen deficiency during the period of peak bone-mass accrual and across adult life contributes to low bone density; improvement with estrogen supplementation supports this direction while not excluding SHOX, vitamin-D, or other contributors.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired pubertal bone accrual and chronic loss of estrogen support\"]}, {\"source\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"target\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clark\u0027s hemodynamic hypothesis: distended thoracic ducts compress the ascending aorta and redirect intracardiac flow, producing left-heart obstructive lesions. This edge is curated as belonging to a named hypothesis rather than as established fact \\u2014 the epidemiological association between neck web and coarctation is strong and reproducible, but the mechanism connecting them is inferred, not observed.\\n\", \"hypothesis_groups\": [\"lymphatic_obstruction_hemodynamic_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"target\": \"Webbed Neck\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resolution of the fetal nuchal lymphatic distension leaves the persistent lateral neck folds recorded clinically as webbing.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Jugular Lymphatic Sac Obstruction and Lymphatic Network Dysplasia\", \"target\": \"Lymphedema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysplastic peripheral lymphatic drainage produces the neonatal and relapsing limb swelling.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"target\": \"Progressive Aortic Dilation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A malformed valve and arch mark increased dilation risk through altered hemodynamics, but they are neither necessary nor sufficient: a parallel Turner arteriopathy can produce dilation even without structural heart disease.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal valve and arch hemodynamics\"]}, {\"source\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"target\": \"Bicuspid Aortic Valve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malformed outflow-tract state includes the bicuspid-valve phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-Sided Cardiac Outflow Tract Malformation\", \"target\": \"Coarctation of the Aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malformed outflow-tract state includes narrowing of the aortic arch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Aortic Dilation\", \"target\": \"Aortic Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A dilated ascending aorta is the substrate on which dissection occurs; the dilation is progressive and the dissection is the discrete event that terminates it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aortic Dissection and Rupture\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute aortic-wall event is the corresponding clinical phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAR1 Haploinsufficiency and the Turner Neurocognitive Phenotype\", \"target\": \"Impaired Visuospatial and Perceptual Cognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mapped PAR1 dosage state produces the characteristic cognitive phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recombinant Growth Hormone\", \"target\": \"Skeletal Growth Failure and Mesomelic Dysmorphism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Estrogen Replacement Therapy\", \"target\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prophylactic Aortic Surgery\", \"target\": \"Progressive Aortic Dilation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antihypertensive Therapy\", \"target\": \"Hypertension\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antihypertensive Therapy\", \"target\": \"Progressive Aortic Dilation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fertility Preservation by Oocyte Cryopreservation\", \"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Otologic and Audiologic Management\", \"target\": \"Recurrent Otitis Media and Middle Ear Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"45,X patient-derived iPSC granulosa-like cells\", \"target\": \"Granulosa-Cell Apelin/APJ Signaling Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The system measures reduced pathway signaling and demonstrates partial rescue with apelin ligands or downstream Akt activation.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The comparison is non-isogenic and includes two Turner donors. Cultures were not purified by surface markers before bulk transcriptomics, so the observed difference cannot be assigned solely to a cell-autonomous pathway defect, and intact ovarian confirmation is absent.\\n\"}, {\"source\": \"45,X patient-derived iPSC granulosa-like cells\", \"target\": \"Granulosa-Cell Differentiation and Cell-Cycle Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The system reproduces reduced granulosa marker expression and abnormal cell-cycle progression associated with 45,X donor cells.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The cells are in-vitro granulosa-like derivatives rather than purified fetal ovarian granulosa cells, the donor count is small, and genetic background is not controlled isogenically. The model cannot show oocyte loss or follicular atresia directly.\\n\"}, {\"source\": \"45,X patient-derived iPSC cardiomyocytes\", \"target\": \"Turner Cardiomyocyte Transcriptome and Contractile Dysregulation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model reproduces altered coding and non-coding RNA profiles, reduced beating frequency, and increased mitochondrial DNA copy number.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Only three Turner and three control donor lines were profiled, the design is non-isogenic, and the cardiomyocytes are immature two-dimensional cells. The system does not form an aortic valve, arch, or vessel wall, so it cannot establish a mechanism for the syndrome\u0027s structural cardiac or aortic phenotypes; proposed ceRNA circuits also lacked direct miRNA profiling.\\n\"}, {\"source\": \"39,X (XO) mouse ovarian-reserve background series\", \"target\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"C57BL/6J XO females reproduce early oocyte loss and infertility or subfertility, while mixed-background XO females show a milder reserve loss without the human fertility endpoint.\\n\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fidelity is strongly strain-dependent: mixed-background XO females retain normal fertility, and even the C57BL/6J phenotype does not reproduce the profound prenatal lethality or near-universal ovarian failure of human non-mosaic 45,X. The series can test modifiers of oocyte loss but cannot be treated as a generic model of the full Turner ovarian phenotype.\\n\"}, {\"source\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"target\": \"Elevated follicle-stimulating hormone (FSH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A rising FSH without pubertal signs is the biochemical definition of the hypergonadotropic state this node represents, and is the trigger for hormone replacement.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hypergonadotropic Hypogonadism and Estrogen Deficiency\", \"target\": \"Elevated luteinizing hormone (LH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated LH reports the same loss of gonadal negative feedback as FSH.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accelerated Ovarian Germ Cell Attrition and Follicular Atresia\", \"target\": \"Low anti-M\\u00fcllerian hormone (AMH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A falling AMH tracks depletion of the follicle pool, which is the process this node represents; it is used prognostically to time fertility preservation before the reserve is gone.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PROGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7555,6 +7695,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7569,6 +7712,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7594,6 +7738,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7648,6 +7793,9 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7662,6 +7810,7 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7718,6 +7867,9 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7732,6 +7884,7 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7786,6 +7939,9 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7800,6 +7956,7 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7881,6 +8038,9 @@ This clinical feature is Otitis media (HP:0000388), qualified as temporality rec
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7895,6 +8055,7 @@ This clinical feature is Otitis media (HP:0000388), qualified as temporality rec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7920,6 +8081,7 @@ This clinical feature is Otitis media (HP:0000388), qualified as temporality rec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7996,6 +8158,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8010,6 +8175,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8038,6 +8204,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8059,6 +8226,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8123,6 +8291,9 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8137,6 +8308,7 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8161,6 +8333,7 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8215,6 +8388,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8229,6 +8405,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8254,6 +8431,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8312,6 +8490,9 @@ This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8326,6 +8507,7 @@ This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8351,6 +8533,7 @@ This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8417,6 +8600,9 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8431,6 +8617,7 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8486,6 +8673,9 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8500,6 +8690,7 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8524,6 +8715,7 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8580,6 +8772,9 @@ This clinical feature is Horseshoe kidney (HP:0000085). HP:0000085 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8594,6 +8789,7 @@ This clinical feature is Horseshoe kidney (HP:0000085). HP:0000085 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8622,6 +8818,7 @@ This clinical feature is Horseshoe kidney (HP:0000085). HP:0000085 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8643,6 +8840,7 @@ This clinical feature is Horseshoe kidney (HP:0000085). HP:0000085 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8710,6 +8908,9 @@ This clinical feature is Webbed neck (HP:0000465). HP:0000465 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8724,6 +8925,7 @@ This clinical feature is Webbed neck (HP:0000465). HP:0000465 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8788,6 +8990,9 @@ This clinical feature is Cubitus valgus (HP:0002967). HP:0002967 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8802,6 +9007,7 @@ This clinical feature is Cubitus valgus (HP:0002967). HP:0002967 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8857,6 +9063,9 @@ This clinical feature is Madelung deformity (HP:0003067). HP:0003067 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8871,6 +9080,7 @@ This clinical feature is Madelung deformity (HP:0003067). HP:0003067 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8955,6 +9165,9 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality recur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8969,6 +9182,7 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality recur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8997,6 +9211,7 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality recur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9018,6 +9233,7 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality recur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9082,6 +9298,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9096,6 +9315,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9120,6 +9340,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9177,6 +9398,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9191,6 +9415,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9219,6 +9444,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9240,6 +9466,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9305,6 +9532,9 @@ This clinical feature is Impaired visuospatial constructive cognition (HP:001079
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9319,6 +9549,7 @@ This clinical feature is Impaired visuospatial constructive cognition (HP:001079
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9400,6 +9631,9 @@ This clinical feature is Short stature (HP:0004322), qualified as course progres
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9414,6 +9648,7 @@ This clinical feature is Short stature (HP:0004322), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9438,6 +9673,7 @@ This clinical feature is Short stature (HP:0004322), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9537,6 +9773,9 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9551,6 +9790,7 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9578,6 +9818,7 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9600,6 +9841,7 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9707,6 +9949,9 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9717,6 +9962,9 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -9755,6 +10003,7 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9801,6 +10050,7 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9822,6 +10072,7 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9910,6 +10161,9 @@ This treatment uses estradiol, annotated with 17beta-estradiol (CHEBI:16469). CH
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9920,6 +10174,9 @@ This treatment uses estradiol, annotated with 17beta-estradiol (CHEBI:16469). CH
 
 
     </div>
+
+
+
 
 
 
@@ -9958,6 +10215,7 @@ This treatment uses estradiol, annotated with 17beta-estradiol (CHEBI:16469). CH
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10004,6 +10262,7 @@ This treatment uses estradiol, annotated with 17beta-estradiol (CHEBI:16469). CH
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10025,6 +10284,7 @@ This treatment uses estradiol, annotated with 17beta-estradiol (CHEBI:16469). CH
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10091,6 +10351,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10101,6 +10364,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10139,6 +10405,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10253,6 +10520,9 @@ This treatment uses angiotensin receptor blocker, annotated with Angiotensin II 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10263,6 +10533,9 @@ This treatment uses angiotensin receptor blocker, annotated with Angiotensin II 
 
 
     </div>
+
+
+
 
 
 
@@ -10301,6 +10574,7 @@ This treatment uses angiotensin receptor blocker, annotated with Angiotensin II 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10352,6 +10626,7 @@ This treatment uses angiotensin receptor blocker, annotated with Angiotensin II 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10374,6 +10649,7 @@ This treatment uses angiotensin receptor blocker, annotated with Angiotensin II 
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -10421,6 +10697,7 @@ This treatment uses angiotensin receptor blocker, annotated with Angiotensin II 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10442,6 +10719,7 @@ This treatment uses angiotensin receptor blocker, annotated with Angiotensin II 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10509,6 +10787,9 @@ This treatment is fertility preservation (NCIT:C71326). NCIT:C71326 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10519,6 +10800,9 @@ This treatment is fertility preservation (NCIT:C71326). NCIT:C71326 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -10557,6 +10841,7 @@ This treatment is fertility preservation (NCIT:C71326). NCIT:C71326 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10604,6 +10889,7 @@ This treatment is fertility preservation (NCIT:C71326). NCIT:C71326 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10625,6 +10911,7 @@ This treatment is fertility preservation (NCIT:C71326). NCIT:C71326 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10692,6 +10979,9 @@ This treatment is tympanostomy tube insertion, annotated with Myringotomy with E
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10702,6 +10992,9 @@ This treatment is tympanostomy tube insertion, annotated with Myringotomy with E
 
 
     </div>
+
+
+
 
 
 
@@ -10740,6 +11033,7 @@ This treatment is tympanostomy tube insertion, annotated with Myringotomy with E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10786,6 +11080,7 @@ This treatment is tympanostomy tube insertion, annotated with Myringotomy with E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10807,6 +11102,7 @@ This treatment is tympanostomy tube insertion, annotated with Myringotomy with E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10874,6 +11170,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10884,6 +11183,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10912,6 +11214,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10978,6 +11281,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10988,6 +11294,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -11016,6 +11325,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11110,6 +11420,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11152,6 +11463,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11173,6 +11485,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11251,6 +11564,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11290,6 +11604,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11368,6 +11683,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11389,6 +11705,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11434,6 +11751,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11455,6 +11773,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11559,6 +11878,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11584,6 +11904,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11606,6 +11927,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11703,6 +12025,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11724,6 +12047,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11816,6 +12140,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11837,6 +12162,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11929,6 +12255,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11950,6 +12277,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12042,6 +12370,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12063,6 +12392,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12154,6 +12484,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12175,6 +12506,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12233,6 +12565,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12288,6 +12621,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12309,6 +12643,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12367,6 +12702,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12419,6 +12755,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12477,6 +12814,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12498,6 +12836,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12581,6 +12920,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12637,6 +12977,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12707,6 +13048,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12731,6 +13073,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12752,6 +13095,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12886,6 +13230,7 @@ This dataset samples granulosa cell (CL:0000501). CL:0000501 is a sample type fr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12996,6 +13341,7 @@ This dataset samples cardiomyocyte, annotated with cardiac muscle cell (CL:00007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13192,6 +13538,7 @@ This experimental model uses ovary (UBERON:0000992). UBERON:0000992 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13245,6 +13592,7 @@ This experimental model uses ovary (UBERON:0000992). UBERON:0000992 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13436,6 +13784,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13575,6 +13924,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13618,6 +13968,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4217,6 +4285,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4241,6 +4310,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4262,6 +4332,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4350,6 +4421,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4371,6 +4443,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4439,6 +4512,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4460,6 +4534,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4528,6 +4603,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4549,6 +4625,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4652,6 +4729,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4676,6 +4754,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4697,6 +4776,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4781,6 +4861,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4802,6 +4883,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4886,6 +4968,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4907,6 +4990,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4991,6 +5075,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5072,6 +5157,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5093,6 +5179,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5130,6 +5217,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-npr2-loss-of-function" data-dismech-node="Biallelic NPR2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NPR2 Loss of Function</div>
+
 
                 <div class="item-desc">Pathogenic variants on both NPR2 alleles reduce NPR-B receptor function. The alleles span truncating, splice-altering, and missense classes and initiate the shared AMDM mechanism.</div>
 
@@ -5226,6 +5314,7 @@ This pathophysiological event involves NPR2 (hgnc:7944). hgnc:7944 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5248,6 +5337,7 @@ This pathophysiological event involves NPR2 (hgnc:7944). hgnc:7944 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variant-specific-npr-b-biogenesis-and-catalytic-failure" data-dismech-node="Variant-Specific NPR-B Biogenesis and Catalytic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Variant-Specific NPR-B Biogenesis and Catalytic Failure</div>
+
 
                 <div class="item-desc">NPR2 variants use several proximal routes to receptor failure. Some cause aberrant transcripts or premature truncation; some missense receptors are retained in the endoplasmic reticulum; and functional assays of other missense alleles show markedly deficient guanylyl-cyclase activity. These are convergent allelic mechanisms, not competing disease hypotheses.</div>
 
@@ -5416,6 +5506,7 @@ This pathophysiological event involves decreased Receptor delivery to the plasma
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5437,6 +5528,7 @@ This pathophysiological event involves decreased Receptor delivery to the plasma
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5462,6 +5554,7 @@ This pathophysiological event involves decreased Receptor delivery to the plasma
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cnp-stimulated-guanylyl-cyclase-activity-and-cgmp" data-dismech-node="Reduced CNP-Stimulated Guanylyl Cyclase Activity and cGMP" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced CNP-Stimulated Guanylyl Cyclase Activity and cGMP</div>
+
 
                 <div class="item-desc">NPR-B is a homodimeric receptor guanylyl cyclase that produces cytoplasmic cGMP after CNP binding. AMDM variants reduce or abolish this response rather than universally eliminating all activity.</div>
 
@@ -5762,6 +5855,7 @@ This pathophysiological event involves decreased natriuretic peptide receptor ac
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5783,6 +5877,7 @@ This pathophysiological event involves decreased natriuretic peptide receptor ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5810,6 +5905,7 @@ This pathophysiological event involves decreased natriuretic peptide receptor ac
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5834,6 +5930,7 @@ This pathophysiological event involves decreased natriuretic peptide receptor ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-proliferative-and-hypertrophic-zone-dysfunction" data-dismech-node="Growth-Plate Proliferative and Hypertrophic Zone Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth-Plate Proliferative and Hypertrophic Zone Dysfunction</div>
+
 
                 <div class="item-desc">NPR2 deficiency reduces both proliferative and hypertrophic zones of the growth plate. Model evidence indicates altered zone organization without a generalized mineralization defect.</div>
 
@@ -6176,6 +6273,7 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6197,6 +6295,7 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6224,6 +6323,7 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6246,6 +6346,7 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endochondral-longitudinal-bone-growth" data-dismech-node="Impaired Endochondral Longitudinal Bone Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endochondral Longitudinal Bone Growth</div>
+
 
                 <div class="item-desc">Growth-plate-zone dysfunction impairs endochondral bone elongation rather than skeletal mineralization. This produces severe short-limb stature and regionally patterned appendicular and axial dysplasia.</div>
 
@@ -6482,6 +6583,7 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6504,6 +6606,7 @@ This pathophysiological event occurs in growth plate cartilage (UBERON:0004129).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acromesomelic-limb-elongation-deficit" data-dismech-node="Acromesomelic Limb Elongation Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Acromesomelic Limb Elongation Deficit</div>
+
 
                 <div class="item-desc">The middle and distal limb segments are preferentially shortened, producing the defining acromesomelic distribution.</div>
 
@@ -6637,6 +6740,7 @@ This pathophysiological event involves decreased Endochondral bone growth (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6659,6 +6763,7 @@ This pathophysiological event involves decreased Endochondral bone growth (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hand-and-foot-epiphyseal-and-tubular-bone-dysplasia" data-dismech-node="Hand and Foot Epiphyseal and Tubular-Bone Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hand and Foot Epiphyseal and Tubular-Bone Dysplasia</div>
+
 
                 <div class="item-desc">Abnormal distal tubular-bone growth produces short broad metacarpals, metatarsals and phalanges, with cone-shaped phalangeal epiphyses and short broad hands and feet.</div>
 
@@ -6774,6 +6879,7 @@ This pathophysiological event involves abnormal Bone morphogenesis (GO:0060349).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6796,6 +6902,7 @@ This pathophysiological event involves abnormal Bone morphogenesis (GO:0060349).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vertebral-growth-dysplasia" data-dismech-node="Vertebral Growth Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Vertebral Growth Dysplasia</div>
+
 
                 <div class="item-desc">Vertebral endochondral growth is mildly affected, producing flattened or pear-shaped bodies, posterior-anterior height differences, and failure of normal widening of lumbar interpedicular distances.</div>
 
@@ -6927,6 +7034,7 @@ This pathophysiological event involves decreased Endochondral bone growth (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6949,6 +7057,7 @@ This pathophysiological event involves decreased Endochondral bone growth (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-long-bone-modeling-deformity" data-dismech-node="Long-Bone Modeling Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Long-Bone Modeling Deformity</div>
+
 
                 <div class="item-desc">Regionally uneven long-bone growth and metaphyseal modeling contribute to radial and generalized long-bone bowing.</div>
 
@@ -7045,6 +7154,7 @@ This pathophysiological event involves abnormal Bone morphogenesis (GO:0060349).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7161,6 +7271,9 @@ This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7175,6 +7288,7 @@ This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7231,6 +7345,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7245,6 +7362,7 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7312,6 +7430,9 @@ This clinical feature is Acromesomelia (HP:0003086). HP:0003086 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7326,6 +7447,7 @@ This clinical feature is Acromesomelia (HP:0003086). HP:0003086 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7350,6 +7472,7 @@ This clinical feature is Acromesomelia (HP:0003086). HP:0003086 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7406,6 +7529,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7420,6 +7546,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7444,6 +7571,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7500,6 +7628,9 @@ This clinical feature is Cone-shaped epiphyses of the phalanges of the hand (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7514,6 +7645,7 @@ This clinical feature is Cone-shaped epiphyses of the phalanges of the hand (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7568,6 +7700,9 @@ This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7582,6 +7717,7 @@ This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7638,6 +7774,9 @@ This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7652,6 +7791,7 @@ This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7706,6 +7846,9 @@ This clinical feature is Radial bowing (HP:0002986). HP:0002986 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7720,6 +7863,7 @@ This clinical feature is Radial bowing (HP:0002986). HP:0002986 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7774,6 +7918,9 @@ This clinical feature is Short forearm (HP:0005773). HP:0005773 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7788,6 +7935,7 @@ This clinical feature is Short forearm (HP:0005773). HP:0005773 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7846,6 +7994,9 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7860,6 +8011,7 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7923,6 +8075,9 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7937,6 +8092,7 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7991,6 +8147,9 @@ This clinical feature is Lumbar interpedicular narrowing (HP:0008486). HP:000848
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8005,6 +8164,7 @@ This clinical feature is Lumbar interpedicular narrowing (HP:0008486). HP:000848
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8061,6 +8221,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8075,6 +8238,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8131,6 +8295,9 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8145,6 +8312,7 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8201,6 +8369,9 @@ This clinical feature is Hyperlordosis (HP:0003307). HP:0003307 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8215,6 +8386,7 @@ This clinical feature is Hyperlordosis (HP:0003307). HP:0003307 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8271,6 +8443,9 @@ This clinical feature is Ovoid vertebral bodies (HP:0003300). HP:0003300 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8285,6 +8460,7 @@ This clinical feature is Ovoid vertebral bodies (HP:0003300). HP:0003300 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8309,6 +8485,7 @@ This clinical feature is Ovoid vertebral bodies (HP:0003300). HP:0003300 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8365,6 +8542,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8379,6 +8559,7 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8442,6 +8623,9 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8456,6 +8640,7 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8558,6 +8743,9 @@ This disease-associated gene is NPR2 (hgnc:7944). hgnc:7944 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8572,6 +8760,7 @@ This disease-associated gene is NPR2 (hgnc:7944). hgnc:7944 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8596,6 +8785,7 @@ This disease-associated gene is NPR2 (hgnc:7944). hgnc:7944 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8710,6 +8900,12 @@ This treatment uses Somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Recombinant human growth hormone has been reported in two long-term-treated siblings and isolated short-term cases. Some height gain occurred, but responses are variable and the uncontrolled evidence is too limited to establish a standard AMDM regimen or expected final-height benefit.</div>
 
 
@@ -8756,6 +8952,7 @@ This treatment targets Disproportionate short-limb short stature (HP:0008873). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8780,6 +8977,7 @@ This treatment targets Disproportionate short-limb short stature (HP:0008873). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8801,6 +8999,7 @@ This treatment targets Disproportionate short-limb short stature (HP:0008873). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8875,6 +9074,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is appropriate after molecular confirmation to explain autosomal recessive inheritance and to support testing of relatives for the known familial variants. Carrier stature is variable and should not be used as a substitute for molecular testing.</div>
 
 
@@ -8899,6 +9104,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8920,6 +9126,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9028,6 +9235,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9112,6 +9320,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9202,6 +9411,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9223,6 +9433,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9338,6 +9549,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9435,6 +9647,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9538,6 +9751,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9635,6 +9849,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9738,14 +9953,15 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Radial bowing, flared metaphysis and occasional hypoplasia of the distal radius"</div>
+                <div class="evidence-snippet">"Acromesomelic dysplasia, type Maroteaux (AMDM, OMIM 602875) is a rare skeletal dysplasia. ... [Typical findings in AMDM:] Radial bowing, flared metaphysis and occasional hypoplasia of the distal radius"</div>
 
 
-                <div class="evidence-explanation">The clinical radiographic comparison directly lists radial bowing.</div>
+                <div class="evidence-explanation">Restores the AMDM identity and the table&#39;s typical-finding column. Bracketed text identifies that column; the radial findings are not attributed to the mild proband, whose column differs.</div>
 
 
 
@@ -9838,6 +10054,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9902,6 +10119,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9954,6 +10172,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10003,6 +10222,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10074,6 +10294,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10172,6 +10393,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10193,6 +10415,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10271,6 +10494,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10345,6 +10569,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10414,6 +10639,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10491,6 +10717,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10512,6 +10739,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10589,6 +10817,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10610,6 +10839,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10758,6 +10988,7 @@ This experimental model concerns NPR2 (hgnc:7944). hgnc:7944 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10881,6 +11112,7 @@ This experimental model concerns NPR2 (hgnc:7944). hgnc:7944 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10902,6 +11134,7 @@ This experimental model concerns NPR2 (hgnc:7944). hgnc:7944 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12332,8 +12565,13 @@ imaging_findings:
     reference_title: &#34;A mild case of acromesomelic dysplasia, type Maroteaux with novel natriuretic peptide receptor B (NPR2) variants.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Radial bowing, flared metaphysis and occasional hypoplasia of the distal radius
-    explanation: The clinical radiographic comparison directly lists radial bowing.
+    snippet: &gt;-
+      Acromesomelic dysplasia, type Maroteaux (AMDM, OMIM 602875) is a rare skeletal dysplasia. ...
+      [Typical findings in AMDM:] Radial bowing, flared metaphysis and occasional hypoplasia of the
+      distal radius
+    explanation: &gt;-
+      Restores the AMDM identity and the table&#39;s typical-finding column. Bracketed text identifies
+      that column; the radial findings are not attributed to the mild proband, whose column differs.
 - name: Ovoid or Pear-Shaped Vertebral Bodies on Spine Radiographs
   modality: XRAY
   description: Vertebral bodies may be ovoid or pear-shaped with shorter posterior than anterior height.
@@ -12914,6 +13152,71 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review: Acromesomelic dysplasia, Maroteaux type</strong> · 2026-07-19T13:51:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acromesomelic_Dysplasia_Maroteaux_Type/2026-07-19T135159Z-codex-7c7797.yaml">View source</a></p>
+                        <p class="research-review-text">Completed an independent evidence and ontology review of NPR2-related AMDM. Rebuilt the causal graph around allele-specific NPR-B failure, reduced CNP-stimulated cGMP, growth-plate zone dysfunction, and impaired endochondral longitudinal growth; added structured prevalence, progression, radiographic findings, close molecular and eponymic differentials, cautious somatropin evidence, genetic counseling, and knowledge gaps. Added recent independently fetched PubMed sources, verified all cited snippets and titles against local caches, and excluded an identity-conflicted deep-research artifact.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review: Acromesomelic Dysplasia Maroteaux Type (Changes required)</strong> · 2026-05-30T02:56:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acromesomelic_Dysplasia_Maroteaux_Type/2026-05-30T025639Z-github-review-3421.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3421
+Issue state: OPEN
+Issue created: 2026-05-30T02:56:39Z
+Issue updated: 2026-05-30T03:00:19Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **Acromesomelic Dysplasia Maroteaux Type**
+- Entry: `kb/disorders/Acromesomelic_Dysplasia_Maroteaux_Type.yaml`
+- Selection basis: #34 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **Diagnosis and routine management are missing.** The YAML has phenotypes, mechanisms, genetics, and recombinant human growth hormone treatment, but no diagnosis section or standard orthopedic/genetic counseling management.
+2. **NPR2/CNP/cGMP mechanism is good but should be connected to growth-plate cells.** The entry has impaired CNP-NPR-B-cGMP signaling, reduced longitudinal bone growth, and FGF-NPR2 crosstalk. Add growth-plate chondrocyte proliferation/hypertrophy and endochondral ossification consequences explicitly.
+3. **Treatment evidence for growth hormone needs review.** Recombinant human growth hormone is listed as the only treatment. AMDM is caused by NPR2 loss of function; any rhGH response is not the core mechanism and should be presented with evidence strength. CNP/NPR-B pathway therapies may be mechanistically relevant but require careful evidence before inclusion.
+4. **Phenotype coverage is good but should distinguish AMDM from other acromesomelic dysplasias.** The entry has many skeletal features; it should make clear that NPR2-related Maroteaux type has normal intelligence and characteristic acromesomelic/mesomelic shortening with vertebral/hand/foot features, distinct from GDF5/BMPR1B/PRKG2 forms.
+5. **Genetic counseling should be present.** Autosomal recessive inheritance is present; add molecular testing and family/reproductive counseling.
+
+## Research-artifact cross-check
+
+Checked `research/Acromesomelic_Dysplasia_Maroteaux_Type-deep-research-openai.md` and `.citations.md`. The YAML consumes the central NPR2 signaling mechanism but under-consumes diagnosis/management and disease-boundary distinctions.
+
+## Content-completeness summary
+
+- **Phenotypes:** strong skeletal coverage; add normal intelligence/differential notes if supported.
+- **Subtype/lumping:** clarify Maroteaux/NPR2 versus other acromesomelic dysplasias.
+- **Pathophysiology:** add growth-plate chondrocyte/endochondral ossification detail.
+- **Management/diagnosis:** major gap beyond rhGH.
+- **References:** verify treatment evidence before retaining or expanding therapy claims.
+
+## Suggested remediation
+
+Add diagnosis/genetic counseling, refine growth-plate mechanism, distinguish other acromesomelic dysplasias, and re-evaluate rhGH treatment evidence.
+
+## Sources used
+
+- PMID:34162036: https://pubmed.ncbi.nlm.nih.gov/34162036/
+- NPR2/AMDM review case: https://pmc.ncbi.nlm.nih.gov/articles/PMC7348635/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13064,7 +13367,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acromesomelic Dysplasia Maroteaux Type", "mondoId": "MONDO:0011275", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acromesomelic_Dysplasia_Maroteaux_Type", "yamlRevision": "ef1c58fd3407"};
+        const OS_CONFIG = {"diseaseName": "Acromesomelic Dysplasia Maroteaux Type", "mondoId": "MONDO:0011275", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acromesomelic_Dysplasia_Maroteaux_Type", "yamlRevision": "0631cede2a52"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

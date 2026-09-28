@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4114,6 +4182,7 @@ Within PEX12 the genotype tracks the phenotype more cleanly than in most of the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4135,6 +4204,7 @@ Within PEX12 the genotype tracks the phenotype more cleanly than in most of the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4239,6 +4309,7 @@ The general lesson is that &#34;predicted truncating&#34; is a statement about t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4260,6 +4331,7 @@ The general lesson is that &#34;predicted truncating&#34; is a statement about t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4342,6 +4414,13 @@ The general lesson is that &#34;predicted truncating&#34; is a statement about t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pex12-loss-of-function" data-dismech-node="Biallelic PEX12 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PEX12 Loss of Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Variants on both PEX12 alleles. Truncating alleles that remove the C-terminal zinc-binding domain are the ones associated with the severe presentation.</div>
 
@@ -4431,6 +4510,7 @@ This pathophysiological event involves decreased zinc ion binding (GO:0008270). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4452,6 +4532,7 @@ This pathophysiological event involves decreased zinc ion binding (GO:0008270). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4477,6 +4558,13 @@ This pathophysiological event involves decreased zinc ion binding (GO:0008270). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-pex2-pex10-pex12-retrotranslocation-channel" data-dismech-node="Disrupted PEX2-PEX10-PEX12 Retrotranslocation Channel" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted PEX2-PEX10-PEX12 Retrotranslocation Channel</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PEX12 co-assembles with its paralogues PEX2 and PEX10 into the ubiquitin-ligase retrotranslocation channel of the peroxisomal membrane. Losing PEX12 leaves the channel unable to regulate PEX5 ubiquitination.</div>
 
@@ -4576,6 +4664,13 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-pex5-receptor-recycling" data-dismech-node="Failure of PEX5 Receptor Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of PEX5 Receptor Recycling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">PEX5 delivers PTS1-tagged matrix enzymes and must be ubiquitinated and exported back to the cytosol to be reused. Without a functioning channel it is not returned, so the import cycle stalls after a single round.</div>
 
 
@@ -4614,6 +4709,13 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collapse-of-peroxisomal-matrix-protein-import" data-dismech-node="Collapse of Peroxisomal Matrix Protein Import" data-dismech-type="pathophysiology">
                 <div class="item-name">Collapse of Peroxisomal Matrix Protein Import</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Matrix enzymes never reach the organelle. The membrane compartment still forms - the &#34;peroxisomal ghost&#34; - which is the morphological signature distinguishing a biogenesis defect from a single enzyme deficiency.</div>
 
@@ -4773,6 +4875,13 @@ This pathophysiological event involves peroxisomal matrix (GO:0005782). GO:00057
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-very-long-chain-and-branched-chain-fatty-acids" data-dismech-node="Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Substrates that only peroxisomes degrade build up systemically: C26:0 and other VLCFA, phytanic and pristanic acid, and C27 bile-acid intermediates. This is the accumulation half of the biochemical signature and the basis of diagnostic testing.</div>
 
 
@@ -4864,6 +4973,13 @@ This pathophysiological event involves decreased very long-chain fatty acid beta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasmalogen-deficiency" data-dismech-node="Plasmalogen Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasmalogen Deficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Ether phospholipid synthesis begins in the peroxisome, so plasmalogens - major constituents of myelin - and DHA are not made. This is the deficiency half of the signature, and the one most plausibly linked to the white-matter disease.</div>
 
 
@@ -4940,6 +5056,13 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-migration-in-the-developing-cortex" data-dismech-node="Impaired Neuronal Migration in the Developing Cortex" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Migration in the Developing Cortex</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Neuronal precursors fail to reach their laminar destinations during fetal cortical development, producing the perisylvian polymicrogyria and heterotopia that make this a congenital malformation rather than a purely degenerative disease. Because the lesion is formed before birth, it is not reversible by any postnatal intervention.</div>
 
@@ -5064,6 +5187,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hepatic-injury" data-dismech-node="Progressive Hepatic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Hepatic Injury</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">VLCFA and C27 bile-acid intermediates are directly hepatotoxic, driving cholestasis and fibrosis.</div>
 
 
@@ -5123,6 +5253,13 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adrenocortical-insufficiency" data-dismech-node="Adrenocortical Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Adrenocortical Insufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">VLCFA accumulation in adrenocortical cells impairs steroidogenesis. Often subclinical at first, which is why GeneReviews asks for ACTH and cortisol measurement by age one even in children who look adrenally well.</div>
 
@@ -5184,6 +5321,13 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-neurodevelopmental-impairment" data-dismech-node="Severe Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Neurodevelopmental Impairment</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Profound hypotonia, intractable neonatal seizures, and absent developmental progress. In the severe form death usually follows within the first year.</div>
 
 
@@ -5218,6 +5362,7 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5266,7 +5411,7 @@ This pathophysiological event involves cortical cell of adrenal gland (CL:000209
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Substrates that only peroxisomes degrade build up systemically: C26:0 and other VLCFA, phytanic and pristanic acid, and C27 bile-acid intermediates. This is the accumulation half of the biochemical signature and the basis of diagnostic testing.\", \"meta\": {\"biological_processes\": [\"very long-chain fatty acid beta-oxidation\"]}}, {\"id\": \"Adrenal Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glucocorticoid replacement once adrenal insufficiency is documented. Curated separately from general supportive care because it depends on active surveillance rather than on symptoms - the deficiency is often silent until stressed.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Adrenocortical Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCFA accumulation in adrenocortical cells impairs steroidogenesis. Often subclinical at first, which is why GeneReviews asks for ACTH and cortisol measurement by age one even in children who look adrenally well.\", \"meta\": {\"cell_types\": [\"cortical cell of adrenal gland\"]}}, {\"id\": \"Biallelic PEX12 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Variants on both PEX12 alleles. Truncating alleles that remove the C-terminal zinc-binding domain are the ones associated with the severe presentation.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"zinc ion binding\"]}}, {\"id\": \"Biochemical and Developmental Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured monitoring rather than symptom-driven follow-up, because several complications are silent until advanced - adrenal insufficiency in particular.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"C26:0-lysophosphatidylcholine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated dried-blood-spot C26:0-lysoPC reports peroxisomal beta-oxidation failure.\"}]}}, {\"id\": \"Cholic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral cholic acid restores feedback inhibition of endogenous bile acid synthesis, so the hepatotoxic C27 intermediates that peroxisome-deficient hepatocytes cannot process stop accumulating. It is the only FDA-approved therapy for Zellweger spectrum disease and the only intervention in this entry that acts on a curated mechanism node rather than on a consequence - which is why it is curated separately from supportive care rather than inside it.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cholic acid\"]}}, {\"id\": \"Collapse of Peroxisomal Matrix Protein Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix enzymes never reach the organelle. The membrane compartment still forms - the \\\"peroxisomal ghost\\\" - which is the morphological signature distinguishing a biogenesis defect from a single enzyme deficiency.\", \"meta\": {\"biological_processes\": [\"protein import into peroxisome matrix\", \"peroxisome organization\"], \"animal_models\": [{\"name\": \"Pex2-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"PEX2 (Pxmp3) targeted null, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining cell-biological lesion, including the ghost membranes.\"}]}}, {\"id\": \"Disrupted PEX2-PEX10-PEX12 Retrotranslocation Channel\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX12 co-assembles with its paralogues PEX2 and PEX10 into the ubiquitin-ligase retrotranslocation channel of the peroxisomal membrane. Losing PEX12 leaves the channel unable to regulate PEX5 ubiquitination.\", \"meta\": {\"molecular_functions\": [\"ubiquitin-protein transferase activity\"]}}, {\"id\": \"Failure of PEX5 Receptor Recycling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX5 delivers PTS1-tagged matrix enzymes and must be ubiquitinated and exported back to the cytosol to be reused. Without a functioning channel it is not returned, so the import cycle stalls after a single round.\"}, {\"id\": \"Impaired Neuronal Migration in the Developing Cortex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal precursors fail to reach their laminar destinations during fetal cortical development, producing the perisylvian polymicrogyria and heterotopia that make this a congenital malformation rather than a purely degenerative disease. Because the lesion is formed before birth, it is not reversible by any postnatal intervention.\", \"meta\": {\"cell_types\": [\"radial glial cell\", \"neuron\"], \"animal_models\": [{\"name\": \"Pex2-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"PEX2 (Pxmp3) targeted null, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the cortical migration defect that is otherwise inferred from human neuropathology, which is the main reason this model matters for the entry.\"}]}}, {\"id\": \"Pex2-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A knockout of PEX2, one of PEX12\u0027s two paralogues in the same retrotranslocation channel. It is not a model of PBD3A as such, but it is the model that established what losing that channel does to a mammal.\"}, {\"id\": \"Plasmalogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ether phospholipid synthesis begins in the peroxisome, so plasmalogens - major constituents of myelin - and DHA are not made. This is the deficiency half of the signature, and the one most plausibly linked to the white-matter disease.\", \"meta\": {\"biological_processes\": [\"ether lipid biosynthetic process\"]}}, {\"id\": \"Plasmalogens\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"CHEBI:64611\", \"term_label\": \"ether lipid\", \"readouts\": [{\"target\": \"Plasmalogen Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced erythrocyte plasmalogens report failed peroxisomal ether lipid synthesis.\"}]}}, {\"id\": \"Progressive Hepatic Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCFA and C27 bile-acid intermediates are directly hepatotoxic, driving cholestasis and fibrosis.\", \"meta\": {\"cell_types\": [\"hepatocyte\"]}}, {\"id\": \"Severe Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound hypotonia, intractable neonatal seizures, and absent developmental progress. In the severe form death usually follows within the first year.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Supportive and Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment for the biogenesis defect. Management is entirely symptomatic - gastrostomy feeding, anti-seizure medication, hearing aids, cataract surgery, fat-soluble vitamin and cholic acid supplementation, adrenal replacement. None of it restores peroxisomal import, and the congenital brain malformation is fixed before birth, so no postnatal intervention can address the central lesion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Very-long-chain fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:27283\", \"term_label\": \"very long-chain fatty acid\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated VLCFA reports the peroxisomal beta-oxidation block directly.\"}]}}], \"edges\": [{\"source\": \"Biallelic PEX12 Loss of Function\", \"target\": \"Disrupted PEX2-PEX10-PEX12 Retrotranslocation Channel\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted PEX2-PEX10-PEX12 Retrotranslocation Channel\", \"target\": \"Failure of PEX5 Receptor Recycling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of PEX5 Receptor Recycling\", \"target\": \"Collapse of Peroxisomal Matrix Protein Import\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Plasmalogen Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Progressive Hepatic Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Impaired Neuronal Migration in the Developing Cortex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peroxisomal failure demonstrably disrupts cortical migration, but which accumulating substrate or missing lipid does it is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Impaired Neuronal Migration in the Developing Cortex\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Migration in the Developing Cortex\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholic Acid\", \"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholic Acid\", \"target\": \"Progressive Hepatic Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenal Replacement Therapy\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biochemical and Developmental Surveillance\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pex2-deficient mouse\", \"target\": \"Collapse of Peroxisomal Matrix Protein Import\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining cell-biological lesion, including the ghost membranes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The disrupted gene is PEX2, not PEX12. The two are paralogous subunits of one channel, so the import phenotype is shared, but any PEX12-specific effect - notably its role in stimulating PEX10 ligase activity - is not modelled.\"}, {\"source\": \"Pex2-deficient mouse\", \"target\": \"Impaired Neuronal Migration in the Developing Cortex\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the cortical migration defect that is otherwise inferred from human neuropathology, which is the main reason this model matters for the entry.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mice die within hours of birth, so the postnatal white-matter disease and the sensory phenotypes of longer-surviving humans cannot be studied in it. As above, the gene is PEX2.\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Very-long-chain fatty acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated VLCFA reports the peroxisomal beta-oxidation block directly.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"C26:0-lysophosphatidylcholine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated dried-blood-spot C26:0-lysoPC reports peroxisomal beta-oxidation failure.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Plasmalogens\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced erythrocyte plasmalogens report failed peroxisomal ether lipid synthesis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Substrates that only peroxisomes degrade build up systemically: C26:0 and other VLCFA, phytanic and pristanic acid, and C27 bile-acid intermediates. This is the accumulation half of the biochemical signature and the basis of diagnostic testing.\", \"meta\": {\"biological_processes\": [\"very long-chain fatty acid beta-oxidation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Adrenal Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glucocorticoid replacement once adrenal insufficiency is documented. Curated separately from general supportive care because it depends on active surveillance rather than on symptoms - the deficiency is often silent until stressed.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Adrenocortical Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCFA accumulation in adrenocortical cells impairs steroidogenesis. Often subclinical at first, which is why GeneReviews asks for ACTH and cortisol measurement by age one even in children who look adrenally well.\", \"meta\": {\"cell_types\": [\"cortical cell of adrenal gland\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Biallelic PEX12 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Variants on both PEX12 alleles. Truncating alleles that remove the C-terminal zinc-binding domain are the ones associated with the severe presentation.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"zinc ion binding\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Biochemical and Developmental Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured monitoring rather than symptom-driven follow-up, because several complications are silent until advanced - adrenal insufficiency in particular.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"C26:0-lysophosphatidylcholine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated dried-blood-spot C26:0-lysoPC reports peroxisomal beta-oxidation failure.\"}]}}, {\"id\": \"Cholic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral cholic acid restores feedback inhibition of endogenous bile acid synthesis, so the hepatotoxic C27 intermediates that peroxisome-deficient hepatocytes cannot process stop accumulating. It is the only FDA-approved therapy for Zellweger spectrum disease and the only intervention in this entry that acts on a curated mechanism node rather than on a consequence - which is why it is curated separately from supportive care rather than inside it.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cholic acid\"]}}, {\"id\": \"Collapse of Peroxisomal Matrix Protein Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix enzymes never reach the organelle. The membrane compartment still forms - the \\\"peroxisomal ghost\\\" - which is the morphological signature distinguishing a biogenesis defect from a single enzyme deficiency.\", \"meta\": {\"biological_processes\": [\"protein import into peroxisome matrix\", \"peroxisome organization\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Pex2-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"PEX2 (Pxmp3) targeted null, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining cell-biological lesion, including the ghost membranes.\"}]}}, {\"id\": \"Disrupted PEX2-PEX10-PEX12 Retrotranslocation Channel\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX12 co-assembles with its paralogues PEX2 and PEX10 into the ubiquitin-ligase retrotranslocation channel of the peroxisomal membrane. Losing PEX12 leaves the channel unable to regulate PEX5 ubiquitination.\", \"meta\": {\"molecular_functions\": [\"ubiquitin-protein transferase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of PEX5 Receptor Recycling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX5 delivers PTS1-tagged matrix enzymes and must be ubiquitinated and exported back to the cytosol to be reused. Without a functioning channel it is not returned, so the import cycle stalls after a single round.\", \"meta\": {\"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Neuronal Migration in the Developing Cortex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal precursors fail to reach their laminar destinations during fetal cortical development, producing the perisylvian polymicrogyria and heterotopia that make this a congenital malformation rather than a purely degenerative disease. Because the lesion is formed before birth, it is not reversible by any postnatal intervention.\", \"meta\": {\"cell_types\": [\"radial glial cell\", \"neuron\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Pex2-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"PEX2 (Pxmp3) targeted null, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the cortical migration defect that is otherwise inferred from human neuropathology, which is the main reason this model matters for the entry.\"}]}}, {\"id\": \"Pex2-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A knockout of PEX2, one of PEX12\u0027s two paralogues in the same retrotranslocation channel. It is not a model of PBD3A as such, but it is the model that established what losing that channel does to a mammal.\"}, {\"id\": \"Plasmalogen Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ether phospholipid synthesis begins in the peroxisome, so plasmalogens - major constituents of myelin - and DHA are not made. This is the deficiency half of the signature, and the one most plausibly linked to the white-matter disease.\", \"meta\": {\"biological_processes\": [\"ether lipid biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Plasmalogens\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"CHEBI:64611\", \"term_label\": \"ether lipid\", \"readouts\": [{\"target\": \"Plasmalogen Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced erythrocyte plasmalogens report failed peroxisomal ether lipid synthesis.\"}]}}, {\"id\": \"Progressive Hepatic Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VLCFA and C27 bile-acid intermediates are directly hepatotoxic, driving cholestasis and fibrosis.\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Severe Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound hypotonia, intractable neonatal seizures, and absent developmental progress. In the severe form death usually follows within the first year.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Supportive and Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment for the biogenesis defect. Management is entirely symptomatic - gastrostomy feeding, anti-seizure medication, hearing aids, cataract surgery, fat-soluble vitamin and cholic acid supplementation, adrenal replacement. None of it restores peroxisomal import, and the congenital brain malformation is fixed before birth, so no postnatal intervention can address the central lesion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Very-long-chain fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:27283\", \"term_label\": \"very long-chain fatty acid\", \"readouts\": [{\"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated VLCFA reports the peroxisomal beta-oxidation block directly.\"}]}}], \"edges\": [{\"source\": \"Biallelic PEX12 Loss of Function\", \"target\": \"Disrupted PEX2-PEX10-PEX12 Retrotranslocation Channel\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted PEX2-PEX10-PEX12 Retrotranslocation Channel\", \"target\": \"Failure of PEX5 Receptor Recycling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of PEX5 Receptor Recycling\", \"target\": \"Collapse of Peroxisomal Matrix Protein Import\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Collapse of Peroxisomal Matrix Protein Import\", \"target\": \"Plasmalogen Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Progressive Hepatic Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Impaired Neuronal Migration in the Developing Cortex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peroxisomal failure demonstrably disrupts cortical migration, but which accumulating substrate or missing lipid does it is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Impaired Neuronal Migration in the Developing Cortex\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Migration in the Developing Cortex\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Severe Neurodevelopmental Impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholic Acid\", \"target\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholic Acid\", \"target\": \"Progressive Hepatic Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenal Replacement Therapy\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Biochemical and Developmental Surveillance\", \"target\": \"Adrenocortical Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pex2-deficient mouse\", \"target\": \"Collapse of Peroxisomal Matrix Protein Import\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining cell-biological lesion, including the ghost membranes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The disrupted gene is PEX2, not PEX12. The two are paralogous subunits of one channel, so the import phenotype is shared, but any PEX12-specific effect - notably its role in stimulating PEX10 ligase activity - is not modelled.\"}, {\"source\": \"Pex2-deficient mouse\", \"target\": \"Impaired Neuronal Migration in the Developing Cortex\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the cortical migration defect that is otherwise inferred from human neuropathology, which is the main reason this model matters for the entry.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mice die within hours of birth, so the postnatal white-matter disease and the sensory phenotypes of longer-surviving humans cannot be studied in it. As above, the gene is PEX2.\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"Very-long-chain fatty acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated VLCFA reports the peroxisomal beta-oxidation block directly.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of Very-Long-Chain and Branched-Chain Fatty Acids\", \"target\": \"C26:0-lysophosphatidylcholine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated dried-blood-spot C26:0-lysoPC reports peroxisomal beta-oxidation failure.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Plasmalogen Deficiency\", \"target\": \"Plasmalogens\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced erythrocyte plasmalogens report failed peroxisomal ether lipid synthesis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5344,6 +5489,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5358,6 +5506,7 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5414,6 +5563,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5428,6 +5580,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5495,6 +5648,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5509,6 +5665,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5574,6 +5731,9 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5588,6 +5748,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5653,6 +5814,9 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5667,6 +5831,7 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5723,6 +5888,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5737,6 +5905,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5804,6 +5973,9 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5818,6 +5990,7 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5885,6 +6058,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5899,6 +6075,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5984,6 +6161,9 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as severi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5998,6 +6178,7 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as severi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6056,6 +6237,9 @@ This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6070,6 +6254,7 @@ This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6135,6 +6320,9 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6149,6 +6337,7 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6205,6 +6394,9 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6219,6 +6411,7 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6243,6 +6436,7 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6299,6 +6493,9 @@ This clinical feature is Gray matter heterotopia (HP:0002282). HP:0002282 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6313,6 +6510,7 @@ This clinical feature is Gray matter heterotopia (HP:0002282). HP:0002282 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6337,6 +6535,7 @@ This clinical feature is Gray matter heterotopia (HP:0002282). HP:0002282 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6435,6 +6634,9 @@ This disease-associated gene is PEX12 (hgnc:8854). hgnc:8854 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6449,6 +6651,7 @@ This disease-associated gene is PEX12 (hgnc:8854). hgnc:8854 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6535,6 +6738,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6545,6 +6751,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6590,6 +6799,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6678,6 +6888,9 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6688,6 +6901,9 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -6746,6 +6962,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6813,6 +7030,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6823,6 +7043,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6868,6 +7091,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6935,6 +7159,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6945,6 +7172,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6990,6 +7220,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7081,6 +7312,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7162,6 +7394,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7240,6 +7473,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7350,6 +7584,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7434,6 +7669,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7610,6 +7846,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7649,6 +7886,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7725,6 +7963,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8906,6 +9145,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

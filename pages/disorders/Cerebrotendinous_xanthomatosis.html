@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4178,6 +4246,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4261,6 +4330,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4282,6 +4352,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4331,6 +4402,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp27a1-sterol-27-hydroxylase-deficiency" data-dismech-node="CYP27A1 sterol 27-hydroxylase deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP27A1 sterol 27-hydroxylase deficiency</div>
+
 
                 <div class="item-desc">CYP27A1 pathogenic variants reduce mitochondrial sterol 27-hydroxylase activity, disrupting cholesterol side-chain oxidation, a key step in bile acid synthesis.
 </div>
@@ -4601,6 +4673,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4622,6 +4695,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4647,6 +4721,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chenodeoxycholic-acid-deficiency-and-disinhibited-bile-acid-precursor-synthesis" data-dismech-node="Chenodeoxycholic acid deficiency and disinhibited bile acid precursor synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chenodeoxycholic acid deficiency and disinhibited bile acid precursor synthesis</div>
+
 
                 <div class="item-desc">Reduced chenodeoxycholic acid synthesis weakens bile-acid feedback control over cholesterol 7-alpha-hydroxylase, increasing production of upstream bile acid precursors.
 </div>
@@ -4789,6 +4864,7 @@ This pathophysiological event involves abnormal bile acid biosynthetic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4810,6 +4886,7 @@ This pathophysiological event involves abnormal bile acid biosynthetic process (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4835,6 +4912,7 @@ This pathophysiological event involves abnormal bile acid biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholestanol-and-bile-alcohol-accumulation" data-dismech-node="Cholestanol and bile alcohol accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cholestanol and bile alcohol accumulation</div>
+
 
                 <div class="item-desc">Abnormal sterol precursor flux causes high plasma and tissue cholestanol and increased bile alcohols and glyconjugates, the major biochemical signature that distinguishes CTX from other xanthoma disorders.
 </div>
@@ -4985,6 +5063,7 @@ This pathophysiological event involves abnormal cholesterol metabolic process (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5006,6 +5085,7 @@ This pathophysiological event involves abnormal cholesterol metabolic process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5031,6 +5111,7 @@ This pathophysiological event involves abnormal cholesterol metabolic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sterol-deposition-in-tendons" data-dismech-node="Sterol deposition in tendons" data-dismech-type="pathophysiology">
                 <div class="item-name">Sterol deposition in tendons</div>
+
 
                 <div class="item-desc">Cholestanol and cholesterol accumulation in tendon tissue causes tendon xanthomas and Achilles tendon abnormalities.
 </div>
@@ -5152,6 +5233,7 @@ This pathophysiological event occurs in tendon (UBERON:0000043). UBERON:0000043 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5173,6 +5255,7 @@ This pathophysiological event occurs in tendon (UBERON:0000043). UBERON:0000043 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5198,6 +5281,7 @@ This pathophysiological event occurs in tendon (UBERON:0000043). UBERON:0000043 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-bone-density-and-appendicular-involvement" data-dismech-node="Skeletal, bone-density, and appendicular involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal, bone-density, and appendicular involvement</div>
+
 
                 <div class="item-desc">CTX includes bone-density loss and distal appendicular findings in the curated phenotype record. These are modeled as a conservative branch from systemic sterol accumulation because the cached evidence supports the manifestations but not a single resolved mechanism.
 </div>
@@ -5276,6 +5360,7 @@ This pathophysiological event occurs in tendon (UBERON:0000043). UBERON:0000043 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5297,6 +5382,7 @@ This pathophysiological event occurs in tendon (UBERON:0000043). UBERON:0000043 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5322,6 +5408,7 @@ This pathophysiological event occurs in tendon (UBERON:0000043). UBERON:0000043 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-sterol-deposition-and-white-matter-injury" data-dismech-node="CNS sterol deposition and white-matter injury" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS sterol deposition and white-matter injury</div>
+
 
                 <div class="item-desc">Cholestanol and precursor accumulation in brain tissue is associated with white-matter lesions, vacuolation, cerebellar and pyramidal tract disease, cognitive decline, psychiatric manifestations, seizures, and extrapyramidal signs.
 </div>
@@ -5571,6 +5658,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5592,6 +5680,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5617,6 +5706,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-cholestanol-deposition-and-cataractogenesis" data-dismech-node="Ocular cholestanol deposition and cataractogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular cholestanol deposition and cataractogenesis</div>
+
 
                 <div class="item-desc">Multisystemic cholestanol deposition includes the eye, and CTX commonly presents with childhood cataracts and visual impairment.
 </div>
@@ -5732,6 +5822,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5753,6 +5844,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5778,6 +5870,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-corticospinal-and-bulbar-pathway-dysfunction" data-dismech-node="Cerebellar, corticospinal, and bulbar pathway dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar, corticospinal, and bulbar pathway dysfunction</div>
+
 
                 <div class="item-desc">Progressive CNS involvement affects cerebellar, corticospinal, and bulbar motor pathways, producing ataxia, spastic paraparesis, dysarthria, pyramidal signs, and characteristic cerebellar/dentate-region MRI abnormalities.
 </div>
@@ -5966,6 +6059,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5987,6 +6081,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6014,6 +6109,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6038,6 +6134,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extrapyramidal-and-neuropsychiatric-involvement" data-dismech-node="Extrapyramidal and neuropsychiatric involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Extrapyramidal and neuropsychiatric involvement</div>
+
 
                 <div class="item-desc">Progressive CNS disease also involves extrapyramidal and neuropsychiatric systems, producing dystonia, atypical parkinsonism, cognitive decline, behavioral change, and depression.
 </div>
@@ -6201,6 +6298,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6222,6 +6320,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6247,6 +6346,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctx-neuronal-axonopathy" data-dismech-node="CTX neuronal axonopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">CTX neuronal axonopathy</div>
+
 
                 <div class="item-desc">Patient-derived cortical projection neurons recapitulate CTX biochemical abnormalities and axonal defects, providing a cellular bridge from bile-acid pathway disruption to progressive long-tract and peripheral neurologic disease.
 </div>
@@ -6320,6 +6420,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6342,6 +6443,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-involvement" data-dismech-node="Peripheral nerve involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral nerve involvement</div>
+
 
                 <div class="item-desc">CTX can cause a sensorimotor peripheral neuropathy with demyelinating and axonal features, contributing to decreased nerve conduction velocity, distal amyotrophy, pes cavus, and gait impairment.
 </div>
@@ -6530,6 +6632,7 @@ This pathophysiological event involves decreased nerve conduction, annotated wit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6554,6 +6657,7 @@ This pathophysiological event involves decreased nerve conduction, annotated wit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6575,6 +6679,7 @@ This pathophysiological event involves decreased nerve conduction, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6699,6 +6804,9 @@ This clinical feature is Abnormal retinal vascular morphology (HP:0008046). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6713,6 +6821,7 @@ This clinical feature is Abnormal retinal vascular morphology (HP:0008046). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6778,6 +6887,9 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6792,6 +6904,7 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6816,6 +6929,7 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6872,6 +6986,9 @@ This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6886,6 +7003,7 @@ This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6910,6 +7028,7 @@ This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6975,6 +7094,9 @@ This clinical feature is Juvenile cataract (HP:0001118). HP:0001118 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6989,6 +7111,7 @@ This clinical feature is Juvenile cataract (HP:0001118). HP:0001118 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7013,6 +7136,7 @@ This clinical feature is Juvenile cataract (HP:0001118). HP:0001118 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7069,6 +7193,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7083,6 +7210,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7139,6 +7267,9 @@ This clinical feature is Optic neuropathy (HP:0001138). HP:0001138 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7153,6 +7284,7 @@ This clinical feature is Optic neuropathy (HP:0001138). HP:0001138 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7209,6 +7341,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7223,6 +7358,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7279,6 +7415,9 @@ This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7293,6 +7432,7 @@ This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7349,6 +7489,9 @@ This clinical feature is Abnormality of visual evoked potentials (HP:0000649). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7363,6 +7506,7 @@ This clinical feature is Abnormality of visual evoked potentials (HP:0000649). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7428,6 +7572,9 @@ This clinical feature is Tendon xanthomatosis (HP:0010874). HP:0010874 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7442,6 +7589,7 @@ This clinical feature is Tendon xanthomatosis (HP:0010874). HP:0010874 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7466,6 +7614,7 @@ This clinical feature is Tendon xanthomatosis (HP:0010874). HP:0010874 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7522,6 +7671,9 @@ This clinical feature is Abnormality of the plantar skin of foot (HP:0100872). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7536,6 +7688,7 @@ This clinical feature is Abnormality of the plantar skin of foot (HP:0100872). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7603,6 +7756,9 @@ This clinical feature is Abnormality of the Achilles tendon, annotated with Abno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7617,6 +7773,7 @@ This clinical feature is Abnormality of the Achilles tendon, annotated with Abno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7673,6 +7830,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7687,6 +7847,7 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7743,6 +7904,9 @@ This clinical feature is Abnormality of finger, annotated with Abnormal finger m
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7757,6 +7921,7 @@ This clinical feature is Abnormality of finger, annotated with Abnormal finger m
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7813,6 +7978,9 @@ This clinical feature is Abnormality of tibia morphology, annotated with Abnorma
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7827,6 +7995,7 @@ This clinical feature is Abnormality of tibia morphology, annotated with Abnorma
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7894,6 +8063,9 @@ This clinical feature is Abnormal enzyme/coenzyme activity, annotated with Abnor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7908,6 +8080,7 @@ This clinical feature is Abnormal enzyme/coenzyme activity, annotated with Abnor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7973,6 +8146,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7987,6 +8163,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8011,6 +8188,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8067,6 +8245,9 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8081,6 +8262,7 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8137,6 +8319,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8151,6 +8336,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8216,6 +8402,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8230,6 +8419,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8254,6 +8444,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8310,6 +8501,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8324,6 +8518,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8380,6 +8575,9 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8394,6 +8592,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8450,6 +8649,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8464,6 +8666,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8520,6 +8723,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8534,6 +8740,7 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8590,6 +8797,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8604,6 +8814,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8660,6 +8871,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8674,6 +8888,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8730,6 +8945,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8744,6 +8962,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8800,6 +9019,9 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8814,6 +9036,7 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8838,6 +9061,7 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8894,6 +9118,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8908,6 +9135,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8932,6 +9160,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8988,6 +9217,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9002,6 +9234,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9026,6 +9259,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9082,6 +9316,9 @@ This clinical feature is Decreased nerve conduction velocity (HP:0000762). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9096,6 +9333,7 @@ This clinical feature is Decreased nerve conduction velocity (HP:0000762). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9152,6 +9390,9 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9166,6 +9407,7 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9222,6 +9464,9 @@ This clinical feature is Abnormal cerebellum morphology (HP:0001317). HP:0001317
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9236,6 +9481,7 @@ This clinical feature is Abnormal cerebellum morphology (HP:0001317). HP:0001317
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9294,6 +9540,9 @@ This clinical feature is Abnormality of the dentate nucleus, annotated with Abno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9308,6 +9557,7 @@ This clinical feature is Abnormality of the dentate nucleus, annotated with Abno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9364,6 +9614,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9378,6 +9631,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9402,6 +9656,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9458,6 +9713,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9472,6 +9730,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9528,6 +9787,9 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9542,6 +9804,7 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9598,6 +9861,9 @@ This clinical feature is Progressive psychomotor deterioration (HP:0007272). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9612,6 +9878,7 @@ This clinical feature is Progressive psychomotor deterioration (HP:0007272). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9668,6 +9935,9 @@ This clinical feature is Abnormality of extrapyramidal motor function (HP:000207
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9682,6 +9952,7 @@ This clinical feature is Abnormality of extrapyramidal motor function (HP:000207
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9738,6 +10009,9 @@ This clinical feature is Orofacial dyskinesia (HP:0002310). HP:0002310 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9752,6 +10026,7 @@ This clinical feature is Orofacial dyskinesia (HP:0002310). HP:0002310 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9808,6 +10083,9 @@ This clinical feature is Paraparesis (HP:0002385). HP:0002385 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9822,6 +10100,7 @@ This clinical feature is Paraparesis (HP:0002385). HP:0002385 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9878,6 +10157,9 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9892,6 +10174,7 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9948,6 +10231,9 @@ This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9962,6 +10248,7 @@ This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10018,6 +10305,9 @@ This clinical feature is Abnormal auditory evoked potentials (HP:0006958). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10032,6 +10322,7 @@ This clinical feature is Abnormal auditory evoked potentials (HP:0006958). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10088,6 +10379,9 @@ This clinical feature is Abnormality of somatosensory evoked potentials (HP:0007
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10102,6 +10396,7 @@ This clinical feature is Abnormality of somatosensory evoked potentials (HP:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10158,6 +10453,9 @@ This clinical feature is Abnormal motor evoked potentials (HP:0012896). HP:00128
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10172,6 +10470,7 @@ This clinical feature is Abnormal motor evoked potentials (HP:0012896). HP:00128
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10228,6 +10527,9 @@ This clinical feature is Abnormal globus pallidus morphology (HP:0002453). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10242,6 +10544,7 @@ This clinical feature is Abnormal globus pallidus morphology (HP:0002453). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10298,6 +10601,9 @@ This clinical feature is Abnormality of the cerebellar peduncle, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10312,6 +10618,7 @@ This clinical feature is Abnormality of the cerebellar peduncle, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10410,6 +10717,9 @@ This disease-associated gene is CYP27A1 (hgnc:2605). hgnc:2605 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10424,6 +10734,7 @@ This disease-associated gene is CYP27A1 (hgnc:2605). hgnc:2605 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10451,6 +10762,7 @@ This disease-associated gene is CYP27A1 (hgnc:2605). hgnc:2605 is a gene from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10472,6 +10784,7 @@ This disease-associated gene is CYP27A1 (hgnc:2605). hgnc:2605 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10556,6 +10869,7 @@ This disease-associated gene is CYP27A1 (hgnc:2605). hgnc:2605 is a gene from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10577,6 +10891,7 @@ This disease-associated gene is CYP27A1 (hgnc:2605). hgnc:2605 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10683,6 +10998,12 @@ This treatment uses chenodeoxycholic acid (CHEBI:16755). CHEBI:16755 is a therap
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Long-term chenodeoxycholic acid is targeted replacement/suppression therapy that normalizes cholestanol biochemistry and is most neurologically protective when started before advanced neurologic damage.
 </div>
 
@@ -10717,6 +11038,7 @@ This treatment uses chenodeoxycholic acid (CHEBI:16755). CHEBI:16755 is a therap
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10738,6 +11060,7 @@ This treatment uses chenodeoxycholic acid (CHEBI:16755). CHEBI:16755 is a therap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10788,6 +11111,7 @@ This treatment uses chenodeoxycholic acid (CHEBI:16755). CHEBI:16755 is a therap
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10835,6 +11159,7 @@ This treatment uses chenodeoxycholic acid (CHEBI:16755). CHEBI:16755 is a therap
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10878,6 +11203,7 @@ This treatment uses chenodeoxycholic acid (CHEBI:16755). CHEBI:16755 is a therap
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10899,6 +11225,7 @@ This treatment uses chenodeoxycholic acid (CHEBI:16755). CHEBI:16755 is a therap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10992,6 +11319,12 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Cholic acid is an alternative bile-acid therapy reported to lower cholestanol and improve neurologic symptoms in limited experience.</div>
 
 
@@ -11022,6 +11355,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11072,6 +11406,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11112,6 +11447,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11205,6 +11541,12 @@ This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a th
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Statin-class HMG-CoA reductase inhibitors can be used alone or with CDCA to decrease cholestanol concentration and improve clinical signs, but require caution because GeneReviews notes potential muscle damage.
 </div>
 
@@ -11236,6 +11578,7 @@ This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11279,6 +11622,7 @@ This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11338,6 +11682,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -11432,6 +11782,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11453,6 +11804,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11544,6 +11896,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11583,6 +11936,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11659,6 +12013,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11698,6 +12053,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11774,6 +12130,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11813,6 +12170,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11884,6 +12242,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11937,6 +12296,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12029,6 +12389,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12097,6 +12458,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12118,6 +12480,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12174,6 +12537,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12195,6 +12559,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12267,6 +12632,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12288,6 +12654,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12375,6 +12742,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12448,6 +12816,7 @@ This clinical trial targets Juvenile cataract (HP:0001118). HP:0001118 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15323,6 +15692,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">This curation uses ORPHA:909 as the direct disease mapping. The mechanism is centered on biallelic CYP27A1 pathogenic variants, sterol 27-hydroxylase deficiency, impaired bile-acid synthesis and CDCA feedback, cholestanol and bile-alcohol accumulation, tissue sterol deposition, and progressive systemic and neurologic disease. Falcon deep research was completed and integrated by adding recent practice-review, clinical-outcome, cellular-model, bile-acid profiling, cholic-acid, and ClinicalTrials.gov references to the curation. Chenodeoxycholic acid is modeled as targeted therapy because it normalizes cholestanol biochemistry and is most effective when started before irreversible neurologic injury.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

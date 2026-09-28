@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4098,6 +4166,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4119,6 +4188,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4168,6 +4238,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomorphic-pex1-variants-with-residual-peroxin-1-protein" data-dismech-node="Hypomorphic PEX1 Variants with Residual Peroxin-1 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomorphic PEX1 Variants with Residual Peroxin-1 Protein</div>
+
 
                 <div class="item-desc">PBD1B is defined at the protein level by PEX1 genotypes that reduce but do not abolish peroxin-1. The common p.Gly843Asp (G843D) missense allele yields a conformationally unstable, misfolding-prone protein that is present at reduced steady-state levels, in contrast to the complete absence of PEX1 protein that underlies classic Zellweger syndrome (PBD1A). Culturing G843D fibroblasts at 30 degrees C raises PEX1 protein levels and restores peroxisomal function, establishing that the lesion is folding/stability rather than a loss of the catalytic residue itself.</div>
 
@@ -4302,6 +4373,7 @@ This pathophysiological event involves decreased ATP hydrolysis activity (GO:001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4323,6 +4395,7 @@ This pathophysiological event involves decreased ATP hydrolysis activity (GO:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4350,6 +4423,7 @@ This pathophysiological event involves decreased ATP hydrolysis activity (GO:001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4372,6 +4446,7 @@ This pathophysiological event involves decreased ATP hydrolysis activity (GO:001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-receptor-export-module-insufficiency" data-dismech-node="Receptor Export Module Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Receptor Export Module Insufficiency</div>
+
 
                 <div class="item-desc">PEX1 and PEX6 assemble into a heterohexameric AAA-ATPase motor that extracts monoubiquitinated PEX5 from the peroxisomal membrane docking/translocation module by processive threading and unfolding, so that PEX5 can be reused for another round of matrix protein import. In PBD1B the motor is present but functionally insufficient, so receptor recycling is slowed rather than abolished.</div>
 
@@ -4463,6 +4538,7 @@ This pathophysiological event involves decreased ATP hydrolysis activity (GO:001
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4484,6 +4560,7 @@ This pathophysiological event involves decreased ATP hydrolysis activity (GO:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4509,6 +4586,7 @@ This pathophysiological event involves decreased ATP hydrolysis activity (GO:001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-peroxisomal-matrix-protein-import-failure" data-dismech-node="Partial Peroxisomal Matrix Protein Import Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial Peroxisomal Matrix Protein Import Failure</div>
+
 
                 <div class="item-desc">Unlike the near-complete import block of classic Zellweger syndrome, PBD1B cells show partial and heterogeneous import. Fibroblasts carrying mild missense PEX1 alleles display peroxisomal mosaicism - a mixed population of import-competent and import-deficient cells - whose proportion of peroxisome-positive cells improves at reduced temperature or with a chemical chaperone. This residual, conformation-dependent import capacity is the cellular signature of the non-classic end of the spectrum.</div>
 
@@ -4668,6 +4746,7 @@ This pathophysiological event involves decreased peroxisome organization (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4689,6 +4768,7 @@ This pathophysiological event involves decreased peroxisome organization (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4714,6 +4794,7 @@ This pathophysiological event involves decreased peroxisome organization (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-peroxisomal-metabolic-block" data-dismech-node="Attenuated Peroxisomal Metabolic Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Peroxisomal Metabolic Block</div>
+
 
                 <div class="item-desc">Peroxisomal beta-oxidation of very-long-chain fatty acids, alpha-oxidation of phytanic acid, bile acid side-chain shortening and ether-phospholipid (plasmalogen) synthesis are all impaired, but incompletely. Consequently the diagnostic biochemical abnormalities of PBD1B are milder than in classic Zellweger syndrome and can be normal or only borderline in the mildest individuals, which is why a normal biochemical screen does not exclude the diagnosis and molecular testing is required.</div>
 
@@ -4907,6 +4988,7 @@ This pathophysiological event involves decreased bile acid metabolic process (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4928,6 +5010,7 @@ This pathophysiological event involves decreased bile acid metabolic process (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4953,6 +5036,7 @@ This pathophysiological event involves decreased bile acid metabolic process (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-degenerative-multisystem-disease" data-dismech-node="Progressive Degenerative Multisystem Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Degenerative Multisystem Disease</div>
+
 
                 <div class="item-desc">The clinical endpoint of PBD1B: a degenerative course dominated by combined sensory loss, variable neurologic decline, hepatic disease, adrenal insufficiency and hyperoxaluria. Course is genuinely variable - in a cohort of Zellweger spectrum patients surviving to adulthood, roughly a third progressed while the remainder stayed clinically stable over many years, and progression when it occurs typically appears in adolescence as a gait disorder from combined central and peripheral nervous system involvement.</div>
 
@@ -5085,6 +5169,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5109,6 +5194,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5130,6 +5216,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5256,6 +5343,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5270,6 +5360,7 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5294,6 +5385,7 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5377,6 +5469,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5391,6 +5486,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5418,6 +5514,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5439,6 +5536,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5502,6 +5600,9 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5516,6 +5617,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5597,6 +5699,9 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -5611,6 +5716,7 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5638,6 +5744,7 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as course pro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5659,6 +5766,7 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5726,6 +5834,9 @@ This clinical feature is Hyperoxaluria (HP:0003159). HP:0003159 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5740,6 +5851,7 @@ This clinical feature is Hyperoxaluria (HP:0003159). HP:0003159 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5764,6 +5876,7 @@ This clinical feature is Hyperoxaluria (HP:0003159). HP:0003159 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5818,6 +5931,9 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5832,6 +5948,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5856,6 +5973,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5921,6 +6039,9 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5935,6 +6056,7 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5959,6 +6081,7 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6024,6 +6147,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6038,6 +6164,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6092,6 +6219,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6106,6 +6236,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6169,6 +6300,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6183,6 +6317,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6237,6 +6372,9 @@ This clinical feature is Polyneuropathy (HP:0001271). HP:0001271 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6251,6 +6389,7 @@ This clinical feature is Polyneuropathy (HP:0001271). HP:0001271 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6275,6 +6414,7 @@ This clinical feature is Polyneuropathy (HP:0001271). HP:0001271 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6329,6 +6469,9 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6343,6 +6486,7 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6367,6 +6511,7 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6421,6 +6566,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6435,6 +6583,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6459,6 +6608,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6522,6 +6672,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6536,6 +6689,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6560,6 +6714,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6658,6 +6813,9 @@ This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (7 references)
@@ -6672,6 +6830,7 @@ This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6699,6 +6858,7 @@ This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6720,6 +6880,7 @@ This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6808,6 +6969,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6818,6 +6982,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6845,6 +7012,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6933,6 +7101,9 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6943,6 +7114,9 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -6979,6 +7153,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7025,6 +7200,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7046,6 +7222,7 @@ This treatment uses cholic acid (CHEBI:16359). CHEBI:16359 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7134,6 +7311,9 @@ This treatment uses arginine (CHEBI:29016). CHEBI:29016 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7144,6 +7324,9 @@ This treatment uses arginine (CHEBI:29016). CHEBI:29016 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7180,6 +7363,7 @@ This treatment uses arginine (CHEBI:29016). CHEBI:29016 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7226,6 +7410,7 @@ This treatment uses arginine (CHEBI:29016). CHEBI:29016 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7247,6 +7432,7 @@ This treatment uses arginine (CHEBI:29016). CHEBI:29016 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7282,6 +7468,9 @@ This treatment uses arginine (CHEBI:29016). CHEBI:29016 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7292,6 +7481,9 @@ This treatment uses arginine (CHEBI:29016). CHEBI:29016 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7319,6 +7511,7 @@ This treatment uses arginine (CHEBI:29016). CHEBI:29016 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7385,6 +7578,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7395,6 +7591,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7422,6 +7621,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7513,6 +7713,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7552,6 +7753,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7628,6 +7830,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7667,6 +7870,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7743,6 +7947,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7782,6 +7987,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7858,6 +8064,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7897,6 +8104,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7973,6 +8181,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8012,6 +8221,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8114,6 +8324,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8201,6 +8412,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8222,6 +8434,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8309,6 +8522,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9866,6 +10080,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Peroxisome Biogenesis Disorder 1B (PEX1 non-classic ZSD)</strong> · 2026-07-31T01:49:20Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Peroxisome_Biogenesis_Disorder_1B/2026-07-31T014920Z-claude-code-180aaf.yaml">View source</a></p>
+                        <p class="research-review-text">Created the PBD1B entry (MONDO:0011101, OMIM 601539, PEX1).
+
+Curation-level decision: PBD1B and PBD4B are curated as distinct disease entries rather than folded into Zellweger Spectrum Disorders, because the A/B split within a PEX complementation group is a mechanistic statement (null vs residual peroxin function), not a bare severity label. The gene-agnostic downstream cascade stays on the ZSD entry; this entry carries the PEX1-specific hypomorph/residual-protein mechanism, the class I/class II genotype-phenotype rule, the attenuated degenerative phenotype, and the conformational-rescue therapeutic rationale.
+
+Deep research: Edison/falcon (primary; an initial attempt failed with HTTP 402 until the user supplied a working token) and claude_code. OpenScientist was attempted for both entries and timed out after 3600s in queue. NEC preflight passed: the falcon report is PEX1-dominant (53 PEX1 vs 11 PEX6 mentions) citing OMIM:601539 only, the claude_code report likewise (70 vs 9), and MONDO:0011101 was verified via OAK as is_a MONDO:0100259 (peroxisome biogenesis disorder due to PEX1 defect).
+
+Content: 5-node causal chain (hypomorphic PEX1 with residual peroxin-1 -&gt; receptor export module insufficiency -&gt; partial matrix protein import failure -&gt; attenuated metabolic block -&gt; progressive degenerative multisystem disease), 14 phenotypes, 5 biochemical markers with readouts, PEX1 genetics, 3 diagnostic modalities, 5 treatments. GeneReviews baseline (PMID:20301621) cross-referenced; every mild-end Clinical Characteristics item is represented. Key sources: Walter 2001 (PMID:11389485, residual PEX1 protein in NALD/IRD, 30C rescue of G843D), Rosewich 2005 (PMID:16141001, class I/II), Poll-The 2004 (PMID:15098231), Berendse 2016 (PMID:26287655), van Woerden 2006 (PMID:16621644), Karuntu 2024 (PMID:38664000, dedicated mild-PEX1 ophthalmic cohort, surfaced by falcon), Wangler 2023 (PMID:37567036, dicarboxylic acylcarnitines, surfaced by falcon), Hiebler 2014 (PMID:24503136), Berendse 2013 (PMID:24016303, arginine chaperone), Klouwer 2017 (PMID:28677031), Heubi 2017 (PMID:28644367, cholic acid), Ratbi 2015 (PMID:26387595, Heimler).
+
+Frequency discipline: only two frequency bands asserted, both with direct quantitative or explicit qualitative support - hyperoxaluria VERY_FREQUENT from 19/23 = 83 percent, and amelogenesis imperfecta VERY_FREQUENT plus osteopenia OCCASIONAL from the GeneReviews almost all / some wording. All other phenotypes omit frequency.
+
+Validation: just validate passes (schema, term and reference validation). Every snippet was verified as an exact substring of its cached abstract, and the reference validator was sanity-checked against a deliberately corrupted snippet to confirm it was actually testing. validate-graphs reports no findings for this file; its corpus-wide failures are pre-existing in other entries.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

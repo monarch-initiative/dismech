@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4037,6 +4105,129 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="A Mendelian autosomal dominant disorder caused by heterozygous germline GATA2 variants.">GENETICS ENVIRONMENT DISEASE</span>
+
+
+                    <span class="tag tag-classification" title="Strong predisposition to myelodysplastic syndrome and acute myeloid leukemia, with multilineage cytopenias.">ONCOLOGY HEMATOLOGY</span>
+
+
+                    <span class="tag tag-classification" title="An inborn error of immunity with monocytopenia and susceptibility to viral, fungal and nontuberculous mycobacterial infection.">IMMUNE RHEUMATOLOGIC</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 4 (Other Non-Lymphoid Defects): row &#34;GATA2 deficiency GATA2 AD 137295&#34;, affected cells monocytes and peripheral dendritic cells, affected function multilineage cytopenias, associated features susceptibility to mycobacteria, HPV and histoplasmosis, alveolar proteinosis, MDS/AML/CMML and lymphedema.
+Scope: IUIS names the row generically as &#34;GATA2 deficiency&#34;, whereas this entry is the Emberger presentation of that spectrum. Emberger is squarely inside the row — lymphedema is listed by name in the row&#39;s own associated-features cell — but it is one presentation among several. MonoMAC syndrome / DCML deficiency (MONDO:0013607) is the other main presentation and is not yet curated; when it is, it will share this same Table 5 row rather than take a different one. iuis_category is single-valued and cannot be scoped to a subtype, so that restriction is recorded here in prose.">phagocyte defect</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4102,6 +4293,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4148,6 +4340,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gata2-haploinsufficiency" data-dismech-node="GATA2 haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">GATA2 haploinsufficiency</div>
+
 
                 <div class="item-desc">Heterozygous loss-of-function GATA2 variants reduce dosage of a transcription factor required for vascular development and hematopoietic differentiation.</div>
 
@@ -4260,6 +4453,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4282,6 +4476,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-lymphatic-valve-development" data-dismech-node="Impaired lymphatic valve development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired lymphatic valve development</div>
+
 
                 <div class="item-desc">GATA2 deficiency compromises lymphatic endothelial transcriptional programs required for lymphatic valve development, predisposing to primary lymphedema.</div>
 
@@ -4369,6 +4564,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4391,6 +4587,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-hematopoiesis" data-dismech-node="Dysregulated hematopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated hematopoiesis</div>
+
 
                 <div class="item-desc">GATA2 haploinsufficiency impairs hematopoietic stem-cell maintenance and differentiation, creating susceptibility to myelodysplasia, acute myeloid leukemia, cytopenias, and infection.</div>
 
@@ -4528,6 +4725,7 @@ This pathophysiological event involves hematopoiesis, annotated with hemopoiesis
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4550,6 +4748,7 @@ This pathophysiological event involves hematopoiesis, annotated with hemopoiesis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dcml-immune-cell-deficiency" data-dismech-node="DCML immune-cell deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">DCML immune-cell deficiency</div>
+
 
                 <div class="item-desc">GATA2 haploinsufficiency can cause dendritic cell, monocyte, B-cell, and natural-killer-cell lymphoid deficiency, explaining susceptibility to nontuberculous mycobacterial, viral, fungal, and papillomavirus infections.</div>
 
@@ -4783,6 +4982,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4804,6 +5004,7 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4932,6 +5133,9 @@ This clinical feature is Myelodysplastic syndrome, annotated with Myelodysplasia
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4946,6 +5150,7 @@ This clinical feature is Myelodysplastic syndrome, annotated with Myelodysplasia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4970,6 +5175,7 @@ This clinical feature is Myelodysplastic syndrome, annotated with Myelodysplasia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5024,6 +5230,9 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5038,6 +5247,7 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5062,6 +5272,7 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5116,6 +5327,9 @@ This clinical feature is Decreased total monocyte count (HP:0012312). HP:0012312
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5130,6 +5344,7 @@ This clinical feature is Decreased total monocyte count (HP:0012312). HP:0012312
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5184,6 +5399,9 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5198,6 +5416,7 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5252,6 +5471,9 @@ This clinical feature is Reduced total natural killer cell count (HP:0040218). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5266,6 +5488,7 @@ This clinical feature is Reduced total natural killer cell count (HP:0040218). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5320,6 +5543,9 @@ This clinical feature is Abnormal dendritic cell count (HP:0020178). HP:0020178 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5334,6 +5560,7 @@ This clinical feature is Abnormal dendritic cell count (HP:0020178). HP:0020178 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5397,6 +5624,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5411,6 +5641,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5474,6 +5705,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5488,6 +5722,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5542,6 +5777,9 @@ This clinical feature is Disseminated nontuberculous mycobacterial infection (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5556,6 +5794,7 @@ This clinical feature is Disseminated nontuberculous mycobacterial infection (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5619,6 +5858,9 @@ This clinical feature is Warts, annotated with Verrucae (HP:0200043). HP:0200043
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5633,6 +5875,7 @@ This clinical feature is Warts, annotated with Verrucae (HP:0200043). HP:0200043
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5696,6 +5939,9 @@ This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5710,6 +5956,7 @@ This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5775,6 +6022,9 @@ This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5789,6 +6039,7 @@ This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5887,6 +6138,9 @@ This disease-associated gene is GATA2 (hgnc:4171). hgnc:4171 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5901,6 +6155,7 @@ This disease-associated gene is GATA2 (hgnc:4171). hgnc:4171 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5925,6 +6180,7 @@ This disease-associated gene is GATA2 (hgnc:4171). hgnc:4171 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6011,6 +6267,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6021,6 +6280,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
     </div>
+
+
+
 
 
 
@@ -6051,6 +6313,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6075,6 +6338,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6096,6 +6360,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6168,6 +6433,12 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Serial blood counts, marrow evaluation when clinically indicated, and clonal cytogenetic monitoring are used to detect marrow failure, MDS, AML, and chromosome 7 evolution early enough to guide transplant timing.</div>
 
 
@@ -6189,6 +6460,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6282,6 +6554,12 @@ This treatment uses anti-infective agent (NCIT:C254). NCIT:C254 is a therapeutic
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Monitor for severe viral, disseminated nontuberculous mycobacterial, and invasive fungal infections, and use organism-directed antimicrobial therapy with immunology and infectious disease input.</div>
 
 
@@ -6303,6 +6581,7 @@ This treatment uses anti-infective agent (NCIT:C254). NCIT:C254 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6370,6 +6649,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6380,6 +6662,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6407,6 +6692,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6442,6 +6728,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6452,6 +6741,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6479,6 +6771,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6550,6 +6843,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counsel families about autosomal dominant inheritance, variable penetrance, family testing, reproductive risk, and implications for related HSCT donor selection.</div>
 
 
@@ -6571,6 +6870,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6681,6 +6981,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6702,6 +7003,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6794,6 +7096,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6880,6 +7183,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6972,6 +7276,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7058,6 +7363,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7150,6 +7456,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7236,6 +7543,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7331,12 +7639,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-hdr-syndrome">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">HDR syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Hypoparathyroidism-Deafness-Renal_Disease_Syndrome.html">HDR syndrome</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0007797" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0007797" target="_blank">
                             MONDO:0007797
                         </a>
                     </span>
@@ -7406,6 +7713,58 @@ disease_term:
   term:
     id: MONDO:0013540
     label: deafness-lymphedema-leukemia syndrome
+classifications:
+  harrisons_chapter:
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      A Mendelian autosomal dominant disorder caused by heterozygous germline
+      GATA2 variants.
+  - classification_value: ONCOLOGY_HEMATOLOGY
+    notes: &gt;-
+      Strong predisposition to myelodysplastic syndrome and acute myeloid
+      leukemia, with multilineage cytopenias.
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      An inborn error of immunity with monocytopenia and susceptibility to
+      viral, fungal and nontuberculous mycobacterial infection.
+  iuis_category:
+    classification_value: phagocyte defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970),
+      Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 4
+      (Other Non-Lymphoid Defects): row &#34;GATA2 deficiency GATA2 AD 137295&#34;,
+      affected cells monocytes and peripheral dendritic cells, affected
+      function multilineage cytopenias, associated features susceptibility to
+      mycobacteria, HPV and histoplasmosis, alveolar proteinosis, MDS/AML/CMML
+      and lymphedema.
+
+      Scope: IUIS names the row generically as &#34;GATA2 deficiency&#34;, whereas
+      this entry is the Emberger presentation of that spectrum. Emberger is
+      squarely inside the row — lymphedema is listed by name in the row&#39;s own
+      associated-features cell — but it is one presentation among several.
+      MonoMAC syndrome / DCML deficiency (MONDO:0013607) is the other main
+      presentation and is not yet curated; when it is, it will share this same
+      Table 5 row rather than take a different one. iuis_category is
+      single-valued and cannot be scoped to a subtype, so that restriction is
+      recorded here in prose.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;GATA2 deficiency GATA2 AD 137295&#34;
+      explanation: &gt;-
+        The GATA2 row of IUIS Table 5, quoted verbatim with its gene,
+        inheritance and OMIM number.
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;histoplasmosis, alveolar proteinosis, MDS/AML/CMML, lymphedema&#34;
+      explanation: &gt;-
+        The associated-features cell of that row lists lymphedema alongside
+        MDS/AML, placing the Emberger presentation inside the row rather than
+        adjacent to it.
 inheritance:
 - name: Autosomal dominant inheritance
   inheritance_term:
@@ -8490,6 +8849,7 @@ notes: &gt;-
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8524,6 +8884,59 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: deafness-lymphedema-leukemia syndrome (Changes required)</strong> · 2026-05-30T05:01:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Deafness-Lymphedema-Leukemia_Syndrome/2026-05-30T050109Z-github-review-3453.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3453
+Issue state: OPEN
+Issue created: 2026-05-30T05:01:09Z
+Issue updated: 2026-05-30T05:06:28Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **deafness-lymphedema-leukemia syndrome**
+- Entry: `kb/disorders/Deafness-Lymphedema-Leukemia_Syndrome.yaml`
+- Selection basis: #61 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **GeneReviews exists for GATA2 deficiency and should be the baseline.** The current entry is a narrow Emberger/deafness-lymphedema-leukemia presentation, but GATA2 deficiency GeneReviews covers the broader disease spectrum and management. Source: https://www.ncbi.nlm.nih.gov/books/NBK114843/
+2. **Disease boundary needs explicit GATA2-deficiency framing.** The YAML title is DLL syndrome, but phenotypes include recurrent infections and warts; this overlaps MonoMAC, DCML deficiency, Emberger syndrome, familial MDS/AML, and broader GATA2 deficiency. Scope should be stated.
+3. **Management is too narrow.** HSCT is present, but management should include hematologic surveillance, infection prophylaxis/monitoring, HPV/viral/wart care, lymphedema management, audiology, pulmonary alveolar proteinosis/NTM evaluation where relevant, and family donor testing.
+4. **Diagnosis should include hematologic/immunologic workup.** GATA2 molecular testing is present; add CBC/monocytes/B/NK/dendritic-cell deficiency, bone marrow surveillance, cytogenetics, and infection evaluation.
+5. **Pathophysiology is good but incomplete.** GATA2 haploinsufficiency, lymphatic valve development, and dysregulated hematopoiesis are present; add monocyte/dendritic/B/NK deficiency and MDS/AML progression.
+
+## Research-artifact cross-check
+
+Matching artifacts: `research/Deafness-Lymphedema-Leukemia_Syndrome-deep-research-asta.md` and `.citations.md`. Asta output should be treated as leads; GeneReviews/GATA2 consensus sources should anchor updates.
+
+## Content-completeness summary
+
+- **Phenotypes:** add broader GATA2 immune/hematologic/pulmonary/viral features or scope them out.
+- **Subtype/lumping:** clarify DLL/Emberger within GATA2 deficiency.
+- **Management/diagnosis:** expand beyond HSCT and genetic testing.
+- **Pathophysiology:** add immune-cell deficiency and malignant progression mechanisms.
+
+## Sources used
+
+- GeneReviews, GATA2 Deficiency: https://www.ncbi.nlm.nih.gov/books/NBK114843/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8948,7 +9361,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "deafness-lymphedema-leukemia syndrome", "mondoId": "MONDO:0013540", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "deafness-lymphedema-leukemia_syndrome", "yamlRevision": "d2f473eb877c"};
+        const OS_CONFIG = {"diseaseName": "deafness-lymphedema-leukemia syndrome", "mondoId": "MONDO:0013540", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "deafness-lymphedema-leukemia_syndrome", "yamlRevision": "ea0a678791cf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

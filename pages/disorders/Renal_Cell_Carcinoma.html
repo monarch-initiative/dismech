@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Renal%20Cell%20Carcinoma"
@@ -3975,7 +4043,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4011,6 +4079,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4558,6 +4634,7 @@ This readout is measured by transwell invasion assay.</span>
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4579,6 +4656,7 @@ This readout is measured by transwell invasion assay.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4606,6 +4684,7 @@ This readout is measured by transwell invasion assay.</span>
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4613,7 +4692,7 @@ This readout is measured by transwell invasion assay.</span>
                 <div class="evidence-snippet">"When RCC develops, PRR15 silencing activates the nuclear factor kappa-B (NF-κB) signaling pathway, which inhibits FDX1 expression, ultimately blocking the cuproptosis process and increasing tumor invasiveness."</div>
 
 
-                <div class="evidence-explanation">Defines the PRR15/NF-κB/FDX1 axis whose upstream triggers and direct-versus- indirect mechanism remain the central knowledge gap.</div>
+                <div class="evidence-explanation">Defines the PRR15/NF-κB/FDX1 axis whose upstream triggers and direct-versus-indirect mechanism remain the central knowledge gap.</div>
 
 
 
@@ -4677,6 +4756,7 @@ This readout is measured by transwell invasion assay.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4752,6 +4832,7 @@ This readout is measured by transwell invasion assay.</span>
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This study reveals for the first time the regulatory mechanism of the PRR15/NF-κB/FDX1 axis in cuproptosis in RCC, providing a new strategy for the treatment of RCC patients."</div>
@@ -4821,6 +4902,7 @@ This readout is measured by transwell invasion assay.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5218,6 +5300,7 @@ This readout is measured by single-cell RNA sequencing.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5242,6 +5325,7 @@ This readout is measured by single-cell RNA sequencing.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5263,6 +5347,7 @@ This readout is measured by single-cell RNA sequencing.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5303,6 +5388,7 @@ This readout is measured by single-cell RNA sequencing.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-epithelial-malignancy" data-dismech-node="Renal Epithelial Malignancy" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Epithelial Malignancy</div>
 
+
                 <div class="item-desc">Malignant transformation of renal epithelial cells gives rise to renal cell carcinoma with diverse molecular subtypes.</div>
 
 
@@ -5319,6 +5405,26 @@ This readout is measured by single-cell RNA sequencing.</span>
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Computational models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#computational-model-rcc-3d-agent-based-learning-model">RCC 3D Agent-Based Learning Model</a>
+
+                            <span class="crosslink-meta">AGENT BASED</span>
+
+
+                            <span class="crosslink-meta">Python 3.13; Mesa 3.2.0; Optuna; Solara 1.48.0; pythreejs 2.4.2</span>
+
+
+                            <span class="crosslink-desc">The model simulates expansion or regression of an established RCC tumor-cell population under spatial immune pressure, evolving tumor-cell rules, and ICI or ICI-plus-TKI treatment.</span>
+
+                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5337,6 +5443,7 @@ This readout is measured by single-cell RNA sequencing.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5360,6 +5467,7 @@ This readout is measured by single-cell RNA sequencing.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-histologic-and-molecular-heterogeneity" data-dismech-node="Histologic and Molecular Heterogeneity" data-dismech-type="pathophysiology">
                 <div class="item-name">Histologic and Molecular Heterogeneity</div>
+
 
                 <div class="item-desc">Renal cell carcinoma comprises multiple histological and molecular subtypes, reflecting heterogeneous biology.</div>
 
@@ -5398,6 +5506,7 @@ This readout is measured by single-cell RNA sequencing.</span>
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This entity comprises different histological and molecular subtypes."</div>
@@ -5418,6 +5527,7 @@ This readout is measured by single-cell RNA sequencing.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cuproptosis-via-prr15-nf-b-fdx1-axis" data-dismech-node="Impaired Cuproptosis via PRR15/NF-κB/FDX1 Axis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cuproptosis via PRR15/NF-κB/FDX1 Axis</div>
+
 
                 <div class="item-desc">Cuproptosis is a copper-dependent form of regulated cell death that acts as a tumor suppressor in RCC. Ferredoxin 1 (FDX1) serves as a core regulator of cuproptosis and its associated mitochondrial dysfunction. PRR15 (Proline-rich 15) promotes cuproptosis through a regulatory axis, but during RCC development, PRR15 is silenced. This silencing activates NF-κB signaling, which represses FDX1 expression, blocking cuproptosis and promoting tumor invasiveness and metastasis. The evasion of cuproptosis contributes to RCC progression by allowing tumor cells to escape this cell-death pathway while maintaining enhanced lipid metabolism and altered oxidative stress regulation in the tumor microenvironment.</div>
 
@@ -5667,6 +5777,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5688,6 +5799,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5715,6 +5827,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5737,6 +5850,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vhl-inactivation" data-dismech-node="VHL Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">VHL Inactivation</div>
+
 
                 <div class="item-desc">Biallelic VHL inactivation (somatic mutation, deletion, or promoter methylation) is the initiating lesion in most clear cell RCC, removing the E3 ligase adapter that normally targets HIF-α subunits for proteasomal degradation.</div>
 
@@ -5789,6 +5903,8 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5797,6 +5913,9 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
 
 
     </div>
+
+
+
 
 
 
@@ -5890,6 +6009,7 @@ This pathophysiological event involves decreased proteasome-mediated VHL-depende
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5912,6 +6032,7 @@ This pathophysiological event involves decreased proteasome-mediated VHL-depende
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hif-transcription-factor-stabilization" data-dismech-node="HIF Transcription Factor Stabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">HIF Transcription Factor Stabilization</div>
+
 
                 <div class="item-desc">Loss of functional pVHL prevents oxygen-dependent ubiquitination of HIF-α, producing constitutively stabilized HIF transcription factors that activate hypoxia-response programs even under normoxic conditions.</div>
 
@@ -6003,6 +6124,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6025,6 +6147,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vegf-dependent-angiogenesis" data-dismech-node="VEGF-Dependent Angiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">VEGF-Dependent Angiogenesis</div>
+
 
                 <div class="item-desc">HIF activation drives VEGF-rich angiogenesis, producing the hypervascular phenotype of metastatic RCC and explaining the durable relevance of VEGF-targeted therapy.</div>
 
@@ -6116,6 +6239,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6138,6 +6262,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-cell-invasion" data-dismech-node="Tumor Cell Invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor Cell Invasion</div>
+
 
                 <div class="item-desc">RCC cells acquire invasive capacity through EMT-like programs and stromal interactions, enabling local tissue invasion and entry into the vasculature.</div>
 
@@ -6229,6 +6354,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6251,6 +6377,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematogenous-dissemination" data-dismech-node="Hematogenous Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematogenous Dissemination</div>
+
 
                 <div class="item-desc">After local invasion, RCC cells enter venous vasculature and spread hematogenously, with a strong tropism for lung and bone.</div>
 
@@ -6327,6 +6454,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6349,6 +6477,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-microenvironment-and-checkpoint-sensitivity" data-dismech-node="Immune Microenvironment and Checkpoint Sensitivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Microenvironment and Checkpoint Sensitivity</div>
+
 
                 <div class="item-desc">Metastatic RCC often remains immunologically active enough to benefit from checkpoint blockade, but clinical benefit is heterogeneous and influenced by pathologic response, genomic context, and immune cell composition.</div>
 
@@ -6440,6 +6569,7 @@ This pathophysiological event involves abnormal adaptive immune response (GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6462,6 +6592,7 @@ This pathophysiological event involves abnormal adaptive immune response (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion" data-dismech-node="Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion</div>
+
 
                 <div class="item-desc">Despite immunogenic features, metastatic RCC can still evade host immunity through suppressive myeloid populations, exhausted T-cell states, and nonuniform antigenic pressure.</div>
 
@@ -6538,6 +6669,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6583,7 +6715,7 @@ This pathophysiological event involves increased negative regulation of immune r
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Belzutifan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HIF-2\\u03b1 inhibitor approved for treating renal cell carcinoma.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"belzutifan\"]}}, {\"id\": \"HIF Transcription Factor Stabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional pVHL prevents oxygen-dependent ubiquitination of HIF-\\u03b1, producing constitutively stabilized HIF transcription factors that activate hypoxia-response programs even under normoxic conditions.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to hypoxia\"]}}, {\"id\": \"Hematogenous Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After local invasion, RCC cells enter venous vasculature and spread hematogenously, with a strong tropism for lung and bone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell migration\"]}}, {\"id\": \"Immune Checkpoint Inhibitor Combination Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line systemic treatment for metastatic RCC commonly uses immune checkpoint inhibitor combinations, either ICI-ICI or ICI plus a tyrosine kinase inhibitor, selected by clinical risk and tolerability.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nivolumab\", \"pembrolizumab\"]}}, {\"id\": \"Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite immunogenic features, metastatic RCC can still evade host immunity through suppressive myeloid populations, exhausted T-cell states, and nonuniform antigenic pressure.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of immune response\"]}}, {\"id\": \"Immune Microenvironment and Checkpoint Sensitivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Metastatic RCC often remains immunologically active enough to benefit from checkpoint blockade, but clinical benefit is heterogeneous and influenced by pathologic response, genomic context, and immune cell composition.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"adaptive immune response\"]}}, {\"id\": \"Impaired Cuproptosis via PRR15/NF-\\u03baB/FDX1 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cuproptosis is a copper-dependent form of regulated cell death that acts as a tumor suppressor in RCC. Ferredoxin 1 (FDX1) serves as a core regulator of cuproptosis and its associated mitochondrial dysfunction. PRR15 (Proline-rich 15) promotes cuproptosis through a regulatory axis, but during RCC development, PRR15 is silenced. This silencing activates NF-\\u03baB signaling, which represses FDX1 expression, blocking cuproptosis and promoting tumor invasiveness and metastasis. The evasion of cuproptosis contributes to RCC progression by allowing tumor cells to escape this cell-death pathway while maintaining enhanced lipid metabolism and altered oxidative stress regulation in the tumor microenvironment.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"renal carcinoma cell\"], \"biological_processes\": [\"cuproptosis\", \"canonical NF-kappaB signal transduction\"], \"genes\": [\"PRR15\", \"FDX1\"], \"gene_terms\": [{\"label\": \"PRR15\", \"id\": \"hgnc:22310\", \"modifier\": \"DECREASED\"}, {\"label\": \"FDX1\", \"id\": \"hgnc:3638\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Renal Epithelial Malignancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant transformation of renal epithelial cells gives rise to renal cell carcinoma with diverse molecular subtypes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tumor Cell Invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RCC cells acquire invasive capacity through EMT-like programs and stromal interactions, enabling local tissue invasion and entry into the vasculature.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epithelial to mesenchymal transition\"]}}, {\"id\": \"VEGF-Dependent Angiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIF activation drives VEGF-rich angiogenesis, producing the hypervascular phenotype of metastatic RCC and explaining the durable relevance of VEGF-targeted therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"VHL Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic VHL inactivation (somatic mutation, deletion, or promoter methylation) is the initiating lesion in most clear cell RCC, removing the E3 ligase adapter that normally targets HIF-\\u03b1 subunits for proteasomal degradation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"proteasome-mediated VHL-dependent degradation of HIF-\\u03b1\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}], \"edges\": [{\"source\": \"Impaired Cuproptosis via PRR15/NF-\\u03baB/FDX1 Axis\", \"target\": \"Renal Epithelial Malignancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Evasion of cuproptosis through PRR15 silencing and FDX1 repression allows transformed renal epithelial cells to escape copper-dependent cell death, increasing tumor invasiveness and metastatic progression.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"VHL Inactivation\", \"target\": \"Renal Epithelial Malignancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic VHL loss is the initiating lesion of the clear cell renal epithelial malignancy this entry models.\"}, {\"source\": \"VHL Inactivation\", \"target\": \"HIF Transcription Factor Stabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of VHL-mediated ubiquitination prevents HIF-\\u03b1 degradation, allowing HIF accumulation.\"}, {\"source\": \"HIF Transcription Factor Stabilization\", \"target\": \"VEGF-Dependent Angiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stabilized HIF drives transcription of VEGF and other angiogenic target genes.\"}, {\"source\": \"VEGF-Dependent Angiogenesis\", \"target\": \"Tumor Cell Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypervascular phenotype VEGF drives supplies the neovasculature that invading tumour cells enter, linking the VHL-HIF axis to dissemination.\"}, {\"source\": \"Tumor Cell Invasion\", \"target\": \"Hematogenous Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invading tumor cells enter the venous vasculature and seed distant sites, especially lung and bone.\"}, {\"source\": \"Immune Microenvironment and Checkpoint Sensitivity\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the lymphocyte-infiltrated but immunosuppressed microenvironment of metastatic RCC, suppressive myeloid populations and exhausted T-cell states allow tumour cells to escape the response that checkpoint blockade seeks to restore.\"}, {\"source\": \"Belzutifan\", \"target\": \"HIF Transcription Factor Stabilization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immune Checkpoint Inhibitor Combination Therapy\", \"target\": \"Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Belzutifan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HIF-2\\u03b1 inhibitor approved for treating renal cell carcinoma.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"belzutifan\"]}}, {\"id\": \"HIF Transcription Factor Stabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional pVHL prevents oxygen-dependent ubiquitination of HIF-\\u03b1, producing constitutively stabilized HIF transcription factors that activate hypoxia-response programs even under normoxic conditions.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to hypoxia\"]}}, {\"id\": \"Hematogenous Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After local invasion, RCC cells enter venous vasculature and spread hematogenously, with a strong tropism for lung and bone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell migration\"]}}, {\"id\": \"Immune Checkpoint Inhibitor Combination Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line systemic treatment for metastatic RCC commonly uses immune checkpoint inhibitor combinations, either ICI-ICI or ICI plus a tyrosine kinase inhibitor, selected by clinical risk and tolerability.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nivolumab\", \"pembrolizumab\"]}}, {\"id\": \"Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite immunogenic features, metastatic RCC can still evade host immunity through suppressive myeloid populations, exhausted T-cell states, and nonuniform antigenic pressure.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of immune response\"]}}, {\"id\": \"Immune Microenvironment and Checkpoint Sensitivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Metastatic RCC often remains immunologically active enough to benefit from checkpoint blockade, but clinical benefit is heterogeneous and influenced by pathologic response, genomic context, and immune cell composition.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"adaptive immune response\"]}}, {\"id\": \"Impaired Cuproptosis via PRR15/NF-\\u03baB/FDX1 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cuproptosis is a copper-dependent form of regulated cell death that acts as a tumor suppressor in RCC. Ferredoxin 1 (FDX1) serves as a core regulator of cuproptosis and its associated mitochondrial dysfunction. PRR15 (Proline-rich 15) promotes cuproptosis through a regulatory axis, but during RCC development, PRR15 is silenced. This silencing activates NF-\\u03baB signaling, which represses FDX1 expression, blocking cuproptosis and promoting tumor invasiveness and metastasis. The evasion of cuproptosis contributes to RCC progression by allowing tumor cells to escape this cell-death pathway while maintaining enhanced lipid metabolism and altered oxidative stress regulation in the tumor microenvironment.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"renal carcinoma cell\"], \"biological_processes\": [\"cuproptosis\", \"canonical NF-kappaB signal transduction\"], \"genes\": [\"PRR15\", \"FDX1\"], \"gene_terms\": [{\"label\": \"PRR15\", \"id\": \"hgnc:22310\", \"modifier\": \"DECREASED\"}, {\"label\": \"FDX1\", \"id\": \"hgnc:3638\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"RCC 3D Agent-Based Learning Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Spatial three-dimensional agent-based simulation of established renal cell carcinoma, immune-cell populations, sex-hormone effects, and ICI or TKI treatment rules. A genetic algorithm evolves synthetic tumor-cell genotypes, while Optuna tunes model parameters against overall-survival and survival-status outcomes from selected ARON registry cases.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"AGENT_BASED\", \"model_software\": \"Python 3.13; Mesa 3.2.0; Optuna; Solara 1.48.0; pythreejs 2.4.2\", \"model_format\": \"Custom imperative Python/Mesa source (not SBML or CellML); Jupyter Notebook (IPYNB); CSV patient input\", \"publication\": \"PMID:42064045\"}}, {\"id\": \"Renal Epithelial Malignancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant transformation of renal epithelial cells gives rise to renal cell carcinoma with diverse molecular subtypes.\", \"meta\": {\"evidence_count\": 1, \"computational_models\": [{\"name\": \"RCC 3D Agent-Based Learning Model\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"Python 3.13; Mesa 3.2.0; Optuna; Solara 1.48.0; pythreejs 2.4.2\", \"model_format\": \"Custom imperative Python/Mesa source (not SBML or CellML); Jupyter Notebook (IPYNB); CSV patient input\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model simulates expansion or regression of an established RCC tumor-cell population under spatial immune pressure, evolving tumor-cell rules, and ICI or ICI-plus-TKI treatment.\"}]}}, {\"id\": \"Tumor Cell Invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RCC cells acquire invasive capacity through EMT-like programs and stromal interactions, enabling local tissue invasion and entry into the vasculature.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epithelial to mesenchymal transition\"]}}, {\"id\": \"VEGF-Dependent Angiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIF activation drives VEGF-rich angiogenesis, producing the hypervascular phenotype of metastatic RCC and explaining the durable relevance of VEGF-targeted therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"VHL Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic VHL inactivation (somatic mutation, deletion, or promoter methylation) is the initiating lesion in most clear cell RCC, removing the E3 ligase adapter that normally targets HIF-\\u03b1 subunits for proteasomal degradation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"proteasome-mediated VHL-dependent degradation of HIF-\\u03b1\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}], \"edges\": [{\"source\": \"Impaired Cuproptosis via PRR15/NF-\\u03baB/FDX1 Axis\", \"target\": \"Renal Epithelial Malignancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Evasion of cuproptosis through PRR15 silencing and FDX1 repression allows transformed renal epithelial cells to escape copper-dependent cell death, increasing tumor invasiveness and metastatic progression.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"VHL Inactivation\", \"target\": \"Renal Epithelial Malignancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic VHL loss is the initiating lesion of the clear cell renal epithelial malignancy this entry models.\"}, {\"source\": \"VHL Inactivation\", \"target\": \"HIF Transcription Factor Stabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of VHL-mediated ubiquitination prevents HIF-\\u03b1 degradation, allowing HIF accumulation.\"}, {\"source\": \"HIF Transcription Factor Stabilization\", \"target\": \"VEGF-Dependent Angiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stabilized HIF drives transcription of VEGF and other angiogenic target genes.\"}, {\"source\": \"VEGF-Dependent Angiogenesis\", \"target\": \"Tumor Cell Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypervascular phenotype VEGF drives supplies the neovasculature that invading tumour cells enter, linking the VHL-HIF axis to dissemination.\"}, {\"source\": \"Tumor Cell Invasion\", \"target\": \"Hematogenous Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invading tumor cells enter the venous vasculature and seed distant sites, especially lung and bone.\"}, {\"source\": \"Immune Microenvironment and Checkpoint Sensitivity\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the lymphocyte-infiltrated but immunosuppressed microenvironment of metastatic RCC, suppressive myeloid populations and exhausted T-cell states allow tumour cells to escape the response that checkpoint blockade seeks to restore.\"}, {\"source\": \"Belzutifan\", \"target\": \"HIF Transcription Factor Stabilization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immune Checkpoint Inhibitor Combination Therapy\", \"target\": \"Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"RCC 3D Agent-Based Learning Model\", \"target\": \"Renal Epithelial Malignancy\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model simulates expansion or regression of an established RCC tumor-cell population under spatial immune pressure, evolving tumor-cell rules, and ICI or ICI-plus-TKI treatment.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The simulation begins with generic tumor cells and does not model renal epithelial transformation, kidney anatomy, or a specified RCC histology. It was tuned and assessed on the same seven selected cases without a held-out or external cohort. Sex is perfectly confounded with regimen in those cases: all three male records received ICI and all four female records received ICI plus TKI. Immune concentrations were estimated, simulation steps and tumor-count thresholds are not calibrated clinical endpoints, and the synthetic mutation system does not reproduce patient RCC genomes.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6651,6 +6783,9 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6665,6 +6800,7 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6732,6 +6868,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6773,6 +6912,9 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6787,6 +6929,7 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6845,6 +6988,9 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6881,6 +7027,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6966,6 +7115,9 @@ This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-pbrm1" data-dismech-node="PBRM1" data-dismech-type="genetic">
@@ -6997,6 +7149,9 @@ This disease-associated gene is PBRM1 (hgnc:30064). hgnc:30064 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7040,6 +7195,9 @@ This disease-associated gene is BAP1 (hgnc:950). hgnc:950 is a gene from the HUG
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-setd2" data-dismech-node="SETD2" data-dismech-type="genetic">
@@ -7071,6 +7229,9 @@ This disease-associated gene is SETD2 (hgnc:18420). hgnc:18420 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7141,6 +7302,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7151,6 +7315,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7178,6 +7345,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7247,6 +7415,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Molecularly targeted agents used to treat advanced renal cell carcinoma.</div>
 
 
@@ -7268,6 +7442,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7360,6 +7535,12 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Adjuvant PD-1 immune checkpoint inhibitor therapy following nephrectomy for localized clear cell renal cell carcinoma at high risk of relapse, based on the KEYNOTE-564 trial.</div>
 
 
@@ -7381,6 +7562,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7475,6 +7657,12 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">HIF-2α inhibitor approved for treating renal cell carcinoma.</div>
 
 
@@ -7517,6 +7705,7 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Belzutifan received its first FDA approval in 2021 for treating clinical manifestations of von Hippel-Lindau (VHL) disease including renal cell carcinoma (RCC) followed by approval in 2023 for treating advanced sporadic RCC that has progressed through multiple lines of treatment."</div>
@@ -7536,6 +7725,7 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7647,6 +7837,12 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">First-line systemic treatment for metastatic RCC commonly uses immune checkpoint inhibitor combinations, either ICI-ICI or ICI plus a tyrosine kinase inhibitor, selected by clinical risk and tolerability.</div>
 
 
@@ -7689,6 +7885,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7710,6 +7907,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7798,6 +7996,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7846,6 +8045,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7935,6 +8135,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8177,6 +8378,513 @@ This dataset samples kidney tissue, annotated with kidney (UBERON:0002113). UBER
 
 
         <!-- Computational Models -->
+
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
+                <h2 class="card-title">Computational Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box comp-model-box anchor-target" id="computational-model-rcc-3d-agent-based-learning-model" data-dismech-node="RCC 3D Agent-Based Learning Model" data-dismech-type="computational_model">
+                <div class="item-name">
+                    RCC 3D Agent-Based Learning Model
+
+                    <span class="tag tag-format">Custom imperative Python/Mesa source (not SBML or CellML); Jupyter Notebook (IPYNB); CSV patient input</span>
+
+
+                    <span class="tag tag-software">Python 3.13; Mesa 3.2.0; Optuna; Solara 1.48.0; pythreejs 2.4.2</span>
+
+
+                    <span class="tag tag-model-type">AGENT_BASED</span>
+
+                </div>
+
+                <div class="item-desc">Spatial three-dimensional agent-based simulation of established renal cell carcinoma, immune-cell populations, sex-hormone effects, and ICI or TKI treatment rules. A genetic algorithm evolves synthetic tumor-cell genotypes, while Optuna tunes model parameters against overall-survival and survival-status outcomes from selected ARON registry cases.</div>
+
+                <div class="item-meta" style="margin-top: 8px;">
+
+                    <a href="https://github.com/marco-caputo/RCC-agent-learning-model/tree/40220d6c398d90b41971f102acb9f84838982601" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">Repository ↗</a>
+
+
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42064045" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:42064045">PMID:42064045</a>
+
+
+
+
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Base model: OncoAgent RCC obesity-paradox agent-based learning model (PMID:33996779)</span>
+
+                </div>
+
+                <table class="model-variables-table">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Model ID</th>
+                            <th>Unit</th>
+                            <th>Ontology Mappings</th>
+                            <th>Phenotype Thresholds</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Patient sex</div>
+
+                                <div class="model-var-desc">Biological-sex input used to initialize hormone and immune-cell rules.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">sex</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Treatment regimen</div>
+
+                                <div class="model-var-desc">Model input selecting ICI, TKI, combined ICI plus TKI, or no treatment.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">treatment</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Treatment start</div>
+
+                                <div class="model-var-desc">Simulation step at which the selected treatment begins.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">treatment_start</code>
+
+                            </td>
+                            <td>simulation step</td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Tumor-cell count</div>
+
+                                <div class="model-var-desc">Number of spatial tumor-cell agents collected during a simulation.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">Tumor Cells</code>
+
+                            </td>
+                            <td>cells</td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Simulated overall survival</div>
+
+                                <div class="model-var-desc">Number of simulation steps before the modeled stopping outcome.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">steps</code>
+
+                            </td>
+                            <td>simulation steps</td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Mean tumor mutation mask</div>
+
+                                <div class="model-var-desc">Mean binary mutation profile across the simulated tumor-cell population, used to summarize within-model genetic adaptation.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">average_mutation_mask</code>
+
+                            </td>
+                            <td>fraction</td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                    </tbody>
+                </table>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-renal-epithelial-malignancy">Renal Epithelial Malignancy</a>
+
+                <span class="crosslink-meta">partially recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">The model simulates expansion or regression of an established RCC tumor-cell population under spatial immune pressure, evolving tumor-cell rules, and ICI or ICI-plus-TKI treatment.</span>
+
+
+                <div class="mapping-notes">Limitations: The simulation begins with generic tumor cells and does not model renal epithelial transformation, kidney anatomy, or a specified RCC histology. It was tuned and assessed on the same seven selected cases without a held-out or external cohort. Sex is perfectly confounded with regimen in those cases: all three male records received ICI and all four female records received ICI plus TKI. Immune concentrations were estimated, simulation steps and tumor-count thresholds are not calibrated clinical endpoints, and the synthetic mutation system does not reproduce patient RCC genomes.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Simulated tumor-cell burden trajectory</div>
+
+
+        <div style="margin-top: 6px;">Tumor-cell counts change over time according to the initialized case, stochastic seed, immune interactions, tumor adaptation, and treatment rules.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: This is a model-specific trajectory rather than a validated measure of clinical tumor volume or treatment efficacy.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42064045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42064045" target="_blank">PMID:42064045</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Female models showed delayed initial responses but stronger late immune activation and rapid tumor regression, whereas male models exhibited more stable early responses but greater tumor resilience driven by genetic adaptations."</div>
+
+
+                <div class="evidence-explanation">Reports differing tumor-response trajectories across the model&#39;s sex-and-regimen strata.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42064045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42064045" target="_blank">PMID:42064045</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This study enhanced an agent-based learning model (ALM) to simulate RCC progression and treatment response by integrating hormonal effects, immune interactions, and tumor genetic adaptation with data-driven tuning."</div>
+
+
+                <div class="evidence-explanation">Establishes that RCC progression and treatment response are represented in the computational model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Female-model runs showed delayed initial responses followed by stronger late immune activation and rapid regression, whereas male-model runs showed steadier early responses but greater modeled tumor resilience.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42064045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42064045" target="_blank">PMID:42064045</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Female models showed delayed initial responses but stronger late immune activation and rapid tumor regression, whereas male models exhibited more stable early responses but greater tumor resilience driven by genetic adaptations."</div>
+
+
+                <div class="evidence-explanation">Reports the exploratory sex-and-regimen-stratified simulation result without establishing a clinical sex effect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Parameter tuning used seven RCC records and 26 Optuna trials for each objective; the paper reports lower aggregate prediction MSE and increasingly stable CI, without held-out validation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42064045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42064045" target="_blank">PMID:42064045</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"From this collection of data, we manually filtered the subset of patients affected by RCC as part of the preprocessing, consisting of 7 subjects—3 males and 4 females."</div>
+
+
+                <div class="evidence-explanation">Gives the complete RCC subset used for parameter optimization.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42064045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42064045" target="_blank">PMID:42064045</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conducted a total of 26 optimization trials with each fitness function, enabling the system to iteratively converge toward more accurate configurations."</div>
+
+
+                <div class="evidence-explanation">Reports the number of optimization trials for each objective.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42064045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42064045" target="_blank">PMID:42064045</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The adaptive learning procedure yielded promising improvements in both training procedures: the optimized parameter sets achieved a significant reduction in prediction MSE compared to the baseline results obtained using manually tuned defaults, while the trend of CI over trials shows increasing..."</div>
+
+
+                <div class="evidence-explanation">Supports the aggregate training-metric result; the same records were used for tuning and assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">The GitHub repository is pinned at unsigned commit 40220d6c398d90b41971f102acb9f84838982601 (tree acfe9582f716869dc965aad04c11f279a5c13470) and has no tags or releases. Zenodo record 10.5281/zenodo.18727138 archives software version 1.0.0 as RCC-ALM.zip (SHA-256 4e7c38b570916555fac9fd422f0e5b8d52c5ebd2f8c93a708f3b0dedf4745358), although pyproject.toml calls the package 0.1.0; all 72 archived files are byte-identical to the pinned Git tree. Software Heritage directory swh:1:dir:570c82c75e1f417940762d4d66706f3467df706c contains the matching inner Git-tree directory, but no revision object for the commit resolves, so it preserves deposited content rather than Git history. The repository LICENSE and Zenodo software record are MIT. The upstream ARON-1 dataset is Zenodo DOI 10.5281/zenodo.13353313 under CC BY 4.0. The repository contains three byte-identical copies of a derived seven-row, 19-column CSV (SHA-256 aef040b2d21069fcdb58aca45a3331fa03c85c2dfadf6b9d5e8bc713cbf1d585), but does not cite that DOI, state data-specific attribution or licensing, or provide the manual selection and conversion procedure. Curator smoke testing installed the requirements under Python 3.13.9, constructed and advanced the 643-agent default model, exercised a small data pipeline, and completed the documented 100-step non-GUI command. That command emits only console traces and does not reproduce a paper result. Reproducibility remains partial: dependencies are not fully pinned or locked; the documented Solara interface fails with the resolved unbounded Starlette version; the built wheel omits required package data and uses incompatible src.* imports outside the checkout; and the analysis notebook has no executed outputs or reference results. There are 83 tuned weights for seven non-held-out cases. The MSE result-loading code mistakenly reloads CI parameters, repeat-count handling is defective, stochastic antigen selection depends on Python hash ordering, and a class-global tumor blood-source list can contaminate repeated runs. The model is exploratory and hypothesis-generating, not a clinically validated patient digital twin. Generic mutation adaptation does not justify linking it to the entry&#39;s histologic-and-molecular-subtype node, and it does not encode the PRR15/NF-κB/FDX1 cuproptosis mechanism.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42064045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42064045" target="_blank">PMID:42064045</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An RCC-specific ALM was developed incorporating immune agents (CD8+, NK, Treg, dendritic cells), hormone-sensitive mechanisms, tumor genetic modules, and effects of immune checkpoint inhibitors (ICIs) and tyrosine kinase inhibitors (TKIs)."</div>
+
+
+                <div class="evidence-explanation">Identifies the disease-specific agent-based model and its main simulated components.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Reports -->
@@ -8650,6 +9358,198 @@ treatments:
   - target: Immune Evasion
     treatment_effect: INHIBITS
     description: Checkpoint blockade targets suppressive immune signaling in the metastatic RCC tumor microenvironment.
+
+computational_models:
+- name: RCC 3D Agent-Based Learning Model
+  description: &gt;-
+    Spatial three-dimensional agent-based simulation of established renal cell
+    carcinoma, immune-cell populations, sex-hormone effects, and ICI or TKI
+    treatment rules. A genetic algorithm evolves synthetic tumor-cell genotypes,
+    while Optuna tunes model parameters against overall-survival and survival-status
+    outcomes from selected ARON registry cases.
+  model_type: AGENT_BASED
+  repository_url: https://github.com/marco-caputo/RCC-agent-learning-model/tree/40220d6c398d90b41971f102acb9f84838982601
+  model_id: &#34;GitHub:marco-caputo/RCC-agent-learning-model@40220d6c398d90b41971f102acb9f84838982601&#34;
+  base_model: OncoAgent RCC obesity-paradox agent-based learning model (PMID:33996779)
+  model_software: Python 3.13; Mesa 3.2.0; Optuna; Solara 1.48.0; pythreejs 2.4.2
+  model_format: Custom imperative Python/Mesa source (not SBML or CellML); Jupyter Notebook (IPYNB); CSV patient input
+  publication: PMID:42064045
+  variables:
+  - name: Patient sex
+    dataset_identifier: sex
+    description: Biological-sex input used to initialize hormone and immune-cell rules.
+  - name: Treatment regimen
+    dataset_identifier: treatment
+    description: Model input selecting ICI, TKI, combined ICI plus TKI, or no treatment.
+  - name: Treatment start
+    dataset_identifier: treatment_start
+    description: Simulation step at which the selected treatment begins.
+    unit: simulation step
+  - name: Tumor-cell count
+    dataset_identifier: Tumor Cells
+    description: Number of spatial tumor-cell agents collected during a simulation.
+    unit: cells
+  - name: Simulated overall survival
+    dataset_identifier: steps
+    description: Number of simulation steps before the modeled stopping outcome.
+    unit: simulation steps
+  - name: Mean tumor mutation mask
+    dataset_identifier: average_mutation_mask
+    description: &gt;-
+      Mean binary mutation profile across the simulated tumor-cell population,
+      used to summarize within-model genetic adaptation.
+    unit: fraction
+  modeled_mechanisms:
+  - target: Renal Epithelial Malignancy
+    relationship: PARTIALLY_RECAPITULATES
+    description: &gt;-
+      The model simulates expansion or regression of an established RCC tumor-cell
+      population under spatial immune pressure, evolving tumor-cell rules, and ICI
+      or ICI-plus-TKI treatment.
+    fidelity: LOW
+    limitations: &gt;-
+      The simulation begins with generic tumor cells and does not model renal
+      epithelial transformation, kidney anatomy, or a specified RCC histology. It
+      was tuned and assessed on the same seven selected cases without a held-out or
+      external cohort. Sex is perfectly confounded with regimen in those cases: all
+      three male records received ICI and all four female records received ICI plus
+      TKI. Immune concentrations were estimated, simulation steps and tumor-count
+      thresholds are not calibrated clinical endpoints, and the synthetic mutation
+      system does not reproduce patient RCC genomes.
+    readouts:
+    - name: Simulated tumor-cell burden trajectory
+      target: Renal Epithelial Malignancy
+      description: &gt;-
+        Tumor-cell counts change over time according to the initialized case,
+        stochastic seed, immune interactions, tumor adaptation, and treatment rules.
+      direction: ALTERED
+      interpretation: &gt;-
+        This is a model-specific trajectory rather than a validated measure of
+        clinical tumor volume or treatment efficacy.
+      evidence:
+      - reference: PMID:42064045
+        reference_title: An agent-based learning model integrating sex differences in renal cell carcinoma.
+        supports: SUPPORT
+        evidence_source: COMPUTATIONAL
+        snippet: &gt;-
+          Female models showed delayed initial responses but stronger late immune
+          activation and rapid tumor regression, whereas male models exhibited more
+          stable early responses but greater tumor resilience driven by genetic
+          adaptations.
+        explanation: &gt;-
+          Reports differing tumor-response trajectories across the model&#39;s
+          sex-and-regimen strata.
+    evidence:
+    - reference: PMID:42064045
+      reference_title: An agent-based learning model integrating sex differences in renal cell carcinoma.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        This study enhanced an agent-based learning model (ALM) to simulate RCC
+        progression and treatment response by integrating hormonal effects, immune
+        interactions, and tumor genetic adaptation with data-driven tuning.
+      explanation: &gt;-
+        Establishes that RCC progression and treatment response are represented in
+        the computational model.
+  evidence:
+  - reference: PMID:42064045
+    reference_title: An agent-based learning model integrating sex differences in renal cell carcinoma.
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &gt;-
+      An RCC-specific ALM was developed incorporating immune agents (CD8+, NK, Treg,
+      dendritic cells), hormone-sensitive mechanisms, tumor genetic modules, and
+      effects of immune checkpoint inhibitors (ICIs) and tyrosine kinase inhibitors
+      (TKIs).
+    explanation: &gt;-
+      Identifies the disease-specific agent-based model and its main simulated
+      components.
+  findings:
+  - statement: &gt;-
+      Female-model runs showed delayed initial responses followed by stronger late
+      immune activation and rapid regression, whereas male-model runs showed steadier
+      early responses but greater modeled tumor resilience.
+    evidence:
+    - reference: PMID:42064045
+      reference_title: An agent-based learning model integrating sex differences in renal cell carcinoma.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        Female models showed delayed initial responses but stronger late immune
+        activation and rapid tumor regression, whereas male models exhibited more
+        stable early responses but greater tumor resilience driven by genetic
+        adaptations.
+      explanation: &gt;-
+        Reports the exploratory sex-and-regimen-stratified simulation result without
+        establishing a clinical sex effect.
+  - statement: &gt;-
+      Parameter tuning used seven RCC records and 26 Optuna trials for each objective;
+      the paper reports lower aggregate prediction MSE and increasingly stable CI,
+      without held-out validation.
+    evidence:
+    - reference: PMID:42064045
+      reference_title: An agent-based learning model integrating sex differences in renal cell carcinoma.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        From this collection of data, we manually filtered the subset of patients
+        affected by RCC as part of the preprocessing, consisting of 7 subjects—3
+        males and 4 females.
+      explanation: Gives the complete RCC subset used for parameter optimization.
+    - reference: PMID:42064045
+      reference_title: An agent-based learning model integrating sex differences in renal cell carcinoma.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        We conducted a total of 26 optimization trials with each fitness function,
+        enabling the system to iteratively converge toward more accurate
+        configurations.
+      explanation: Reports the number of optimization trials for each objective.
+    - reference: PMID:42064045
+      reference_title: An agent-based learning model integrating sex differences in renal cell carcinoma.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        The adaptive learning procedure yielded promising improvements in both
+        training procedures: the optimized parameter sets achieved a significant
+        reduction in prediction MSE compared to the baseline results obtained using
+        manually tuned defaults, while the trend of CI over trials shows increasing
+        stability towards fitter configurations of parameters.
+      explanation: &gt;-
+        Supports the aggregate training-metric result; the same records were used for
+        tuning and assessment.
+  notes: &gt;-
+    The GitHub repository is pinned at unsigned commit
+    40220d6c398d90b41971f102acb9f84838982601 (tree
+    acfe9582f716869dc965aad04c11f279a5c13470) and has no tags or releases. Zenodo
+    record 10.5281/zenodo.18727138 archives software version 1.0.0 as RCC-ALM.zip
+    (SHA-256 4e7c38b570916555fac9fd422f0e5b8d52c5ebd2f8c93a708f3b0dedf4745358),
+    although pyproject.toml calls the package 0.1.0; all 72 archived files are
+    byte-identical to the pinned Git tree. Software Heritage directory
+    swh:1:dir:570c82c75e1f417940762d4d66706f3467df706c contains the matching inner
+    Git-tree directory, but no revision object for the commit resolves, so it preserves
+    deposited content rather than Git history. The repository LICENSE and Zenodo
+    software record are MIT. The upstream ARON-1 dataset is Zenodo DOI
+    10.5281/zenodo.13353313 under CC BY 4.0. The repository contains three
+    byte-identical copies of a derived seven-row, 19-column CSV (SHA-256
+    aef040b2d21069fcdb58aca45a3331fa03c85c2dfadf6b9d5e8bc713cbf1d585), but does
+    not cite that DOI, state data-specific attribution or licensing, or provide the
+    manual selection and conversion procedure. Curator smoke testing installed the
+    requirements under Python 3.13.9, constructed and advanced the 643-agent default
+    model, exercised a small data pipeline, and completed the documented 100-step
+    non-GUI command. That command emits only console traces and does not reproduce a
+    paper result. Reproducibility remains partial: dependencies are not fully pinned or
+    locked; the documented Solara interface fails with the resolved unbounded
+    Starlette version; the built wheel omits required package data and uses incompatible
+    src.* imports outside the checkout; and the analysis notebook has no executed
+    outputs or reference results. There are 83 tuned weights for seven non-held-out
+    cases. The MSE result-loading code mistakenly reloads CI parameters, repeat-count
+    handling is defective, stochastic antigen selection depends on Python hash
+    ordering, and a class-global tumor blood-source list can contaminate repeated runs.
+    The model is exploratory and hypothesis-generating, not a clinically validated
+    patient digital twin. Generic mutation adaptation does not justify linking it to
+    the entry&#39;s histologic-and-molecular-subtype node, and it does not encode the
+    PRR15/NF-κB/FDX1 cuproptosis mechanism.
 datasets:
 - accession: geo:GSE53757
   title: Gene array analysis of clear cell renal cell carcinoma tissue versus matched normal kidney tissue
@@ -9014,8 +9914,8 @@ discussions:
     evidence_source: IN_VITRO
     snippet: &#34;When RCC develops, PRR15 silencing activates the nuclear factor kappa-B (NF-κB) signaling pathway, which inhibits FDX1 expression, ultimately blocking the cuproptosis process and increasing tumor invasiveness.&#34;
     explanation: &gt;-
-      Defines the PRR15/NF-κB/FDX1 axis whose upstream triggers and direct-versus-
-      indirect mechanism remain the central knowledge gap.
+      Defines the PRR15/NF-κB/FDX1 axis whose upstream triggers and direct-versus-indirect
+      mechanism remain the central knowledge gap.
 - discussion_id: prr15_upstream_triggers
   kind: KNOWLEDGE_GAP
   status: OPEN
@@ -9492,6 +10392,7 @@ classifications:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9560,6 +10461,7 @@ classifications:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9671,6 +10573,7 @@ classifications:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9739,6 +10642,7 @@ classifications:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9850,6 +10754,7 @@ classifications:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9918,6 +10823,7 @@ classifications:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10029,6 +10935,7 @@ classifications:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10097,6 +11004,7 @@ classifications:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10245,6 +11153,7 @@ classifications:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10313,6 +11222,7 @@ classifications:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10387,6 +11297,7 @@ classifications:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10421,6 +11332,8 @@ classifications:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11047,7 +11960,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Renal Cell Carcinoma", "mondoId": "MONDO:0005086", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Renal_Cell_Carcinoma", "yamlRevision": "cf0c1ab7af49"};
+        const OS_CONFIG = {"diseaseName": "Renal Cell Carcinoma", "mondoId": "MONDO:0005086", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Renal_Cell_Carcinoma", "yamlRevision": "3162686749f3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

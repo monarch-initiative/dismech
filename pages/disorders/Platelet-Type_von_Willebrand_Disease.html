@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4110,6 +4178,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4156,6 +4225,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperresponsive-platelet-gpib-alpha-binding-to-von-willebrand-factor" data-dismech-node="Hyperresponsive platelet GPIb-alpha binding to von Willebrand factor" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperresponsive platelet GPIb-alpha binding to von Willebrand factor</div>
+
 
                 <div class="item-desc">GP1BA gain-of-function variants make platelet GPIb-alpha hyperresponsive to von Willebrand factor, producing excessive platelet-VWF interaction at the platelet surface.</div>
 
@@ -4358,6 +4428,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4380,6 +4451,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-high-molecular-weight-vwf-multimer-depletion" data-dismech-node="Selective high-molecular-weight VWF multimer depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective high-molecular-weight VWF multimer depletion</div>
+
 
                 <div class="item-desc">Excess platelet-VWF binding removes hemostatically efficient high-molecular weight VWF multimers and platelet-VWF complexes from circulation, impairing primary hemostasis.</div>
 
@@ -4521,6 +4593,7 @@ This pathophysiological event involves abnormal blood coagulation (GO:0007596). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4543,6 +4616,7 @@ This pathophysiological event involves abnormal blood coagulation (GO:0007596). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-primary-hemostatic-plug-formation" data-dismech-node="Failure of primary hemostatic plug formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of primary hemostatic plug formation</div>
+
 
                 <div class="item-desc">The convergence node shared with the rest of the inherited platelet function disorders, reached here by an unusual route - not by losing a platelet receptor, but by depleting the plasma ligand that receptor needs, through a receptor that binds it too avidly. Made explicit so that this entry joins the family at the step the mechanism module treats as rate-limiting.</div>
 
@@ -4668,6 +4742,7 @@ This pathophysiological event involves decreased primary hemostasis, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4689,6 +4764,7 @@ This pathophysiological event involves decreased primary hemostasis, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4714,6 +4790,7 @@ This pathophysiological event involves decreased primary hemostasis, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-megakaryocyte-proplatelet-formation-dysregulation" data-dismech-node="Megakaryocyte proplatelet formation dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Megakaryocyte proplatelet formation dysregulation</div>
+
 
                 <div class="item-desc">Experimental work in patient-derived and murine PT-VWD megakaryocytes shows early VWF binding, abnormal proplatelet formation, defective collagen-induced RhoA-MLC2 signaling, ectopic platelet release in bone marrow, and increased clearance of platelet-VWF complexes.</div>
 
@@ -4996,6 +5073,7 @@ This pathophysiological event involves abnormal regulation of actin cytoskeleton
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5017,6 +5095,7 @@ This pathophysiological event involves abnormal regulation of actin cytoskeleton
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5111,6 +5190,9 @@ This clinical feature is Mucocutaneous bleeding, annotated with Abnormal bleedin
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5125,6 +5207,7 @@ This clinical feature is Mucocutaneous bleeding, annotated with Abnormal bleedin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5179,6 +5262,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5193,6 +5279,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5247,6 +5334,9 @@ This clinical feature is Intermittent thrombocytopenia (HP:0004854). HP:0004854 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5261,6 +5351,7 @@ This clinical feature is Intermittent thrombocytopenia (HP:0004854). HP:0004854 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5315,6 +5406,9 @@ This clinical feature is Increased mean platelet volume (HP:0011877). HP:0011877
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5329,6 +5423,7 @@ This clinical feature is Increased mean platelet volume (HP:0011877). HP:0011877
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5383,6 +5478,9 @@ This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5397,6 +5495,7 @@ This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5473,6 +5572,9 @@ This disease-associated gene is GP1BA (hgnc:4439). hgnc:4439 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5487,6 +5589,7 @@ This disease-associated gene is GP1BA (hgnc:4439). hgnc:4439 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5511,6 +5614,7 @@ This disease-associated gene is GP1BA (hgnc:4439). hgnc:4439 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5602,6 +5706,12 @@ This treatment is platelet transfusion (NCIT:C15366). NCIT:C15366 is a clinical 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Platelet concentrates are preferred for significant bleeding or procedures because the primary defect is in the patient&#39;s platelet receptor rather than plasma VWF. VWF/FVIII preparations or desmopressin should not be assumed equivalent to standard VWD therapy because raising circulating VWF can worsen thrombocytopenia.</div>
 
 
@@ -5648,6 +5758,7 @@ This treatment targets Mucocutaneous bleeding, annotated with Abnormal bleeding 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5669,6 +5780,7 @@ This treatment targets Mucocutaneous bleeding, annotated with Abnormal bleeding 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5762,6 +5874,12 @@ This treatment uses desmopressin (CHEBI:4450). CHEBI:4450 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Desmopressin raises circulating VWF and may aggravate platelet-VWF complex clearance in PT-VWD, so it should be used only with careful specialist assessment rather than as routine von Willebrand disease therapy.</div>
 
 
@@ -5783,6 +5901,7 @@ This treatment uses desmopressin (CHEBI:4450). CHEBI:4450 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5854,6 +5973,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">VWF/factor VIII preparations should not be used as the default replacement strategy for PT-VWD bleeding, because platelet concentrates address the platelet-receptor defect more directly.</div>
 
 
@@ -5897,6 +6022,7 @@ This treatment targets Mucocutaneous bleeding, annotated with Abnormal bleeding 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5968,6 +6094,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Families with PT-VWD benefit from counseling and cascade evaluation because autosomal-dominant disease can be diagnosed in relatives after a proband is recognized.</div>
 
 
@@ -5989,6 +6121,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6054,6 +6187,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6075,6 +6209,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6140,6 +6275,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6186,6 +6322,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6290,6 +6427,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6379,6 +6517,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6455,6 +6594,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6560,6 +6700,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6629,6 +6770,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6784,6 +6926,7 @@ This experimental model concerns GP1BA (hgnc:4439). hgnc:4439 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7606,6 +7749,48 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Falcon deep research for this entry found no PT-VWD-specific clinical trials and emphasized persistent evidence gaps for quantitative phenotype frequencies, long-term outcomes, and special situations such as pregnancy.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: add convergence node so the grouping criterion is met at node granularity</strong> · 2026-08-25T05:51:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Platelet-Type_von_Willebrand_Disease/2026-08-25T055126Z-claude-code-8dfc6e.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #9456 (round 1). Changes here: finding 6 only. Added &#39;Failure of primary hemostatic plug formation&#39; between the HMW-multimer depletion node and the mucocutaneous bleeding node, conforming to the module&#39;s central effector, with the adhesion-pathway and convergence quotes from PMID:21781244.
+
+Findings 1-4 were blocking; 5-8 were suggestions and were also addressed, one of them by argument rather than by change.
+
+FINDING 1 (blocking) - two ontology bindings asserting the opposite of the curated finding. Confirmed and fixed; this was my error. &#39;Preserved Platelet Aggregation&#39; (Scott) and &#39;Normal Platelet Count and Morphology&#39; (BDPLT18) were both bound to HP:0011869 &#39;Abnormal platelet function&#39;, with that label also copied into preferred_term. The Scott case was the damaging one - preserved collagen-induced aggregation is the single feature distinguishing the disorder from the rest of its family, and a consumer reading only the bound term got the reverse claim. The BDPLT18 case was wrong twice: an abnormality term on a normal result, and a function term on a count/morphology finding. Both now carry a free-text preferred_term with no term: and a notes: block naming the HPO gap and recording that a new-term request is the durable fix. This is the same disposition the entry set already used for the serum-B12 marker in Gray_Platelet_Syndrome, so it restores internal consistency rather than adding a new convention. The root cause was reaching for a generic parent to satisfy the validator instead of leaving the term off.
+
+FINDING 2 (blocking) - no treatments: in four of five new entries. Addressed by explicit deferral notes rather than by curating blocks, because no disorder-specific management evidence exists in the reference cache for these four: the cited sources are gene-discovery, mechanism and cohort papers whose abstracts name no agent or regimen. Writing the blocks would have meant citing a general inherited-platelet-disorder source for a disease-specific claim, or manufacturing snippets. Each entry now states the deferral, what management actually is in practice, and why it is not curated. Where a mechanism-derived inference is clinically real it is stated as an inference and labelled as such - platelet transfusion being rational in Scott syndrome because the defect is thrombin generation rather than platelet number; avoidance of P2Y12 antagonists in BDPLT8.
+
+Also recorded in each: these entries deliberately do NOT inherit the module&#39;s rFVIIa BYPASSES pattern. That is the module&#39;s own written rule (its evidence base is Glanzmann thrombasthenia; use elsewhere in the series is extrapolation), so the unused join the reviewer noted is a deliberate policy, not an oversight.
+
+FINDING 3 (blocking) - BDPLT8 had no inheritance: block. Added, curated as autosomal recessive on the cached genotypes (three homozygous frameshifts, one compound heterozygote). The fourth patient&#39;s unidentified second allele is carried as a PARTIAL evidence item, since it is consistent with but does not establish the mode. The reviewer mentioned a reported heterozygous dominant-negative allele; nothing in the cache evidences one, so no dominant mode is asserted and the entry says so explicitly rather than importing the claim on the reviewer&#39;s word.
+
+FINDING 4 (blocking) - no deep-research artifact. These were curated by direct full-text and abstract review, not from a DR provider. Rather than only noting this in the PR body, a &#39;Curation provenance&#39; paragraph was added to each of the five entries&#39; notes:, recording the method, that candidate PMIDs were fetched before use, and that several initially plausible identifiers turned out to be unrelated papers and were discarded rather than cited on their titles. That keeps the provenance in the KB where a later curator will find it.
+
+FINDING 5 (suggestion) - diagnosis: absent from GPS and BDPLT18. Added to both, from evidence already cached. The BDPLT18 entry documents the PMA arm as the discriminator against Glanzmann thrombasthenia, which is the practical point of the disorder.
+
+FINDING 6 (suggestion, and the sharpest one) - the grouping&#39;s defining criterion was stricter than two of its members. Confirmed: Platelet-Type_von_Willebrand_Disease and Bleeding_Disorder_Platelet-type_21 had no node at the central effector, and check-groupings passed only because it matches at module rather than node granularity, so the grouping_rationale over-claimed. Fixed by adding a &#39;Failure of primary hemostatic plug formation&#39; node to both, the same repair already applied to the GFI1B entry, each with the convergence evidence. In BDPLT21 only the qualitative arm is routed through the new node; its thrombopoiesis arm still reaches bleeding directly, because impaired platelet production is the route the module deliberately excludes. All nine members now carry the anchor the criterion names.
+
+FINDING 7 (suggestion) - modifier mismatch on GO:0017121 between module (DECREASED) and Scott syndrome (LOSS_OF_FUNCTION). Addressed by argument rather than by change. The reviewer proposed moving the module; instead the module now documents the convention: arms carry the quantitative PATO-bound default because an arm must accommodate partial and hypomorphic lesions, while a conformer whose own lesion is qualitative uses LOSS_OF_FUNCTION on its own node. The difference is intended - the module states the general case, the conformer its own - and is now written down so it does not read as an oversight.
+
+FINDING 8 (suggestion) - no top-level references: block. Added to all five, naming the anchor reviews.
+
+SEPARATE DEFECT FOUND WHILE FIXING FINDING 8, not raised by the reviewer. Adding the references: block caused the title check to fail on Gray_Platelet_Syndrome, revealing that all 16 evidence items citing PMID:21765412 (Kahr, &#39;NBEAL2 is mutated in gray platelet syndrome and is required for biogenesis of platelet alpha-granules&#39;) carried the title of PMID:21765413 (Albers, &#39;Mutations in NBEAL2, encoding a BEACH protein, cause gray platelet syndrome&#39;) - two back-to-back 2011 Nature Genetics NBEAL2 papers. All snippets were and remain exact quotes from the correct cached record, so no scientific claim was affected, but the provenance label was wrong on every one. Fixed, and an audit of every reference_title against every cached title across all ten touched files was then run; it found one further discrepancy (a doubled space in the BDPLT8 P2Y12 title) and now reports zero. Worth recording that reference_title is checked in the references: block but was not being compared for evidence-item titles here, which is why sixteen wrong labels survived earlier passes - the same field the previous PR&#39;s reviewer identified as the one place a curator&#39;s paraphrase meets the source.
+
+Validation after all changes: schema, terms and references pass on all five new entries (52/37/19/25/21 snippets verified), the module (11/11), and the two edited pre-existing entries (32/32 PT-VWD, 31/31 BDPLT21). Grouping audit: nine members, all SATISFIED on both criteria, structure OK. check-duplicate-keys, check-folded-hyphens, check-snippet-length, check-title-snippets, check-environmental-evidence all clean; one new folded-hyphen finding was introduced by my own deferral prose and reflowed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

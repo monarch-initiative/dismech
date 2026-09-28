@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Immunodeficiency%2014B%2C%20Autosomal%20Recessive"
@@ -3984,7 +4052,7 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4054,6 +4122,122 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Placed with the immune disorders: an inborn error of immunity presenting as a primary antibody deficiency with autoimmunity and enterocolitis.">IMMUNE RHEUMATOLOGIC</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 3 (predominantly antibody deficiencies), section 1 (agammaglobulinemia): the &#34;p110-delta deficiency&#34; row (PIK3CD, AR, OMIM 602839). The dominant gain-of-function disease at the same locus (APDS1) is a separate Table 3 row in section 2 (CVID phenotype), mirroring this knowledge base&#39;s decision to curate the two PIK3CD diseases separately.">predominantly antibody deficiency</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4116,6 +4300,7 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4385,11 +4570,78 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pik3cd-loss-of-function" data-dismech-node="Biallelic PIK3CD Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PIK3CD Loss of Function</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous null or severely hypomorphic PIK3CD alleles. Reported classes include nonsense, frameshift and in-frame deletion variants; the index case carried a homozygous 21 bp deletion with a 2 bp insertion in exon 5 producing p.Q170Vfs*41 and no detectable full-length protein.</div>
 
 
 
 
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PIK3CD
+
+
+    <a href="https://bioregistry.io/hgnc:8977" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8977</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns PIK3CD (hgnc:8977). hgnc:8977 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HOMOZYGOUS</span>
+
+
+
+        <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">Homozygous germline PIK3CD alleles abolishing p110-delta. Recorded as LOSS_OF_FUNCTION, in contrast to the heterozygous activating (gain-of-function) PIK3CD alleles of APDS1.</div>
 
 
 
@@ -4420,7 +4672,7 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4432,6 +4684,7 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4448,6 +4701,33 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:41026257" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41026257" target="_blank">PMID:41026257</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutations in PIK3CD, which encodes an immune-specific catalytic subunit of PI3K, cause both dominant (activating) and recessive (loss of function) immune deficiencies in humans."</div>
+
+
+                <div class="evidence-explanation">States the allelic dichotomy: the recessive disease recorded here is the loss-of-function arm. The sentence is the paper&#39;s framing of established human genetics (its own refs 1, 8), not its own result, which is the three-sibling series below.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4457,6 +4737,7 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-p110-delta-protein-with-secondary-p85-alpha-reduction" data-dismech-node="Loss of p110-delta Protein with Secondary p85-alpha Reduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of p110-delta Protein with Secondary p85-alpha Reduction</div>
+
 
                 <div class="item-desc">Truncating alleles abolish p110-delta protein. The consequence is not confined to the catalytic subunit: because p110-delta and the p85-alpha regulatory subunit associate constitutively, loss of p110-delta also reduces p85-alpha expression. The lesion therefore removes the holoenzyme rather than just half of it.</div>
 
@@ -4480,11 +4761,11 @@ The mechanism has an unusual external check. Idelalisib, a p110-delta-specific i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016303" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0016303</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016303" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0016303</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves 1-phosphatidylinositol-3-kinase activity (GO:0016303), qualified as loss of function. GO:0016303 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4546,6 +4827,7 @@ This pathophysiological event involves 1-phosphatidylinositol-3-kinase activity 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4568,6 +4850,7 @@ This pathophysiological event involves 1-phosphatidylinositol-3-kinase activity 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-pip3-generation-on-antigen-and-cytokine-receptor-engagement" data-dismech-node="Failure of PIP3 Generation on Antigen and Cytokine Receptor Engagement" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of PIP3 Generation on Antigen and Cytokine Receptor Engagement</div>
+
 
                 <div class="item-desc">PI3K-delta phosphorylates PIP2 to PIP3 at the leukocyte plasma membrane downstream of antigen and cytokine receptors. Patient T lymphoblasts fail to generate PIP3 on T-cell receptor engagement, which is the proximal signalling failure from which the rest of the disease follows.</div>
 
@@ -4619,6 +4902,7 @@ This pathophysiological event involves 1-phosphatidylinositol-3-kinase activity 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4642,6 +4926,7 @@ This pathophysiological event involves 1-phosphatidylinositol-3-kinase activity 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-akt-mtor-signalling-and-lymphocyte-metabolic-reprogramming" data-dismech-node="Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming</div>
 
+
                 <div class="item-desc">Reduced PIP3 blunts the PDK1-AKT-mTOR cascade, and with it the metabolic switch lymphocytes need in order to expand and acquire effector function. Patient cells show reduced AKT and S6 phosphorylation and impaired glycolysis - and the same glycolytic defect is reproduced in healthy donor cells simply by adding idelalisib, which ties the metabolic phenotype directly to loss of p110-delta activity rather than to anything else in the patient&#39;s background.</div>
 
 
@@ -4663,11 +4948,11 @@ This pathophysiological event involves 1-phosphatidylinositol-3-kinase activity 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006096</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4742,6 +5027,7 @@ This pathophysiological event involves decreased glycolytic process (GO:0006096)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4763,6 +5049,7 @@ This pathophysiological event involves decreased glycolytic process (GO:0006096)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4789,6 +5076,7 @@ This pathophysiological event involves decreased glycolytic process (GO:0006096)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-b-cell-proliferation-and-class-switch-recombination" data-dismech-node="Defective B-Cell Proliferation and Class-Switch Recombination" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective B-Cell Proliferation and Class-Switch Recombination</div>
 
+
                 <div class="item-desc">The humoral arm, and the one that dominates the clinical picture. Patient B cells proliferate poorly and fail to class-switch even when given CD40L and IL-21 - that is, even when supplied with the T-cell help that would normally rescue switching. The compartment skews toward naive cells at the expense of class-switched memory.</div>
 
 
@@ -4803,11 +5091,11 @@ This pathophysiological event involves decreased glycolytic process (GO:0006096)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000788" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000788</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000788" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000788</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves increased naive B cell (CL:0000788). CL:0000788 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4848,11 +5136,11 @@ This pathophysiological event involves increased naive B cell (CL:0000788). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0045190</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0045190</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased isotype switching (GO:0045190). GO:0045190 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4882,11 +5170,11 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042100" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042100</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042100" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0042100</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased B cell proliferation (GO:0042100). GO:0042100 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4949,6 +5237,7 @@ This pathophysiological event involves decreased B cell proliferation (GO:004210
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4970,6 +5259,7 @@ This pathophysiological event involves decreased B cell proliferation (GO:004210
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4996,6 +5286,7 @@ This pathophysiological event involves decreased B cell proliferation (GO:004210
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cytotoxic-lymphocyte-effector-function" data-dismech-node="Impaired Cytotoxic Lymphocyte Effector Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cytotoxic Lymphocyte Effector Function</div>
 
+
                 <div class="item-desc">CD8 T-cell and NK-cell killing depend on PI3K-delta signalling, and the consequence in patients is susceptibility to herpesviruses. The index case had active cytomegalovirus replication in the gut with viraemia. Note that the CD8 compartment is not simply depleted - it is skewed toward effector/memory cells expressing high TBET and perforin, so the failure is functional rather than numerical.</div>
 
 
@@ -5010,11 +5301,11 @@ This pathophysiological event involves decreased B cell proliferation (GO:004210
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000625</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5080,6 +5371,7 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5101,6 +5393,7 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5127,6 +5420,7 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paradoxical-t-cell-hyperactivation" data-dismech-node="Paradoxical T-Cell Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Paradoxical T-Cell Hyperactivation</div>
 
+
                 <div class="item-desc">The counterintuitive step, and the one that makes the autoimmune half of this disease make sense. PI3K-delta drives T-cell activation, so losing it ought to make T cells less responsive - yet patient CD3+ cells are hyperactivated. The proposed reason is substrate rerouting: with the kinase gone, its substrate PIP2 accumulates and is instead hydrolysed by phospholipase C-gamma1 into second messengers that drive activation through a different arm.
 The consequence is a two-sided failure at the gut mucosa - effector T cells that are improperly activated, and PI3K-delta-deficient regulatory T cells unable to suppress them.</div>
 
@@ -5142,11 +5436,11 @@ The consequence is a two-sided failure at the gut mucosa - effector T cells that
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000624</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves increased CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5216,6 +5510,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5237,6 +5532,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5264,6 +5560,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5286,6 +5583,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-immune-tolerance" data-dismech-node="Loss of Immune Tolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Immune Tolerance</div>
+
 
                 <div class="item-desc">Autoimmune and autoinflammatory disease is as prominent as the infection susceptibility. Immune-mediated thrombocytopenia and inflammatory enterocolitis are the two recurring manifestations. The intermediates between impaired PI3K-delta signalling and tolerance breakdown are now partly established: the immediate upstream node is paradoxical T-cell hyperactivation, and mouse work implicates disturbed regulatory T-cell trafficking and suppressive function, curated with evidence in animal_models below rather than asserted here as prose.</div>
 
@@ -5357,6 +5655,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5379,6 +5678,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-humoral-immunodeficiency" data-dismech-node="Humoral Immunodeficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Humoral Immunodeficiency</div>
+
 
                 <div class="item-desc">Hypogammaglobulinaemia with absent class-switched memory B cells, giving recurrent sinopulmonary infection. This is the feature most consistently reported across independent kindreds and the one that usually brings patients to attention.</div>
 
@@ -5430,6 +5730,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5452,6 +5753,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-viral-and-recurrent-bacterial-infection" data-dismech-node="Susceptibility to Viral and Recurrent Bacterial Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to Viral and Recurrent Bacterial Infection</div>
+
 
                 <div class="item-desc">The infectious endpoint: recurrent sinopulmonary infection from the humoral defect, and poor control of herpesviruses from the cytotoxic defect. Both arms converge here.</div>
 
@@ -5490,6 +5792,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5512,6 +5815,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-cytopenia-and-inflammatory-enterocolitis" data-dismech-node="Autoimmune Cytopenia and Inflammatory Enterocolitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune Cytopenia and Inflammatory Enterocolitis</div>
+
 
                 <div class="item-desc">The autoimmune endpoint. Thrombocytopenia can be refractory to corticosteroids, immunoglobulin and splenectomy, and severe enough to cause intracranial haemorrhage. The enterocolitis is histologically distinctive - crypt epithelial apoptosis with crypt abscess formation and a lamina propria notably depleted of B cells and plasma cells.</div>
 
@@ -5550,6 +5854,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5571,6 +5876,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5619,7 +5925,7 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoimmune Cytopenia and Inflammatory Enterocolitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autoimmune endpoint. Thrombocytopenia can be refractory to corticosteroids, immunoglobulin and splenectomy, and severe enough to cause intracranial haemorrhage. The enterocolitis is histologically distinctive - crypt epithelial apoptosis with crypt abscess formation and a lamina propria notably depleted of B cells and plasma cells.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic PIK3CD Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound heterozygous null or severely hypomorphic PIK3CD alleles. Reported classes include nonsense, frameshift and in-frame deletion variants; the index case carried a homozygous 21 bp deletion with a 2 bp insertion in exon 5 producing p.Q170Vfs*41 and no detectable full-length protein.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Defective B-Cell Proliferation and Class-Switch Recombination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The humoral arm, and the one that dominates the clinical picture. Patient B cells proliferate poorly and fail to class-switch even when given CD40L and IL-21 - that is, even when supplied with the T-cell help that would normally rescue switching. The compartment skews toward naive cells at the expense of class-switched memory.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"naive B cell\"], \"biological_processes\": [\"isotype switching\", \"B cell proliferation\"]}}, {\"id\": \"Failure of PIP3 Generation on Antigen and Cytokine Receptor Engagement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K-delta phosphorylates PIP2 to PIP3 at the leukocyte plasma membrane downstream of antigen and cytokine receptors. Patient T lymphoblasts fail to generate PIP3 on T-cell receptor engagement, which is the proximal signalling failure from which the rest of the disease follows.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Potentially curative, and the only intervention reported to resolve the disease rather than manage it. In the index case a first transplant was rejected with autologous lymphoid reconstitution; a second, with more myeloablative conditioning, achieved full donor chimerism and sustained remission of the enterocolitis. It is curated against the tolerance node because replacing the haematopoietic compartment replaces the p110-delta-deficient lymphocytes driving both arms of the disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Humoral Immunodeficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypogammaglobulinaemia with absent class-switched memory B cells, giving recurrent sinopulmonary infection. This is the feature most consistently reported across independent kindreds and the one that usually brings patients to attention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immunosuppressive and Anti-Inflammatory Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Control of the immune-mediated enterocolitis. In the index case anti-inflammatory therapy alone failed, and the diarrhoea only came under control with corticosteroid, cyclosporine and infliximab; weaning the immunosuppression relapsed the gut disease. Other reported patients were managed with mesalazine, steroids or 6-mercaptopurine. It is curated against the tolerance node because it suppresses the dysregulated immune response rather than correcting the signalling lesion - which is also why it controls rather than cures.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced PIP3 blunts the PDK1-AKT-mTOR cascade, and with it the metabolic switch lymphocytes need in order to expand and acquire effector function. Patient cells show reduced AKT and S6 phosphorylation and impaired glycolysis - and the same glycolytic defect is reproduced in healthy donor cells simply by adding idelalisib, which ties the metabolic phenotype directly to loss of p110-delta activity rather than to anything else in the patient\u0027s background.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"Impaired Cytotoxic Lymphocyte Effector Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD8 T-cell and NK-cell killing depend on PI3K-delta signalling, and the consequence in patients is susceptibility to herpesviruses. The index case had active cytomegalovirus replication in the gut with viraemia. Note that the CD8 compartment is not simply depleted - it is skewed toward effector/memory cells expressing high TBET and perforin, so the failure is functional rather than numerical.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"]}}, {\"id\": \"Loss of Immune Tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoimmune and autoinflammatory disease is as prominent as the infection susceptibility. Immune-mediated thrombocytopenia and inflammatory enterocolitis are the two recurring manifestations. The intermediates between impaired PI3K-delta signalling and tolerance breakdown are now partly established: the immediate upstream node is paradoxical T-cell hyperactivation, and mouse work implicates disturbed regulatory T-cell trafficking and suppressive function, curated with evidence in animal_models below rather than asserted here as prose.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"p110-delta kinase-dead mouse\", \"species\": \"Mouse\", \"genotype\": \"Pik3cd kinase-dead knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Spontaneous colitis with crypt abscesses arises without any additional manipulation, matching the human enterocolitis at the level of histology, and the model supplies the regulatory T-cell mechanism that patient material was too limited to test.\"}]}}, {\"id\": \"Loss of p110-delta Protein with Secondary p85-alpha Reduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncating alleles abolish p110-delta protein. The consequence is not confined to the catalytic subunit: because p110-delta and the p85-alpha regulatory subunit associate constitutively, loss of p110-delta also reduces p85-alpha expression. The lesion therefore removes the holoenzyme rather than just half of it.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"1-phosphatidylinositol-3-kinase activity\"]}}, {\"id\": \"Paradoxical T-Cell Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The counterintuitive step, and the one that makes the autoimmune half of this disease make sense. PI3K-delta drives T-cell activation, so losing it ought to make T cells less responsive - yet patient CD3+ cells are hyperactivated. The proposed reason is substrate rerouting: with the kinase gone, its substrate PIP2 accumulates and is instead hydrolysed by phospholipase C-gamma1 into second messengers that drive activation through a different arm.\\nThe consequence is a two-sided failure at the gut mucosa - effector T cells that are improperly activated, and PI3K-delta-deficient regulatory T cells unable to suppress them.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"]}}, {\"id\": \"Susceptibility to Viral and Recurrent Bacterial Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The infectious endpoint: recurrent sinopulmonary infection from the humoral defect, and poor control of herpesviruses from the cytotoxic defect. Both arms converge here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"p110-delta kinase-dead mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The mouse that anticipated the human disease. p110-delta kinase-dead mice spontaneously develop inflammatory bowel disease with crypt abscesses - the same histological lesion later found in the index patient - and their regulatory T cells show normal thymic output but disturbed trafficking and suppressive function.\"}], \"edges\": [{\"source\": \"Biallelic PIK3CD Loss of Function\", \"target\": \"Loss of p110-delta Protein with Secondary p85-alpha Reduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of p110-delta Protein with Secondary p85-alpha Reduction\", \"target\": \"Failure of PIP3 Generation on Antigen and Cytokine Receptor Engagement\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of PIP3 Generation on Antigen and Cytokine Receptor Engagement\", \"target\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"target\": \"Defective B-Cell Proliferation and Class-Switch Recombination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"target\": \"Impaired Cytotoxic Lymphocyte Effector Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"target\": \"Paradoxical T-Cell Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective B-Cell Proliferation and Class-Switch Recombination\", \"target\": \"Humoral Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytotoxic Lymphocyte Effector Function\", \"target\": \"Susceptibility to Viral and Recurrent Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paradoxical T-Cell Hyperactivation\", \"target\": \"Loss of Immune Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Immune Tolerance\", \"target\": \"Autoimmune Cytopenia and Inflammatory Enterocolitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Humoral Immunodeficiency\", \"target\": \"Susceptibility to Viral and Recurrent Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Loss of Immune Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunosuppressive and Anti-Inflammatory Therapy\", \"target\": \"Loss of Immune Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"p110-delta kinase-dead mouse\", \"target\": \"Loss of Immune Tolerance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Spontaneous colitis with crypt abscesses arises without any additional manipulation, matching the human enterocolitis at the level of histology, and the model supplies the regulatory T-cell mechanism that patient material was too limited to test.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A kinase-dead knock-in is not the human genotype: patients carry truncating alleles that remove the protein entirely, and loss of p110-delta protein also destabilises p85-alpha, which a catalytically inactive but present protein would not. The model also does not speak to the humoral arm, where human and mouse B cells are reported to differ in their class-switching requirement.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoimmune Cytopenia and Inflammatory Enterocolitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autoimmune endpoint. Thrombocytopenia can be refractory to corticosteroids, immunoglobulin and splenectomy, and severe enough to cause intracranial haemorrhage. The enterocolitis is histologically distinctive - crypt epithelial apoptosis with crypt abscess formation and a lamina propria notably depleted of B cells and plasma cells.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic PIK3CD Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound heterozygous null or severely hypomorphic PIK3CD alleles. Reported classes include nonsense, frameshift and in-frame deletion variants; the index case carried a homozygous 21 bp deletion with a 2 bp insertion in exon 5 producing p.Q170Vfs*41 and no detectable full-length protein.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous germline PIK3CD alleles abolishing p110-delta. Recorded as LOSS_OF_FUNCTION, in contrast to the heterozygous activating (gain-of-function) PIK3CD alleles of APDS1.\", \"gene_terms\": [{\"label\": \"PIK3CD\", \"id\": \"hgnc:8977\"}]}}}, {\"id\": \"Defective B-Cell Proliferation and Class-Switch Recombination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The humoral arm, and the one that dominates the clinical picture. Patient B cells proliferate poorly and fail to class-switch even when given CD40L and IL-21 - that is, even when supplied with the T-cell help that would normally rescue switching. The compartment skews toward naive cells at the expense of class-switched memory.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"naive B cell\"], \"biological_processes\": [\"isotype switching\", \"B cell proliferation\"]}}, {\"id\": \"Failure of PIP3 Generation on Antigen and Cytokine Receptor Engagement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K-delta phosphorylates PIP2 to PIP3 at the leukocyte plasma membrane downstream of antigen and cytokine receptors. Patient T lymphoblasts fail to generate PIP3 on T-cell receptor engagement, which is the proximal signalling failure from which the rest of the disease follows.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Potentially curative, and the only intervention reported to resolve the disease rather than manage it. In the index case a first transplant was rejected with autologous lymphoid reconstitution; a second, with more myeloablative conditioning, achieved full donor chimerism and sustained remission of the enterocolitis. It is curated against the tolerance node because replacing the haematopoietic compartment replaces the p110-delta-deficient lymphocytes driving both arms of the disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Humoral Immunodeficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypogammaglobulinaemia with absent class-switched memory B cells, giving recurrent sinopulmonary infection. This is the feature most consistently reported across independent kindreds and the one that usually brings patients to attention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immunosuppressive and Anti-Inflammatory Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Control of the immune-mediated enterocolitis. In the index case anti-inflammatory therapy alone failed, and the diarrhoea only came under control with corticosteroid, cyclosporine and infliximab; weaning the immunosuppression relapsed the gut disease. Other reported patients were managed with mesalazine, steroids or 6-mercaptopurine. It is curated against the tolerance node because it suppresses the dysregulated immune response rather than correcting the signalling lesion - which is also why it controls rather than cures.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced PIP3 blunts the PDK1-AKT-mTOR cascade, and with it the metabolic switch lymphocytes need in order to expand and acquire effector function. Patient cells show reduced AKT and S6 phosphorylation and impaired glycolysis - and the same glycolytic defect is reproduced in healthy donor cells simply by adding idelalisib, which ties the metabolic phenotype directly to loss of p110-delta activity rather than to anything else in the patient\u0027s background.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"Impaired Cytotoxic Lymphocyte Effector Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD8 T-cell and NK-cell killing depend on PI3K-delta signalling, and the consequence in patients is susceptibility to herpesviruses. The index case had active cytomegalovirus replication in the gut with viraemia. Note that the CD8 compartment is not simply depleted - it is skewed toward effector/memory cells expressing high TBET and perforin, so the failure is functional rather than numerical.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"]}}, {\"id\": \"Loss of Immune Tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoimmune and autoinflammatory disease is as prominent as the infection susceptibility. Immune-mediated thrombocytopenia and inflammatory enterocolitis are the two recurring manifestations. The intermediates between impaired PI3K-delta signalling and tolerance breakdown are now partly established: the immediate upstream node is paradoxical T-cell hyperactivation, and mouse work implicates disturbed regulatory T-cell trafficking and suppressive function, curated with evidence in animal_models below rather than asserted here as prose.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"p110-delta kinase-dead mouse\", \"species\": \"Mouse\", \"genotype\": \"Pik3cd kinase-dead knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Spontaneous colitis with crypt abscesses arises without any additional manipulation, matching the human enterocolitis at the level of histology, and the model supplies the regulatory T-cell mechanism that patient material was too limited to test.\"}]}}, {\"id\": \"Loss of p110-delta Protein with Secondary p85-alpha Reduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncating alleles abolish p110-delta protein. The consequence is not confined to the catalytic subunit: because p110-delta and the p85-alpha regulatory subunit associate constitutively, loss of p110-delta also reduces p85-alpha expression. The lesion therefore removes the holoenzyme rather than just half of it.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"1-phosphatidylinositol-3-kinase activity\"]}}, {\"id\": \"PIK3CD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PIK3CD\"], \"gene_terms\": [{\"label\": \"PIK3CD\", \"id\": \"hgnc:8977\"}], \"association\": \"Biallelic loss-of-function variants in PIK3CD cause IMD14B. The same gene causes activated PI3K-delta syndrome (APDS1 / IMD14A) through heterozygous activating variants, so the direction of the variant\u0027s effect, not the gene, determines which disease results. Reported IMD14B alleles are nonsense, frameshift or in-frame deletions producing complete or near-complete loss of p110-delta.\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Paradoxical T-Cell Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The counterintuitive step, and the one that makes the autoimmune half of this disease make sense. PI3K-delta drives T-cell activation, so losing it ought to make T cells less responsive - yet patient CD3+ cells are hyperactivated. The proposed reason is substrate rerouting: with the kinase gone, its substrate PIP2 accumulates and is instead hydrolysed by phospholipase C-gamma1 into second messengers that drive activation through a different arm.\\nThe consequence is a two-sided failure at the gut mucosa - effector T cells that are improperly activated, and PI3K-delta-deficient regulatory T cells unable to suppress them.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"]}}, {\"id\": \"Susceptibility to Viral and Recurrent Bacterial Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The infectious endpoint: recurrent sinopulmonary infection from the humoral defect, and poor control of herpesviruses from the cytotoxic defect. Both arms converge here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"p110-delta kinase-dead mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The mouse that anticipated the human disease. p110-delta kinase-dead mice spontaneously develop inflammatory bowel disease with crypt abscesses - the same histological lesion later found in the index patient - and their regulatory T cells show normal thymic output but disturbed trafficking and suppressive function.\"}], \"edges\": [{\"source\": \"Biallelic PIK3CD Loss of Function\", \"target\": \"Loss of p110-delta Protein with Secondary p85-alpha Reduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of p110-delta Protein with Secondary p85-alpha Reduction\", \"target\": \"Failure of PIP3 Generation on Antigen and Cytokine Receptor Engagement\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of PIP3 Generation on Antigen and Cytokine Receptor Engagement\", \"target\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"target\": \"Defective B-Cell Proliferation and Class-Switch Recombination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"target\": \"Impaired Cytotoxic Lymphocyte Effector Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming\", \"target\": \"Paradoxical T-Cell Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective B-Cell Proliferation and Class-Switch Recombination\", \"target\": \"Humoral Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytotoxic Lymphocyte Effector Function\", \"target\": \"Susceptibility to Viral and Recurrent Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paradoxical T-Cell Hyperactivation\", \"target\": \"Loss of Immune Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Immune Tolerance\", \"target\": \"Autoimmune Cytopenia and Inflammatory Enterocolitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Humoral Immunodeficiency\", \"target\": \"Susceptibility to Viral and Recurrent Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Loss of Immune Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunosuppressive and Anti-Inflammatory Therapy\", \"target\": \"Loss of Immune Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"p110-delta kinase-dead mouse\", \"target\": \"Loss of Immune Tolerance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Spontaneous colitis with crypt abscesses arises without any additional manipulation, matching the human enterocolitis at the level of histology, and the model supplies the regulatory T-cell mechanism that patient material was too limited to test.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A kinase-dead knock-in is not the human genotype: patients carry truncating alleles that remove the protein entirely, and loss of p110-delta protein also destabilises p85-alpha, which a catalytically inactive but present protein would not. The model also does not speak to the humoral arm, where human and mouse B cells are reported to differ in their class-switching requirement.\"}, {\"source\": \"PIK3CD\", \"target\": \"Biallelic PIK3CD Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5669,15 +5975,18 @@ This pathophysiological event involves increased CD4-positive, alpha-beta T cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0004315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0004315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating IgG concentration (HP:0004315). HP:0004315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5697,6 +6006,7 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5737,15 +6047,18 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0030388</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0030388</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased class-switched memory B cell proportion (HP:0030388). HP:0030388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5765,6 +6078,7 @@ This clinical feature is Decreased class-switched memory B cell proportion (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5805,15 +6119,18 @@ This clinical feature is Decreased class-switched memory B cell proportion (HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001973</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001973</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5836,11 +6153,12 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"His thrombocytopenia was refractory to corticosteroids, high dose immunoglobulin and splenectomy, culminating in an intracranial bleed requiring surgical evacuation."</div>
+                <div class="evidence-snippet">"We report a child of consanguineous parentage (Figure 1A) who presented at 9 years with bruising and upper gastrointestinal bleeding in association with profound immune-mediated thrombocytopenia. His thrombocytopenia was refractory to corticosteroids, high dose immunoglobulin and splenectomy,..."</div>
 
 
                 <div class="evidence-explanation">Documents the severity and treatment-refractoriness of the thrombocytopenia.</div>
@@ -5882,10 +6200,10 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality chronic. HP:0002028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5914,6 +6232,9 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5928,6 +6249,7 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5968,15 +6290,18 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0004387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0004387</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Enterocolitis (HP:0004387). HP:0004387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5996,6 +6321,7 @@ This clinical feature is Enterocolitis (HP:0004387). HP:0004387 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6045,15 +6371,18 @@ This clinical feature is Enterocolitis (HP:0004387). HP:0004387 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005425" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005425</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005425" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0005425</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent sinopulmonary infections (HP:0005425). HP:0005425 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6073,6 +6402,7 @@ This clinical feature is Recurrent sinopulmonary infections (HP:0005425). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6156,10 +6486,10 @@ This clinical feature is Recurrent sinopulmonary infections (HP:0005425). HP:000
                         Gene: PIK3CD
 
 
-    <a href="https://bioregistry.io/hgnc:8977" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:8977</a>
+    <a href="https://bioregistry.io/hgnc:8977" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:8977</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PIK3CD (hgnc:8977). hgnc:8977 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6169,6 +6499,9 @@ This disease-associated gene is PIK3CD (hgnc:8977). hgnc:8977 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6187,6 +6520,7 @@ This disease-associated gene is PIK3CD (hgnc:8977). hgnc:8977 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6211,6 +6545,7 @@ This disease-associated gene is PIK3CD (hgnc:8977). hgnc:8977 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6261,7 +6596,7 @@ This disease-associated gene is PIK3CD (hgnc:8977). hgnc:8977 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Hematopoietic Cell Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Hematopoietic Cell Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6296,6 +6631,9 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6306,6 +6644,9 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -6342,6 +6683,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6388,6 +6730,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6416,7 +6759,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6451,6 +6794,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6461,6 +6807,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6488,6 +6837,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6519,7 +6869,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6554,6 +6904,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6564,6 +6917,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6600,6 +6956,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6643,6 +7000,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6706,11 +7064,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         Genetic Testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-18">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-19">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6748,6 +7106,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6822,6 +7181,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6922,6 +7282,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6992,6 +7353,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7059,6 +7421,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7186,6 +7549,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7265,6 +7629,33 @@ disease_term:
   term:
     id: MONDO:0023655
     label: immunodeficiency 14b, autosomal recessive
+classifications:
+  harrisons_chapter:
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      Placed with the immune disorders: an inborn error of immunity presenting
+      as a primary antibody deficiency with autoimmunity and enterocolitis.
+  iuis_category:
+    classification_value: predominantly antibody deficiency
+    notes: &gt;-
+      IUIS 2022 phenotypic classification Table 3 (predominantly antibody
+      deficiencies), section 1 (agammaglobulinemia): the &#34;p110-delta
+      deficiency&#34; row (PIK3CD, AR, OMIM 602839). The dominant gain-of-function
+      disease at the same locus (APDS1) is a separate Table 3 row in section 2
+      (CVID phenotype), mirroring this knowledge base&#39;s decision to curate the
+      two PIK3CD diseases separately.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;deficiency PIK3CD AR 602839 Severe bacterial infections; autoimmune complications (IBD)&#34;
+      explanation: &gt;-
+        The IMD14B row of IUIS 2022 Table 3 (predominantly antibody
+        deficiencies), section 1 (agammaglobulinemia), with its
+        associated-features column. The printed row label is &#34;p110-delta
+        deficiency&#34;; the quote starts at &#34;deficiency&#34; because PDF extraction
+        dropped the Greek delta, leaving a double space after &#34;p110&#34;.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -7282,9 +7673,7 @@ inheritance:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Mutations in PIK3CD, which encodes an immune-specific catalytic subunit
-      of PI3K, cause both dominant (activating) and recessive (loss of function) immune
-      deficiencies in humans.&#34;
+    snippet: &#34;Mutations in PIK3CD, which encodes an immune-specific catalytic subunit of PI3K, cause both dominant (activating) and recessive (loss of function) immune deficiencies in humans.&#34;
     explanation: &gt;-
       States the two-mode architecture of PIK3CD disease and places IMD14B on the
       recessive loss-of-function side.
@@ -7300,15 +7689,38 @@ pathophysiology:
   downstream:
   - target: Loss of p110-delta Protein with Secondary p85-alpha Reduction
     causal_link_type: DIRECT
+  genetic_context:
+    gene:
+      preferred_term: PIK3CD
+      term:
+        id: hgnc:8977
+        label: PIK3CD
+    variant_origin: GERMLINE
+    zygosity: HOMOZYGOUS
+    functional_impact_category: LOSS_OF_FUNCTION
+    description: &gt;-
+      Homozygous germline PIK3CD alleles abolishing p110-delta. Recorded as
+      LOSS_OF_FUNCTION, in contrast to the heterozygous activating (gain-of-function)
+      PIK3CD alleles of APDS1.
   evidence:
   - reference: PMID:41026257
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Here we report a family with three affected children carrying a novel
-      bi-allelic, truncating mutation in PIK3CD.&#34;
+    snippet: &#34;Here we report a family with three affected children carrying a novel bi-allelic, truncating mutation in PIK3CD.&#34;
     explanation: Documents a biallelic truncating genotype in three affected siblings.
 
+  - reference: PMID:41026257
+    reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
+    supports: SUPPORT
+    quote_role: BACKGROUND
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Mutations in PIK3CD, which encodes an immune-specific catalytic subunit of PI3K, cause both dominant (activating) and recessive (loss of function) immune deficiencies in humans.&#34;
+    explanation: &gt;-
+      States the allelic dichotomy: the recessive disease recorded here is the
+      loss-of-function arm. The sentence is the paper&#39;s framing of established
+      human genetics (its own refs 1, 8), not its own result, which is the
+      three-sibling series below.
 - name: Loss of p110-delta Protein with Secondary p85-alpha Reduction
   biological_scale: MOLECULAR
   description: &gt;-
@@ -7330,8 +7742,7 @@ pathophysiology:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Immunoblot confirmed loss of protein along with reduced expression of the
-      associated p85α regulatory subunit.&#34;
+    snippet: &#34;Immunoblot confirmed loss of protein along with reduced expression of the associated p85α regulatory subunit.&#34;
     explanation: &gt;-
       Demonstrates both the loss of p110-delta and the secondary reduction of its
       obligate regulatory partner.
@@ -7351,8 +7762,7 @@ pathophysiology:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;patient-derived T lymphoblasts were profoundly impaired in their ability
-      to generate PIP3 upon T cell receptor (TCR) engagement&#34;
+    snippet: &#34;patient-derived T lymphoblasts were profoundly impaired in their ability to generate PIP3 upon T cell receptor (TCR) engagement&#34;
     explanation: Direct measurement of the proximal signalling defect in patient cells.
 
 - name: Impaired AKT-mTOR Signalling and Lymphocyte Metabolic Reprogramming
@@ -7382,9 +7792,7 @@ pathophysiology:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;A glycolysis stress test showed impaired IL-2-stimulated glycolysis and
-      glycolytic reserve in patient cells, similar to the behavior of CD4 and CD8 T cells
-      treated with idelalisib&#34;
+    snippet: &#34;A glycolysis stress test showed impaired IL-2-stimulated glycolysis and glycolytic reserve in patient cells, similar to the behavior of CD4 and CD8 T cells treated with idelalisib&#34;
     explanation: &gt;-
       Establishes the metabolic defect and its pharmacological phenocopy in control cells,
       which controls for patient-specific confounders.
@@ -7392,8 +7800,7 @@ pathophysiology:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;These findings show that germline p110δ deficiency impairs lymphocyte
-      metabolism&#34;
+    snippet: &#34;These findings show that germline p110δ deficiency impairs lymphocyte metabolism&#34;
     explanation: The authors&#39; summary of the metabolic consequence of p110-delta deficiency.
 
 - name: Defective B-Cell Proliferation and Class-Switch Recombination
@@ -7428,9 +7835,7 @@ pathophysiology:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;In vitro functional testing of CD19 + and enriched naïve B cells revealed
-      impaired proliferation, and reduction in class-switch recombination upon CD40L and
-      IL-21 stimulation.&#34;
+    snippet: &#34;In vitro functional testing of CD19 + and enriched naïve B cells revealed impaired proliferation, and reduction in class-switch recombination upon CD40L and IL-21 stimulation.&#34;
     explanation: &gt;-
       Directly demonstrates the intrinsic B-cell proliferation and class-switching defect
       under conditions that supply T-cell help.
@@ -7438,8 +7843,7 @@ pathophysiology:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Immune phenotyping showed B cell dysregulation with abnormally high levels
-      of naïve cells.&#34;
+    snippet: &#34;Immune phenotyping showed B cell dysregulation with abnormally high levels of naïve cells.&#34;
     explanation: Documents the skew toward naive B cells in the patient compartment.
 
 - name: Impaired Cytotoxic Lymphocyte Effector Function
@@ -7463,15 +7867,13 @@ pathophysiology:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Viral inclusion bodies were visible, indicating active cytomegalovirus (CMV)
-      replication in the gut, accompanied by CMV viremia&#34;
+    snippet: &#34;Viral inclusion bodies were visible, indicating active cytomegalovirus (CMV) replication in the gut, accompanied by CMV viremia&#34;
     explanation: Documents failure of control of a herpesvirus in the index patient.
   - reference: PMID:31073077
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Peripheral blood was enriched for effector/memory CD8 T cells, which expressed
-      high levels of the transcription factor TBET and perforin&#34;
+    snippet: &#34;Peripheral blood was enriched for effector/memory CD8 T cells, which expressed high levels of the transcription factor TBET and perforin&#34;
     explanation: &gt;-
       Shows the CD8 compartment is skewed rather than absent, supporting a functional
       rather than numerical defect.
@@ -7503,8 +7905,7 @@ pathophysiology:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Our data supports the conclusion that CD3 + hyperactivation is a natural
-      consequence of PIK3CD protein loss.&#34;
+    snippet: &#34;Our data supports the conclusion that CD3 + hyperactivation is a natural consequence of PIK3CD protein loss.&#34;
     explanation: &gt;-
       The authors&#39; conclusion that hyperactivation follows directly from loss of the
       protein, rather than being incidental to these patients.
@@ -7512,9 +7913,7 @@ pathophysiology:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;This hyperactivation may result from the increased availability of PIP2, which
-      is hydrolyzed by phospholipase Cγ1 (PLCγ1) into crucial secondary messengers that
-      trigger several distal signaling cascades vital for CD3 + activation&#34;
+    snippet: &#34;This hyperactivation may result from the increased availability of PIP2, which is hydrolyzed by phospholipase Cγ1 (PLCγ1) into crucial secondary messengers that trigger several distal signaling cascades vital for CD3 + activation&#34;
     explanation: &gt;-
       The proposed substrate-rerouting mechanism. Curated PARTIAL because the authors state
       it as a possible explanation, not a demonstrated one.
@@ -7522,8 +7921,7 @@ pathophysiology:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;In PI3Kδ-deficient mice, improper activation of effector T cells by gut
-      microbes leads to colitis, which PI3Kδ-deficient Treg are unable to suppress&#34;
+    snippet: &#34;In PI3Kδ-deficient mice, improper activation of effector T cells by gut microbes leads to colitis, which PI3Kδ-deficient Treg are unable to suppress&#34;
     explanation: &gt;-
       Supplies the route from hyperactivated effector T cells to colitis, and the parallel
       failure of the regulatory compartment to restrain them.
@@ -7563,8 +7961,7 @@ pathophysiology:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Of the remaining four patients, all presented with hypogammaglobulinemia and
-      recurrent sinopulmonary infections, some including severe and opportunistic pneumonias.&#34;
+    snippet: &#34;Of the remaining four patients, all presented with hypogammaglobulinemia and recurrent sinopulmonary infections, some including severe and opportunistic pneumonias.&#34;
     explanation: &gt;-
       Reports the phenotype across the previously published unconfounded patients, which is
       the cleanest available statement of the humoral defect.
@@ -7579,8 +7976,7 @@ pathophysiology:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;All three patients exhibited chronic diarrhea and recurrent sinopulmonary
-      infections.&#34;
+    snippet: &#34;All three patients exhibited chronic diarrhea and recurrent sinopulmonary infections.&#34;
     explanation: Documents recurrent sinopulmonary infection across the sibship.
 
 - name: Autoimmune Cytopenia and Inflammatory Enterocolitis
@@ -7596,17 +7992,13 @@ pathophysiology:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Endoscopy revealed enterocolitis, which histologically showed marked apoptosis
-      of crypt epithelial cells, eosinophil and neutrophil infiltration, crypt distortion and
-      crypt abscess formation&#34;
+    snippet: &#34;Endoscopy revealed enterocolitis, which histologically showed marked apoptosis of crypt epithelial cells, eosinophil and neutrophil infiltration, crypt distortion and crypt abscess formation&#34;
     explanation: Describes the histopathology of the enterocolitis in the index case.
   - reference: PMID:31073077
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;we report a child with homozygous germline loss-of-function mutation inPIK3CD,
-      who developed refractory immune thrombocytopenia, inflammatory bowel disease and
-      susceptibility to infection, cured by HSCT&#34;
+    snippet: &#34;we report a child with homozygous germline loss-of-function mutation inPIK3CD, who developed refractory immune thrombocytopenia, inflammatory bowel disease and susceptibility to infection, cured by HSCT&#34;
     explanation: &gt;-
       The authors&#39; summary of the index case, establishing the triad and its response to
       transplantation.
@@ -7628,8 +8020,7 @@ phenotypes:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;All three patients exhibited chronic diarrhea and recurrent sinopulmonary
-      infections.&#34;
+    snippet: &#34;All three patients exhibited chronic diarrhea and recurrent sinopulmonary infections.&#34;
     explanation: Documents recurrent sinopulmonary infection in all three affected siblings.
 
 - category: Immunological
@@ -7648,8 +8039,7 @@ phenotypes:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Of the remaining four patients, all presented with hypogammaglobulinemia and
-      recurrent sinopulmonary infections, some including severe and opportunistic pneumonias.&#34;
+    snippet: &#34;Of the remaining four patients, all presented with hypogammaglobulinemia and recurrent sinopulmonary infections, some including severe and opportunistic pneumonias.&#34;
     explanation: &gt;-
       Establishes hypogammaglobulinaemia in the four previously reported patients whose
       phenotype is not complicated by a second immune-gene defect.
@@ -7669,9 +8059,7 @@ phenotypes:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;In vitro functional testing of CD19 + and enriched naïve B cells revealed
-      impaired proliferation, and reduction in class-switch recombination upon CD40L and
-      IL-21 stimulation.&#34;
+    snippet: &#34;In vitro functional testing of CD19 + and enriched naïve B cells revealed impaired proliferation, and reduction in class-switch recombination upon CD40L and IL-21 stimulation.&#34;
     explanation: &gt;-
       Demonstrates the class-switching defect that underlies the reduced class-switched
       memory compartment.
@@ -7692,8 +8080,7 @@ phenotypes:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;All three patients exhibited chronic diarrhea and recurrent sinopulmonary
-      infections.&#34;
+    snippet: &#34;All three patients exhibited chronic diarrhea and recurrent sinopulmonary infections.&#34;
     explanation: Documents chronic diarrhoea in all three affected siblings.
 
 - category: Gastrointestinal
@@ -7713,9 +8100,7 @@ phenotypes:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Endoscopy revealed enterocolitis, which histologically showed marked apoptosis
-      of crypt epithelial cells, eosinophil and neutrophil infiltration, crypt distortion and
-      crypt abscess formation&#34;
+    snippet: &#34;Endoscopy revealed enterocolitis, which histologically showed marked apoptosis of crypt epithelial cells, eosinophil and neutrophil infiltration, crypt distortion and crypt abscess formation&#34;
     explanation: Establishes the enterocolitis and its histological character.
 
 - category: Hematological
@@ -7734,8 +8119,12 @@ phenotypes:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;His thrombocytopenia was refractory to corticosteroids, high dose immunoglobulin
-      and splenectomy, culminating in an intracranial bleed requiring surgical evacuation.&#34;
+    snippet: &gt;-
+      We report a child of consanguineous parentage (Figure 1A) who presented at 9 years with
+      bruising and upper gastrointestinal bleeding in association with profound immune-mediated
+      thrombocytopenia. His thrombocytopenia was refractory to corticosteroids, high dose
+      immunoglobulin and splenectomy, culminating in an intracranial bleed requiring surgical
+      evacuation.
     explanation: Documents the severity and treatment-refractoriness of the thrombocytopenia.
 
 genetic:
@@ -7757,16 +8146,13 @@ genetic:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Mutations in PIK3CD, which encodes an immune-specific catalytic subunit of
-      PI3K, cause both dominant (activating) and recessive (loss of function) immune
-      deficiencies in humans.&#34;
+    snippet: &#34;Mutations in PIK3CD, which encodes an immune-specific catalytic subunit of PI3K, cause both dominant (activating) and recessive (loss of function) immune deficiencies in humans.&#34;
     explanation: Establishes the bidirectional gene-disease architecture at PIK3CD.
   - reference: PMID:41026257
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Our study substantially increases the limited number of patients known to have
-      immune deficiency due to loss of PIK3CD.&#34;
+    snippet: &#34;Our study substantially increases the limited number of patients known to have immune deficiency due to loss of PIK3CD.&#34;
     explanation: Confirms loss of PIK3CD as an established cause of immune deficiency.
 
 prevalence:
@@ -7783,9 +8169,7 @@ prevalence:
     reference_title: &#34;Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;For LOF, only 10 patients have been reported to date with germline autosomal
-      recessive deficiency of PIK3CD; however, phenotypic interpretation is complicated by
-      the fact that three of them also had a concurrent mutation&#34;
+    snippet: &#34;For LOF, only 10 patients have been reported to date with germline autosomal recessive deficiency of PIK3CD; however, phenotypic interpretation is complicated by the fact that three of them also had a concurrent mutation&#34;
     explanation: &gt;-
       Gives both the published case count and the confounding that limits how many of those
       cases can support phenotype claims.
@@ -7808,9 +8192,7 @@ diagnosis:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;others had normal counts and standard laboratory measures of T cell number and
-      function were generally unremarkable. Therefore a high index of suspicion for an
-      underlying monogenic cause is required in this setting.&#34;
+    snippet: &#34;others had normal counts and standard laboratory measures of T cell number and function were generally unremarkable. Therefore a high index of suspicion for an underlying monogenic cause is required in this setting.&#34;
     explanation: &gt;-
       Supports the diagnostic caution that routine immunological testing may not flag the
       disorder.
@@ -7842,16 +8224,14 @@ treatments:
       reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;On this occasion he achieved 100% donor chimerism including lymphoid
-        reconstitution and sustained remission of enterocolitis.&#34;
+      snippet: &#34;On this occasion he achieved 100% donor chimerism including lymphoid reconstitution and sustained remission of enterocolitis.&#34;
       explanation: Documents resolution of the immune-mediated disease following engraftment.
   evidence:
   - reference: PMID:31073077
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Hematopoietic stem cell transplantation (HSCT) was therefore performed as a
-      potentially curative procedure.&#34;
+    snippet: &#34;Hematopoietic stem cell transplantation (HSCT) was therefore performed as a potentially curative procedure.&#34;
     explanation: Establishes HSCT as the curative intent intervention in this disease.
 
 - name: Immunoglobulin Replacement and Antimicrobial Prophylaxis
@@ -7871,8 +8251,7 @@ treatments:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Their management involved immunoglobulin replacement and antimicrobial therapy
-      for acute infections&#34;
+    snippet: &#34;Their management involved immunoglobulin replacement and antimicrobial therapy for acute infections&#34;
     explanation: Reports the standard supportive management used across the reported patients.
 
 - name: Immunosuppressive and Anti-Inflammatory Therapy
@@ -7901,8 +8280,7 @@ treatments:
       reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;However, weaning of immunosuppressive treatment led to a relapse of his gut
-        disease, indicating chronic immune-mediated inflammation.&#34;
+      snippet: &#34;However, weaning of immunosuppressive treatment led to a relapse of his gut disease, indicating chronic immune-mediated inflammation.&#34;
       explanation: &gt;-
         Demonstrates the effect is suppressive and ongoing rather than curative - the disease
         returns when treatment stops.
@@ -7911,8 +8289,7 @@ treatments:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;but continued with torrential diarrhea (3L/day) until the addition of
-      immunosuppression (corticosteroid, cyclosporine, infliximab)&#34;
+    snippet: &#34;but continued with torrential diarrhea (3L/day) until the addition of immunosuppression (corticosteroid, cyclosporine, infliximab)&#34;
     explanation: Documents the specific agents that brought the enterocolitis under control.
 
 differential_diagnoses:
@@ -7933,9 +8310,7 @@ differential_diagnoses:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Activating germline mutations inPIK3CDcause the immune dysregulatory disease
-      activated PI3Kδ syndrome (APDS), usually presenting with recurrent sinopulmonary
-      infections in childhood, herpes virus infections and CD4 lymphopenia&#34;
+    snippet: &#34;Activating germline mutations inPIK3CDcause the immune dysregulatory disease activated PI3Kδ syndrome (APDS), usually presenting with recurrent sinopulmonary infections in childhood, herpes virus infections and CD4 lymphopenia&#34;
     explanation: Gives the contrasting genotype and presentation of the dominant disease.
 
 - name: Idelalisib-associated immune-mediated colitis
@@ -7955,8 +8330,7 @@ differential_diagnoses:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In humans, immune dysregulation including severe colitis is present in many
-      cancer patients who are treated with the p110δ-specific inhibitor idelalisib.&#34;
+    snippet: &#34;In humans, immune dysregulation including severe colitis is present in many cancer patients who are treated with the p110δ-specific inhibitor idelalisib.&#34;
     explanation: &gt;-
       Establishes the pharmacological phenocopy of the enterocolitis in patients without a
       PIK3CD variant.
@@ -7977,8 +8351,7 @@ differential_diagnoses:
     reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Therefore a high index of suspicion for an underlying monogenic cause is
-      required in this setting.&#34;
+    snippet: &#34;Therefore a high index of suspicion for an underlying monogenic cause is required in this setting.&#34;
     explanation: The authors&#39; own statement that this phenotype will not otherwise be recognised.
 
 animal_models:
@@ -8010,8 +8383,7 @@ animal_models:
       reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
-      snippet: &#34;Similar to our patient, p110δ kinase-dead mice spontaneously develop
-        inflammatory bowel disease with crypt abscesses.&#34;
+      snippet: &#34;Similar to our patient, p110δ kinase-dead mice spontaneously develop inflammatory bowel disease with crypt abscesses.&#34;
       explanation: &gt;-
         Establishes that the model reproduces the human gut lesion, including its
         histological hallmark.
@@ -8019,8 +8391,7 @@ animal_models:
       reference_title: &#34;Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase δ.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
-      snippet: &#34;In these mice, thymic output of Tregs was normal, but Treg trafficking and
-        suppressive activity including IL-10 secretion were disturbed.&#34;
+      snippet: &#34;In these mice, thymic output of Tregs was normal, but Treg trafficking and suppressive activity including IL-10 secretion were disturbed.&#34;
       explanation: &gt;-
         Supplies the regulatory T-cell mechanism invoked for the tolerance node, sourced
         rather than asserted.
@@ -8122,11 +8493,9 @@ notes: &gt;-
 
 references:
 - reference: PMID:31073077
-  title: Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal
-    recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase delta.
+  title: Immunodeficiency, autoimmune thrombocytopenia and enterocolitis caused by autosomal recessive deficiency of PIK3CD-encoded phosphoinositide 3-kinase delta.
 - reference: PMID:41026257
-  title: Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell
-    Dysregulation and Autoimmunity.
+  title: Homozygous Loss of Function PIK3CD Mutation in Multiple Siblings Leading To B Cell Dysregulation and Autoimmunity.
 </pre>
             </div>
         </div>
@@ -8187,6 +8556,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Immunodeficiency 14B, Autosomal Recessive (PIK3CD loss of function)</strong> · 2026-08-21T13:15:08Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_14B_Autosomal_Recessive/2026-08-21T131508Z-claude-code-951d2f.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for immunodeficiency 14B (MONDO:0023655, OMIM 619281), autosomal recessive biallelic loss of function in PIK3CD (hgnc:8977). Curated as its own Disease rather than a subtype of the existing Activated_PI3K-delta_Syndrome entry, which covers only the heterozygous gain-of-function subtypes APDS1 (PIK3CD) and APDS2 (PIK3R1): same gene, opposite direction of effect, different disease. Deep research: claude_code provider; the report resolved 5/5 references with confabulation_rate 0.0 but cited NO PMIDs or DOIs anywhere in its body, so it was used only for orientation and the entire reference set was assembled by direct PubMed search. Its PMC identifiers were converted via the PMC ID Converter to recover PMIDs. GeneReviews baseline checked and found ABSENT for this disease, verified by reading: the single PIK3CD GeneReviews chapter (PMID:39899769) was fetched and read, is titled Activated PI3K Delta Syndrome, defines APDS1 and APDS2 as heterozygous disorders, and contains no occurrence of recessive, biallelic or homozygous; it is a chapter about a different disease and is therefore not cited. Ten pathophysiology nodes tracing biallelic loss to two effector arms (humoral and cytotoxic) plus a tolerance arm, all converging on infection and autoimmune endpoints. HSCT curated with target_mechanisms against the tolerance node. Two discussions: HUMAN_MODEL_MISMATCH on human versus mouse B-cell class-switch recombination (raised by the cited authors themselves) and KNOWLEDGE_GAP on confounded phenotype attribution. Confounding recorded explicitly rather than smoothed over: three of about ten reported patients carry a concurrent second immune-gene mutation, and the index case was immunophenotyped after rituximab, which its own authors say makes the B-cell findings ambiguous - so the humoral phenotype is sourced to the four unconfounded prior patients and the untreated 2025 sibship instead. No frequency bands assigned. The founding clinical Letter (PMID:30040974) caches with no abstract and no retrievable full text, so it carries no evidence item and is not listed in references. Validated: just validate passed; just validate-terms passed; count-verified-snippets 30/30; check-duplicate-keys OK; check-title-snippets OK; check_folded_hyphens OK; check_snippet_length OK; check_environmental_evidence OK.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8641,7 +9023,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Immunodeficiency 14B, Autosomal Recessive", "mondoId": "MONDO:0023655", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_14B,_Autosomal_Recessive", "yamlRevision": "58d32278a454"};
+        const OS_CONFIG = {"diseaseName": "Immunodeficiency 14B, Autosomal Recessive", "mondoId": "MONDO:0023655", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_14B,_Autosomal_Recessive", "yamlRevision": "65b719f0be6a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

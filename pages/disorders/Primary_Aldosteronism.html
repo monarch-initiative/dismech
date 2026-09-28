@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4039,6 +4107,14 @@
 
 
 
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">27</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
@@ -4223,6 +4299,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4244,6 +4321,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4434,6 +4512,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4455,6 +4534,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4523,6 +4603,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4586,6 +4667,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4607,6 +4689,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4654,6 +4737,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-gain-of-function-mutation-in-a-zona-glomerulosa-ion-channel-or-pump" data-dismech-node="Somatic Gain-of-Function Mutation in a Zona Glomerulosa Ion Channel or Pump" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Gain-of-Function Mutation in a Zona Glomerulosa Ion Channel or Pump</div>
+
 
                 <div class="item-desc">An acquired, tumour-restricted mutation in KCNJ5, CACNA1D, ATP1A1, or ATP2B3 alters ion handling in an adrenal zona glomerulosa cell. KCNJ5 mutations near the channel selectivity filter admit sodium; ATP1A1 and ATP2B3 mutations disable the sodium/potassium and calcium pumps; CACNA1D mutations shift CaV1.3 activation to less depolarized potentials.
 </div>
@@ -4923,6 +5007,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4944,6 +5029,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4969,6 +5055,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-wnt-signalling-from-stabilized-beta-catenin" data-dismech-node="Constitutive Wnt Signalling from Stabilized Beta-Catenin" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Wnt Signalling from Stabilized Beta-Catenin</div>
+
 
                 <div class="item-desc">Activating CTNNB1 exon 3 substitutions in the GSK3-beta binding domain prevent beta-catenin degradation, producing constitutive Wnt pathway activity. This branch is mutually exclusive with the ion channel and pump drivers and reaches aldosterone synthesis without passing through membrane depolarization.
 </div>
@@ -5127,6 +5214,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5149,6 +5237,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zona-glomerulosa-cell-depolarization-and-calcium-entry" data-dismech-node="Zona Glomerulosa Cell Depolarization and Calcium Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Zona Glomerulosa Cell Depolarization and Calcium Entry</div>
+
 
                 <div class="item-desc">Aberrant sodium influx, failed sodium and calcium extrusion, or a lowered activation threshold of CaV1.3 depolarize the glomerulosa cell membrane and open voltage-gated calcium channels. Sustained cytosolic calcium elevation is the convergence point at which every common driver class meets, and is the proximate signal for aldosterone synthesis and for proliferation.
 </div>
@@ -5334,6 +5423,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5356,6 +5446,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-expansion-of-aldosterone-producing-adrenocortical-cells" data-dismech-node="Clonal Expansion of Aldosterone-Producing Adrenocortical Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Expansion of Aldosterone-Producing Adrenocortical Cells</div>
+
 
                 <div class="item-desc">The same driver mutations that raise intracellular calcium, and the Wnt branch, also drive proliferation, producing an aldosterone-producing adenoma or hyperplastic glomerulosa tissue. Small subcapsular aldosterone-producing cell clusters carrying the same driver mutations are present in histologically normal adrenal glands, which is why the disease is best understood as a continuum rather than an all-or-nothing tumour event.
 </div>
@@ -5465,6 +5556,7 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5486,6 +5578,7 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5511,6 +5604,7 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomous-cyp11b2-expression-and-aldosterone-synthesis" data-dismech-node="Autonomous CYP11B2 Expression and Aldosterone Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Autonomous CYP11B2 Expression and Aldosterone Synthesis</div>
+
 
                 <div class="item-desc">Aldosterone synthase (CYP11B2) transcription becomes constitutive rather than being set by angiotensin II and extracellular potassium, so aldosterone synthesis proceeds irrespective of volume and renin status.
 </div>
@@ -5678,6 +5772,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5700,6 +5795,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renin-independent-aldosterone-excess" data-dismech-node="Renin-Independent Aldosterone Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Renin-Independent Aldosterone Excess</div>
+
 
                 <div class="item-desc">Circulating aldosterone is inappropriately high for the prevailing sodium and volume status and is not suppressed by sodium loading. This is the biochemical definition of the disease and the single node that all upstream branches feed and all downstream consequences depend on.
 </div>
@@ -5758,6 +5854,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5780,6 +5877,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mineralocorticoid-receptor-overactivation-in-the-distal-nephron" data-dismech-node="Mineralocorticoid Receptor Overactivation in the Distal Nephron" data-dismech-type="pathophysiology">
                 <div class="item-name">Mineralocorticoid Receptor Overactivation in the Distal Nephron</div>
+
 
                 <div class="item-desc">Excess aldosterone occupies the mineralocorticoid receptor in principal cells of the distal nephron and collecting duct, increasing epithelial sodium channel activity and the electrochemical driving force for potassium and hydrogen ion secretion.
 </div>
@@ -5931,6 +6029,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5953,6 +6052,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sodium-retention-and-extracellular-volume-expansion" data-dismech-node="Sodium Retention and Extracellular Volume Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Sodium Retention and Extracellular Volume Expansion</div>
+
 
                 <div class="item-desc">Sustained distal sodium reabsorption expands extracellular fluid volume, which raises blood pressure and, by the normal negative-feedback loop, suppresses renin release from the juxtaglomerular apparatus.
 </div>
@@ -6049,6 +6149,7 @@ This pathophysiological event involves increased renal sodium ion transport (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6071,6 +6172,7 @@ This pathophysiological event involves increased renal sodium ion transport (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-renin-release" data-dismech-node="Suppression of Renin Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Renin Release</div>
+
 
                 <div class="item-desc">Volume expansion suppresses juxtaglomerular renin secretion. The combination of suppressed renin with unsuppressed aldosterone produces the elevated aldosterone-to-renin ratio on which screening depends, and renin that stays suppressed on treatment marks residual, undertreated mineralocorticoid receptor activation.
 </div>
@@ -6123,6 +6225,7 @@ This pathophysiological event involves increased renal sodium ion transport (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6145,6 +6248,7 @@ This pathophysiological event involves increased renal sodium ion transport (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-potassium-and-hydrogen-ion-wasting" data-dismech-node="Renal Potassium and Hydrogen Ion Wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Potassium and Hydrogen Ion Wasting</div>
+
 
                 <div class="item-desc">Increased distal sodium reabsorption creates a lumen-negative potential that drives potassium and hydrogen ion secretion. Potassium wasting is graded rather than all-or-nothing, which is why most patients are normokalemic and hypokalemia marks the more severe end of the spectrum rather than being a diagnostic requirement.
 </div>
@@ -6241,6 +6345,7 @@ This pathophysiological event involves increased renal potassium excretion (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6263,6 +6368,7 @@ This pathophysiological event involves increased renal potassium excretion (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mineralocorticoid-receptor-driven-tissue-inflammation-and-oxidative-stress" data-dismech-node="Mineralocorticoid Receptor-Driven Tissue Inflammation and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mineralocorticoid Receptor-Driven Tissue Inflammation and Oxidative Stress</div>
+
 
                 <div class="item-desc">Mineralocorticoid receptor activation in non-epithelial tissue, in the permissive setting of a high sodium intake, produces perivascular inflammation with monocyte and macrophage infiltration and induction of proinflammatory mediators in the heart and kidney. This is the arm of the disease that damages organs beyond what the blood pressure elevation alone accounts for.
 </div>
@@ -6421,6 +6527,7 @@ This pathophysiological event involves increased leukocyte migration (GO:0050900
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6442,6 +6549,7 @@ This pathophysiological event involves increased leukocyte migration (GO:0050900
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6467,6 +6575,7 @@ This pathophysiological event involves increased leukocyte migration (GO:0050900
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-and-renal-interstitial-fibrosis" data-dismech-node="Myocardial and Renal Interstitial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial and Renal Interstitial Fibrosis</div>
+
 
                 <div class="item-desc">Persistent mineralocorticoid excess with adequate dietary sodium drives fibroblast activation and interstitial and perivascular collagen accumulation in the myocardium, and analogous matrix deposition in the kidney. Left ventricular hypertrophy accompanies it.
 </div>
@@ -6669,6 +6778,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6690,6 +6800,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6715,6 +6826,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-pressure-independent-cardiovascular-and-renal-injury" data-dismech-node="Blood-Pressure-Independent Cardiovascular and Renal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-Pressure-Independent Cardiovascular and Renal Injury</div>
+
 
                 <div class="item-desc">The cumulative result of mineralocorticoid-driven inflammation and fibrosis is an excess of stroke, coronary disease, atrial fibrillation, heart failure, albuminuria and glomerular filtration decline over what is seen in essential hypertension at the same blood pressure. The excess persists in patients treated with mineralocorticoid receptor antagonists whose renin stays suppressed, which is the strongest human evidence that the injury is receptor-driven and not simply haemodynamic.
 </div>
@@ -6785,6 +6897,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6809,6 +6922,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6830,6 +6944,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6944,6 +7059,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6958,6 +7076,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7014,6 +7133,9 @@ This clinical feature is Hypertension resistant to conventional therapy (HP:0430
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7028,6 +7150,7 @@ This clinical feature is Hypertension resistant to conventional therapy (HP:0430
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7082,6 +7205,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7096,6 +7222,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7150,6 +7277,9 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7164,6 +7294,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7188,6 +7319,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7242,6 +7374,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7256,6 +7391,7 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7310,6 +7446,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7324,6 +7463,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7387,6 +7527,9 @@ This clinical feature is Increased circulating aldosterone concentration (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7401,6 +7544,7 @@ This clinical feature is Increased circulating aldosterone concentration (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7455,6 +7599,9 @@ This clinical feature is Decreased circulating renin concentration (HP:0003351).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7469,6 +7616,7 @@ This clinical feature is Decreased circulating renin concentration (HP:0003351).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7523,6 +7671,9 @@ This clinical feature is Elevated aldosterone:renin ratio (HP:6000318). HP:60003
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7537,6 +7688,7 @@ This clinical feature is Elevated aldosterone:renin ratio (HP:6000318). HP:60003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7591,6 +7743,9 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7605,6 +7760,7 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7668,6 +7824,9 @@ This clinical feature is Albuminuria (HP:0012592). HP:0012592 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7682,6 +7841,7 @@ This clinical feature is Albuminuria (HP:0012592). HP:0012592 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7706,6 +7866,7 @@ This clinical feature is Albuminuria (HP:0012592). HP:0012592 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7769,6 +7930,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7783,6 +7947,7 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7810,6 +7975,7 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7817,7 +7983,7 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
                 <div class="evidence-snippet">"Only a small proportion of patients (between 9 and 37%) were hypokalemic."</div>
 
 
-                <div class="evidence-explanation">Quantifies the minority of confirmed cases that are hypokalemic across five continents, supporting the OCCASIONAL frequency band.</div>
+                <div class="evidence-explanation">Quantifies the minority of confirmed cases that are hypokalemic across five continents. This 9-37% range straddles the OCCASIONAL/FREQUENT boundary on its own, which is why the phenotype asserts no band.</div>
 
 
 
@@ -7831,6 +7997,7 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7887,6 +8054,9 @@ This clinical feature is Metabolic alkalosis (HP:0200114). HP:0200114 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7901,6 +8071,7 @@ This clinical feature is Metabolic alkalosis (HP:0200114). HP:0200114 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8003,6 +8174,9 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8017,6 +8191,7 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8041,6 +8216,7 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8102,6 +8278,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8116,6 +8295,7 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8140,6 +8320,7 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8201,6 +8382,9 @@ This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8215,6 +8399,7 @@ This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8276,6 +8461,9 @@ This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8290,6 +8478,7 @@ This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8351,6 +8540,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8365,6 +8557,7 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8451,6 +8644,9 @@ This treatment is adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8461,6 +8657,9 @@ This treatment is adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
 
 
     </div>
+
+
+
 
 
 
@@ -8498,6 +8697,7 @@ This treatment is adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8583,6 +8783,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8604,6 +8805,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8709,6 +8911,9 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8719,6 +8924,9 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8756,6 +8964,7 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8803,6 +9012,7 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8888,6 +9098,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8912,6 +9123,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8933,6 +9145,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9002,6 +9215,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9051,6 +9265,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9097,6 +9312,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9200,6 +9416,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9224,6 +9441,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9245,6 +9463,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9336,6 +9555,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9357,6 +9577,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9448,6 +9669,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9472,6 +9694,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9493,6 +9716,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9586,6 +9810,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9667,6 +9892,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9724,6 +9950,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9787,6 +10014,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9842,6 +10070,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9901,6 +10130,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9971,6 +10201,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9995,6 +10226,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10016,6 +10248,7 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10108,6 +10341,7 @@ This clinical trial targets Hypertension (HP:0000822). HP:0000822 is a phenotype
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10157,6 +10391,7 @@ This clinical trial targets Hypertension (HP:0000822). HP:0000822 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10234,6 +10469,7 @@ This clinical trial targets Hypertension (HP:0000822). HP:0000822 is a phenotype
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10283,6 +10519,7 @@ This clinical trial targets Hypertension (HP:0000822). HP:0000822 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11379,7 +11616,10 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Only a small proportion of patients (between 9 and 37%) were hypokalemic.&#34;
-    explanation: Quantifies the minority of confirmed cases that are hypokalemic across five continents, supporting the OCCASIONAL frequency band.
+    explanation: &gt;-
+      Quantifies the minority of confirmed cases that are hypokalemic across
+      five continents. This 9-37% range straddles the OCCASIONAL/FREQUENT
+      boundary on its own, which is why the phenotype asserts no band.
   - reference: PMID:18539224
     reference_title: &#34;Prevalence of primary hyperaldosteronism in resistant hypertension: a retrospective observational study.&#34;
     supports: SUPPORT
@@ -11871,6 +12111,61 @@ clinical_trials:
     aldosterone synthase inhibitor trial in a different indication. The
     identifier resolves cleanly, which is exactly why it needed reading rather
     than trusting.
+references:
+- reference: PMID:40658480
+  title: &#34;Primary Aldosteronism: An Endocrine Society Clinical Practice Guideline.&#34;
+- reference: PMID:15837256
+  title: Evidence for an increased rate of cardiovascular events in patients with primary aldosteronism.
+- reference: PMID:24866132
+  title: Genetic spectrum and clinical correlates of somatic mutations in aldosterone-producing adenoma.
+- reference: PMID:28576687
+  title: &#34;Outcomes after adrenalectomy for unilateral primary aldosteronism: an international consensus on outcome measures and analysis of remission rates in an international cohort.&#34;
+- reference: PMID:26934393
+  title: &#34;The Management of Primary Aldosteronism: Case Detection, Diagnosis, and Treatment: An Endocrine Society Clinical Practice Guideline.&#34;
+- reference: PMID:17161262
+  title: &#34;A prospective study of the prevalence of primary aldosteronism in 1,125 hypertensive patients.&#34;
+- reference: PMID:29129575
+  title: &#34;Cardiovascular events and target organ damage in primary aldosteronism compared with essential hypertension: a systematic review and meta-analysis.&#34;
+- reference: PMID:32449886
+  title: &#34;The Unrecognized Prevalence of Primary Aldosteronism: A Cross-sectional Study.&#34;
+- reference: PMID:26815163
+  title: Activating mutations in CTNNB1 in aldosterone producing adenomas.
+- reference: PMID:18539224
+  title: &#34;Prevalence of primary hyperaldosteronism in resistant hypertension: a retrospective observational study.&#34;
+- reference: PMID:21311022
+  title: K+ channel mutations in adrenal aldosterone-producing adenomas and hereditary hypertension.
+- reference: PMID:23913001
+  title: Somatic and germline CACNA1D calcium channel mutations in aldosterone-producing adenomas and primary aldosteronism.
+- reference: PMID:23416519
+  title: Somatic mutations in ATP1A1 and ATP2B3 lead to aldosterone-producing adenomas and secondary hypertension.
+- reference: PMID:26240369
+  title: Aldosterone-stimulating somatic gene mutations are common in normal adrenal glands.
+- reference: PMID:12384457
+  title: Aldosterone induces a vascular inflammatory phenotype in the rat heart.
+- reference: PMID:29129576
+  title: &#34;Cardiometabolic outcomes and mortality in medically treated primary aldosteronism: a retrospective cohort study.&#34;
+- reference: PMID:32114853
+  title: Prevalence of Hypokalemia and Primary Aldosteronism in 5100 Patients Referred to a Tertiary Hypertension Unit.
+- reference: PMID:1453111
+  title: &#34;Mineralocorticoid excess, dietary sodium, and myocardial fibrosis.&#34;
+- reference: PMID:16772627
+  title: Long-term renal outcomes in patients with primary aldosteronism.
+- reference: PMID:15001583
+  title: &#34;Increased diagnosis of primary aldosteronism, including surgically correctable forms, in centers from five continents.&#34;
+- reference: PMID:28844072
+  title: Update in diagnosis and management of primary aldosteronism.
+- reference: PMID:21451421
+  title: &#34;A double-blind, randomized study comparing the antihypertensive effect of eplerenone and spironolactone in patients with hypertension and evidence of primary aldosteronism.&#34;
+- reference: PMID:27325147
+  title: &#34;Adrenal vein sampling versus CT scan to determine treatment in primary aldosteronism: an outcome-based randomised diagnostic trial.&#34;
+- reference: clinicaltrials:NCT06164379
+  title: &#34;A Double-blind, Randomized Controlled Study of Finerenone vs. Spironolactone in Hypertensive Patients With Primary Aldosteronism&#34;
+- reference: clinicaltrials:NCT04007406
+  title: &#34;DP13 - A Phase II Study in Patients With Primary Aldosteronism to Evaluate the Efficacy, Safety and Tolerability of DP13, Over an 8-week Treatment Period&#34;
+- reference: clinicaltrials:NCT07137364
+  title: Efficacy of Spironolactone Combined With Antihypertensive Drugs in Patients With Primary Aldosteronism
+- reference: clinicaltrials:NCT06756737
+  title: The Application of 68Ga-Pentixafor Alongside 68Ga-FAPI-04 PET/MR for Assessing Primary Aldosteronism.
 notes: &gt;
   Entry-type decision. Curated as a single DISEASE rather than a Grouping,
   despite MONDO:0001422 having nine descendants, because every recognized form
@@ -11930,12 +12225,502 @@ notes: &gt;
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
 
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">27</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40658480" target="_blank">PMID:40658480</a>
+                            </div>
+
+                            <div class="reference-title">Primary Aldosteronism: An Endocrine Society Clinical Practice Guideline.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15837256" target="_blank">PMID:15837256</a>
+                            </div>
+
+                            <div class="reference-title">Evidence for an increased rate of cardiovascular events in patients with primary aldosteronism.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/24866132" target="_blank">PMID:24866132</a>
+                            </div>
+
+                            <div class="reference-title">Genetic spectrum and clinical correlates of somatic mutations in aldosterone-producing adenoma.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28576687" target="_blank">PMID:28576687</a>
+                            </div>
+
+                            <div class="reference-title">Outcomes after adrenalectomy for unilateral primary aldosteronism: an international consensus on outcome measures and analysis of remission rates in an international cohort.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26934393" target="_blank">PMID:26934393</a>
+                            </div>
+
+                            <div class="reference-title">The Management of Primary Aldosteronism: Case Detection, Diagnosis, and Treatment: An Endocrine Society Clinical Practice Guideline.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/17161262" target="_blank">PMID:17161262</a>
+                            </div>
+
+                            <div class="reference-title">A prospective study of the prevalence of primary aldosteronism in 1,125 hypertensive patients.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
+                            </div>
+
+                            <div class="reference-title">Cardiovascular events and target organ damage in primary aldosteronism compared with essential hypertension: a systematic review and meta-analysis.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/32449886" target="_blank">PMID:32449886</a>
+                            </div>
+
+                            <div class="reference-title">The Unrecognized Prevalence of Primary Aldosteronism: A Cross-sectional Study.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26815163" target="_blank">PMID:26815163</a>
+                            </div>
+
+                            <div class="reference-title">Activating mutations in CTNNB1 in aldosterone producing adenomas.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/18539224" target="_blank">PMID:18539224</a>
+                            </div>
+
+                            <div class="reference-title">Prevalence of primary hyperaldosteronism in resistant hypertension: a retrospective observational study.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/21311022" target="_blank">PMID:21311022</a>
+                            </div>
+
+                            <div class="reference-title">K+ channel mutations in adrenal aldosterone-producing adenomas and hereditary hypertension.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
+                            </div>
+
+                            <div class="reference-title">Somatic and germline CACNA1D calcium channel mutations in aldosterone-producing adenomas and primary aldosteronism.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23416519" target="_blank">PMID:23416519</a>
+                            </div>
+
+                            <div class="reference-title">Somatic mutations in ATP1A1 and ATP2B3 lead to aldosterone-producing adenomas and secondary hypertension.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26240369" target="_blank">PMID:26240369</a>
+                            </div>
+
+                            <div class="reference-title">Aldosterone-stimulating somatic gene mutations are common in normal adrenal glands.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/12384457" target="_blank">PMID:12384457</a>
+                            </div>
+
+                            <div class="reference-title">Aldosterone induces a vascular inflammatory phenotype in the rat heart.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129576" target="_blank">PMID:29129576</a>
+                            </div>
+
+                            <div class="reference-title">Cardiometabolic outcomes and mortality in medically treated primary aldosteronism: a retrospective cohort study.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/32114853" target="_blank">PMID:32114853</a>
+                            </div>
+
+                            <div class="reference-title">Prevalence of Hypokalemia and Primary Aldosteronism in 5100 Patients Referred to a Tertiary Hypertension Unit.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/1453111" target="_blank">PMID:1453111</a>
+                            </div>
+
+                            <div class="reference-title">Mineralocorticoid excess, dietary sodium, and myocardial fibrosis.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/16772627" target="_blank">PMID:16772627</a>
+                            </div>
+
+                            <div class="reference-title">Long-term renal outcomes in patients with primary aldosteronism.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/15001583" target="_blank">PMID:15001583</a>
+                            </div>
+
+                            <div class="reference-title">Increased diagnosis of primary aldosteronism, including surgically correctable forms, in centers from five continents.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28844072" target="_blank">PMID:28844072</a>
+                            </div>
+
+                            <div class="reference-title">Update in diagnosis and management of primary aldosteronism.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451421" target="_blank">PMID:21451421</a>
+                            </div>
+
+                            <div class="reference-title">A double-blind, randomized study comparing the antihypertensive effect of eplerenone and spironolactone in patients with hypertension and evidence of primary aldosteronism.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27325147" target="_blank">PMID:27325147</a>
+                            </div>
+
+                            <div class="reference-title">Adrenal vein sampling versus CT scan to determine treatment in primary aldosteronism: an outcome-based randomised diagnostic trial.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://clinicaltrials.gov/study/NCT06164379" target="_blank">clinicaltrials:NCT06164379</a>
+                            </div>
+
+                            <div class="reference-title">A Double-blind, Randomized Controlled Study of Finerenone vs. Spironolactone in Hypertensive Patients With Primary Aldosteronism</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://clinicaltrials.gov/study/NCT04007406" target="_blank">clinicaltrials:NCT04007406</a>
+                            </div>
+
+                            <div class="reference-title">DP13 - A Phase II Study in Patients With Primary Aldosteronism to Evaluate the Efficacy, Safety and Tolerability of DP13, Over an 8-week Treatment Period</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://clinicaltrials.gov/study/NCT07137364" target="_blank">clinicaltrials:NCT07137364</a>
+                            </div>
+
+                            <div class="reference-title">Efficacy of Spironolactone Combined With Antihypertensive Drugs in Patients With Primary Aldosteronism</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://clinicaltrials.gov/study/NCT06756737" target="_blank">clinicaltrials:NCT06756737</a>
+                            </div>
+
+                            <div class="reference-title">The Application of 68Ga-Pentixafor Alongside 68Ga-FAPI-04 PET/MR for Assessing Primary Aldosteronism.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
 
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entry-type decision. Curated as a single DISEASE rather than a Grouping, despite MONDO:0001422 having nine descendants, because every recognized form runs through one pathophysiology: renin-independent aldosterone secretion from the zona glomerulosa, mineralocorticoid receptor overactivation, and the renal, cardiac and vascular consequences that follow. The somatic drivers KCNJ5, CACNA1D, ATP1A1 and ATP2B3 converge on glomerulosa depolarization and calcium entry, and the germline channel defects behind familial hyperaldosteronism types II to IV converge on the same step. The MONDO descendants split along two axes that are handled without splitting the disease: lateralization, modelled in has_subtypes because it decides surgical curability, and germline cause, which is curated in kb/disorders/Familial_Hyperaldosteronism.yaml and kb/disorders/Familial_Hyperaldosteronism_Type_I.yaml. See issue #11163.
+Deliberately out of scope here. Familial hyperaldosteronism types I-IV and the CACNA1D-related PASNA syndrome are not restated; the two familial entries carry them. Aldosterone synthase inhibitors (baxdrostat, lorundrostat) are a real emerging drug class that acts upstream of the mineralocorticoid receptor, but the primary-aldosteronism-specific evidence available at curation time was a research letter with no fetchable abstract, so no treatment entry was created for them; this is a gap to fill, not a judgement that the class is unimportant.
+Not curated for lack of a quotable source. Hypokalemia-related neuromuscular symptoms (weakness, cramping, periodic paralysis) are a real part of the clinical picture, but no source was found that states them for primary aldosteronism in a quotable sentence. The obvious candidate, PMID:25430699, is a hypokalaemic-paralysis case whose abstract says the patient &#34;had not developed primary aldosteronism&#34;, so it was rejected. The phenotype is left out rather than attached to an inferential quote.
+Contested content kept as such. The necessity of adrenal venous sampling in every surgical candidate is recorded with evidence on both sides, including a REFUTE item from the SPARTACUS randomized trial, rather than resolved in favour of the guideline. Prevalence in resistant hypertension is likewise recorded twice, at 11.3% from a large single-clinic series whose authors argue against an &#34;epidemic&#34; and at 22.0% from a US study that tested every participant regardless of the aldosterone-renin ratio; the two disagree about case definition, not about arithmetic.
+Curation inputs. Deep research was run with the claude_code provider (research/Primary_Aldosteronism-deep-research-claude_code.md; 46/46 citations resolved, no confabulated identifiers, four report quotes unverified and one off-topic identifier). Every reference cited in this entry was independently located in PubMed, fetched with just fetch-reference, and read before use; no identifier was taken from the report on trust.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Primary_Aldosteronism</strong> · 2026-09-05T20:17:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Primary_Aldosteronism/2026-09-05T201703Z-claude-code-8491f4.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Primary_Aldosteronism.yaml for primary aldosteronism (MONDO:0001422) as a single DISEASE entry rather than a Grouping, per the granularity decision recorded in issue #11163. One pathograph of 13 nodes runs from somatic driver mutations in zona glomerulosa ion channels and pumps (KCNJ5, CACNA1D, ATP1A1, ATP2B3) and from the parallel CTNNB1/Wnt branch, through the shared depolarization-and-calcium-entry convergence node, to autonomous CYP11B2 expression, renin-independent aldosterone excess, mineralocorticoid receptor overactivation in the distal nephron, sodium retention, renal potassium and hydrogen ion wasting, and the MR-driven inflammation and fibrosis arm that produces end-organ damage in excess of the blood pressure. The lateralization axis (APA, unilateral adrenal hyperplasia, bilateral idiopathic hyperaldosteronism) is modelled in has_subtypes because it decides surgical curability; the germline familial forms are cross-referenced to the existing Familial_Hyperaldosteronism and Familial_Hyperaldosteronism_Type_I entries and deliberately not restated. Two conforms_to links declared against fibrotic_response (Inflammatory Recruitment and Amplification; Excessive ECM Deposition); cardiomyopathy_maladaptive_remodeling was considered and rejected because its Neurohormonal Activation node is a compensatory response downstream of a cardiomyocyte insult, whereas in this disease the aldosterone excess is the primary lesion. Hypokalemia is curated explicitly as NOT required for diagnosis and absent in most cases, with four citations. Deep research: research/Primary_Aldosteronism-deep-research-claude_code.md (claude_code provider, 24 web searches, 48 citations). Its reference validation reported 46/46 identifiers resolved with no confabulations, but 4 of 5 report quotes did not match their source and PMID:31813371 resolved to an unrelated mathematics paper, so the sex-difference claim attached to it was dropped and no identifier was taken from the report on trust. preflight-dr returned SKIP because MONDO records no causal gene for MONDO:0001422; disease identity was confirmed manually against the MONDO label, synonyms, and the report&#39;s gene set. Every one of the 23 cited references was independently located in PubMed, fetched with just fetch-reference, and read before use. Validation: just validate PASSED, 88/88 snippets verified; just validate-terms PASSED; just check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms-online, check-reference-titles, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading all OK; just validate-disorders PASSED (88/88); weighted compliance 92.7 percent. Deliberately omitted: a Muscle weakness phenotype, because the only candidate source (PMID:25430699) states the patient had not developed primary aldosteronism; aldosterone synthase inhibitors as a treatment, because the PA-specific evidence was a research letter with no fetchable abstract; and a datasets block, which was not verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12704,7 +13489,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Primary Aldosteronism", "mondoId": "MONDO:0001422", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Aldosteronism", "yamlRevision": "fc455d99b567"};
+        const OS_CONFIG = {"diseaseName": "Primary Aldosteronism", "mondoId": "MONDO:0001422", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Aldosteronism", "yamlRevision": "3d082e1c6b82"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

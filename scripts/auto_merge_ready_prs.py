@@ -90,6 +90,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -619,6 +620,253 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
     return QueueState(True, frozenset(numbers), truncated=truncated)
 
 
+# A PR that fails the queue twice running, with no push in between, has had
+# the same build repeated on the same content. One failure is not evidence of
+# guilt (see EjectionMemory); two, unchanged, is enough to stop retrying.
+EJECTION_STRIKE_LIMIT = 2
+
+
+@dataclass(frozen=True)
+class EjectionMemory:
+    """Whether prior queue ejections should stop this PR re-entering now.
+
+    The merge queue ejects a PR when the group containing it fails, but that
+    ejection is invisible to eligibility: the PR stays open and approved, so
+    the next sweep re-enqueues it, it fails again, and the cycle repeats. PR
+    #9852 did exactly that three times in fifteen hours, and because the queue
+    builds speculatively each cycle also failed every stack behind it -- about
+    three hours of queue throughput and a dozen builds (#10988).
+
+    An ejection does NOT imply the PR is at fault, so this deliberately does
+    not judge a single one. Three causes were observed in one 24-hour window:
+    the PR's own content failing (#9852), a PR *ahead* of it poisoning the
+    speculative stack (#9996 and five others behind #10142), and a third-party
+    outage (#10677/#10700/#10727, EBI read timeouts the validator itself calls
+    "not a data error"). Blocking on one ejection would mostly block innocents.
+
+    What distinguishes them is repetition against unchanged content. Collateral
+    and infrastructure failures do not reproduce once the queue has moved on;
+    a defect in the PR itself does. So the rule counts ``failed_checks``
+    ejections that happened *after* the head commit was last written: reaching
+    ``strike_limit`` holds the PR back. The count is keyed on the head
+    commit's ``committedDate``: rewriting the head (a push, amend, rebase or
+    a merge of the base branch) moves that date past the earlier removals and
+    resets the count to zero, because the content under test has changed.
+
+    The reset therefore needs the date to move *forward*. Force-pushing a
+    branch back to an older commit leaves the head behind the removals, so the
+    hold persists even though the content changed; any new commit clears it.
+
+    Note ``RemovedFromMergeQueueEvent.beforeCommit`` is NOT the base-branch tip
+    -- it is the queue's own temporary merge commit, and compares as diverged
+    from ``main`` -- so it cannot be used to detect base movement. Verified
+    against the #9852 events on 2026-09-04.
+    """
+
+    blocked: bool
+    strikes: int = 0
+    reason: str = ""
+
+
+def ejection_memory(
+    repo: str, number: int, strike_limit: int = EJECTION_STRIKE_LIMIT
+) -> EjectionMemory:
+    """Count unchanged-content queue failures for one PR."""
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$number:Int!){"
+        "repository(owner:$owner,name:$name){"
+        "pullRequest(number:$number){"
+        "commits(last:1){nodes{commit{committedDate}}} "
+        "timelineItems(last:20,itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT])"
+        "{nodes{... on RemovedFromMergeQueueEvent{createdAt reason}}}}}}"
+    )
+    try:
+        payload = _gh([
+            "api", "graphql",
+            "-f", f"owner={owner}", "-f", f"name={name}",
+            "-F", f"number={number}", "-f", f"query={query}",
+        ])
+        data = json.loads(payload)
+    except subprocess.CalledProcessError as exc:
+        # Fail open: a lookup failure must not hold back a ready PR.
+        print(f"WARN  #{number}: could not read ejection history: "
+              f"{_gh_error(exc)}", file=sys.stderr)
+        return EjectionMemory(False)
+    except (OSError, ValueError) as exc:
+        print(f"WARN  #{number}: could not read ejection history: {exc}",
+              file=sys.stderr)
+        return EjectionMemory(False)
+    if not isinstance(data, dict):
+        return EjectionMemory(False)
+    pr = ((data.get("data") or {}).get("repository") or {}).get("pullRequest") or {}
+    commits = ((pr.get("commits") or {}).get("nodes")) or []
+    head_written = ""
+    if commits and isinstance(commits[0], dict):
+        head_written = str((commits[0].get("commit") or {}).get("committedDate") or "")
+    if not head_written:
+        # Without the head's write time a strike cannot be attributed to the
+        # current content, so fail open rather than hold on a guess.
+        print(f"WARN  #{number}: no head commit date; not applying an "
+              "ejection hold", file=sys.stderr)
+        return EjectionMemory(False)
+    try:
+        head_at = _parse_ts(head_written)
+    except ValueError:
+        # An unparseable head date cannot attribute a strike to the current
+        # content, so fail open for the same reason an absent one does.
+        print(f"WARN  #{number}: unparseable head commit date "
+              f"{head_written!r}; not applying an ejection hold",
+              file=sys.stderr)
+        return EjectionMemory(False)
+    nodes = ((pr.get("timelineItems") or {}).get("nodes")) or []
+    strikes = 0
+    latest = ""
+    for node in nodes:
+        if not isinstance(node, dict) or node.get("reason") != "failed_checks":
+            continue
+        when = str(node.get("createdAt") or "")
+        # Compared as datetimes, not as text: lexicographic ordering is correct
+        # for GitHub's current `...Z` format but degrades silently rather than
+        # loudly if an offset or fractional seconds ever appear.
+        try:
+            when_at = _parse_ts(when)
+        except ValueError:
+            print(f"WARN  #{number}: skipping ejection event with "
+                  f"unparseable date {when!r}", file=sys.stderr)
+            continue
+        if when_at <= head_at:
+            continue  # predates the current content; a push has since reset it
+        strikes += 1
+        latest = max(latest, when)
+    if strike_limit <= 0 or strikes < strike_limit:
+        return EjectionMemory(False, strikes)
+    return EjectionMemory(
+        True,
+        strikes,
+        f"failed the merge queue {strikes} times since its head commit was "
+        f"last written (most recently {latest}); push a fix to retry",
+    )
+
+
+# Term caches are the one file class nearly every curation PR writes to, and
+# they are sorted by CURIE, so a new binding is an *insert* rather than an
+# append. Two PRs inserting different rows near each other usually merge
+# cleanly; two inserting the SAME CURIE do not.
+CACHE_CSV_PATH = re.compile(r"^cache/[^/]+/[^/]+\.csv$")
+
+# GitHub omits `patch` for files it considers too large, so a claim can be
+# incomplete. That under-detects (a collision slips through, exactly as it
+# does today) rather than over-detects, which would hold back an innocent PR.
+MAX_COLLISION_SAMPLE = 3
+
+
+@dataclass(frozen=True)
+class RowClaim:
+    """The term-cache rows one PR adds, keyed ``<file>:<curie>``.
+
+    Conflict ejections are the merge queue's second-largest source of wasted
+    builds after repeated failures, and they are structural rather than
+    accidental: `just validate-terms` appends a row to `cache/<prefix>/terms.csv`
+    for every newly bound term, so a sweep that enqueues fifty curation PRs at
+    once enqueues fifty writers to the same handful of sorted files. Measured
+    on the 02:41 cluster of 2026-09-08, three of the four conflict ejections
+    were explained by a shared row: #11289 shared five CURIEs with #11288,
+    which merged immediately ahead of it, and #11292 shared one with #11291.
+
+    The remedy has to be admission control, not ordering. A merge queue is FIFO
+    by enqueue time and nothing outside GitHub can reorder it, so the only
+    lever the shepherd holds is *which* PRs it lets in together. Withholding
+    the second writer of a contended row costs that PR one sweep and saves the
+    build its ejection would have wasted -- plus the speculative stacks behind
+    it, since the queue rebuilds everything after a removal.
+
+    ``readable`` is False when the diff could not be read. As everywhere else
+    in this module, that fails open: an API failure must not hold back a PR
+    that is otherwise ready.
+    """
+
+    keys: frozenset[str]
+    readable: bool = True
+
+
+def cache_rows_added(repo: str, number: int) -> RowClaim:
+    """Read the term-cache rows one PR adds.
+
+    One REST call per candidate that has cleared the eligibility and ejection
+    gates. Held PRs and dry runs do not consume ``--max-enqueue-per-run``, so
+    the call count is bounded by those candidates rather than by the enqueue
+    budget. Only added lines in ``cache/*/*.csv`` are considered; the
+    CURIE is the first comma-separated field, the sort key of the term caches
+    (``curie,label,retrieved_at``). Bare-CURIE enum membership rows are
+    skipped: identical additions do not conflict, and a term binding that adds
+    one also adds a timestamped ``terms.csv`` row, which does.
+    """
+    # The jq path filter keeps the payload small; CACHE_CSV_PATH below is the
+    # authoritative check and must stay in step with it.
+    jq = (
+        '.[] | select(.filename | test("^cache/[^/]+/[^/]+\\\\.csv$")) '
+        '| .filename as $f | (.patch // "") | split("\\n")[] '
+        '| select(startswith("+") and (startswith("+++") | not)) '
+        '| "\\($f)\\t\\(.)"'
+    )
+    try:
+        payload = _gh([
+            "api", f"repos/{repo}/pulls/{number}/files",
+            "--paginate", "--jq", jq,
+        ])
+    except subprocess.CalledProcessError as exc:
+        print(f"WARN  #{number}: could not read changed files for conflict "
+              f"batching: {_gh_error(exc)}", file=sys.stderr)
+        return RowClaim(frozenset(), readable=False)
+    except OSError as exc:
+        print(f"WARN  #{number}: could not read changed files for conflict "
+              f"batching: {exc}", file=sys.stderr)
+        return RowClaim(frozenset(), readable=False)
+    keys: set[str] = set()
+    for line in payload.splitlines():
+        path, _, added = line.partition("\t")
+        if not added or not CACHE_CSV_PATH.match(path):
+            continue
+        row = added[1:].strip()  # drop the leading '+'
+        curie, sep, _rest = row.partition(",")
+        curie = curie.strip()
+        # An enum membership row is a bare CURIE with no timestamp, so two PRs
+        # adding the same one add identical bytes and git merges them cleanly.
+        # Only multi-field rows (``curie,label,retrieved_at``) can conflict.
+        if not sep:
+            continue
+        # A header line (``curie,...`` or ``pmid,...``) re-appears as an
+        # addition when a file is created; a real key is a CURIE.
+        if ":" not in curie:
+            continue
+        keys.add(f"{path}:{curie}")
+    return RowClaim(frozenset(keys))
+
+
+def describe_collision(
+    number: int, claim: RowClaim, claimed: dict[str, int]
+) -> str:
+    """Explain why this PR is held back this run, or "" if it is not.
+
+    Names the PR holding the contended row and shows a few of the rows, so the
+    run report says which two curation PRs bound the same term rather than
+    only that something collided.
+    """
+    shared = sorted(key for key in claim.keys if key in claimed)
+    if not shared:
+        return ""
+    holder = claimed[shared[0]]
+    sample = ", ".join(shared[:MAX_COLLISION_SAMPLE])
+    if len(shared) > MAX_COLLISION_SAMPLE:
+        sample += f", and {len(shared) - MAX_COLLISION_SAMPLE} more"
+    return (
+        f"adds {len(shared)} term-cache row(s) already claimed by #{holder} "
+        f"this run ({sample}); holding until the next sweep so the two do not "
+        f"conflict in the queue"
+    )
+
+
 def merge_pr(
     repo: str,
     number: int,
@@ -819,6 +1067,24 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--no-conflict-batching",
+        dest="conflict_batching",
+        action="store_false",
+        help=(
+            "enqueue PRs that write the same term-cache rows in the same run "
+            "(default: hold the second one back so they do not conflict)"
+        ),
+    )
+    parser.add_argument(
+        "--ejection-strike-limit",
+        type=non_negative_int,
+        default=EJECTION_STRIKE_LIMIT,
+        help=(
+            "hold a PR after this many merge-queue failures with no push in "
+            "between (0 disables the hold)"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="report what would be merged without merging or commenting",
@@ -927,6 +1193,13 @@ def main(argv: list[str] | None = None) -> int:
     failed: list[dict] = []
     unprocessed: list[dict] = []
     enqueue_attempts = 0
+    # Term-cache rows already spoken for by a PR this run enqueued, so a later
+    # candidate writing the same row can be held back rather than enqueued into
+    # a conflict. Within-run only: it is the bulk sweep that puts two writers
+    # of one row in the queue together (#11288/#11289 were enqueued by the same
+    # sweep), and scoping it this way keeps the cost bounded and the rule easy
+    # to reason about.
+    claimed_rows: dict[str, int] = {}
     for index, pr in enumerate(candidates):
         if (
             queue_state.active
@@ -965,6 +1238,37 @@ def main(argv: list[str] | None = None) -> int:
             print(f"SKIP  #{number}: {decision.reason}")
             skipped.append({"number": number, "reason": decision.reason})
             continue
+
+        # Before the draft transition, not after: a held PR that is a draft
+        # would otherwise be marked ready, skipped, and re-drafted on every
+        # run for as long as the hold lasts -- and a failing re-draft would
+        # turn the run red over a PR the sweep never intended to touch.
+        # One extra GraphQL read per candidate that clears the first
+        # evaluate() gate -- up to --max-enqueue-per-run in queue mode, and
+        # in direct mode once per candidate skipped before a merge succeeds.
+        memory = ejection_memory(args.repo, number, args.ejection_strike_limit)
+        if memory.blocked:
+            print(f"SKIP  #{number}: {memory.reason}")
+            skipped.append({"number": number, "reason": memory.reason})
+            continue
+
+        # Alongside the ejection hold and before the draft transition, for the
+        # same reason: a PR held back this run must not be marked ready, then
+        # skipped, then re-drafted. Queue mode only -- direct mode merges one
+        # PR per run, so there is no batch for two writers to share.
+        #
+        # Cost: one files lookup per candidate reaching this point. A held PR
+        # pays for its lookup without consuming the --max-enqueue-per-run
+        # budget, and dry runs ignore that budget entirely, so the bound is the
+        # number of candidates that clear the earlier gates, not the budget.
+        claim = RowClaim(frozenset())
+        if queue_state.active and args.conflict_batching:
+            claim = cache_rows_added(args.repo, number)
+            collision = describe_collision(number, claim, claimed_rows)
+            if collision:
+                print(f"SKIP  #{number}: {collision}")
+                skipped.append({"number": number, "reason": collision})
+                continue
 
         was_draft = bool(fresh.get("isDraft"))
 
@@ -1043,6 +1347,12 @@ def main(argv: list[str] | None = None) -> int:
                     }
                 )
                 if queue_state.active:
+                    # Claim as the real sweep would after a successful enqueue,
+                    # so the preview reports the same conflict holds. This is
+                    # the only window onto a hold that leaves no trace on the
+                    # PR page.
+                    for key in claim.keys:
+                        claimed_rows.setdefault(key, number)
                     continue
                 print("STOP  one-merge safety limit reached")
                 break
@@ -1092,6 +1402,12 @@ def main(argv: list[str] | None = None) -> int:
                     reason = f"could not restore draft state: {detail}"
                     print(f"FAIL  #{number}: {reason}", file=sys.stderr)
                     failed.append({"number": number, "reason": reason})
+        # Claim the rows only once the PR is actually in the queue: a candidate
+        # that failed to enqueue holds nothing, and must not shut a later PR
+        # out of a row nobody is writing.
+        if enqueued:
+            for key in claim.keys:
+                claimed_rows.setdefault(key, number)
         print(f"{'QUEUED' if enqueued else 'MERGED'} #{number}: {fresh['title']}")
         merged.append({"number": number, "title": fresh["title"], "queued": enqueued})
         if queue_state.active:

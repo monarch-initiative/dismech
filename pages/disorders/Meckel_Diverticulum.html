@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4036,6 +4104,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-vitelline-duct-obliteration" data-dismech-node="Incomplete Vitelline Duct Obliteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete Vitelline Duct Obliteration</div>
 
+
                 <div class="item-desc">Meckel diverticulum results from failure of complete obliteration of the vitelline duct during embryonic development, leading to a persistent outpouching of the ileum.</div>
 
 
@@ -4073,6 +4142,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Meckel&#39;s diverticula are the result of incomplete degeneration of the vitelline duct."</div>
@@ -4092,6 +4162,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4180,6 +4251,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
                     </div>
 
 
+
+
+
                     <div class="item-desc">Painless lower gastrointestinal bleeding is the most common presentation in children, often due to peptic ulceration from ectopic gastric mucosa.</div>
 
 
@@ -4199,6 +4273,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4224,6 +4299,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It can cause complications in the form of ulceration, haemorrhage, intussusception, intestinal obstruction, perforation and, very rarely, vesicodiverticular fistulae and tumours."</div>
@@ -4243,6 +4319,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4305,6 +4382,9 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bowel obstruction is a common complication in adults, often due to intussusception, volvulus, or band formation.</div>
 
 
@@ -4324,6 +4404,7 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4349,6 +4430,7 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It can cause complications in the form of ulceration, haemorrhage, intussusception, intestinal obstruction, perforation and, very rarely, vesicodiverticular fistulae and tumours."</div>
@@ -4368,6 +4450,7 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4423,6 +4506,9 @@ This clinical feature is diverticulitis, annotated with Gastrointestinal inflamm
                     </div>
 
 
+
+
+
                     <div class="item-desc">Inflammation of the diverticulum (diverticulitis) may present similarly to appendicitis.</div>
 
 
@@ -4442,6 +4528,7 @@ This clinical feature is diverticulitis, annotated with Gastrointestinal inflamm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4467,6 +4554,7 @@ This clinical feature is diverticulitis, annotated with Gastrointestinal inflamm
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The major complications of Meckel&#39;s diverticulum include gastrointestinal bleeding, bowel obstruction, perforation and inflammation."</div>
@@ -4486,6 +4574,7 @@ This clinical feature is diverticulitis, annotated with Gastrointestinal inflamm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4537,6 +4626,9 @@ This clinical feature is intestinal perforation (HP:0031368). HP:0031368 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Perforation of the diverticulum can occur, leading to peritonitis and acute abdomen.</div>
 
 
@@ -4556,6 +4648,7 @@ This clinical feature is intestinal perforation (HP:0031368). HP:0031368 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4581,6 +4674,7 @@ This clinical feature is intestinal perforation (HP:0031368). HP:0031368 is a ph
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The major complications of Meckel&#39;s diverticulum include gastrointestinal bleeding, bowel obstruction, perforation and inflammation."</div>
@@ -4600,6 +4694,7 @@ This clinical feature is intestinal perforation (HP:0031368). HP:0031368 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4651,6 +4746,9 @@ This clinical feature is intussusception (HP:0002576). HP:0002576 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Meckel diverticulum can serve as a lead point for intussusception.</div>
 
 
@@ -4673,6 +4771,7 @@ This clinical feature is intussusception (HP:0002576). HP:0002576 is a phenotype
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It can cause complications in the form of ulceration, haemorrhage, intussusception, intestinal obstruction, perforation and, very rarely, vesicodiverticular fistulae and tumours."</div>
@@ -4692,6 +4791,7 @@ This clinical feature is intussusception (HP:0002576). HP:0002576 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4735,6 +4835,9 @@ This clinical feature is intussusception (HP:0002576). HP:0002576 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Approximately 50-60% of symptomatic Meckel diverticula contain heterotopic gastric or pancreatic tissue, with gastric mucosa being more common.</div>
 
 
@@ -4757,6 +4860,7 @@ This clinical feature is intussusception (HP:0002576). HP:0002576 is a phenotype
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Our review shows 58 cases containing gastric and/or pancreatic heterotopic tissue, including two unique cases."</div>
@@ -4776,6 +4880,7 @@ This clinical feature is intussusception (HP:0002576). HP:0002576 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4892,6 +4997,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -4902,6 +5010,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -4932,6 +5043,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"All symptomatic and pathologic Meckel&#39;s diverticula should be removed with a segment of ileum."</div>
@@ -4951,6 +5063,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5016,6 +5129,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5026,6 +5142,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -5053,6 +5172,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5128,6 +5248,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Meckel&#39;s diverticulum is usually asymptomatic and found incidentally. However, the lifetime risk of complications is 4-40%."</div>
@@ -5150,6 +5271,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"It is generally believed that less than 5% of them become symptomatic, the frequency decreasing with age."</div>
@@ -5169,6 +5291,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5243,6 +5366,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Meckel&#39;s diverticulum is the most frequent congenital malformation of the gastrointestinal tract, occurring in 2% of the general population."</div>
@@ -5265,6 +5389,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Meckel diverticulum is the most common congenital anomaly of the gastrointestinal tract, occurring in 2%-3% of the population."</div>
@@ -5284,6 +5409,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5781,6 +5907,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5849,6 +5976,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5960,6 +6088,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6031,6 +6160,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6082,6 +6212,37 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Evidence review: replaced title-as-snippet with abstract finding; symptomatic-percentage mismatch reported</strong> · 2026-08-29T21:38:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Meckel_Diverticulum/2026-08-29T213855Z-claude-code-7a6db5.yaml">View source</a></p>
+                        <p class="research-review-text"># Evidence review — Meckel_Diverticulum.yaml
+
+## Stats
+- 34 evidence items checked: 30 PMID-backed items in the main sections plus 4 DOI-backed items inside `references[].findings` (DOI prefix is in skip_prefixes, so those 4 are not machine-verified; I verified them manually against their DOI_*.md caches).
+- 15 references read from cache: PMID:27492813, PMID:15026601, PMID:8506491, PMID:17021300, PMID:1084202, PMID:19444035, PMID:37769709, PMID:41044867, PMID:37099684, PMID:27064958, PMID:31930430, DOI:10.1007/s00247-025-06284-5, DOI:10.1007/s00383-025-06197-2, DOI:10.3389/fsurg.2023.1327545, DOI:10.47717/turkjsurg.2024.6446. All cache files present; all snippets (including the deliberately preserved typo &#34;possiblity&#34; in PMID:1084202) are exact substrings.
+- 28 verified clean; 1 fixed; 5 noted below (some overlap).
+
+## Findings
+1. Location: phenotypes / Intestinal Perforation (line 186). Reference PMID:41044867. Problem: snippet was the paper&#39;s title (&#34;Perforated Meckel Diverticulum Caused by Vegetal Food Entrapment: A Rare Case Report and Literature Review.&#34;) used as a finding, while the cached record has a full abstract with directly probative result text. Severity: DEFECT. ACTION: fixed — replaced with the exact abstract sentence &#34;During surgical laparoscopic exploration, which was converted to a median laparotomy, an inflamed perforated Meckel diverticulum caused by a foreign body was discovered.&#34; (verified against cache; explanation unchanged and still accurate). Baseline file not touched, per policy.
+2. Location: phenotypes / Diverticulitis (line 161). Reference PMID:37769709. Problem: snippet is the paper title &#34;Diverticulitis in Meckel&#39;s diverticulum.&#34; — but the cached record has NO abstract at all (image/case vignette), so no better exact substring exists in the same reference. The title here establishes only that a case of diverticulitis in MD was reported, which is in fact the exact claim being supported, and the explanation says exactly that. Severity: MINOR. ACTION: reported only — fix would require citing a different source, which the conservative policy forbids; two stronger co-citations (PMID:8506491, PMID:27492813) already carry the phenotype.
+3. Location: phenotypes / Ectopic Gastric Mucosa, `notes` (line 211). Problem: notes assert &#34;Approximately 50-60% of symptomatic Meckel diverticula contain heterotopic gastric or pancreatic tissue&#34;, but neither attached quote supports that band: PMID:27064958 reports 58/208 (~28%, an unselected pediatric series) and PMID:15026601 says only &#34;frequently found&#34;. (The 55.6%-in-symptomatic figure does exist in the entry&#39;s own DOI:10.1007/s00383-025-06197-2 reference cache, but it is not cited here.) Severity: MINOR. ACTION: reported only — fixing would mean rewriting notes/attaching a new citation, outside the conservative fix policy.
+4. Location: all main-section evidence blocks. Problem: `evidence_source` is omitted throughout the main sections (prevalence, progression, pathophysiology, phenotypes, treatments). The default (HUMAN_CLINICAL) is correct for every quoted sentence here — all report human epidemiology, clinical series, or surgical management — so no value is wrong, but the field is unpopulated. Severity: NOTE. ACTION: reported only — omission is schema-legal and adding ~30 fields is beyond a minimal defect fix.
+5. Location: references[] deep-research block (lines 257-332). Problems: (a) two findings use the paper title as both `statement` and `supporting_text` with no evidence item (DOI:10.1007/s00247-022-05527-z, DOI:10.1080/00015458.2022.2136047) — title-as-finding pattern; (b) three DOI evidence items carry the boilerplate explanation &#34;Deep research cited this publication as relevant literature&#34;, which does not connect quote to claim; (c) the DOI:10.3389/fsurg.2023.1327545 quote &#34;Meckel&#39;s diverticulum is a rare congenital pathology among newborns.&#34; is faithful to its source but sits oddly against the entry&#39;s own (well-supported) &#34;most common congenital GI malformation, 2-3%&#34; claims — the source sentence is sloppy, not the curation. All quotes verified manually as exact substrings of their DOI caches. Severity: NOTE. ACTION: reported only — these are deep-research import artifacts in the references section, not disorder-claim evidence; DOI references are unverified by tooling by design.
+
+## Sections reviewed
+prevalence, progression, pathophysiology, phenotypes, treatments, references (deep-research findings)
+
+## Verdict
+Core evidence is solid: prevalence, natural-history, embryology, complication phenotypes, and surgical-management claims are each anchored to exact, on-topic result sentences from appropriate human clinical literature, usually with 2-5 independent citations. The weaknesses are peripheral — two title-as-snippet case-report citations (one fixed, one unfixable from its abstract-less cache), an uncited 50-60% figure in phenotype notes, and low-value deep-research boilerplate in the references section.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

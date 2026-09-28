@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4122,6 +4190,7 @@ The entry&#39;s central curation decision is that this is a different disease fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4143,6 +4212,7 @@ The entry&#39;s central curation decision is that this is a different disease fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4287,6 +4357,7 @@ The entry&#39;s central curation decision is that this is a different disease fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cog4-expression" data-dismech-node="Reduced COG4 Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced COG4 Expression</div>
 
+
                 <div class="item-desc">Biallelic COG4 variants reduce COG4 protein. Full complex formation is still achieved but at a lower level, so the lesion is quantitative rather than an absolute failure to assemble. Whether the loss also propagates to the expression or stability of the other lobe A subunits is contested and is deliberately not asserted here: PMID:19494034 reports that it does and PMID:21185756 reports that the other subunits are unaffected. The conflict is recorded in the cog4cdg_conflicting_subunit_effects discussion.
 </div>
 
@@ -4388,6 +4459,7 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4409,6 +4481,7 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4434,6 +4507,7 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-golgi-vesicle-tethering-and-retrograde-transport" data-dismech-node="Impaired Golgi Vesicle Tethering and Retrograde Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Golgi Vesicle Tethering and Retrograde Transport</div>
+
 
                 <div class="item-desc">Vesicle tethering during intra-Golgi and Golgi-to-ER retrograde transport is impaired, measurable in patient fibroblasts as a delay in Brefeldin A-induced retrograde transport. This is the shared cellular signature of COG deficiencies.
 </div>
@@ -4561,6 +4635,7 @@ This pathophysiological event involves decreased intra-Golgi vesicle-mediated tr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4583,6 +4658,7 @@ This pathophysiological event involves decreased intra-Golgi vesicle-mediated tr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-golgi-glycosyltransferase-localisation" data-dismech-node="Disrupted Golgi Glycosyltransferase Localisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Golgi Glycosyltransferase Localisation</div>
+
 
                 <div class="item-desc">With retrograde recycling impaired, the glycosyltransferases and glycosidases that should be retained in specific cisternae are mislocalised. The consequence is a processing defect affecting terminal steps in particular, which is why the glycan abnormality is deficient galactosylation and sialylation rather than a failure to build the core.
 </div>
@@ -4673,6 +4749,7 @@ This pathophysiological event involves decreased Golgi organization (GO:0007030)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4695,6 +4772,7 @@ This pathophysiological event involves decreased Golgi organization (GO:0007030)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-n-and-o-glycosylation-defect" data-dismech-node="Combined N- and O-Glycosylation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined N- and O-Glycosylation Defect</div>
+
 
                 <div class="item-desc">Both N- and O-linked glycosylation are affected, with deficient galactosylation and sialylation of serum glycoproteins. The combined pattern is what places the disorder in CDG type II and distinguishes COG defects from the assembly-step (type I) disorders.
 </div>
@@ -4840,6 +4918,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4861,6 +4940,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4886,6 +4966,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neurometabolic-multisystem-disease" data-dismech-node="Progressive Neurometabolic Multisystem Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neurometabolic Multisystem Disease</div>
+
 
                 <div class="item-desc">The clinical syndrome: progressive severe global disability with secondary microcephaly and brain atrophy, seizures, coagulopathy, liver involvement and recurrent infections.
 </div>
@@ -4974,6 +5055,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4996,6 +5078,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cog-dependent-autophagy" data-dismech-node="Disrupted COG-Dependent Autophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted COG-Dependent Autophagy</div>
+
 
                 <div class="item-desc">The COG complex has a role in autophagy that is separate from its role in glycosyltransferase localisation. The source proposes this as the route to episodic fever specifically, distinguishing it from the features attributed to the glycosylation defect. Recorded as a parallel branch rather than downstream of the glycosylation node for that reason.
 </div>
@@ -5086,6 +5169,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5210,6 +5294,9 @@ This clinical feature is Abnormality of coagulation (HP:0001928). HP:0001928 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5224,6 +5311,7 @@ This clinical feature is Abnormality of coagulation (HP:0001928). HP:0001928 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5289,6 +5377,9 @@ This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5303,6 +5394,7 @@ This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5327,6 +5419,7 @@ This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5390,6 +5483,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5404,6 +5500,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5487,6 +5584,9 @@ This clinical feature is Secondary microcephaly (HP:0005484), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5501,6 +5601,7 @@ This clinical feature is Secondary microcephaly (HP:0005484), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5525,6 +5626,7 @@ This clinical feature is Secondary microcephaly (HP:0005484), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5581,6 +5683,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5595,6 +5700,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5658,6 +5764,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5672,6 +5781,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5735,6 +5845,9 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5749,6 +5862,7 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5812,6 +5926,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5826,6 +5943,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5909,6 +6027,9 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as c
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5923,6 +6044,7 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5947,6 +6069,7 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6019,6 +6142,9 @@ This clinical feature is Brain atrophy (HP:0012444), qualified as course progres
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6033,6 +6159,7 @@ This clinical feature is Brain atrophy (HP:0012444), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6087,6 +6214,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6101,6 +6231,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6157,6 +6288,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6171,6 +6305,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6225,6 +6360,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6239,6 +6377,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6302,6 +6441,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6316,6 +6458,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6416,6 +6559,9 @@ This disease-associated gene is COG4 (hgnc:18620). hgnc:18620 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6430,6 +6576,7 @@ This disease-associated gene is COG4 (hgnc:18620). hgnc:18620 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6457,6 +6604,7 @@ This disease-associated gene is COG4 (hgnc:18620). hgnc:18620 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6478,6 +6626,7 @@ This disease-associated gene is COG4 (hgnc:18620). hgnc:18620 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6651,6 +6800,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is anticonvulsant treatment, nutritional support, monitoring and correction of coagulopathy, and management of intercurrent infection.
 </div>
 
@@ -6715,6 +6870,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6736,6 +6892,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6794,6 +6951,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6846,6 +7004,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6904,6 +7063,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6925,6 +7085,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6999,6 +7160,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7085,6 +7247,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7106,6 +7269,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7162,6 +7326,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7260,6 +7425,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7304,6 +7470,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8632,6 +8799,44 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">On the lump/split decision, which is the thing to review first. COG4 causes two diseases and one of them, Saul-Wilson syndrome, is already curated as Saul-Wilson_Syndrome.yaml. This entry treats COG4-CDG as separate rather than folding it in as a subtype. The argument is mechanistic rather than clinical: Saul-Wilson is a single recurrent heterozygous de novo p.Gly516Arg allele whose cells have normal COG4 mRNA and protein and show accelerated retrograde recycling (PMID:30290151), while COG4-CDG is biallelic loss of function with reduced COG4 protein and delayed retrograde transport (PMID:21185756). The transport phenotypes run in opposite directions, so these are not two points on one severity axis. The clinical pictures also barely overlap: primordial dwarfism with largely preserved intellect against a progressive neurometabolic disorder with brain atrophy and seizures. If a reviewer disagrees, the alternative is a shared COG4 entry with has_subtypes, and that should be settled before anything else.
+On a disagreement left standing. The two patient reports differ on whether reduced COG4 destabilises the other lobe A subunits. Both are cited on the same node with a discussion recording the conflict, rather than selecting whichever is more convenient. They studied different genotypes, so the disagreement may be real.
+On the weakest link. The edge from the glycosylation defect to the clinical syndrome is INDIRECT_UNKNOWN_INTERMEDIATES. Nothing cited identifies which glycoproteins are functionally compromised, and the glycan abnormality is described as mild even in severely affected patients. Giving that edge a mechanism would have meant inventing one.
+On one citation&#39;s scope. The episodic fever phenotype is evidenced from a study of all 45 reported COG-CDG patients across subunits, not COG4 specifically. That is recorded in the evidence explanation so the scope is not silently widened to a COG4 claim.
+On what is deliberately absent. No datasets: no COG4-CDG-specific omics dataset was identified, and a COG4 gene-symbol search returns the Saul-Wilson and general Golgi-trafficking literature. No animal models: the deep-research report noted a C. elegans knock-in that does not reproduce the Golgi defect, which is a negative result about a model rather than a model of this disease, and no vertebrate model of the recessive disorder was found in the cited sources.
+On GeneReviews. There is no COG4-specific chapter. PMID:20301507, the retired group-level overview of congenital disorders of N-linked glycosylation, is tagged in the references block for the same reason the sibling CDG entries tag it, as a record that the search was done and came back negative rather than as a source of COG4-specific content.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: COG4-Congenital Disorder of Glycosylation / CDG-IIj (MONDO:0013281)</strong> · 2026-09-06T16:37:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/COG4-Congenital_Disorder_of_Glycosylation/2026-09-06T163717Z-claude-code-902566.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of recessive COG4-CDG (CDG-IIj).
+
+Lump/split, the central decision: curated as a DISEASE separate from Saul-Wilson_Syndrome.yaml, which already exists and is also COG4. The argument is mechanistic, not clinical. Saul-Wilson is a single recurrent heterozygous de novo p.Gly516Arg allele whose fibroblasts have normal COG4 mRNA and protein and show ACCELERATED retrograde recycling (PMID:30290151). COG4-CDG is biallelic loss of function with reduced COG4 protein and DELAYED retrograde transport (PMID:21185756). The transport phenotypes run in opposite directions, so these are not two severities of one lesion. The deep-research report independently reached the same conclusion. Alternative shape if reviewers disagree: a shared COG4 entry with has_subtypes.
+
+A disagreement deliberately left standing: PMID:19494034 reports that reduced COG4 also affects expression/stability of other lobe A subunits, while PMID:21185756 reports COG4 dramatically reduced with other subunits unaffected. Both are cited on the same pathophysiology node with a KNOWLEDGE_GAP discussion recording the conflict, rather than selecting the more convenient one. They studied different genotypes so the disagreement may be real.
+
+Weakest link marked as such: the edge from the combined glycosylation defect to the clinical syndrome is INDIRECT_UNKNOWN_INTERMEDIATES. Nothing cited identifies which glycoproteins are functionally compromised, and the glycan abnormality is described as mild even in severely affected patients.
+
+Citation scope recorded: the recurrent-fever phenotype is evidenced from a study of all 45 reported COG-CDG patients across subunits, not COG4 specifically. Stated in the evidence explanation so the scope is not silently widened.
+
+Deep research: one openscientist report. preflight-dr PASS (COG4 x40, OMIM 613489 matches; the report also carries 618150, Saul-Wilson&#39;s OMIM, consistent with it covering both COG4 diseases). 28/28 references resolved. Note the report&#39;s own reference validation reports 3 of 14 quoted claims NOT found in source; none of this entry&#39;s 33 snippets derive from the report&#39;s quotes, all were verified independently against the reference cache.
+
+Two self-caught defects: two reference_title values written from memory failed the validator&#39;s title check and were re-derived from the cache; and one snippet failed because the validator strips bracketed text while the source retains it, so a clean unbracketed sentence was quoted instead.
+
+Validation: just validate passes schema plus 33/33 snippets verified; validate-terms, check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values all pass. check-snippet-length and check-title-snippets fail identically on a pristine main checkout with zero local changes, so those are pre-existing and unrelated.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

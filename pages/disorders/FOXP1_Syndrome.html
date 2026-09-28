@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4161,6 +4229,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4248,6 +4317,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4272,6 +4342,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4293,6 +4364,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4518,6 +4590,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4539,6 +4612,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4809,6 +4883,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-foxp1-loss-of-function-variation" data-dismech-node="Heterozygous FOXP1 Loss-of-Function Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous FOXP1 Loss-of-Function Variation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a heterozygous, usually de novo, pathogenic FOXP1 variant: whole- or partial-gene deletion, frameshift, nonsense, essential splice-site change, in-frame deletion, or missense substitution. Missense and in-frame alleles cluster in the C-terminal forkhead DNA-binding domain, where they either perturb residues required for DNA contact or interfere with the domain swap that mediates FOXP1 dimerization. FOXP1 also heterodimerizes with its paralog FOXP2, the classic speech-and-language gene, which is one route by which reduced FOXP1 dosage reaches speech circuitry.</div>
 
 
@@ -4974,6 +5055,7 @@ This pathophysiological event involves abnormal FOXP1 domain-swap dimerization, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4995,6 +5077,7 @@ This pathophysiological event involves abnormal FOXP1 domain-swap dimerization, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5020,6 +5103,13 @@ This pathophysiological event involves abnormal FOXP1 domain-swap dimerization, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-foxp1-transcriptional-repression" data-dismech-node="Loss of FOXP1 Transcriptional Repression" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of FOXP1 Transcriptional Repression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">FOXP1 is a sequence-specific transcriptional repressor. Pathogenic alleles converge on loss of repression activity, most often accompanied by abnormal subcellular (cytoplasmic or aggregated nuclear) localization; the recurrent p.Arg525Gln allele loses repression while retaining normal nuclear localization, showing that the repression defect, not mislocalization per se, is the shared consequence. Repression is exerted in part through interaction with the NuRD chromatin-remodeling complex, an interaction that requires SUMOylation of FOXP1 during embryonic brain development.</div>
 
@@ -5145,6 +5235,7 @@ This pathophysiological event involves FOXP1 SUMOylation required for NuRD inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5166,6 +5257,7 @@ This pathophysiological event involves FOXP1 SUMOylation required for NuRD inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5193,6 +5285,7 @@ This pathophysiological event involves FOXP1 SUMOylation required for NuRD inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5215,6 +5308,13 @@ This pathophysiological event involves FOXP1 SUMOylation required for NuRD inter
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-neurodevelopmental-transcriptional-program" data-dismech-node="Dysregulated Neurodevelopmental Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Neurodevelopmental Transcriptional Program</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Reduced FOXP1 dosage releases repression of its direct targets and reconfigures the downstream network. Two arms are best characterized: de-repression of Notch pathway genes, notably the ligand Jagged1, which sustains Notch signaling and holds progenitors in a proliferative, undifferentiated state; and dysregulation of autism-associated signaling pathways and neuronal-activity genes, including a striatal neuron-identity program that is conserved between mouse brain and human neural progenitors. In developing neocortex the Foxp1-regulated networks are specifically enriched for neurogenesis and neuronal-migration effectors.</div>
 
@@ -5358,6 +5458,7 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5379,6 +5480,7 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5406,6 +5508,7 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5428,6 +5531,13 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-progenitor-differentiation" data-dismech-node="Impaired Neural Progenitor Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Progenitor Differentiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">FOXP1 is expressed in embryonic neural stem cells, and reducing it shifts the balance away from neuronal (and astrocytic) differentiation. In utero FOXP1 knockdown reduces neural stem cell differentiation and migration during corticogenesis, and transplanted FOXP1-knockdown neural stem cells fail to differentiate and function normally in vivo. The mechanism is established in murine and cellular models; direct confirmation in human FOXP1-syndrome brain tissue is lacking.</div>
 
@@ -5615,6 +5725,7 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5637,6 +5748,13 @@ This pathophysiological event involves abnormal neural precursor cell proliferat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortical-radial-migration-and-neuronal-morphogenesis" data-dismech-node="Impaired Cortical Radial Migration and Neuronal Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cortical Radial Migration and Neuronal Morphogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Foxp1 is required for radial migration of newly generated cortical neurons. Suppressing Foxp1 in mouse cerebral cortex produces a migration defect that is rescued by Foxp1 re-expression, with ectopic neurons persisting in deep cortical layers postnatally. Differentiation per se is preserved in that model, but the neurons show inhibited axonal growth, a weakened multipolar-to-bipolar transition, and altered late dendritic maturation.</div>
 
@@ -5824,6 +5942,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5845,6 +5964,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5870,6 +5990,13 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neocortical-cytoarchitectonic-alteration" data-dismech-node="Neocortical Cytoarchitectonic Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Neocortical Cytoarchitectonic Alteration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Mispositioned cortical neurons yield altered neocortical cytoarchitecture and circuit assembly. In forebrain-specific Foxp1 conditional knockout mice this is accompanied by impaired neonatal vocalization, providing the closest model-system correlate of the human speech phenotype. In affected humans, imaging shows only non-specific structural brain abnormalities, so the correspondence between the murine cytoarchitectonic lesion and human cortical pathology is inferred rather than demonstrated.</div>
 
@@ -6005,6 +6132,7 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6026,6 +6154,7 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6053,6 +6182,7 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6075,6 +6205,13 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-striatal-medium-spiny-neuron-development" data-dismech-node="Impaired Striatal Medium Spiny Neuron Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Striatal Medium Spiny Neuron Development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">FoxP1 is the most highly upregulated gene in the developing mouse whole ganglionic eminence, marks medium spiny projection neurons from precursor through maturity, and co-localizes with essentially all striatal DARPP-32 positive projection neurons without labelling interneurons. FoxP1 knockout ganglionic eminence fails to generate DARPP-32-positive medium spiny neurons in vitro, establishing FoxP1 as required for their differentiation. The same expression pattern is present in human fetal brain at equivalent gestational stages.</div>
 
@@ -6232,6 +6369,7 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6253,6 +6391,7 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6280,6 +6419,7 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6304,6 +6444,13 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-striatal-circuit-excitability" data-dismech-node="Altered Striatal Circuit Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Striatal Circuit Excitability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Beyond specifying medium spiny neuron identity, FoxP1 dose sets the intrinsic excitability of these neurons. In patient-relevant heterozygous Foxp1 mice, reduced Foxp1 alters medium spiny neuron excitability and correlates with defective ultrasonic vocalization; brain-specific Foxp1 knockout pups have strongly reduced ultrasonic vocalization and lose the normal sex-specific call rate. FoxP1 is co-expressed with the androgen receptor in striatal medium spiny neurons, and FOXP1 heterodimerizes with FOXP2, tying this node to the canonical speech-and-language pathway. The proximate mechanism is subtype specific: FOXP1 strengthens and matures the long-range cortical and thalamic glutamatergic inputs onto D2 (indirect-pathway) SPNs and thereby promotes their synaptically driven excitability. Critically, postnatal FOXP1 reinstatement in mice rescues the electrophysiological, cell-type-specific transcriptional, and behavioral abnormalities, so at least part of this node is not a fixed prenatal malformation.</div>
 
@@ -6433,6 +6580,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6454,6 +6602,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6481,6 +6630,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6505,6 +6655,13 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-speech-motor-and-vocal-communication-output" data-dismech-node="Impaired Speech Motor and Vocal Communication Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Speech Motor and Vocal Communication Output</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical convergence point that distinguishes FOXP1 syndrome from other syndromic intellectual disabilities: speech and language impairment is present in essentially every affected individual regardless of cognitive level. The profile is complex rather than a pure verbal dyspraxia - all verbal patients show dysarthric and apraxic features with persistent phonological errors, and in individuals with truncating or splice-site variants and small deletions expressive ability is relatively preserved compared with comprehension. This differs from the primary oromotor verbal dyspraxia of FOXP2 deficiency.</div>
 
@@ -6604,6 +6761,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6625,6 +6783,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6652,6 +6811,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6674,6 +6834,13 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-developmental-delay-and-intellectual-disability" data-dismech-node="Global Developmental Delay and Intellectual Disability" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Developmental Delay and Intellectual Disability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Impaired cortical and striatal development produces early motor and language milestone delay and mild-to-severe intellectual disability, present in essentially all affected individuals. Longitudinal caregiver report finds continued, if slow, acquisition of adaptive skills into adulthood, with no developmental regression, neuropsychiatric decompensation, or catatonia, distinguishing FOXP1 syndrome from regressive neurodevelopmental disorders.</div>
 
@@ -6757,6 +6924,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6778,6 +6946,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6803,6 +6972,13 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autistic-features-and-behavioral-dysregulation" data-dismech-node="Autistic Features and Behavioral Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Autistic Features and Behavioral Dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A complex neurobehavioral profile rather than a single behavioral diagnosis. Restricted and repetitive behaviors are near-universal even in individuals who do not meet criteria for autism spectrum disorder; ADHD is the most common formal psychiatric diagnosis, followed by anxiety, with sensory symptoms (particularly sensory seeking) common. The behavioral phenotype persists into adolescence and adulthood as anxiety plus externalizing behavior. The mechanistic path from FOXP1-dependent striatal and cortical circuits to these behaviors is supported by model systems but not established in humans.</div>
 
@@ -6896,6 +7072,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6917,6 +7094,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6942,6 +7120,13 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extra-cns-developmental-consequences-of-foxp1-dosage-reduction" data-dismech-node="Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">FOXP1 is required outside the brain. In mice it has critical roles in spinal motor neuron, lymphocyte, cardiomyocyte, foregut and skeletal development, and reduced dosage in humans is associated with cardiac malformations, congenital anomalies of the kidney and urinary tract, cryptorchidism, ophthalmic anomalies, and recurrent sinopulmonary or airway infections. Which of these are obligate consequences of FOXP1 dosage versus variable stochastic developmental effects is unresolved; single-patient reports of lung and skeletal disease remain unreplicated.</div>
 
@@ -7059,6 +7244,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7085,6 +7271,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7106,6 +7293,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7131,6 +7319,13 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dependence-in-activities-of-daily-living" data-dismech-node="Dependence in Activities of Daily Living" data-dismech-type="pathophysiology">
                 <div class="item-name">Dependence in Activities of Daily Living</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The lifetime functional endpoint. Most individuals acquire some basic self-care tasks independently, but the majority rely heavily on caregivers, and many require continuous supervision into adulthood. Skills continue to accrue rather than decline, so the trajectory is one of slow gain against a persistent support requirement.</div>
 
@@ -7166,6 +7361,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7214,7 +7410,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Sensory Responsiveness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory symptoms are common, with sensory seeking particularly prominent in prospectively assessed cohorts. A cortex-restricted Foxp1 mouse model reproduces a biphasic tactile phenotype (delayed initial response followed by avoidance and hyper-reaction to repeated stimulation), providing a candidate cortical substrate. Bound at the sensory-behavioral grouping level because the claim spans both sensory seeking (the prominent human finding, HP:4000079) and hyper-reactivity/avoidance, rather than seeking alone.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:5200046\"}}, {\"id\": \"Altered Striatal Circuit Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond specifying medium spiny neuron identity, FoxP1 dose sets the intrinsic excitability of these neurons. In patient-relevant heterozygous Foxp1 mice, reduced Foxp1 alters medium spiny neuron excitability and correlates with defective ultrasonic vocalization; brain-specific Foxp1 knockout pups have strongly reduced ultrasonic vocalization and lose the normal sex-specific call rate. FoxP1 is co-expressed with the androgen receptor in striatal medium spiny neurons, and FOXP1 heterodimerizes with FOXP2, tying this node to the canonical speech-and-language pathway. The proximate mechanism is subtype specific: FOXP1 strengthens and matures the long-range cortical and thalamic glutamatergic inputs onto D2 (indirect-pathway) SPNs and thereby promotes their synaptically driven excitability. Critically, postnatal FOXP1 reinstatement in mice rescues the electrophysiological, cell-type-specific transcriptional, and behavioral abnormalities, so at least part of this node is not a fixed prenatal malformation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"regulation of membrane potential\"]}}, {\"id\": \"Anticonvulsant Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard anti-seizure medication is used for the subset of individuals with epilepsy. No FOXP1-specific regimen is established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety disorders are common in childhood and remain among the most prominent psychiatric features in adolescence and adulthood.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD is the most common formal psychiatric diagnosis in FOXP1 syndrome and is frequently undertreated; medication use for ADHD features is common in adolescents and adults, though multiple trials may be needed.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Autism Spectrum Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder or autistic features. In prospectively assessed cohorts a minority meet full diagnostic criteria, although autistic traits are far more widespread; standardized ASD testing shows high sensitivity but low specificity against expert consensus diagnosis in this population.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Autistic Features and Behavioral Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A complex neurobehavioral profile rather than a single behavioral diagnosis. Restricted and repetitive behaviors are near-universal even in individuals who do not meet criteria for autism spectrum disorder; ADHD is the most common formal psychiatric diagnosis, followed by anxiety, with sensory symptoms (particularly sensory seeking) common. The behavioral phenotype persists into adolescence and adulthood as anxiety plus externalizing behavior. The mechanistic path from FOXP1-dependent striatal and cortical circuits to these behaviors is supported by model systems but not established in humans.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Behavioral and Psychiatric Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Behavioral and psychological intervention addresses the near-universal restricted and repetitive behaviors, anxiety, and externalizing behaviors. Cohort data show that many individuals with formal ADHD or anxiety diagnoses were not receiving treatment for them, so systematic psychiatric assessment is an actionable gap.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital Cardiac Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac abnormalities are a recognized congenital malformation in FOXP1 syndrome, consistent with the requirement for Foxp1 in cardiomyocyte development in mice.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are among the most prevalent findings in affected males.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Bladder Control\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed acquisition of bladder control was the single most prevalent parent-reported medical symptom, and incontinence is ranked as disproportionately burdensome by families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000805\"}}, {\"id\": \"Dependence in Activities of Daily Living\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lifetime functional endpoint. Most individuals acquire some basic self-care tasks independently, but the majority rely heavily on caregivers, and many require continuous supervision into adulthood. Skills continue to accrue rather than decline, so the trajectory is one of slow gain against a persistent support requirement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria impairing intelligibility is the dominant feature of the speech motor profile and is frequently untreated because it is not recognized.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysphagia is part of the core Orphanet clinical description.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced FOXP1 dosage releases repression of its direct targets and reconfigures the downstream network. Two arms are best characterized: de-repression of Notch pathway genes, notably the ligand Jagged1, which sustains Notch signaling and holds progenitors in a proliferative, undifferentiated state; and dysregulation of autism-associated signaling pathways and neuronal-activity genes, including a striatal neuron-identity program that is conserved between mouse brain and human neural progenitors. In developing neocortex the Foxp1-regulated networks are specifically enriched for neurogenesis and neuronal-migration effectors.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"Notch signaling pathway\"]}}, {\"id\": \"Expressive Language Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive speech is the most severely affected language domain in the classic description. In individuals with truncating or splice-site variants and small deletions, however, expressive ability is relatively preserved compared with comprehension, so the expressive/receptive profile is genotype dependent.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002474\"}}, {\"id\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXP1 is required outside the brain. In mice it has critical roles in spinal motor neuron, lymphocyte, cardiomyocyte, foregut and skeletal development, and reduced dosage in humans is associated with cardiac malformations, congenital anomalies of the kidney and urinary tract, cryptorchidism, ophthalmic anomalies, and recurrent sinopulmonary or airway infections. Which of these are obligate consequences of FOXP1 dosage versus variable stochastic developmental effects is unresolved; single-patient reports of lung and skeletal disease remain unreplicated.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"FOXP1 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"FOXP1\"], \"gene_terms\": [{\"label\": \"FOXP1\", \"id\": \"hgnc:3823\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"FOXP1 c.1267_1268delGT (p.Val423Hisfs*37)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A de novo frameshift allele identified by clinical exome sequencing in a child with autism, mild intellectual disability, severe hypotonia and severe speech and language impairment. Cellular assays showed disruption of both subcellular localization and transcriptional repression.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXP1\"], \"gene_terms\": [{\"label\": \"FOXP1\", \"id\": \"hgnc:3823\"}]}}, {\"id\": \"FOXP1 c.1574G\u003eA (p.Arg525Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent missense substitution in the forkhead DNA-binding domain, reported in three unrelated patients. It abolishes transcriptional repression while, uniquely among characterized FOXP1 alleles, preserving normal nuclear localization, evidence that loss of repression rather than mislocalization is the shared pathogenic consequence.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXP1\"], \"gene_terms\": [{\"label\": \"FOXP1\", \"id\": \"hgnc:3823\"}]}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties arise from oromotor dysfunction and are a target of supportive nutritional management.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delays in early motor and language milestones affecting all developmental domains, present in essentially every affected individual.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Global Developmental Delay and Intellectual Disability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired cortical and striatal development produces early motor and language milestone delay and mild-to-severe intellectual disability, present in essentially all affected individuals. Longitudinal caregiver report finds continued, if slow, acquisition of adaptive skills into adulthood, with no developmental regression, neuropsychiatric decompensation, or catatonia, distinguishing FOXP1 syndrome from regressive neurodevelopmental disorders.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Heterozygous FOXP1 Loss-of-Function Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous, usually de novo, pathogenic FOXP1 variant: whole- or partial-gene deletion, frameshift, nonsense, essential splice-site change, in-frame deletion, or missense substitution. Missense and in-frame alleles cluster in the C-terminal forkhead DNA-binding domain, where they either perturb residues required for DNA contact or interfere with the domain swap that mediates FOXP1 dimerization. FOXP1 also heterodimerizes with its paralog FOXP2, the classic speech-and-language gene, which is one route by which reduced FOXP1 dosage reaches speech circuitry.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DNA-binding transcription factor activity\", \"FOXP1 domain-swap dimerization\"], \"genes\": [\"FOXP1\"], \"gene_terms\": [{\"label\": \"FOXP1\", \"id\": \"hgnc:3823\"}]}}, {\"id\": \"Hypermetropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperopia is among the most prevalent parent-reported findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000540\"}}, {\"id\": \"Impaired Cortical Radial Migration and Neuronal Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Foxp1 is required for radial migration of newly generated cortical neurons. Suppressing Foxp1 in mouse cerebral cortex produces a migration defect that is rescued by Foxp1 re-expression, with ectopic neurons persisting in deep cortical layers postnatally. Differentiation per se is preserved in that model, but the neurons show inhibited axonal growth, a weakened multipolar-to-bipolar transition, and altered late dendritic maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebral cortex neuron\", \"glutamatergic projection neuron\"], \"biological_processes\": [\"cerebral cortex radial glia-guided migration\", \"neuron migration\"]}}, {\"id\": \"Impaired Neural Progenitor Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXP1 is expressed in embryonic neural stem cells, and reducing it shifts the balance away from neuronal (and astrocytic) differentiation. In utero FOXP1 knockdown reduces neural stem cell differentiation and migration during corticogenesis, and transplanted FOXP1-knockdown neural stem cells fail to differentiate and function normally in vivo. The mechanism is established in murine and cellular models; direct confirmation in human FOXP1-syndrome brain tissue is lacking.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\", \"radial glial cell\"], \"biological_processes\": [\"neuron differentiation\", \"neural precursor cell proliferation\"]}}, {\"id\": \"Impaired Speech Motor and Vocal Communication Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical convergence point that distinguishes FOXP1 syndrome from other syndromic intellectual disabilities: speech and language impairment is present in essentially every affected individual regardless of cognitive level. The profile is complex rather than a pure verbal dyspraxia - all verbal patients show dysarthric and apraxic features with persistent phonological errors, and in individuals with truncating or splice-site variants and small deletions expressive ability is relatively preserved compared with comprehension. This differs from the primary oromotor verbal dyspraxia of FOXP2 deficiency.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Impaired Striatal Medium Spiny Neuron Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FoxP1 is the most highly upregulated gene in the developing mouse whole ganglionic eminence, marks medium spiny projection neurons from precursor through maturity, and co-localizes with essentially all striatal DARPP-32 positive projection neurons without labelling interneurons. FoxP1 knockout ganglionic eminence fails to generate DARPP-32-positive medium spiny neurons in vitro, establishing FoxP1 as required for their differentiation. The same expression pattern is present in human fetal brain at equivalent gestational stages.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"striatum development\", \"neuron differentiation\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-severe intellectual deficits. Severity is variable and does not predict the degree of speech impairment.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of FOXP1 Transcriptional Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXP1 is a sequence-specific transcriptional repressor. Pathogenic alleles converge on loss of repression activity, most often accompanied by abnormal subcellular (cytoplasmic or aggregated nuclear) localization; the recurrent p.Arg525Gln allele loses repression while retaining normal nuclear localization, showing that the repression defect, not mislocalization per se, is the shared consequence. Repression is exerted in part through interaction with the NuRD chromatin-remodeling complex, an interaction that requires SUMOylation of FOXP1 during embryonic brain development.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"negative regulation of transcription by RNA polymerase II\", \"FOXP1 SUMOylation required for NuRD interaction\"]}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micropenis is reported in a small minority of affected males.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000054\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed early gross and fine motor milestones, including delayed gross motor skills and visual-motor integration deficits.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopia is the single most frequently reported refractive error in the pooled literature, alongside hypermetropia and amblyopia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Neocortical Cytoarchitectonic Alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mispositioned cortical neurons yield altered neocortical cytoarchitecture and circuit assembly. In forebrain-specific Foxp1 conditional knockout mice this is accompanied by impaired neonatal vocalization, providing the closest model-system correlate of the human speech phenotype. In affected humans, imaging shows only non-specific structural brain abnormalities, so the correspondence between the murine cytoarchitectonic lesion and human cortical pathology is inferred rather than demonstrated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"cerebral cortex development\"]}}, {\"id\": \"Oromotor Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oromotor dysfunction contributes to both the speech impairment and to feeding difficulties.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007301\"}}, {\"id\": \"Pharmacotherapy for ADHD Symptoms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Medication for ADHD features, typically CNS stimulants such as methylphenidate, is commonly used in adolescents and adults with FOXP1 syndrome. Caregiver-reported experience indicates that multiple medication trials may be required before benefit is achieved, so a structured trial plan is appropriate. No FOXP1-specific efficacy trial has been performed; prescribing follows general ADHD practice. A tolerability caveat is documented: the investigators of a French psychiatric-phenotyping study record family reports of ineffectiveness and poor tolerance of methylphenidate in this population, so response should not be assumed and stimulant trials warrant close monitoring.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"CNS stimulant\", \"methylphenidate\"]}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy addresses gross-motor delay and abnormal muscle tone.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Airway and sinopulmonary infections recur in FOXP1 syndrome, consistent with the requirement for Foxp1 in lymphocyte development in mice.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002205\"}}, {\"id\": \"Refractive Error\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Refractive errors are a common ophthalmologic finding; hypermetropia is the specific error most often reported by parents.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000539\"}}, {\"id\": \"Renal and Urinary Tract Anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital anomalies of the kidney and urinary tract are an established extra-CNS association of FOXP1 haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000079\"}}, {\"id\": \"Restricted and Repetitive Behaviors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted and repetitive behaviors are almost universal, occurring even in individuals who do not meet criteria for autism spectrum disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031432\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is listed by GeneReviews among the common findings; epileptiform discharges were among the presenting features in an early FOXP1-deletion case report.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleeping problems are among the most prevalent parent-reported symptoms and are listed by GeneReviews among the behavior abnormalities.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech Apraxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Features of speech apraxia occur alongside persistent phonological errors. Unlike FOXP2 deficiency, primary oromotor verbal dyspraxia is not the distinguishing feature of the FOXP1 speech profile.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011098\"}}, {\"id\": \"Speech and Language Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate-to-severe speech and language impairment present in all affected individuals regardless of cognitive level. This is the distinguishing feature of the disorder.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language pathology is central to management. Because dysarthria rather than pure apraxia dominates the profile, therapy should be targeted at dysarthria and phonology; in one cohort no participant was receiving dysarthria-directed therapy despite being good candidates for it. Alternative and augmentative communication is appropriate for minimally verbal individuals.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a recurrent ophthalmologic finding.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Structural Brain Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-specific structural brain abnormalities are seen in roughly half of imaged individuals and include dilated lateral ventricles, white-matter abnormalities, arachnoid cysts, large cisterna magna, corpus callosum defects, frontal atrophy, cerebellar defects, and Chiari I malformation. The findings are heterogeneous and not diagnostic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012443\"}}], \"edges\": [{\"source\": \"Heterozygous FOXP1 Loss-of-Function Variation\", \"target\": \"Loss of FOXP1 Transcriptional Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of FOXP1 Transcriptional Repression\", \"target\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of FOXP1 Transcriptional Repression\", \"target\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Impaired Neural Progenitor Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Impaired Striatal Medium Spiny Neuron Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Impaired Cortical Radial Migration and Neuronal Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Structural Brain Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted FOXP1-dependent brain development is the presumed origin of the heterogeneous structural brain abnormalities seen on imaging in about half of individuals (ventricular dilatation, white-matter abnormalities, corpus callosum defects, cerebellar defects). The findings are non-specific and no lesion-by-lesion mechanism has been established, hence INDIRECT_UNKNOWN_INTERMEDIATES.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Progenitor Differentiation\", \"target\": \"Neocortical Cytoarchitectonic Alteration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced and mistimed neuronal output from the ventricular and subventricular zone leads to abnormal laminar positioning of cortical neurons.\"]}, {\"source\": \"Impaired Cortical Radial Migration and Neuronal Morphogenesis\", \"target\": \"Neocortical Cytoarchitectonic Alteration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neocortical Cytoarchitectonic Alteration\", \"target\": \"Impaired Speech Motor and Vocal Communication Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered cortical circuit assembly in speech-motor and language-associated areas.\"]}, {\"source\": \"Neocortical Cytoarchitectonic Alteration\", \"target\": \"Autistic Features and Behavioral Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced dendritic spine density and disrupted somatosensory barrel organization, with reduced layer IV cortical activation and increased basolateral amygdala activation, produce aberrant sensory responsiveness.\"]}, {\"source\": \"Neocortical Cytoarchitectonic Alteration\", \"target\": \"Global Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Striatal Medium Spiny Neuron Development\", \"target\": \"Altered Striatal Circuit Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Striatal Circuit Excitability\", \"target\": \"Impaired Speech Motor and Vocal Communication Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Corticostriatal loop dysfunction affecting motor planning and programming for speech.\"]}, {\"source\": \"Altered Striatal Circuit Excitability\", \"target\": \"Autistic Features and Behavioral Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Speech and Language Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The impaired speech-motor and vocal-communication endpoint manifests clinically as the universal speech and language impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Expressive Language Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The language arm of the impairment presents as delayed expressive language, with a genotype-dependent expressive/receptive profile.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysarthria, the dominant feature of the speech profile, is the motor-execution component of the impaired speech-motor output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Speech Apraxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apraxic features reflect the motor planning and programming component of the impaired speech-motor output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Oromotor Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired motor control of the oral apparatus is the shared oromotor substrate of the speech deficit, and also contributes to feeding difficulties.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Oromotor dysfunction shared with the speech-motor deficit impairs sucking, chewing, and swallowing.\"]}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysphagia is the swallowing-level expression of the oromotor dysfunction that also drives the feeding difficulties.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Oromotor dysfunction impairs the oral and pharyngeal phases of swallowing.\"]}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Dependence in Activities of Daily Living\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The organism-level developmental endpoint manifests clinically as global developmental delay across cognitive, communication, social-emotional and motor domains.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild-to-severe intellectual disability is the cognitive-assessment-level expression of this endpoint.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed early gross and fine motor milestones are the motor-domain expression of the developmental endpoint, explicit in the node\u0027s characterization of early motor and language milestone delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Delayed Bladder Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed acquisition of bladder control is curated as a developmental-milestone delay within the global developmental delay; no separate urologic mechanism has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Autism Spectrum Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of the behavioral profile meets full ASD diagnostic criteria (24% on prospective expert-consensus assessment); autistic traits are far more widespread.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADHD is the most common formal psychiatric diagnosis within the behavioral profile (75% meeting DSM-5 criteria).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anxiety disorders are a core component of the behavioral profile in childhood and persist into adolescence and adulthood.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Restricted and Repetitive Behaviors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restricted and repetitive behaviors are the near-universal (95%) component of the behavioral profile, present even without an ASD diagnosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Aberrant Sensory Responsiveness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory symptoms, particularly sensory seeking, are part of the behavioral profile, with a candidate cortical substrate in the cortex-restricted mouse model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep disturbances are grouped with the behavior abnormalities of the syndrome; no separate sleep-specific mechanism has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Congenital Cardiac Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac malformations are part of the extra-CNS malformation spectrum; the murine requirement for Foxp1 in cardiomyocyte development is the candidate mechanism, but the human intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Renal and Urinary Tract Anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital anomalies of the kidney and urinary tract are an established human association of FOXP1 haploinsufficiency; the developmental intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cryptorchidism belongs to the urogenital arm of the extra-CNS malformation spectrum recorded by GeneReviews and Orphanet; its developmental intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Micropenis is a minority urogenital anomaly within the extra-CNS malformation spectrum; its developmental intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent sinopulmonary and airway infections are part of the extra-CNS phenotype; the murine requirement for Foxp1 in lymphocyte development is the candidate immune substrate, but no human immunodeficiency mechanism has been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Refractive Error\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refractive errors are the most common expression of the ophthalmic arm of the extra-CNS association spectrum; the ocular developmental intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Hypermetropia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypermetropia is the specific refractive error most often parent-reported, within the ophthalmic arm of the extra-CNS spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myopia is the most frequently reported refractive error in the pooled literature, within the ophthalmic arm of the extra-CNS spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Strabismus is listed with the ophthalmic findings of the syndrome; whether it is a primary ocular anomaly or secondary to refractive error or neurodevelopmental ocular-motor control is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Speech and Language Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Intervention\", \"target\": \"Anxiety\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Intervention\", \"target\": \"Restricted and Repetitive Behaviors\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy for ADHD Symptoms\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant Therapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FOXP1 Pathogenic Variants\", \"target\": \"Heterozygous FOXP1 Loss-of-Function Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXP1 c.1574G\u003eA (p.Arg525Gln)\", \"target\": \"FOXP1 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FOXP1 c.1267_1268delGT (p.Val423Hisfs*37)\", \"target\": \"FOXP1 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Sensory Responsiveness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory symptoms are common, with sensory seeking particularly prominent in prospectively assessed cohorts. A cortex-restricted Foxp1 mouse model reproduces a biphasic tactile phenotype (delayed initial response followed by avoidance and hyper-reaction to repeated stimulation), providing a candidate cortical substrate. Bound at the sensory-behavioral grouping level because the claim spans both sensory seeking (the prominent human finding, HP:4000079) and hyper-reactivity/avoidance, rather than seeking alone.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:5200046\"}}, {\"id\": \"Altered Striatal Circuit Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond specifying medium spiny neuron identity, FoxP1 dose sets the intrinsic excitability of these neurons. In patient-relevant heterozygous Foxp1 mice, reduced Foxp1 alters medium spiny neuron excitability and correlates with defective ultrasonic vocalization; brain-specific Foxp1 knockout pups have strongly reduced ultrasonic vocalization and lose the normal sex-specific call rate. FoxP1 is co-expressed with the androgen receptor in striatal medium spiny neurons, and FOXP1 heterodimerizes with FOXP2, tying this node to the canonical speech-and-language pathway. The proximate mechanism is subtype specific: FOXP1 strengthens and matures the long-range cortical and thalamic glutamatergic inputs onto D2 (indirect-pathway) SPNs and thereby promotes their synaptically driven excitability. Critically, postnatal FOXP1 reinstatement in mice rescues the electrophysiological, cell-type-specific transcriptional, and behavioral abnormalities, so at least part of this node is not a fixed prenatal malformation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"regulation of membrane potential\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Anticonvulsant Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard anti-seizure medication is used for the subset of individuals with epilepsy. No FOXP1-specific regimen is established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety disorders are common in childhood and remain among the most prominent psychiatric features in adolescence and adulthood.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD is the most common formal psychiatric diagnosis in FOXP1 syndrome and is frequently undertreated; medication use for ADHD features is common in adolescents and adults, though multiple trials may be needed.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Autism Spectrum Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder or autistic features. In prospectively assessed cohorts a minority meet full diagnostic criteria, although autistic traits are far more widespread; standardized ASD testing shows high sensitivity but low specificity against expert consensus diagnosis in this population.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Autistic Features and Behavioral Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A complex neurobehavioral profile rather than a single behavioral diagnosis. Restricted and repetitive behaviors are near-universal even in individuals who do not meet criteria for autism spectrum disorder; ADHD is the most common formal psychiatric diagnosis, followed by anxiety, with sensory symptoms (particularly sensory seeking) common. The behavioral phenotype persists into adolescence and adulthood as anxiety plus externalizing behavior. The mechanistic path from FOXP1-dependent striatal and cortical circuits to these behaviors is supported by model systems but not established in humans.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Behavioral and Psychiatric Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Behavioral and psychological intervention addresses the near-universal restricted and repetitive behaviors, anxiety, and externalizing behaviors. Cohort data show that many individuals with formal ADHD or anxiety diagnoses were not receiving treatment for them, so systematic psychiatric assessment is an actionable gap.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital Cardiac Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac abnormalities are a recognized congenital malformation in FOXP1 syndrome, consistent with the requirement for Foxp1 in cardiomyocyte development in mice.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are among the most prevalent findings in affected males.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Bladder Control\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed acquisition of bladder control was the single most prevalent parent-reported medical symptom, and incontinence is ranked as disproportionately burdensome by families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000805\"}}, {\"id\": \"Dependence in Activities of Daily Living\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lifetime functional endpoint. Most individuals acquire some basic self-care tasks independently, but the majority rely heavily on caregivers, and many require continuous supervision into adulthood. Skills continue to accrue rather than decline, so the trajectory is one of slow gain against a persistent support requirement.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria impairing intelligibility is the dominant feature of the speech motor profile and is frequently untreated because it is not recognized.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysphagia is part of the core Orphanet clinical description.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced FOXP1 dosage releases repression of its direct targets and reconfigures the downstream network. Two arms are best characterized: de-repression of Notch pathway genes, notably the ligand Jagged1, which sustains Notch signaling and holds progenitors in a proliferative, undifferentiated state; and dysregulation of autism-associated signaling pathways and neuronal-activity genes, including a striatal neuron-identity program that is conserved between mouse brain and human neural progenitors. In developing neocortex the Foxp1-regulated networks are specifically enriched for neurogenesis and neuronal-migration effectors.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"Notch signaling pathway\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Expressive Language Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive speech is the most severely affected language domain in the classic description. In individuals with truncating or splice-site variants and small deletions, however, expressive ability is relatively preserved compared with comprehension, so the expressive/receptive profile is genotype dependent.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002474\"}}, {\"id\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXP1 is required outside the brain. In mice it has critical roles in spinal motor neuron, lymphocyte, cardiomyocyte, foregut and skeletal development, and reduced dosage in humans is associated with cardiac malformations, congenital anomalies of the kidney and urinary tract, cryptorchidism, ophthalmic anomalies, and recurrent sinopulmonary or airway infections. Which of these are obligate consequences of FOXP1 dosage versus variable stochastic developmental effects is unresolved; single-patient reports of lung and skeletal disease remain unreplicated.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"FOXP1 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"FOXP1\"], \"gene_terms\": [{\"label\": \"FOXP1\", \"id\": \"hgnc:3823\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"FOXP1 c.1267_1268delGT (p.Val423Hisfs*37)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A de novo frameshift allele identified by clinical exome sequencing in a child with autism, mild intellectual disability, severe hypotonia and severe speech and language impairment. Cellular assays showed disruption of both subcellular localization and transcriptional repression.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXP1\"], \"gene_terms\": [{\"label\": \"FOXP1\", \"id\": \"hgnc:3823\"}]}}, {\"id\": \"FOXP1 c.1574G\u003eA (p.Arg525Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent missense substitution in the forkhead DNA-binding domain, reported in three unrelated patients. It abolishes transcriptional repression while, uniquely among characterized FOXP1 alleles, preserving normal nuclear localization, evidence that loss of repression rather than mislocalization is the shared pathogenic consequence.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXP1\"], \"gene_terms\": [{\"label\": \"FOXP1\", \"id\": \"hgnc:3823\"}]}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties arise from oromotor dysfunction and are a target of supportive nutritional management.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delays in early motor and language milestones affecting all developmental domains, present in essentially every affected individual.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Global Developmental Delay and Intellectual Disability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired cortical and striatal development produces early motor and language milestone delay and mild-to-severe intellectual disability, present in essentially all affected individuals. Longitudinal caregiver report finds continued, if slow, acquisition of adaptive skills into adulthood, with no developmental regression, neuropsychiatric decompensation, or catatonia, distinguishing FOXP1 syndrome from regressive neurodevelopmental disorders.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Heterozygous FOXP1 Loss-of-Function Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous, usually de novo, pathogenic FOXP1 variant: whole- or partial-gene deletion, frameshift, nonsense, essential splice-site change, in-frame deletion, or missense substitution. Missense and in-frame alleles cluster in the C-terminal forkhead DNA-binding domain, where they either perturb residues required for DNA contact or interfere with the domain swap that mediates FOXP1 dimerization. FOXP1 also heterodimerizes with its paralog FOXP2, the classic speech-and-language gene, which is one route by which reduced FOXP1 dosage reaches speech circuitry.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DNA-binding transcription factor activity\", \"FOXP1 domain-swap dimerization\"], \"genes\": [\"FOXP1\"], \"gene_terms\": [{\"label\": \"FOXP1\", \"id\": \"hgnc:3823\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypermetropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperopia is among the most prevalent parent-reported findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000540\"}}, {\"id\": \"Impaired Cortical Radial Migration and Neuronal Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Foxp1 is required for radial migration of newly generated cortical neurons. Suppressing Foxp1 in mouse cerebral cortex produces a migration defect that is rescued by Foxp1 re-expression, with ectopic neurons persisting in deep cortical layers postnatally. Differentiation per se is preserved in that model, but the neurons show inhibited axonal growth, a weakened multipolar-to-bipolar transition, and altered late dendritic maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebral cortex neuron\", \"glutamatergic projection neuron\"], \"biological_processes\": [\"cerebral cortex radial glia-guided migration\", \"neuron migration\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Neural Progenitor Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXP1 is expressed in embryonic neural stem cells, and reducing it shifts the balance away from neuronal (and astrocytic) differentiation. In utero FOXP1 knockdown reduces neural stem cell differentiation and migration during corticogenesis, and transplanted FOXP1-knockdown neural stem cells fail to differentiate and function normally in vivo. The mechanism is established in murine and cellular models; direct confirmation in human FOXP1-syndrome brain tissue is lacking.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\", \"radial glial cell\"], \"biological_processes\": [\"neuron differentiation\", \"neural precursor cell proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Speech Motor and Vocal Communication Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical convergence point that distinguishes FOXP1 syndrome from other syndromic intellectual disabilities: speech and language impairment is present in essentially every affected individual regardless of cognitive level. The profile is complex rather than a pure verbal dyspraxia - all verbal patients show dysarthric and apraxic features with persistent phonological errors, and in individuals with truncating or splice-site variants and small deletions expressive ability is relatively preserved compared with comprehension. This differs from the primary oromotor verbal dyspraxia of FOXP2 deficiency.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Striatal Medium Spiny Neuron Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FoxP1 is the most highly upregulated gene in the developing mouse whole ganglionic eminence, marks medium spiny projection neurons from precursor through maturity, and co-localizes with essentially all striatal DARPP-32 positive projection neurons without labelling interneurons. FoxP1 knockout ganglionic eminence fails to generate DARPP-32-positive medium spiny neurons in vitro, establishing FoxP1 as required for their differentiation. The same expression pattern is present in human fetal brain at equivalent gestational stages.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"medium spiny neuron\"], \"biological_processes\": [\"striatum development\", \"neuron differentiation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-severe intellectual deficits. Severity is variable and does not predict the degree of speech impairment.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of FOXP1 Transcriptional Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXP1 is a sequence-specific transcriptional repressor. Pathogenic alleles converge on loss of repression activity, most often accompanied by abnormal subcellular (cytoplasmic or aggregated nuclear) localization; the recurrent p.Arg525Gln allele loses repression while retaining normal nuclear localization, showing that the repression defect, not mislocalization per se, is the shared consequence. Repression is exerted in part through interaction with the NuRD chromatin-remodeling complex, an interaction that requires SUMOylation of FOXP1 during embryonic brain development.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"negative regulation of transcription by RNA polymerase II\", \"FOXP1 SUMOylation required for NuRD interaction\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micropenis is reported in a small minority of affected males.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000054\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed early gross and fine motor milestones, including delayed gross motor skills and visual-motor integration deficits.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopia is the single most frequently reported refractive error in the pooled literature, alongside hypermetropia and amblyopia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Neocortical Cytoarchitectonic Alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mispositioned cortical neurons yield altered neocortical cytoarchitecture and circuit assembly. In forebrain-specific Foxp1 conditional knockout mice this is accompanied by impaired neonatal vocalization, providing the closest model-system correlate of the human speech phenotype. In affected humans, imaging shows only non-specific structural brain abnormalities, so the correspondence between the murine cytoarchitectonic lesion and human cortical pathology is inferred rather than demonstrated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebral cortex neuron\"], \"biological_processes\": [\"cerebral cortex development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Oromotor Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oromotor dysfunction contributes to both the speech impairment and to feeding difficulties.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007301\"}}, {\"id\": \"Pharmacotherapy for ADHD Symptoms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Medication for ADHD features, typically CNS stimulants such as methylphenidate, is commonly used in adolescents and adults with FOXP1 syndrome. Caregiver-reported experience indicates that multiple medication trials may be required before benefit is achieved, so a structured trial plan is appropriate. No FOXP1-specific efficacy trial has been performed; prescribing follows general ADHD practice. A tolerability caveat is documented: the investigators of a French psychiatric-phenotyping study record family reports of ineffectiveness and poor tolerance of methylphenidate in this population, so response should not be assumed and stimulant trials warrant close monitoring.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"CNS stimulant\", \"methylphenidate\"]}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy addresses gross-motor delay and abnormal muscle tone.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Airway and sinopulmonary infections recur in FOXP1 syndrome, consistent with the requirement for Foxp1 in lymphocyte development in mice.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002205\"}}, {\"id\": \"Refractive Error\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Refractive errors are a common ophthalmologic finding; hypermetropia is the specific error most often reported by parents.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000539\"}}, {\"id\": \"Renal and Urinary Tract Anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital anomalies of the kidney and urinary tract are an established extra-CNS association of FOXP1 haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000079\"}}, {\"id\": \"Restricted and Repetitive Behaviors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted and repetitive behaviors are almost universal, occurring even in individuals who do not meet criteria for autism spectrum disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031432\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is listed by GeneReviews among the common findings; epileptiform discharges were among the presenting features in an early FOXP1-deletion case report.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleeping problems are among the most prevalent parent-reported symptoms and are listed by GeneReviews among the behavior abnormalities.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech Apraxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Features of speech apraxia occur alongside persistent phonological errors. Unlike FOXP2 deficiency, primary oromotor verbal dyspraxia is not the distinguishing feature of the FOXP1 speech profile.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011098\"}}, {\"id\": \"Speech and Language Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate-to-severe speech and language impairment present in all affected individuals regardless of cognitive level. This is the distinguishing feature of the disorder.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language pathology is central to management. Because dysarthria rather than pure apraxia dominates the profile, therapy should be targeted at dysarthria and phonology; in one cohort no participant was receiving dysarthria-directed therapy despite being good candidates for it. Alternative and augmentative communication is appropriate for minimally verbal individuals.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a recurrent ophthalmologic finding.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Structural Brain Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-specific structural brain abnormalities are seen in roughly half of imaged individuals and include dilated lateral ventricles, white-matter abnormalities, arachnoid cysts, large cisterna magna, corpus callosum defects, frontal atrophy, cerebellar defects, and Chiari I malformation. The findings are heterogeneous and not diagnostic.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012443\"}}], \"edges\": [{\"source\": \"Heterozygous FOXP1 Loss-of-Function Variation\", \"target\": \"Loss of FOXP1 Transcriptional Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of FOXP1 Transcriptional Repression\", \"target\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of FOXP1 Transcriptional Repression\", \"target\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Impaired Neural Progenitor Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Impaired Striatal Medium Spiny Neuron Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Impaired Cortical Radial Migration and Neuronal Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Structural Brain Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted FOXP1-dependent brain development is the presumed origin of the heterogeneous structural brain abnormalities seen on imaging in about half of individuals (ventricular dilatation, white-matter abnormalities, corpus callosum defects, cerebellar defects). The findings are non-specific and no lesion-by-lesion mechanism has been established, hence INDIRECT_UNKNOWN_INTERMEDIATES.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Progenitor Differentiation\", \"target\": \"Neocortical Cytoarchitectonic Alteration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced and mistimed neuronal output from the ventricular and subventricular zone leads to abnormal laminar positioning of cortical neurons.\"]}, {\"source\": \"Impaired Cortical Radial Migration and Neuronal Morphogenesis\", \"target\": \"Neocortical Cytoarchitectonic Alteration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neocortical Cytoarchitectonic Alteration\", \"target\": \"Impaired Speech Motor and Vocal Communication Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered cortical circuit assembly in speech-motor and language-associated areas.\"]}, {\"source\": \"Neocortical Cytoarchitectonic Alteration\", \"target\": \"Autistic Features and Behavioral Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced dendritic spine density and disrupted somatosensory barrel organization, with reduced layer IV cortical activation and increased basolateral amygdala activation, produce aberrant sensory responsiveness.\"]}, {\"source\": \"Neocortical Cytoarchitectonic Alteration\", \"target\": \"Global Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Striatal Medium Spiny Neuron Development\", \"target\": \"Altered Striatal Circuit Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Striatal Circuit Excitability\", \"target\": \"Impaired Speech Motor and Vocal Communication Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Corticostriatal loop dysfunction affecting motor planning and programming for speech.\"]}, {\"source\": \"Altered Striatal Circuit Excitability\", \"target\": \"Autistic Features and Behavioral Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Speech and Language Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The impaired speech-motor and vocal-communication endpoint manifests clinically as the universal speech and language impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Expressive Language Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The language arm of the impairment presents as delayed expressive language, with a genotype-dependent expressive/receptive profile.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysarthria, the dominant feature of the speech profile, is the motor-execution component of the impaired speech-motor output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Speech Apraxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apraxic features reflect the motor planning and programming component of the impaired speech-motor output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Oromotor Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired motor control of the oral apparatus is the shared oromotor substrate of the speech deficit, and also contributes to feeding difficulties.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Oromotor dysfunction shared with the speech-motor deficit impairs sucking, chewing, and swallowing.\"]}, {\"source\": \"Impaired Speech Motor and Vocal Communication Output\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysphagia is the swallowing-level expression of the oromotor dysfunction that also drives the feeding difficulties.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Oromotor dysfunction impairs the oral and pharyngeal phases of swallowing.\"]}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Dependence in Activities of Daily Living\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The organism-level developmental endpoint manifests clinically as global developmental delay across cognitive, communication, social-emotional and motor domains.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild-to-severe intellectual disability is the cognitive-assessment-level expression of this endpoint.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed early gross and fine motor milestones are the motor-domain expression of the developmental endpoint, explicit in the node\u0027s characterization of early motor and language milestone delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Developmental Delay and Intellectual Disability\", \"target\": \"Delayed Bladder Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed acquisition of bladder control is curated as a developmental-milestone delay within the global developmental delay; no separate urologic mechanism has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Autism Spectrum Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of the behavioral profile meets full ASD diagnostic criteria (24% on prospective expert-consensus assessment); autistic traits are far more widespread.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ADHD is the most common formal psychiatric diagnosis within the behavioral profile (75% meeting DSM-5 criteria).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anxiety disorders are a core component of the behavioral profile in childhood and persist into adolescence and adulthood.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Restricted and Repetitive Behaviors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restricted and repetitive behaviors are the near-universal (95%) component of the behavioral profile, present even without an ASD diagnosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Aberrant Sensory Responsiveness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory symptoms, particularly sensory seeking, are part of the behavioral profile, with a candidate cortical substrate in the cortex-restricted mouse model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autistic Features and Behavioral Dysregulation\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep disturbances are grouped with the behavior abnormalities of the syndrome; no separate sleep-specific mechanism has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Congenital Cardiac Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac malformations are part of the extra-CNS malformation spectrum; the murine requirement for Foxp1 in cardiomyocyte development is the candidate mechanism, but the human intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Renal and Urinary Tract Anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital anomalies of the kidney and urinary tract are an established human association of FOXP1 haploinsufficiency; the developmental intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cryptorchidism belongs to the urogenital arm of the extra-CNS malformation spectrum recorded by GeneReviews and Orphanet; its developmental intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Micropenis is a minority urogenital anomaly within the extra-CNS malformation spectrum; its developmental intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent sinopulmonary and airway infections are part of the extra-CNS phenotype; the murine requirement for Foxp1 in lymphocyte development is the candidate immune substrate, but no human immunodeficiency mechanism has been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Refractive Error\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refractive errors are the most common expression of the ophthalmic arm of the extra-CNS association spectrum; the ocular developmental intermediates are uncharacterized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Hypermetropia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypermetropia is the specific refractive error most often parent-reported, within the ophthalmic arm of the extra-CNS spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myopia is the most frequently reported refractive error in the pooled literature, within the ophthalmic arm of the extra-CNS spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-CNS Developmental Consequences of FOXP1 Dosage Reduction\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Strabismus is listed with the ophthalmic findings of the syndrome; whether it is a primary ocular anomaly or secondary to refractive error or neurodevelopmental ocular-motor control is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Speech and Language Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Intervention\", \"target\": \"Anxiety\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Intervention\", \"target\": \"Restricted and Repetitive Behaviors\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy for ADHD Symptoms\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticonvulsant Therapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FOXP1 Pathogenic Variants\", \"target\": \"Heterozygous FOXP1 Loss-of-Function Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXP1 c.1574G\u003eA (p.Arg525Gln)\", \"target\": \"FOXP1 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FOXP1 c.1267_1268delGT (p.Val423Hisfs*37)\", \"target\": \"FOXP1 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7298,6 +7494,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7312,6 +7511,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7339,6 +7539,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7360,6 +7561,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7425,6 +7627,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7439,6 +7644,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7463,6 +7669,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7517,6 +7724,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7531,6 +7741,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7596,6 +7807,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7610,6 +7824,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7634,6 +7849,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7690,6 +7906,9 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7704,6 +7923,7 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7769,6 +7989,9 @@ This clinical feature is Abnormality of refraction (HP:0000539). HP:0000539 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7783,6 +8006,7 @@ This clinical feature is Abnormality of refraction (HP:0000539). HP:0000539 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7837,6 +8061,9 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7851,6 +8078,7 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7907,6 +8135,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7921,6 +8152,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7948,6 +8180,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7969,6 +8202,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8025,6 +8259,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8039,6 +8276,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8063,6 +8301,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8119,6 +8358,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8133,6 +8375,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8157,6 +8400,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8213,6 +8457,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8227,6 +8474,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8292,6 +8540,9 @@ This clinical feature is Congenital anomaly of the kidney and urinary tract, ann
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8306,6 +8557,7 @@ This clinical feature is Congenital anomaly of the kidney and urinary tract, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8330,6 +8582,7 @@ This clinical feature is Congenital anomaly of the kidney and urinary tract, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8386,6 +8639,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8400,6 +8656,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8427,6 +8684,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8448,6 +8706,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8504,6 +8763,9 @@ This clinical feature is Enuresis (HP:0000805). HP:0000805 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8518,6 +8780,7 @@ This clinical feature is Enuresis (HP:0000805). HP:0000805 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8574,6 +8837,9 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8588,6 +8854,7 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8653,6 +8920,9 @@ This clinical feature is Broad, prominent forehead, annotated with Prominent for
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8667,6 +8937,7 @@ This clinical feature is Broad, prominent forehead, annotated with Prominent for
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8694,6 +8965,7 @@ This clinical feature is Broad, prominent forehead, annotated with Prominent for
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8715,6 +8987,7 @@ This clinical feature is Broad, prominent forehead, annotated with Prominent for
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8771,6 +9044,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8785,6 +9061,7 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8809,6 +9086,7 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8865,6 +9143,9 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8879,6 +9160,7 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8903,6 +9185,7 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8959,6 +9242,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8973,6 +9259,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9000,6 +9287,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9021,6 +9309,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9075,6 +9364,9 @@ This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9089,6 +9381,7 @@ This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9152,6 +9445,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9166,6 +9462,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9190,6 +9487,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9257,6 +9555,9 @@ This clinical feature is Frontal upsweep of hair (HP:0002236). HP:0002236 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9271,6 +9572,7 @@ This clinical feature is Frontal upsweep of hair (HP:0002236). HP:0002236 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9295,6 +9597,7 @@ This clinical feature is Frontal upsweep of hair (HP:0002236). HP:0002236 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9349,6 +9652,9 @@ This clinical feature is Prominent fingertip pads (HP:0001212). HP:0001212 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9363,6 +9669,7 @@ This clinical feature is Prominent fingertip pads (HP:0001212). HP:0001212 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9417,6 +9724,9 @@ This clinical feature is Sacral dimple (HP:0000960). HP:0000960 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9431,6 +9741,7 @@ This clinical feature is Sacral dimple (HP:0000960). HP:0000960 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9496,6 +9807,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9510,6 +9824,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9537,6 +9852,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9558,6 +9874,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9614,6 +9931,9 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9628,6 +9948,7 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9652,6 +9973,7 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9680,6 +10002,7 @@ tures (16/56; 29%) were present in about a third of cases."</div>
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9737,6 +10060,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9751,6 +10077,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9816,6 +10143,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9830,6 +10160,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9854,6 +10185,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9910,6 +10242,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9924,6 +10259,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9951,6 +10287,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9972,6 +10309,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10030,6 +10368,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10044,6 +10385,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10071,6 +10413,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10092,6 +10435,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10146,6 +10490,9 @@ This clinical feature is Expressive language delay (HP:0002474). HP:0002474 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10160,6 +10507,7 @@ This clinical feature is Expressive language delay (HP:0002474). HP:0002474 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10184,6 +10532,7 @@ This clinical feature is Expressive language delay (HP:0002474). HP:0002474 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10240,6 +10589,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10254,6 +10606,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10278,6 +10631,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10334,6 +10688,9 @@ This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10348,6 +10705,7 @@ This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10372,6 +10730,7 @@ This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10428,6 +10787,9 @@ This clinical feature is Oromotor dysfunction, annotated with Oromotor apraxia (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10442,6 +10804,7 @@ This clinical feature is Oromotor dysfunction, annotated with Oromotor apraxia (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10498,6 +10861,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10512,6 +10878,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10536,6 +10903,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10592,6 +10960,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10606,6 +10977,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10633,6 +11005,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10654,6 +11027,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10708,6 +11082,9 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10722,6 +11099,7 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10778,6 +11156,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10792,6 +11173,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10819,6 +11201,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10843,6 +11226,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10898,6 +11282,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10912,6 +11299,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10968,6 +11356,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10982,6 +11373,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11009,6 +11401,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11030,6 +11423,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11088,6 +11482,9 @@ This clinical feature is Restricted or repetitive behaviors or interests (HP:003
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11102,6 +11499,7 @@ This clinical feature is Restricted or repetitive behaviors or interests (HP:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11156,6 +11554,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11170,6 +11571,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11194,6 +11596,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11252,6 +11655,9 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11266,6 +11672,7 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11290,6 +11697,7 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11346,6 +11754,9 @@ This clinical feature is Sensory symptoms and sensory seeking, annotated with Se
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11360,6 +11771,7 @@ This clinical feature is Sensory symptoms and sensory seeking, annotated with Se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11387,6 +11799,7 @@ This clinical feature is Sensory symptoms and sensory seeking, annotated with Se
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -11451,6 +11864,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11465,6 +11881,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11521,6 +11938,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11535,6 +11955,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11635,6 +12056,9 @@ This disease-associated gene is FOXP1 (hgnc:3823). hgnc:3823 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
@@ -11657,6 +12081,7 @@ This disease-associated gene is FOXP1 (hgnc:3823). hgnc:3823 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11684,6 +12109,7 @@ This disease-associated gene is FOXP1 (hgnc:3823). hgnc:3823 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11705,6 +12131,7 @@ This disease-associated gene is FOXP1 (hgnc:3823). hgnc:3823 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11751,6 +12178,7 @@ This disease-associated gene is FOXP1 (hgnc:3823). hgnc:3823 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11772,7 +12200,13 @@ This variant is in FOXP1 (hgnc:3823). hgnc:3823 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent missense substitution in the forkhead DNA-binding domain, reported in three unrelated patients. It abolishes transcriptional repression while, uniquely among characterized FOXP1 alleles, preserving normal nuclear localization, evidence that loss of repression rather than mislocalization is the shared pathogenic consequence.</div>
@@ -11799,6 +12233,7 @@ This variant is in FOXP1 (hgnc:3823). hgnc:3823 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11832,6 +12267,7 @@ This variant is in FOXP1 (hgnc:3823). hgnc:3823 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11853,7 +12289,13 @@ This variant is in FOXP1 (hgnc:3823). hgnc:3823 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A de novo frameshift allele identified by clinical exome sequencing in a child with autism, mild intellectual disability, severe hypotonia and severe speech and language impairment. Cellular assays showed disruption of both subcellular localization and transcriptional repression.</div>
@@ -11880,6 +12322,7 @@ This variant is in FOXP1 (hgnc:3823). hgnc:3823 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11966,6 +12409,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11976,6 +12422,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -12003,6 +12452,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12072,6 +12522,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12082,6 +12535,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -12151,6 +12607,7 @@ This treatment targets Dysarthria (HP:0001260). HP:0001260 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12172,6 +12629,7 @@ This treatment targets Dysarthria (HP:0001260). HP:0001260 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12241,6 +12699,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12251,6 +12712,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -12281,6 +12745,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12302,6 +12767,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12371,6 +12837,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12381,6 +12850,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -12430,6 +12902,7 @@ This treatment targets Motor delay (HP:0001270). HP:0001270 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12499,6 +12972,9 @@ This treatment is behavioral intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12509,6 +12985,9 @@ This treatment is behavioral intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -12575,6 +13054,7 @@ This treatment targets Restricted or repetitive behaviors or interests (HP:00314
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12682,6 +13162,9 @@ This treatment uses methylphenidate (CHEBI:6887). CHEBI:6887 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12692,6 +13175,9 @@ This treatment uses methylphenidate (CHEBI:6887). CHEBI:6887 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -12744,6 +13230,7 @@ This treatment targets Attention deficit hyperactivity disorder (HP:0007018). HP
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12765,6 +13252,7 @@ This treatment targets Attention deficit hyperactivity disorder (HP:0007018). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12834,6 +13322,9 @@ This treatment is anticonvulsant therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12844,6 +13335,9 @@ This treatment is anticonvulsant therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -12893,6 +13387,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12962,6 +13457,9 @@ This treatment is disease screening and surveillance, annotated with Disease Scr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12972,6 +13470,9 @@ This treatment is disease screening and surveillance, annotated with Disease Scr
 
 
     </div>
+
+
+
 
 
 
@@ -12999,6 +13500,7 @@ This treatment is disease screening and surveillance, annotated with Disease Scr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13068,6 +13570,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -13078,6 +13583,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -13105,6 +13613,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13182,6 +13691,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13203,6 +13713,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13273,6 +13784,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13297,6 +13809,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13318,6 +13831,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13389,6 +13903,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13413,6 +13928,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13434,6 +13950,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13503,6 +14020,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13524,6 +14042,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13596,6 +14115,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13620,6 +14140,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13641,6 +14162,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13766,6 +14288,7 @@ This clinical trial targets Autism (HP:0000717). HP:0000717 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13853,6 +14376,7 @@ This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13945,6 +14469,7 @@ This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14015,6 +14540,7 @@ This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14091,6 +14617,7 @@ This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14164,6 +14691,7 @@ This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14185,6 +14713,7 @@ This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14261,6 +14790,7 @@ This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14282,6 +14812,7 @@ This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18558,6 +19089,35 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Frequency bands are asserted only where a quantitative or explicitly universal statement is available. Most bands are anchored on the pooled 62-person literature review (PMID:33892622) or on the prospective Mount Sinai cohorts (PMID:29090079, PMID:34588003, PMID:40066139): speech/language 60/60 (100%), motor delay 59/61 (97%), ID/GDD 55/61 (90%), prominent forehead 48/59 (81%), ADHD 75%, short nose with broad tip 41/59 (69%), articulation problems 32/48 (67%), psychiatric comorbidity 32/56 (57%), brain abnormality 29/58 (50%), myopia 29/58 (50%), downslanted palpebral fissures 24/59 (41%), anxiety 38%, ptosis 22/59 (37%), hypertonia/muscle spasms 20/58 (34%), congenital heart defect 17/56 (30%), hypotonia 18/62 (29%), hypertelorism 17/59 (29%), contractures 16/56 (29%), frontal hair upsweep 16/59 (27%), ASD 24%, cryptorchidism 9/41 males (22%), feeding issues 13/62 (21%), strabismus 11/60 (18%), hearing loss 8/48 (17%), macrocephaly 9/59 (15%), short stature 8/60 (13%), seizures 7/59 (12%), recurrent ear infections 7/60 (12%), micropenis 3/41 males (7%), obesity 3/60 (5%). Two ASD figures exist and are deliberately not averaged: 24% met formal DSM-5 criteria on prospective expert-consensus assessment, whereas 50% had ASD *features* on retrospective literature aggregation; the curated band follows the stricter prospective figure with the higher figure retained as an indirect (directness: INDIRECT) evidence item. GeneReviews lists oromotor dysfunction, refractive errors, strabismus, cardiac abnormalities, renal abnormalities, cryptorchidism, hypertonia, hearing loss and epilepsy collectively as &#34;other common findings&#34;; because the qualifier applies to the group rather than to each item, no frequency band is ever derived from that collective wording — bands on those phenotypes, where present, come from the pooled-review percentages above, and phenotypes with no quantitative source (oromotor dysfunction, refractive errors, renal/urinary tract anomaly) carry no band.
+No conforms_to module reference is asserted. The candidate modules were reviewed and none fits: FOXP1 syndrome is a transcription-factor haploinsufficiency neurodevelopmental disorder whose mechanism (loss of transcriptional repression, leading to impaired cortical migration and striatal medium spiny neuron differentiation) is not represented by any current kb/modules entry. The epilepsy_excitation_inhibition_imbalance module was considered for the seizure arm, but epilepsy is a minority, non-defining feature here and this entry does not curate an excitation/inhibition-imbalance node, so declaring conformance would be unsupported.
+The 2010 index case (PMID:20571508) contributes Chiari I malformation and epileptiform discharges as single-patient observations; both are curated without a frequency. The lung disease resembling neuroendocrine cell hyperplasia of infancy and the skeletal undertubulation phenotype reported in PMID:28884888 are deliberately NOT curated as phenotypes: they are unreplicated single-patient findings that the authors themselves attribute to possible stochastic developmental variation. They are represented only in the Extra-CNS pathophysiology node description and its INDIRECT-directness evidence item.
+Deep research: an Edison/Falcon deep-research run (research/FOXP1_Syndrome-deep-research-falcon.md, 2026-07-31) was used as a lead source only. Its NEC preflight passed (report gene FOXP1, MONDO:0013352, 3p14.1 - matching the intended entity). Every DR-sourced item was independently re-derived: DOIs were resolved to PMIDs via the PMC ID converter, abstracts were fetched with just fetch-reference, and all snippets were verified as exact substrings of the cached text. Two DR suggestions were rejected on verification: HP:0002167 was proposed for speech apraxia (the correct term is HP:0011098; HP:0002167 is Neurological speech impairment), and HP:0000431 was proposed for &#34;wide nasal tip&#34; when its actual label is Wide nasal bridge. The DR report also stated that no Orphanet code could be established; ORPHA:391372 was confirmed independently from the MONDO record and the Orphadata cache. Cytoband is reported as 3p13 by PMID:24214399 and 3p14.1 by the pooled review; the entry quotes the sourced 3p13 statement.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: FOXP1 Syndrome</strong> · 2026-08-01T01:56:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/FOXP1_Syndrome/2026-08-01T015624Z-claude-code-43ad7d.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/FOXP1_Syndrome.yaml (MONDO:0013352; FOXP1 / hgnc:3823; OMIM 613670; ORPHA:391372) from a minimal stub.
+
+Content curated: 46 phenotypes with HPO bindings across neurologic, behavioral, ophthalmologic, cardiovascular, renal, genitourinary, gastrointestinal, craniofacial, musculoskeletal, otologic, immunologic and growth categories; a 13-node pathophysiology graph with causal downstream edges running heterozygous FOXP1 loss-of-function to loss of transcriptional repression, to a dysregulated neurodevelopmental transcriptional program (Notch/Jagged1 de-repression), to impaired neural progenitor differentiation, impaired cortical radial migration and impaired striatal medium spiny neuron development, to neocortical cytoarchitectonic alteration and altered striatal circuit excitability, and finally to impaired speech and vocal communication output, global developmental delay and intellectual disability, autistic features and behavioral dysregulation, and dependence in activities of daily living, plus a separate extra-CNS node. GO, CL and HGNC terms bound on the mechanism nodes. Genetic section with the FOXP1 gene descriptor, DE_NOVO variant origin, and two functionally characterized variants (p.Arg525Gln and p.Val423Hisfs*37). Structured prevalence (CASES_IN_LITERATURE, ULTRA_RARE). Nine treatments with NCIT terms and therapeutic_modality. Diagnosis block, a DIAGNOSTIC_CRITERIA definition, progression, clinical_burden, five animal models, two clinical trials, a differential diagnosis versus FOXP2-related disorder, and a HUMAN_MODEL_MISMATCH discussion on the postnatal FOXP1-reinstatement window with three proposed experiments.
+
+Deep research: an Edison/Falcon run (research/FOXP1_Syndrome-deep-research-falcon.md) was used as leads only. NEC preflight passed: the report gene FOXP1 and MONDO:0013352 match the intended entity. Every DR-sourced DOI was resolved to a PMID via the PMC ID converter and fetched with just fetch-reference. Two DR ontology suggestions were rejected on verification: HP:0002167 proposed for speech apraxia (correct term HP:0011098; HP:0002167 is Neurological speech impairment), and HP:0000431 proposed for wide nasal tip (its actual label is Wide nasal bridge). The DR report claimed no Orphanet code could be established; ORPHA:391372 was confirmed independently from the MONDO record and the Orphadata cache.
+
+GeneReviews PMID:37733892 was fetched, tagged in the top-level references block, and cross-referenced feature by feature against the Clinical Characteristics section. Quantitative frequency bands are anchored on the pooled 62-person review PMID:33892622 and the prospective Mount Sinai cohorts PMID:29090079, PMID:34588003 and PMID:40066139; frequency was deliberately omitted where GeneReviews applies &#34;common findings&#34; collectively to a group rather than to individual items.
+
+Validation: just validate passes (schema: No issues found; term validation passed; 179/179 snippets verified against cached references). just validate-terms and just validate-references pass individually. Compliance 97.9 percent global, 98.2 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

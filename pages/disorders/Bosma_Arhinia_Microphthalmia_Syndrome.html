@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4306,6 +4374,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4327,6 +4396,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4415,6 +4485,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4439,6 +4510,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4460,6 +4532,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4565,6 +4638,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4586,6 +4660,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4677,6 +4752,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4698,6 +4774,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4782,6 +4859,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4863,6 +4941,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4897,6 +4976,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smchd1-atpase-domain-chromatin-regulatory-alteration" data-dismech-node="SMCHD1 ATPase-domain chromatin regulatory alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">SMCHD1 ATPase-domain chromatin regulatory alteration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">BAMS-associated heterozygous missense variants cluster in the extended SMCHD1 ATPase domain and alter ATP hydrolysis, protein conformation, and local methylation. Many tested BAMS alleles increase ATPase activity, but shared alleles and incomplete functional testing make a universal gain-of-function label premature.</div>
 
@@ -5063,6 +5149,7 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5084,6 +5171,7 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5109,6 +5197,13 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-crest-transcriptional-adhesion-and-migration-dysregulation" data-dismech-node="Neural crest transcriptional, adhesion, and migration dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural crest transcriptional, adhesion, and migration dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Patient-derived neural crest stem cells show altered extracellular-matrix, cell-adhesion, PDGFR, ERBB3, integrin, and PI3K/AKT programs together with reduced migration. This is a plausible contributor to craniofacial malformation rather than a fully demonstrated in-vivo sequence.</div>
 
@@ -5268,6 +5363,7 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5290,6 +5386,13 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-placode-differentiation-and-adhesion-defect" data-dismech-node="Cranial placode differentiation and adhesion defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial placode differentiation and adhesion defect</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">BAMS patient-derived induced pluripotent stem cells differentiate poorly toward the cranial-placode lineage and show transcriptomic and methylomic dysregulation of cell adhesion without overt apoptosis.</div>
 
@@ -5415,6 +5518,7 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5437,6 +5541,13 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-nasal-olfactory-and-midfacial-development" data-dismech-node="Disrupted nasal, olfactory, and midfacial development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted nasal, olfactory, and midfacial development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Neural-crest and cranial-placode abnormalities converge on deficient development of the external nose, nares, nasal airway, paranasal sinuses, olfactory structures, palate, maxilla, teeth, and adjacent lacrimal anatomy.</div>
 
@@ -5652,6 +5763,7 @@ This pathophysiological event involves decreased nose development (GO:0043584). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5673,6 +5785,7 @@ This pathophysiological event involves decreased nose development (GO:0043584). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5698,6 +5811,13 @@ This pathophysiological event involves decreased nose development (GO:0043584). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-developmental-disruption" data-dismech-node="Ocular developmental disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular developmental disruption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">BAMS includes a variable ocular-developmental spectrum from microphthalmia or anophthalmia to coloboma, cataract, optic atrophy, amblyopia, and visual loss. Xenopus data support altered eye development, but the precise human cellular route from SMCHD1 remains unresolved.</div>
 
@@ -5884,6 +6004,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5906,6 +6027,13 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gnrh-deficiency-and-variable-reproductive-axis-development" data-dismech-node="GnRH deficiency and variable reproductive-axis development" data-dismech-type="pathophysiology">
                 <div class="item-name">GnRH deficiency and variable reproductive-axis development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Congenital arhinia is strongly associated with absent or reduced pulsatile GnRH activity, especially in males, but some females retain spontaneous pubertal development or a normal reproductive axis. Human data therefore support association rather than a uniform olfactory-dependent migration failure.</div>
 
@@ -6025,6 +6153,7 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6046,6 +6175,7 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6071,6 +6201,13 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unresolved-body-wall-developmental-consequences" data-dismech-node="Unresolved body-wall developmental consequences" data-dismech-type="pathophysiology">
                 <div class="item-name">Unresolved body-wall developmental consequences</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Inguinal hernia and abdominal-wall weakness recur in structured and historical BAMS descriptions, but no disease-specific molecular or cellular route currently explains them.</div>
 
@@ -6128,6 +6265,7 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6173,7 +6311,7 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal wall muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009023\"}}, {\"id\": \"Abnormal midface morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000309\"}}, {\"id\": \"Abnormality of taste sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogeusia or severe impairment of tastant recognition accompanies olfactory dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000223\"}}, {\"id\": \"Absent nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100596\"}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000646\"}}, {\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000528\"}}, {\"id\": \"Anosmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000458\"}}, {\"id\": \"Aplasia of the nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009927\"}}, {\"id\": \"Aplasia/Hypoplasia involving the nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009924\"}}, {\"id\": \"Bifid uvula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000193\"}}, {\"id\": \"Blindness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000618\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Choanal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000453\"}}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Cranial placode differentiation and adhesion defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAMS patient-derived induced pluripotent stem cells differentiate poorly toward the cranial-placode lineage and show transcriptomic and methylomic dysregulation of cell adhesion without overt apoptosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ectodermal placode development\", \"cell adhesion\"]}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Customized postoperative nasal stenting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A customized three-dimensional-printed silicone stent has been used after nasal-passage reconstruction to reduce restenosis while mucoepithelium regenerates. Evidence is a single congenital-arhinia case and does not establish comparative efficacy or BAMS-specific generalizability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dacryocystocele\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030752\"}}, {\"id\": \"Disrupted nasal, olfactory, and midfacial development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neural-crest and cranial-placode abnormalities converge on deficient development of the external nose, nares, nasal airway, paranasal sinuses, olfactory structures, palate, maxilla, teeth, and adjacent lacrimal anatomy.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nose development\"]}}, {\"id\": \"External genital hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003241\"}}, {\"id\": \"Failure of eruption of permanent teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006352\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal oral feeding may require enteral support, training, and adapted equipment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"GnRH deficiency and variable reproductive-axis development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Congenital arhinia is strongly associated with absent or reduced pulsatile GnRH activity, especially in males, but some females retain spontaneous pubertal development or a normal reproductive axis. Human data therefore support association rather than a uniform olfactory-dependent migration failure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gonadotropin secretion\"]}}, {\"id\": \"Gynecomastia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000771\"}}, {\"id\": \"High palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A high-arched palate may accompany the severe midfacial malformation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000218\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the orbits has been documented in molecularly confirmed neonatal BAMS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypogonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypoplasia of penis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008736\"}}, {\"id\": \"Hypoplasia of the maxilla\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000327\"}}, {\"id\": \"Hypoplasia of the olfactory bulb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0040326\"}}, {\"id\": \"Hyposmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004409\"}}, {\"id\": \"Inguinal hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Iris coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000612\"}}, {\"id\": \"Lacrimal duct atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The nasolacrimal duct may be absent, producing lacrimal-sac dilation or mucoceles.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000564\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Neonatal airway stabilization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Complete nasal obstruction requires immediate individualized airway planning. Oral or pharyngeal airway splinting may suffice in a stable newborn, whereas intubation followed by tracheostomy may be required for respiratory distress; the evidence is limited to case-based management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neonatal feeding adaptation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early feeding difficulty can be managed with enteral access when needed, drinking training, and adapted feeding equipment while coordination and growth are assessed.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neural crest transcriptional, adhesion, and migration dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived neural crest stem cells show altered extracellular-matrix, cell-adhesion, PDGFR, ERBB3, integrin, and PI3K/AKT programs together with reduced migration. This is a plausible contributor to craniofacial malformation rather than a fully demonstrated in-vivo sequence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural crest cell\"], \"biological_processes\": [\"neural crest cell migration\", \"cell adhesion\"]}}, {\"id\": \"Ocular developmental disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAMS includes a variable ocular-developmental spectrum from microphthalmia or anophthalmia to coloboma, cataract, optic atrophy, amblyopia, and visual loss. Xenopus data support altered eye development, but the precise human cellular route from SMCHD1 remains unresolved.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"eye morphogenesis\", \"camera-type eye morphogenesis\"], \"locations\": [\"eye\"]}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Paranasal sinus hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paranasal sinuses may be absent or markedly underdeveloped.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006784\"}}, {\"id\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAMS-associated heterozygous missense variants cluster in the extended SMCHD1 ATPase domain and alter ATP hydrolysis, protein conformation, and local methylation. Many tested BAMS alleles increase ATPase activity, but shared alleles and incomplete functional testing make a universal gain-of-function label premature.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"], \"genes\": [\"SMCHD1\"], \"gene_terms\": [{\"label\": \"SMCHD1\", \"id\": \"hgnc:29090\"}]}}, {\"id\": \"SMCHD1 ATPase-domain missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"SMCHD1\"], \"gene_terms\": [{\"label\": \"SMCHD1\", \"id\": \"hgnc:29090\"}], \"association\": \"Heterozygous ATPase-domain missense variants, commonly de novo but sometimes inherited with variable expressivity\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Single naris\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009932\"}}, {\"id\": \"Staged nasal and midface reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selected patients may undergo staged midface advancement, tissue expansion, and nasal construction to address absent nasal and midface structures. Timing and technique are individualized because evidence comes from very small case series and early surgery can affect midfacial growth.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Submucous cleft hard palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000176\"}}, {\"id\": \"Tooth malposition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000692\"}}, {\"id\": \"Unresolved body-wall developmental consequences\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inguinal hernia and abdominal-wall weakness recur in structured and historical BAMS descriptions, but no disease-specific molecular or cellular route currently explains them.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Visual loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000572\"}}], \"edges\": [{\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"Neural crest transcriptional, adhesion, and migration dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered SMCHD1 regulation changes neural-crest extracellular-matrix, receptor-signaling, and migration programs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered transcription of extracellular-matrix, PDGFR, ERBB3, integrin, and AKT-pathway genes\"]}, {\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"Cranial placode differentiation and adhesion defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient SMCHD1 variants are associated with impaired differentiation toward cranial-placode cells and altered adhesion programs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered placodal transcriptome and DNA methylome\", \"dysregulated cell-adhesion programs\"]}, {\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"Ocular developmental disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMCHD1 ATPase-domain variants are linked to ocular malformation through incompletely defined developmental intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"GnRH deficiency and variable reproductive-axis development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from SMCHD1 dysregulation to GnRH deficiency is unresolved and does not uniformly require absent olfactory structures.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"Unresolved body-wall developmental consequences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inguinal hernia and abdominal-wall weakness are recurrent clinical associations, but their route from SMCHD1 is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neural crest transcriptional, adhesion, and migration dysregulation\", \"target\": \"Disrupted nasal, olfactory, and midfacial development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced neural-crest migration is proposed to impair craniofacial morphogenesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced cranial neural-crest migration and altered extracellular-matrix interactions\"]}, {\"source\": \"Cranial placode differentiation and adhesion defect\", \"target\": \"Disrupted nasal, olfactory, and midfacial development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cranial-placode differentiation and adhesion provide a second human-cell route to failed nasal development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired placodal differentiation\", \"dysregulated placodal cell adhesion\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Absent nares\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Aplasia of the nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Aplasia/Hypoplasia involving the nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Single naris\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Choanal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Anosmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"absent or hypoplastic olfactory bulbs and nasal olfactory structures\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Hyposmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypoplastic olfactory structures\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Hypoplasia of the olfactory bulb\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Abnormal midface morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered midfacial morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Hypoplasia of the maxilla\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Cleft palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered midfacial and palatal morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Submucous cleft hard palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered palatal morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Bifid uvula\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered palatal morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"High palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered midfacial and palatal morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Abnormality of taste sensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Paranasal sinus hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Failure of eruption of permanent teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Tooth malposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Dacryocystocele\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"absent nasolacrimal duct\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Lacrimal duct atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neonatal oral-airway coordination difficulty\"]}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Amblyopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"congenital structural eye abnormality\"]}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Blindness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe congenital ocular malformation\"]}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Visual loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"microphthalmia, coloboma, cataract, or optic-nerve involvement\"]}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Iris coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Hypogonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"External genital hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"deficient gonadotropin and gonadal steroid signaling\"]}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Hypoplasia of penis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"deficient gonadotropin and androgen signaling\"]}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"deficient fetal gonadotropin and androgen signaling\"]}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Gynecomastia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unresolved body-wall developmental consequences\", \"target\": \"Inguinal hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unresolved body-wall developmental consequences\", \"target\": \"Abdominal wall muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal airway stabilization\", \"target\": \"Aplasia of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal airway stabilization\", \"target\": \"Choanal atresia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal feeding adaptation\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Staged nasal and midface reconstruction\", \"target\": \"Aplasia of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Staged nasal and midface reconstruction\", \"target\": \"Abnormal midface morphology\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Customized postoperative nasal stenting\", \"target\": \"Aplasia of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SMCHD1 ATPase-domain missense variants\", \"target\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal wall muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009023\"}}, {\"id\": \"Abnormal midface morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000309\"}}, {\"id\": \"Abnormality of taste sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogeusia or severe impairment of tastant recognition accompanies olfactory dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000223\"}}, {\"id\": \"Absent nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100596\"}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000646\"}}, {\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000528\"}}, {\"id\": \"Anosmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000458\"}}, {\"id\": \"Aplasia of the nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009927\"}}, {\"id\": \"Aplasia/Hypoplasia involving the nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009924\"}}, {\"id\": \"Bifid uvula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000193\"}}, {\"id\": \"Blindness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000618\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Choanal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000453\"}}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Cranial placode differentiation and adhesion defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAMS patient-derived induced pluripotent stem cells differentiate poorly toward the cranial-placode lineage and show transcriptomic and methylomic dysregulation of cell adhesion without overt apoptosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ectodermal placode development\", \"cell adhesion\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Customized postoperative nasal stenting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A customized three-dimensional-printed silicone stent has been used after nasal-passage reconstruction to reduce restenosis while mucoepithelium regenerates. Evidence is a single congenital-arhinia case and does not establish comparative efficacy or BAMS-specific generalizability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dacryocystocele\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030752\"}}, {\"id\": \"Disrupted nasal, olfactory, and midfacial development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neural-crest and cranial-placode abnormalities converge on deficient development of the external nose, nares, nasal airway, paranasal sinuses, olfactory structures, palate, maxilla, teeth, and adjacent lacrimal anatomy.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nose development\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"External genital hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003241\"}}, {\"id\": \"Failure of eruption of permanent teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006352\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal oral feeding may require enteral support, training, and adapted equipment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"GnRH deficiency and variable reproductive-axis development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Congenital arhinia is strongly associated with absent or reduced pulsatile GnRH activity, especially in males, but some females retain spontaneous pubertal development or a normal reproductive axis. Human data therefore support association rather than a uniform olfactory-dependent migration failure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gonadotropin secretion\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Gynecomastia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000771\"}}, {\"id\": \"High palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A high-arched palate may accompany the severe midfacial malformation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000218\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the orbits has been documented in molecularly confirmed neonatal BAMS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000135\"}}, {\"id\": \"Hypogonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypoplasia of penis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008736\"}}, {\"id\": \"Hypoplasia of the maxilla\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000327\"}}, {\"id\": \"Hypoplasia of the olfactory bulb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0040326\"}}, {\"id\": \"Hyposmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004409\"}}, {\"id\": \"Inguinal hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000023\"}}, {\"id\": \"Iris coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000612\"}}, {\"id\": \"Lacrimal duct atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The nasolacrimal duct may be absent, producing lacrimal-sac dilation or mucoceles.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000564\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Neonatal airway stabilization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Complete nasal obstruction requires immediate individualized airway planning. Oral or pharyngeal airway splinting may suffice in a stable newborn, whereas intubation followed by tracheostomy may be required for respiratory distress; the evidence is limited to case-based management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neonatal feeding adaptation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early feeding difficulty can be managed with enteral access when needed, drinking training, and adapted feeding equipment while coordination and growth are assessed.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neural crest transcriptional, adhesion, and migration dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived neural crest stem cells show altered extracellular-matrix, cell-adhesion, PDGFR, ERBB3, integrin, and PI3K/AKT programs together with reduced migration. This is a plausible contributor to craniofacial malformation rather than a fully demonstrated in-vivo sequence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural crest cell\"], \"biological_processes\": [\"neural crest cell migration\", \"cell adhesion\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Ocular developmental disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAMS includes a variable ocular-developmental spectrum from microphthalmia or anophthalmia to coloboma, cataract, optic atrophy, amblyopia, and visual loss. Xenopus data support altered eye development, but the precise human cellular route from SMCHD1 remains unresolved.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"eye morphogenesis\", \"camera-type eye morphogenesis\"], \"locations\": [\"eye\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Paranasal sinus hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paranasal sinuses may be absent or markedly underdeveloped.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006784\"}}, {\"id\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAMS-associated heterozygous missense variants cluster in the extended SMCHD1 ATPase domain and alter ATP hydrolysis, protein conformation, and local methylation. Many tested BAMS alleles increase ATPase activity, but shared alleles and incomplete functional testing make a universal gain-of-function label premature.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"], \"genes\": [\"SMCHD1\"], \"gene_terms\": [{\"label\": \"SMCHD1\", \"id\": \"hgnc:29090\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"SMCHD1 ATPase-domain missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"SMCHD1\"], \"gene_terms\": [{\"label\": \"SMCHD1\", \"id\": \"hgnc:29090\"}], \"association\": \"Heterozygous ATPase-domain missense variants, commonly de novo but sometimes inherited with variable expressivity\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Single naris\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009932\"}}, {\"id\": \"Staged nasal and midface reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selected patients may undergo staged midface advancement, tissue expansion, and nasal construction to address absent nasal and midface structures. Timing and technique are individualized because evidence comes from very small case series and early surgery can affect midfacial growth.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Submucous cleft hard palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000176\"}}, {\"id\": \"Tooth malposition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000692\"}}, {\"id\": \"Unresolved body-wall developmental consequences\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inguinal hernia and abdominal-wall weakness recur in structured and historical BAMS descriptions, but no disease-specific molecular or cellular route currently explains them.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Visual loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000572\"}}], \"edges\": [{\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"Neural crest transcriptional, adhesion, and migration dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered SMCHD1 regulation changes neural-crest extracellular-matrix, receptor-signaling, and migration programs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered transcription of extracellular-matrix, PDGFR, ERBB3, integrin, and AKT-pathway genes\"]}, {\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"Cranial placode differentiation and adhesion defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient SMCHD1 variants are associated with impaired differentiation toward cranial-placode cells and altered adhesion programs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered placodal transcriptome and DNA methylome\", \"dysregulated cell-adhesion programs\"]}, {\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"Ocular developmental disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMCHD1 ATPase-domain variants are linked to ocular malformation through incompletely defined developmental intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"GnRH deficiency and variable reproductive-axis development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from SMCHD1 dysregulation to GnRH deficiency is unresolved and does not uniformly require absent olfactory structures.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"target\": \"Unresolved body-wall developmental consequences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inguinal hernia and abdominal-wall weakness are recurrent clinical associations, but their route from SMCHD1 is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neural crest transcriptional, adhesion, and migration dysregulation\", \"target\": \"Disrupted nasal, olfactory, and midfacial development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced neural-crest migration is proposed to impair craniofacial morphogenesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced cranial neural-crest migration and altered extracellular-matrix interactions\"]}, {\"source\": \"Cranial placode differentiation and adhesion defect\", \"target\": \"Disrupted nasal, olfactory, and midfacial development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cranial-placode differentiation and adhesion provide a second human-cell route to failed nasal development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired placodal differentiation\", \"dysregulated placodal cell adhesion\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Absent nares\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Aplasia of the nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Aplasia/Hypoplasia involving the nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Single naris\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Choanal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Anosmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"absent or hypoplastic olfactory bulbs and nasal olfactory structures\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Hyposmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hypoplastic olfactory structures\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Hypoplasia of the olfactory bulb\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Abnormal midface morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered midfacial morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Hypoplasia of the maxilla\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Cleft palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered midfacial and palatal morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Submucous cleft hard palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered palatal morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Bifid uvula\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered palatal morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"High palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered midfacial and palatal morphogenesis\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Abnormality of taste sensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Paranasal sinus hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Failure of eruption of permanent teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Tooth malposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Dacryocystocele\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"absent nasolacrimal duct\"]}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Lacrimal duct atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted nasal, olfactory, and midfacial development\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neonatal oral-airway coordination difficulty\"]}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Amblyopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"congenital structural eye abnormality\"]}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Blindness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe congenital ocular malformation\"]}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Visual loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"microphthalmia, coloboma, cataract, or optic-nerve involvement\"]}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Iris coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular developmental disruption\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Hypogonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"External genital hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"deficient gonadotropin and gonadal steroid signaling\"]}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Hypoplasia of penis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"deficient gonadotropin and androgen signaling\"]}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"deficient fetal gonadotropin and androgen signaling\"]}, {\"source\": \"GnRH deficiency and variable reproductive-axis development\", \"target\": \"Gynecomastia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unresolved body-wall developmental consequences\", \"target\": \"Inguinal hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unresolved body-wall developmental consequences\", \"target\": \"Abdominal wall muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal airway stabilization\", \"target\": \"Aplasia of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal airway stabilization\", \"target\": \"Choanal atresia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal feeding adaptation\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Staged nasal and midface reconstruction\", \"target\": \"Aplasia of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Staged nasal and midface reconstruction\", \"target\": \"Abnormal midface morphology\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Customized postoperative nasal stenting\", \"target\": \"Aplasia of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SMCHD1 ATPase-domain missense variants\", \"target\": \"SMCHD1 ATPase-domain chromatin regulatory alteration\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6249,6 +6387,9 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6263,6 +6404,7 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6328,6 +6470,9 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6342,6 +6487,7 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6396,6 +6542,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6410,6 +6559,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6475,6 +6625,9 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6489,6 +6642,7 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6545,6 +6699,9 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6559,6 +6716,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6622,6 +6780,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6636,6 +6797,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6692,6 +6854,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6706,6 +6871,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6762,6 +6928,9 @@ This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6776,6 +6945,7 @@ This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6832,6 +7002,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6846,6 +7019,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6902,6 +7076,9 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6916,6 +7093,7 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6972,6 +7150,9 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6986,6 +7167,7 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7042,6 +7224,9 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7056,6 +7241,7 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7112,6 +7298,9 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7126,6 +7315,7 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7182,6 +7372,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7196,6 +7389,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7261,6 +7455,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7275,6 +7472,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7331,6 +7529,9 @@ This clinical feature is External genital hypoplasia (HP:0003241). HP:0003241 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7345,6 +7546,7 @@ This clinical feature is External genital hypoplasia (HP:0003241). HP:0003241 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7401,6 +7603,9 @@ This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7415,6 +7620,7 @@ This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7480,6 +7686,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7494,6 +7703,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7550,6 +7760,9 @@ This clinical feature is Submucous cleft hard palate (HP:0000176). HP:0000176 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7564,6 +7777,7 @@ This clinical feature is Submucous cleft hard palate (HP:0000176). HP:0000176 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7620,6 +7834,9 @@ This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7634,6 +7851,7 @@ This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7688,6 +7906,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7702,6 +7923,7 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7756,6 +7978,9 @@ This clinical feature is Abnormality of taste sensation (HP:0000223). HP:0000223
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7770,6 +7995,7 @@ This clinical feature is Abnormality of taste sensation (HP:0000223). HP:0000223
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7826,6 +8052,9 @@ This clinical feature is Abnormal midface morphology (HP:0000309). HP:0000309 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7840,6 +8069,7 @@ This clinical feature is Abnormal midface morphology (HP:0000309). HP:0000309 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7896,6 +8126,9 @@ This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7910,6 +8143,7 @@ This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7966,6 +8200,9 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7980,6 +8217,7 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8036,6 +8274,9 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8050,6 +8291,7 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8104,6 +8346,9 @@ This clinical feature is Lacrimal duct atresia (HP:0000564). HP:0000564 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8118,6 +8363,7 @@ This clinical feature is Lacrimal duct atresia (HP:0000564). HP:0000564 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8174,6 +8420,9 @@ This clinical feature is Tooth malposition (HP:0000692). HP:0000692 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8188,6 +8437,7 @@ This clinical feature is Tooth malposition (HP:0000692). HP:0000692 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8244,6 +8494,9 @@ This clinical feature is Hyposmia (HP:0004409). HP:0004409 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8258,6 +8511,7 @@ This clinical feature is Hyposmia (HP:0004409). HP:0004409 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8314,6 +8568,9 @@ This clinical feature is Failure of eruption of permanent teeth (HP:0006352). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8328,6 +8585,7 @@ This clinical feature is Failure of eruption of permanent teeth (HP:0006352). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8382,6 +8640,9 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8396,6 +8657,7 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8452,6 +8714,9 @@ This clinical feature is Aplasia/Hypoplasia involving the nose (HP:0009924). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8466,6 +8731,7 @@ This clinical feature is Aplasia/Hypoplasia involving the nose (HP:0009924). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8522,6 +8788,9 @@ This clinical feature is Aplasia of the nose (HP:0009927). HP:0009927 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8536,6 +8805,7 @@ This clinical feature is Aplasia of the nose (HP:0009927). HP:0009927 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8592,6 +8862,9 @@ This clinical feature is Single naris (HP:0009932). HP:0009932 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8606,6 +8879,7 @@ This clinical feature is Single naris (HP:0009932). HP:0009932 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8662,6 +8936,9 @@ This clinical feature is Dacryocystocele (HP:0030752). HP:0030752 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8676,6 +8953,7 @@ This clinical feature is Dacryocystocele (HP:0030752). HP:0030752 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8732,6 +9010,9 @@ This clinical feature is Absent nares (HP:0100596). HP:0100596 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8746,6 +9027,7 @@ This clinical feature is Absent nares (HP:0100596). HP:0100596 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8811,6 +9093,9 @@ This clinical feature is Abdominal wall muscle weakness (HP:0009023). HP:0009023
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8825,6 +9110,7 @@ This clinical feature is Abdominal wall muscle weakness (HP:0009023). HP:0009023
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8890,6 +9176,9 @@ This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:00403
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8904,6 +9193,7 @@ This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:00403
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9004,6 +9294,9 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -9018,6 +9311,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9045,6 +9339,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9066,6 +9361,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9151,6 +9447,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9216,6 +9513,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9257,6 +9555,12 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9333,6 +9637,7 @@ This treatment targets Choanal atresia (HP:0000453). HP:0000453 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9354,6 +9659,7 @@ This treatment targets Choanal atresia (HP:0000453). HP:0000453 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9428,6 +9734,12 @@ This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C1562
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Early feeding difficulty can be managed with enteral access when needed, drinking training, and adapted feeding equipment while coordination and growth are assessed.</div>
 
 
@@ -9471,6 +9783,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9532,6 +9845,12 @@ This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C1532
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9608,6 +9927,7 @@ This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9632,6 +9952,7 @@ This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9653,6 +9974,7 @@ This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9727,6 +10049,12 @@ This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C1532
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">A customized three-dimensional-printed silicone stent has been used after nasal-passage reconstruction to reduce restenosis while mucoepithelium regenerates. Evidence is a single congenital-arhinia case and does not establish comparative efficacy or BAMS-specific generalizability.</div>
 
 
@@ -9773,6 +10101,7 @@ This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9794,6 +10123,7 @@ This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9868,6 +10198,12 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Coordinated follow-up should include genetics, plastic and craniofacial surgery, ophthalmic plastics, otorhinolaryngology, and endocrinology, with particular attention to lacrimal drainage anatomy and pubertal development. The best operation for complete bilateral absence of the nasal cavity remains uncertain.</div>
 
 
@@ -9889,6 +10225,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9963,6 +10300,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling addresses de novo and inherited SMCHD1 variants, autosomal dominant transmission, variable expressivity from anosmia to arhinia, and recurrence risk.</div>
 
 
@@ -9984,6 +10327,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10094,6 +10438,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10183,6 +10528,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10204,6 +10550,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10296,6 +10643,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10317,6 +10665,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10387,6 +10736,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10408,6 +10758,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10463,6 +10814,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10484,6 +10836,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10539,6 +10892,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10560,6 +10914,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10634,6 +10989,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10684,6 +11040,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10753,6 +11110,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10774,6 +11132,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10858,6 +11217,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10986,6 +11346,7 @@ This dataset samples iPSC-derived neural crest stem cell, annotated with neural 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11070,6 +11431,7 @@ This clinical trial targets Aplasia of the nose (HP:0009927). HP:0009927 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11218,6 +11580,7 @@ This experimental model concerns SMCHD1 (hgnc:29090). hgnc:29090 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11344,6 +11707,7 @@ This experimental model concerns smchd1 (hgnc:29090). hgnc:29090 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13722,6 +14086,8 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4186,6 +4254,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4207,6 +4276,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4256,6 +4326,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gdf5-functional-haploinsufficiency" data-dismech-node="GDF5 Functional Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">GDF5 Functional Haploinsufficiency</div>
+
 
                 <div class="item-desc">GDF5 (CDMP1) is a secreted BMP-family ligand that acts through BMPR1B to drive chondrocyte differentiation and joint formation. BDC alleles are heterozygous frameshift, nonsense, and active-domain missense variants. Truncating alleles simply remove a functional copy; the missense alleles reach the same endpoint by a different route, failing to form the disulfide-linked dimers that the mature growth factor requires. Both converge on functional haploinsufficiency — roughly half the normal GDF5 activity — which distinguishes BDC from the dominant-negative BMPR1B alleles of type A2 and from the processing-site GDF5 allele that also causes A2.
 </div>
@@ -4307,6 +4378,72 @@ This pathophysiological event involves GDF5 (hgnc:4220). hgnc:4220 is a gene fro
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GDF5
+
+
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4220</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+        <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">Heterozygous GDF5 frameshift, nonsense and missense alleles. Recorded as LOSS_OF_FUNCTION: the mutational spectrum is dominated by truncating alleles and the disorder is attributed to functional haploinsufficiency for GDF5.</div>
+
+
+
 
 
 
@@ -4320,11 +4457,11 @@ This pathophysiological event involves GDF5 (hgnc:4220). hgnc:4220 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030509</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased BMP Signaling Pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4354,11 +4491,11 @@ This pathophysiological event involves decreased BMP Signaling Pathway (GO:00305
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060395" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0060395</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060395" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0060395</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased SMAD Protein Signal Transduction (GO:0060395). GO:0060395 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4423,6 +4560,7 @@ This pathophysiological event involves decreased SMAD Protein Signal Transductio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4444,6 +4582,7 @@ This pathophysiological event involves decreased SMAD Protein Signal Transductio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4471,6 +4610,7 @@ This pathophysiological event involves decreased SMAD Protein Signal Transductio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4494,6 +4634,7 @@ This pathophysiological event involves decreased SMAD Protein Signal Transductio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-gdf5-bmpr1b-signaling-in-the-digital-ray-and-interzone" data-dismech-node="Reduced GDF5-BMPR1B Signaling in the Digital Ray and Interzone" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GDF5-BMPR1B Signaling in the Digital Ray and Interzone</div>
 
+
                 <div class="item-desc">GDF5 is expressed in the joint interzone and controls both chondrocyte differentiation in the digital ray and the segmentation that separates phalanges. Lowering it disturbs the segmentation program in two directions at once, which is why BDC uniquely pairs missing middle-phalangeal length with supernumerary phalangeal segments: some interzones fail to make a normal segment, while others produce an extra, malformed one. GDF5 is also the BDA2 and (in semidominant families) the BDA1 gene, so the type of brachydactyly tracks the allele&#39;s specific effect on ligand maturation and receptor affinity rather than the identity of the gene.
 </div>
 
@@ -4509,11 +4650,11 @@ This pathophysiological event involves decreased SMAD Protein Signal Transductio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4539,11 +4680,11 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0008019</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0008019</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Prechondrogenic Mesenchymal Cell, annotated with mesenchymal cell (CL:0008019). CL:0008019 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4580,11 +4721,11 @@ This pathophysiological event involves Prechondrogenic Mesenchymal Cell, annotat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0002062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0002062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Chondrocyte Differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4614,11 +4755,11 @@ This pathophysiological event involves decreased Chondrocyte Differentiation (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042733" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042733</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042733" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042733</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (GO:0042733). GO:0042733 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4683,6 +4824,7 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4704,6 +4846,7 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4731,6 +4874,7 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4754,6 +4898,7 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brachymesophalangy-with-hyperphalangy-of-the-radial-digits" data-dismech-node="Brachymesophalangy with Hyperphalangy of the Radial Digits" data-dismech-type="pathophysiology">
                 <div class="item-name">Brachymesophalangy with Hyperphalangy of the Radial Digits</div>
 
+
                 <div class="item-desc">The realised malformation: short middle phalanges of the index, middle, and little fingers; an extra phalangeal segment in the index and middle fingers, often with an anomalous proximal-phalanx configuration that deviates the index finger ulnarly; and a short first metacarpal. Because the ring finger is spared it becomes the longest digit. Feet are normal or show only ordinary brachydactyly, so unlike most brachydactylies the hand carries nearly all of the phenotype. The &#34;angel-shaped phalanx&#34; is a distinctive radiographic variant within the same CDMP1 spectrum.
 </div>
 
@@ -4776,11 +4921,11 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0035108</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0035108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108). GO:0035108 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4879,6 +5024,7 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4900,6 +5046,7 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4948,7 +5095,7 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angel-Shaped Phalanx\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A distinctive radiographic sign within the CDMP1 spectrum, though far from universal - in a 42-child series only a single hand showed the complete picture.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0032078\"}}, {\"id\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The realised malformation: short middle phalanges of the index, middle, and little fingers; an extra phalangeal segment in the index and middle fingers, often with an anomalous proximal-phalanx configuration that deviates the index finger ulnarly; and a short first metacarpal. Because the ring finger is spared it becomes the longest digit. Feet are normal or show only ordinary brachydactyly, so unlike most brachydactylies the hand carries nearly all of the phenotype. The \\\"angel-shaped phalanx\\\" is a distinctive radiographic variant within the same CDMP1 spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Limb Morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Clinodactyly of the Index or Middle Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinodactyly is the feature that turns BDC from a radiographic curiosity into a surgical problem: in the largest reported series it fell mostly on the index or middle fingers and was operated on when it caused the digits to overlap.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030084\"}}, {\"id\": \"Finger Hyperphalangy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A supernumerary phalangeal segment, usually in the index and middle fingers, is the feature that separates BDC from the other brachymesophalangies.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030367\"}}, {\"id\": \"GDF5 Functional Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDF5 (CDMP1) is a secreted BMP-family ligand that acts through BMPR1B to drive chondrocyte differentiation and joint formation. BDC alleles are heterozygous frameshift, nonsense, and active-domain missense variants. Truncating alleles simply remove a functional copy; the missense alleles reach the same endpoint by a different route, failing to form the disulfide-linked dimers that the mature growth factor requires. Both converge on functional haploinsufficiency \\u2014 roughly half the normal GDF5 activity \\u2014 which distinguishes BDC from the dominant-negative BMPR1B alleles of type A2 and from the processing-site GDF5 allele that also causes A2.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"BMP Signaling Pathway\", \"SMAD Protein Signal Transduction\"], \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"role\": \"trigger\"}}, {\"id\": \"GDF5 Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Reduced GDF5-BMPR1B Signaling in the Digital Ray and Interzone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDF5 is expressed in the joint interzone and controls both chondrocyte differentiation in the digital ray and the segmentation that separates phalanges. Lowering it disturbs the segmentation program in two directions at once, which is why BDC uniquely pairs missing middle-phalangeal length with supernumerary phalangeal segments: some interzones fail to make a normal segment, while others produce an extra, malformed one. GDF5 is also the BDA2 and (in semidominant families) the BDA1 gene, so the type of brachydactyly tracks the allele\u0027s specific effect on ligand maturation and receptor affinity rather than the identity of the gene.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\", \"Prechondrogenic Mesenchymal Cell\"], \"biological_processes\": [\"Chondrocyte Differentiation\", \"Embryonic Digit Morphogenesis\"], \"role\": \"central_effector\"}}, {\"id\": \"Short First Metacarpal\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the first metacarpal is part of the classic BDC hand.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010034\"}}, {\"id\": \"Short Middle Phalanx of Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the middle phalanges of the index, middle, and little fingers.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0005819\"}}, {\"id\": \"Type C Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining pattern of brachymesophalangy in rays II, III, and V with hyperphalangy of rays II and III and a short first metacarpal.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0009373\"}}, {\"id\": \"Ulnar Deviation of the Index Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An anomalous configuration of the index proximal phalanx deflects the finger ulnarly.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009464\"}}], \"edges\": [{\"source\": \"GDF5 Functional Haploinsufficiency\", \"target\": \"Reduced GDF5-BMPR1B Signaling in the Digital Ray and Interzone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halved GDF5 activity lowers signalling through BMPR1B in the condensing digital ray and at the forming interphalangeal joints.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GDF5-BMPR1B Signaling in the Digital Ray and Interzone\", \"target\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The disturbed segmentation program yields short middle phalanges in rays II, III, and V and an extra phalangeal segment in rays II and III.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Type C Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Finger Hyperphalangy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Short Middle Phalanx of Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Short First Metacarpal\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Ulnar Deviation of the Index Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Clinodactyly of the Index or Middle Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Angel-Shaped Phalanx\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GDF5 Loss-of-Function Variants\", \"target\": \"GDF5 Functional Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angel-Shaped Phalanx\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A distinctive radiographic sign within the CDMP1 spectrum, though far from universal - in a 42-child series only a single hand showed the complete picture.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0032078\"}}, {\"id\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The realised malformation: short middle phalanges of the index, middle, and little fingers; an extra phalangeal segment in the index and middle fingers, often with an anomalous proximal-phalanx configuration that deviates the index finger ulnarly; and a short first metacarpal. Because the ring finger is spared it becomes the longest digit. Feet are normal or show only ordinary brachydactyly, so unlike most brachydactylies the hand carries nearly all of the phenotype. The \\\"angel-shaped phalanx\\\" is a distinctive radiographic variant within the same CDMP1 spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Limb Morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Clinodactyly of the Index or Middle Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinodactyly is the feature that turns BDC from a radiographic curiosity into a surgical problem: in the largest reported series it fell mostly on the index or middle fingers and was operated on when it caused the digits to overlap.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030084\"}}, {\"id\": \"Finger Hyperphalangy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A supernumerary phalangeal segment, usually in the index and middle fingers, is the feature that separates BDC from the other brachymesophalangies.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030367\"}}, {\"id\": \"GDF5 Functional Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDF5 (CDMP1) is a secreted BMP-family ligand that acts through BMPR1B to drive chondrocyte differentiation and joint formation. BDC alleles are heterozygous frameshift, nonsense, and active-domain missense variants. Truncating alleles simply remove a functional copy; the missense alleles reach the same endpoint by a different route, failing to form the disulfide-linked dimers that the mature growth factor requires. Both converge on functional haploinsufficiency \\u2014 roughly half the normal GDF5 activity \\u2014 which distinguishes BDC from the dominant-negative BMPR1B alleles of type A2 and from the processing-site GDF5 allele that also causes A2.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"BMP Signaling Pathway\", \"SMAD Protein Signal Transduction\"], \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous GDF5 frameshift, nonsense and missense alleles. Recorded as LOSS_OF_FUNCTION: the mutational spectrum is dominated by truncating alleles and the disorder is attributed to functional haploinsufficiency for GDF5.\", \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}]}, \"role\": \"trigger\"}}, {\"id\": \"GDF5 Loss-of-Function Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GDF5\"], \"gene_terms\": [{\"label\": \"GDF5\", \"id\": \"hgnc:4220\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Reduced GDF5-BMPR1B Signaling in the Digital Ray and Interzone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDF5 is expressed in the joint interzone and controls both chondrocyte differentiation in the digital ray and the segmentation that separates phalanges. Lowering it disturbs the segmentation program in two directions at once, which is why BDC uniquely pairs missing middle-phalangeal length with supernumerary phalangeal segments: some interzones fail to make a normal segment, while others produce an extra, malformed one. GDF5 is also the BDA2 and (in semidominant families) the BDA1 gene, so the type of brachydactyly tracks the allele\u0027s specific effect on ligand maturation and receptor affinity rather than the identity of the gene.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\", \"Prechondrogenic Mesenchymal Cell\"], \"biological_processes\": [\"Chondrocyte Differentiation\", \"Embryonic Digit Morphogenesis\"], \"role\": \"central_effector\"}}, {\"id\": \"Short First Metacarpal\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the first metacarpal is part of the classic BDC hand.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010034\"}}, {\"id\": \"Short Middle Phalanx of Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening of the middle phalanges of the index, middle, and little fingers.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0005819\"}}, {\"id\": \"Type C Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining pattern of brachymesophalangy in rays II, III, and V with hyperphalangy of rays II and III and a short first metacarpal.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0009373\"}}, {\"id\": \"Ulnar Deviation of the Index Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An anomalous configuration of the index proximal phalanx deflects the finger ulnarly.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009464\"}}], \"edges\": [{\"source\": \"GDF5 Functional Haploinsufficiency\", \"target\": \"Reduced GDF5-BMPR1B Signaling in the Digital Ray and Interzone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halved GDF5 activity lowers signalling through BMPR1B in the condensing digital ray and at the forming interphalangeal joints.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GDF5-BMPR1B Signaling in the Digital Ray and Interzone\", \"target\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The disturbed segmentation program yields short middle phalanges in rays II, III, and V and an extra phalangeal segment in rays II and III.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Type C Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Finger Hyperphalangy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Short Middle Phalanx of Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Short First Metacarpal\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Ulnar Deviation of the Index Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Clinodactyly of the Index or Middle Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Brachymesophalangy with Hyperphalangy of the Radial Digits\", \"target\": \"Angel-Shaped Phalanx\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GDF5 Loss-of-Function Variants\", \"target\": \"GDF5 Functional Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4982,15 +5129,18 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0009373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0009373</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Type C brachydactyly (HP:0009373). HP:0009373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5010,6 +5160,7 @@ This clinical feature is Type C brachydactyly (HP:0009373). HP:0009373 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5052,15 +5203,18 @@ This clinical feature is Type C brachydactyly (HP:0009373). HP:0009373 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030367" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0030367</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030367" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0030367</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Finger hyperphalangy (HP:0030367). HP:0030367 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5080,6 +5234,7 @@ This clinical feature is Finger hyperphalangy (HP:0030367). HP:0030367 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5122,15 +5277,18 @@ This clinical feature is Finger hyperphalangy (HP:0030367). HP:0030367 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005819</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0005819</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short middle phalanx of finger (HP:0005819). HP:0005819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5150,6 +5308,7 @@ This clinical feature is Short middle phalanx of finger (HP:0005819). HP:0005819
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5192,15 +5351,18 @@ This clinical feature is Short middle phalanx of finger (HP:0005819). HP:0005819
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0010034</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0010034</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short 1st metacarpal (HP:0010034). HP:0010034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5220,6 +5382,7 @@ This clinical feature is Short 1st metacarpal (HP:0010034). HP:0010034 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5262,15 +5425,18 @@ This clinical feature is Short 1st metacarpal (HP:0010034). HP:0010034 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009464" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0009464</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009464" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0009464</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ulnar deviation of the 2nd finger (HP:0009464). HP:0009464 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5290,6 +5456,7 @@ This clinical feature is Ulnar deviation of the 2nd finger (HP:0009464). HP:0009
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5332,15 +5499,18 @@ This clinical feature is Ulnar deviation of the 2nd finger (HP:0009464). HP:0009
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0030084</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030084</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5360,6 +5530,7 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5384,6 +5555,7 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5426,15 +5598,18 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032078" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0032078</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032078" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0032078</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Angel-shaped phalanx (HP:0032078). HP:0032078 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5454,6 +5629,7 @@ This clinical feature is Angel-shaped phalanx (HP:0032078). HP:0032078 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5478,6 +5654,7 @@ This clinical feature is Angel-shaped phalanx (HP:0032078). HP:0032078 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5535,10 +5712,10 @@ This clinical feature is Angel-shaped phalanx (HP:0032078). HP:0032078 is a phen
                         Gene: GDF5
 
 
-    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:4220</a>
+    <a href="https://bioregistry.io/hgnc:4220" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:4220</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5550,6 +5727,9 @@ This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -5568,6 +5748,7 @@ This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5595,6 +5776,7 @@ This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5616,6 +5798,7 @@ This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5668,7 +5851,7 @@ This disease-associated gene is GDF5 (hgnc:4220). hgnc:4220 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5703,6 +5886,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5713,6 +5899,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -5743,6 +5932,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5764,6 +5954,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5795,7 +5986,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5831,6 +6022,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5841,6 +6035,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -5871,6 +6068,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5895,6 +6093,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5916,6 +6115,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5947,7 +6147,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5983,6 +6183,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5993,6 +6196,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6020,6 +6226,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6051,7 +6258,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6087,6 +6294,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6097,6 +6307,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6124,6 +6337,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6187,11 +6401,11 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-21">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6234,6 +6448,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6255,6 +6470,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6332,6 +6548,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6353,6 +6570,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6541,6 +6759,19 @@ pathophysiology:
       id: GO:0060395
       label: SMAD protein signal transduction
     modifier: DECREASED
+  genetic_context:
+    gene:
+      preferred_term: GDF5
+      term:
+        id: hgnc:4220
+        label: GDF5
+    variant_origin: GERMLINE
+    zygosity: HETEROZYGOUS
+    functional_impact_category: LOSS_OF_FUNCTION
+    description: &gt;-
+      Heterozygous GDF5 frameshift, nonsense and missense alleles. Recorded as
+      LOSS_OF_FUNCTION: the mutational spectrum is dominated by truncating alleles and
+      the disorder is attributed to functional haploinsufficiency for GDF5.
   evidence:
   - reference: PMID:12357473
     reference_title: The mutational spectrum of brachydactyly type C.
@@ -7131,7 +7362,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Brachydactyly Type C", "mondoId": "MONDO:0007221", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brachydactyly_Type_C", "yamlRevision": "8b6a7ff5c0ba"};
+        const OS_CONFIG = {"diseaseName": "Brachydactyly Type C", "mondoId": "MONDO:0007221", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brachydactyly_Type_C", "yamlRevision": "0149f681b4d3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

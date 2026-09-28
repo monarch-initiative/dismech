@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cat-scratch%20Disease"
@@ -3956,7 +4024,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3977,7 +4045,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4185,6 +4253,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4206,6 +4275,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4254,11 +4324,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">13</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cat-associated-bartonella-inoculation" data-dismech-node="Cat-associated Bartonella inoculation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cat-associated Bartonella inoculation</div>
+
 
                 <div class="item-desc">Scratching or biting by a colonized cat inoculates B. henselae into local tissue, setting up the first infectious trigger for CSD.</div>
 
@@ -4317,6 +4388,14 @@ This pathophysiological event involves response to bacterium (GO:0009617). GO:00
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Inflammatory skin inoculation site</span>
+
+	                            <span class="crosslink-desc">Cat scratches or bites introduce B. henselae through a local skin wound.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Regional lymph node inflammation</span>
 
 	                            <span class="crosslink-desc">Inoculation leads to draining regional lymphadenitis.</span>
@@ -4346,6 +4425,7 @@ This pathophysiological event involves response to bacterium (GO:0009617). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4368,6 +4448,7 @@ This pathophysiological event involves response to bacterium (GO:0009617). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-lymph-node-inflammation" data-dismech-node="Regional lymph node inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional lymph node inflammation</div>
+
 
                 <div class="item-desc">Draining lymph nodes enlarge and inflame, producing the classic regional lymphadenopathy syndrome.</div>
 
@@ -4485,9 +4566,49 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Regional Lymphadenopathy</span>
+
+	                            <span class="crosslink-desc">Inflamed draining lymph nodes present as regional lymphadenopathy.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fever</span>
+
+	                            <span class="crosslink-desc">The host response to Bartonella infection can produce fever.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Atypical hepatosplenic dissemination</span>
 
 	                            <span class="crosslink-desc">Some patients develop systemic organ involvement rather than isolated nodal disease.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atypical osseous dissemination</span>
+
+	                            <span class="crosslink-desc">Severe disseminated CSD can involve bone as osteomyelitis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ocular neuroretinal inflammation</span>
+
+	                            <span class="crosslink-desc">Ocular CSD can involve the optic nerve and retina.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neurologic Bartonella encephalitis</span>
+
+	                            <span class="crosslink-desc">Disseminated Bartonella infection can involve the central nervous system.</span>
 
 
 	                        </div>
@@ -4514,6 +4635,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4536,6 +4658,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-bartonella-survival" data-dismech-node="Intracellular Bartonella survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracellular Bartonella survival</div>
+
 
                 <div class="item-desc">Bartonella species persist by surviving within host-cell intracellular compartments.</div>
 
@@ -4612,6 +4735,7 @@ This pathophysiological event involves dysregulated innate immune response (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4634,6 +4758,7 @@ This pathophysiological event involves dysregulated innate immune response (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antigenic-variation-mediated-immune-recognition-evasion" data-dismech-node="Antigenic variation-mediated immune recognition evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Antigenic variation-mediated immune recognition evasion</div>
+
 
                 <div class="item-desc">Bartonella alters exposed immunogenic surface proteins after infection, helping evade host immune recognition.</div>
 
@@ -4710,6 +4835,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4732,6 +4858,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythrocyte-associated-immune-clearance-evasion" data-dismech-node="Erythrocyte-associated immune clearance evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythrocyte-associated immune clearance evasion</div>
+
 
                 <div class="item-desc">Mature erythrocyte survival and resistance to lysosomal fusion can protect Bartonella from rapid immune clearance.</div>
 
@@ -4842,6 +4969,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4864,6 +4992,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biofilm-associated-immune-evasion" data-dismech-node="Biofilm-associated immune evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Biofilm-associated immune evasion</div>
+
 
                 <div class="item-desc">Bartonella biofilm production contributes to immune attack evasion.</div>
 
@@ -4940,6 +5069,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4962,6 +5092,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-inflammatory-cytokine-associated-immune-evasion" data-dismech-node="Anti-inflammatory cytokine-associated immune evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-inflammatory cytokine-associated immune evasion</div>
+
 
                 <div class="item-desc">Bartonella immune evasion includes production of anti-inflammatory cytokines.</div>
 
@@ -5038,6 +5169,7 @@ This pathophysiological event involves dysregulated regulation of cytokine produ
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5060,6 +5192,7 @@ This pathophysiological event involves dysregulated regulation of cytokine produ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-endothelial-cell-apoptosis" data-dismech-node="Reduced endothelial cell apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced endothelial cell apoptosis</div>
+
 
                 <div class="item-desc">Bartonella immune evasion can include decreased endothelial cell apoptosis.</div>
 
@@ -5170,6 +5303,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5192,6 +5326,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bafa-bada-associated-endothelial-proliferation" data-dismech-node="BafA/BadA-associated endothelial proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">BafA/BadA-associated endothelial proliferation</div>
+
 
                 <div class="item-desc">B. henselae autotransporters BafA and BadA are implicated in endothelial cell proliferation and vasoproliferative lesions, helping explain vascular manifestations such as bacillary angiomatosis in immunocompromised disease.</div>
 
@@ -5323,6 +5458,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5344,6 +5480,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5369,6 +5506,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atypical-hepatosplenic-dissemination" data-dismech-node="Atypical hepatosplenic dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Atypical hepatosplenic dissemination</div>
+
 
                 <div class="item-desc">In a subset of patients, CSD disseminates beyond regional lymph nodes, producing splenomegaly and hepatic or splenic microabscesses on imaging.</div>
 
@@ -5464,6 +5602,21 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Splenomegaly</span>
+
+	                            <span class="crosslink-desc">Hepatosplenic CSD includes splenic enlargement.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5483,6 +5636,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5491,6 +5645,239 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                 <div class="evidence-explanation">Supports hepatosplenic involvement in imaged CSD cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atypical-osseous-dissemination" data-dismech-node="Atypical osseous dissemination" data-dismech-type="pathophysiology">
+                <div class="item-name">Atypical osseous dissemination</div>
+
+
+                <div class="item-desc">In complicated CSD, B. henselae can involve bone as osteomyelitis.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Osteomyelitis</span>
+
+	                            <span class="crosslink-desc">Disseminated complicated CSD can involve bone as osteomyelitis.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37772236" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37772236" target="_blank">PMID:37772236</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prognosis for immunocompetent patients is favorable with complete recovery, however, immunocompromised adults can progress to life-threatening complications such as neuroretinitis, osteomyelitis, and bacillary angiomatosis."</div>
+
+
+                <div class="evidence-explanation">Supports osteomyelitis as a possible severe complication, not a typical presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-neuroretinal-inflammation" data-dismech-node="Ocular neuroretinal inflammation" data-dismech-type="pathophysiology">
+                <div class="item-name">Ocular neuroretinal inflammation</div>
+
+
+                <div class="item-desc">Ocular CSD can involve the optic nerve and retina as neuroretinitis.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neuroretinitis</span>
+
+	                            <span class="crosslink-desc">Ocular CSD can involve the optic nerve and retina as neuroretinitis.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37602640" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37602640" target="_blank">PMID:37602640</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Posterior segment findings included neuroretinitis in 14 (61%), superficial retinal infiltrate(s) in 8 (35%), papillitis in 3 (13%), branch retinal artery occlusion in 2 (8%), and cilioretinal artery occlusion in 1 (4%) of the eyes."</div>
+
+
+                <div class="evidence-explanation">Supports neuroretinitis and related posterior segment abnormalities in ocular CSD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurologic-bartonella-encephalitis" data-dismech-node="Neurologic Bartonella encephalitis" data-dismech-type="pathophysiology">
+                <div class="item-name">Neurologic Bartonella encephalitis</div>
+
+
+                <div class="item-desc">Neurologic Bartonella involvement can include encephalitis or encephalopathy.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Infectious encephalitis</span>
+
+	                            <span class="crosslink-desc">Neurobartonellosis can include encephalitis.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s13071-024-06491-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13071-024-06491-3" target="_blank">DOI:10.1186/s13071-024-06491-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Encephalitis and encephalopathy, also most often associated with B. henselae, have been reported with B. quintana, B. washoensis (ground squirrels) and B. vinsonii subsp. vinsonii (voles) infections."</div>
+
+
+                <div class="evidence-explanation">Supports neurologic Bartonella involvement.</div>
 
 
 
@@ -5528,7 +5915,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atypical hepatosplenic dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a subset of patients, CSD disseminates beyond regional lymph nodes, producing splenomegaly and hepatic or splenic microabscesses on imaging.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of inflammatory response\"], \"locations\": [\"spleen\", \"liver\"]}}, {\"id\": \"Cat-associated Bartonella inoculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Scratching or biting by a colonized cat inoculates B. henselae into local tissue, setting up the first infectious trigger for CSD.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"Regional lymph node inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Draining lymph nodes enlarge and inflame, producing the classic regional lymphadenopathy syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lymph node\"]}}], \"edges\": [{\"source\": \"Cat-associated Bartonella inoculation\", \"target\": \"Regional lymph node inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inoculation leads to draining regional lymphadenitis.\"}, {\"source\": \"Regional lymph node inflammation\", \"target\": \"Atypical hepatosplenic dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some patients develop systemic organ involvement rather than isolated nodal disease.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atypical hepatosplenic dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a subset of patients, CSD disseminates beyond regional lymph nodes, producing splenomegaly and hepatic or splenic microabscesses on imaging.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of inflammatory response\"], \"locations\": [\"spleen\", \"liver\"]}}, {\"id\": \"Atypical osseous dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In complicated CSD, B. henselae can involve bone as osteomyelitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cat-associated Bartonella inoculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Scratching or biting by a colonized cat inoculates B. henselae into local tissue, setting up the first infectious trigger for CSD.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a common systemic feature accompanying CSD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Infectious encephalitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurologic Bartonella involvement can include encephalitis or encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002383\"}}, {\"id\": \"Inflammatory skin inoculation site\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cat-associated scratches or bites can create the initial skin inoculation site.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011123\"}}, {\"id\": \"Neurologic Bartonella encephalitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurologic Bartonella involvement can include encephalitis or encephalopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neuroretinitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular CSD may involve the optic nerve and retina as neuroretinitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ocular neuroretinal inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular CSD can involve the optic nerve and retina as neuroretinitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Osteomyelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteomyelitis is a recognized severe complication, especially in complicated disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002754\"}}, {\"id\": \"Regional Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subacute regional lymph node enlargement is the dominant typical presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002716\"}}, {\"id\": \"Regional lymph node inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Draining lymph nodes enlarge and inflame, producing the classic regional lymphadenopathy syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lymph node\"]}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenic enlargement can occur in atypical hepatosplenic CSD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001744\"}}], \"edges\": [{\"source\": \"Cat-associated Bartonella inoculation\", \"target\": \"Inflammatory skin inoculation site\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cat scratches or bites introduce B. henselae through a local skin wound.\"}, {\"source\": \"Cat-associated Bartonella inoculation\", \"target\": \"Regional lymph node inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inoculation leads to draining regional lymphadenitis.\"}, {\"source\": \"Regional lymph node inflammation\", \"target\": \"Regional Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflamed draining lymph nodes present as regional lymphadenopathy.\"}, {\"source\": \"Regional lymph node inflammation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The host response to Bartonella infection can produce fever.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Regional lymph node inflammation\", \"target\": \"Atypical hepatosplenic dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some patients develop systemic organ involvement rather than isolated nodal disease.\"}, {\"source\": \"Regional lymph node inflammation\", \"target\": \"Atypical osseous dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe disseminated CSD can involve bone as osteomyelitis.\"}, {\"source\": \"Regional lymph node inflammation\", \"target\": \"Ocular neuroretinal inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular CSD can involve the optic nerve and retina.\"}, {\"source\": \"Regional lymph node inflammation\", \"target\": \"Neurologic Bartonella encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated Bartonella infection can involve the central nervous system.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Atypical hepatosplenic dissemination\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatosplenic CSD includes splenic enlargement.\"}, {\"source\": \"Atypical osseous dissemination\", \"target\": \"Osteomyelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated complicated CSD can involve bone as osteomyelitis.\"}, {\"source\": \"Ocular neuroretinal inflammation\", \"target\": \"Neuroretinitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular CSD can involve the optic nerve and retina as neuroretinitis.\"}, {\"source\": \"Neurologic Bartonella encephalitis\", \"target\": \"Infectious encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurobartonellosis can include encephalitis.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5596,6 +5983,9 @@ This clinical feature is Regional lymphadenopathy, annotated with Lymphadenopath
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5610,6 +6000,7 @@ This clinical feature is Regional lymphadenopathy, annotated with Lymphadenopath
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5664,6 +6055,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5678,6 +6072,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5743,6 +6138,9 @@ This clinical feature is Inflammatory abnormality of the skin (HP:0011123). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5757,6 +6155,7 @@ This clinical feature is Inflammatory abnormality of the skin (HP:0011123). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5811,6 +6210,9 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5825,6 +6227,7 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5879,6 +6282,9 @@ This clinical feature is Infectious encephalitis (HP:0002383). HP:0002383 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5893,6 +6299,7 @@ This clinical feature is Infectious encephalitis (HP:0002383). HP:0002383 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5958,6 +6365,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5972,6 +6382,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6018,6 +6429,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6032,6 +6446,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6176,6 +6591,12 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">A 5-day oral azithromycin course can accelerate early reduction of lymph node volume in typical CSD.</div>
 
 
@@ -6197,6 +6618,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6307,6 +6729,12 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Doxycycline and rifampicin are used in selected complicated or atypical presentations as part of antimicrobial management.</div>
 
 
@@ -6331,6 +6759,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6352,6 +6781,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6429,6 +6859,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6485,6 +6916,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6506,6 +6938,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6562,6 +6995,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6630,6 +7064,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6677,6 +7112,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6730,6 +7166,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6751,6 +7188,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6857,6 +7295,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6878,6 +7317,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6939,6 +7379,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6982,6 +7423,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7235,6 +7677,8 @@ pathophysiology:
       when located on the cat&#39;s claws or oral cavity.
     explanation: Supports skin/soft-tissue inoculation as the initiating event.
   downstream:
+  - target: Inflammatory skin inoculation site
+    description: Cat scratches or bites introduce B. henselae through a local skin wound.
   - target: Regional lymph node inflammation
     description: Inoculation leads to draining regional lymphadenitis.
     evidence:
@@ -7277,6 +7721,11 @@ pathophysiology:
       common (63 of 304, 20.7%).
     explanation: Supports regional lymphadenopathy as the dominant clinical mechanism.
   downstream:
+  - target: Regional Lymphadenopathy
+    description: Inflamed draining lymph nodes present as regional lymphadenopathy.
+  - target: Fever
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: The host response to Bartonella infection can produce fever.
   - target: Atypical hepatosplenic dissemination
     description: Some patients develop systemic organ involvement rather than isolated nodal disease.
     evidence:
@@ -7289,6 +7738,13 @@ pathophysiology:
         splenomegaly and 21 of 55 (38.1%) had splenic and/or hepatic
         microabscesses.
       explanation: Supports hepatosplenic involvement among imaged children.
+  - target: Atypical osseous dissemination
+    description: Severe disseminated CSD can involve bone as osteomyelitis.
+  - target: Ocular neuroretinal inflammation
+    description: Ocular CSD can involve the optic nerve and retina.
+  - target: Neurologic Bartonella encephalitis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: Disseminated Bartonella infection can involve the central nervous system.
 - name: Intracellular Bartonella survival
   description: &gt;-
     Bartonella species persist by surviving within host-cell intracellular
@@ -7478,6 +7934,57 @@ pathophysiology:
       splenomegaly and 21 of 55 (38.1%) had splenic and/or hepatic
       microabscesses.
     explanation: Supports hepatosplenic involvement in imaged CSD cases.
+  downstream:
+  - target: Splenomegaly
+    description: Hepatosplenic CSD includes splenic enlargement.
+- name: Atypical osseous dissemination
+  description: In complicated CSD, B. henselae can involve bone as osteomyelitis.
+  evidence:
+  - reference: PMID:37772236
+    reference_title: &#34;Cat Scratch Disease: An Unusual Case of Right Inguinal Lymphadenitis Due to Bartonella henselae.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      The prognosis for immunocompetent patients is favorable with complete
+      recovery, however, immunocompromised adults can progress to
+      life-threatening complications such as neuroretinitis, osteomyelitis, and
+      bacillary angiomatosis.
+    explanation: Supports osteomyelitis as a possible severe complication, not a typical presentation.
+  downstream:
+  - target: Osteomyelitis
+    description: Disseminated complicated CSD can involve bone as osteomyelitis.
+- name: Ocular neuroretinal inflammation
+  description: Ocular CSD can involve the optic nerve and retina as neuroretinitis.
+  evidence:
+  - reference: PMID:37602640
+    reference_title: &#34;A Case Series of Cat-Scratch Disease with Ocular Manifestations: Clinical Findings and Treatment Approach.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Posterior segment findings included neuroretinitis in 14 (61%), superficial
+      retinal infiltrate(s) in 8 (35%), papillitis in 3 (13%), branch retinal
+      artery occlusion in 2 (8%), and cilioretinal artery occlusion in 1 (4%) of
+      the eyes.
+    explanation: Supports neuroretinitis and related posterior segment abnormalities in ocular CSD.
+  downstream:
+  - target: Neuroretinitis
+    description: Ocular CSD can involve the optic nerve and retina as neuroretinitis.
+- name: Neurologic Bartonella encephalitis
+  description: Neurologic Bartonella involvement can include encephalitis or encephalopathy.
+  evidence:
+  - reference: DOI:10.1186/s13071-024-06491-3
+    reference_title: &#34;Neurobartonelloses: emerging from obscurity!&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Encephalitis and encephalopathy, also most often associated with B.
+      henselae, have been reported with B. quintana, B. washoensis (ground
+      squirrels) and B. vinsonii subsp. vinsonii (voles) infections.
+    explanation: Supports neurologic Bartonella involvement.
+  downstream:
+  - target: Infectious encephalitis
+    description: Neurobartonellosis can include encephalitis.
 phenotypes:
 - name: Inflammatory skin inoculation site
   category: Dermatologic
@@ -8063,6 +8570,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9588,7 +10097,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cat-scratch Disease", "mondoId": "MONDO:0005692", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cat-scratch_Disease", "yamlRevision": "641e4254f382"};
+        const OS_CONFIG = {"diseaseName": "Cat-scratch Disease", "mondoId": "MONDO:0005692", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cat-scratch_Disease", "yamlRevision": "9a7e9f15b194"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

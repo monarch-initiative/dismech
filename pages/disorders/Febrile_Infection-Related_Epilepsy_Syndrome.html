@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4280,6 +4348,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4448,6 +4517,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4482,6 +4552,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preceding-febrile-infection-trigger" data-dismech-node="Preceding Febrile Infection Trigger" data-dismech-type="pathophysiology">
                 <div class="item-name">Preceding Febrile Infection Trigger</div>
+
 
                 <div class="item-desc">A nonspecific febrile illness (usually an upper-respiratory or gastrointestinal infection) precedes seizure onset by roughly 24 hours to two weeks in a previously healthy individual. No specific pathogen is consistently identified in the CNS, and the fever is understood as a trigger of a maladaptive immune response rather than a direct CNS infection. This node captures the single concept of the initiating febrile trigger.</div>
 
@@ -4577,6 +4648,7 @@ This pathophysiological event involves Leukocyte (CL:0000738). CL:0000738 is a c
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4599,6 +4671,7 @@ This pathophysiological event involves Leukocyte (CL:0000738). CL:0000738 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-il-1ra-deficiency-permissive-host-factor" data-dismech-node="Functional IL-1RA Deficiency (Permissive Host Factor)" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional IL-1RA Deficiency (Permissive Host Factor)</div>
+
 
                 <div class="item-desc">A functional deficiency of endogenous interleukin-1 receptor antagonist (IL-1RA, encoded by IL1RN) is a candidate permissive host factor: with the natural brake on IL-1-beta signaling weakened, a common febrile trigger can drive unchecked IL-1-beta activity. This node captures the single concept of the &#34;loss of the anti-inflammatory brakes&#34; - the gene-environment convergence at the heart of the leading FIRES model - kept separate from the febrile trigger and from the downstream inflammatory activation it permits.</div>
 
@@ -4727,6 +4800,7 @@ This pathophysiological event involves IL1RN (hgnc:6000). hgnc:6000 is a gene fr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4749,6 +4823,7 @@ This pathophysiological event involves IL1RN (hgnc:6000). hgnc:6000 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-neuroinflammatory-activation" data-dismech-node="Innate Neuroinflammatory Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate Neuroinflammatory Activation</div>
+
 
                 <div class="item-desc">The trigger drives activation of brain-resident innate immunity - microglia and astrocytes - with inflammasome activation and production of pro-inflammatory cytokines, prominently interleukin-1-beta and interleukin-6. A genetic predisposition of the innate immune response (e.g., variation in the IL-1 pathway) is hypothesized. This node captures the single concept of the central neuroinflammatory driver.</div>
 
@@ -4980,6 +5055,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5001,6 +5077,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5026,6 +5103,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-driven-lowering-of-seizure-threshold" data-dismech-node="Cytokine-Driven Lowering of Seizure Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-Driven Lowering of Seizure Threshold</div>
+
 
                 <div class="item-desc">Interleukin-1-beta and interleukin-6 act on neurons to lower seizure threshold - enhancing NMDA-receptor-mediated excitation, impairing GABAergic inhibition, and disrupting glutamate homeostasis. This node captures the single concept of the cytokine-to-excitability link and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5140,6 +5218,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-dysfunction" data-dismech-node="Blood-Brain Barrier Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-Brain Barrier Dysfunction</div>
 
+
                 <div class="item-desc">Neuroinflammation disrupts the blood-brain barrier, which amplifies central inflammation, permits peripheral immune access, and further destabilizes neuronal excitability. This node captures the single concept of the barrier-dysfunction amplifier arm.</div>
 
 
@@ -5253,6 +5332,7 @@ This pathophysiological event involves increased Acute inflammatory response (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
 
+
                 <div class="item-desc">The convergent effect of cytokine action and barrier dysfunction is a shift of cortical networks toward excitation and hypersynchrony. This node captures the single concept of the network imbalance and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5327,6 +5407,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-super-refractory-status-epilepticus" data-dismech-node="Super-Refractory Status Epilepticus" data-dismech-type="pathophysiology">
                 <div class="item-name">Super-Refractory Status Epilepticus</div>
+
 
                 <div class="item-desc">The acute phase is explosive-onset, multifocal and bilateral tonic-clonic status epilepticus that is refractory to standard antiseizure medications and frequently to anesthetic burst-suppression (super-refractory status epilepticus), often lasting weeks. This node captures the single concept of the acute catastrophic endpoint and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5446,6 +5527,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5468,6 +5550,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-injury-and-network-reorganization" data-dismech-node="Neuronal Injury and Network Reorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Injury and Network Reorganization</div>
+
 
                 <div class="item-desc">Prolonged status epilepticus and sustained neuroinflammation cause excitotoxic and inflammatory neuronal injury with mesial-temporal/hippocampal involvement and progressive atrophy, establishing an epileptogenic network. This node captures the single concept of the injury/reorganization step that bridges the acute and chronic phases.</div>
 
@@ -5543,6 +5626,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-drug-resistant-epilepsy-and-neurocognitive-sequelae" data-dismech-node="Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae</div>
+
 
                 <div class="item-desc">In survivors, the syndrome transitions to a chronic phase of drug-resistant (usually focal/multifocal) epilepsy accompanied by cognitive impairment and behavioral difficulties. This node captures the single concept of the chronic endpoint, kept distinct from the acute status-epilepticus endpoint, and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5654,6 +5738,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5675,6 +5760,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5723,7 +5809,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anakinra (IL-1 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra, a recombinant interleukin-1 receptor antagonist, targets the IL-1-beta-driven neuroinflammation thought to underlie FIRES and is used as an early targeted immunotherapy, with reports of seizure improvement especially when started early.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Anesthetic Burst-Suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Continuous intravenous anesthetics (e.g., midazolam, barbiturates, ketamine) are used to induce burst-suppression and control the super-refractory status epilepticus in the intensive care unit; this is supportive seizure control rather than disease-modifying.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Behavioral Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral difficulties are a common part of the chronic neurodevelopmental sequelae in survivors.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Bilateral Tonic-Clonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal seizures frequently evolve to bilateral tonic-clonic seizures during the acute phase.\", \"meta\": {\"term_id\": \"HP:0002069\"}}, {\"id\": \"Blood-Brain Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroinflammation disrupts the blood-brain barrier, which amplifies central inflammation, permits peripheral immune access, and further destabilizes neuronal excitability. This node captures the single concept of the barrier-dysfunction amplifier arm.\", \"meta\": {\"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Acute inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Cannabidiol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmaceutical-grade cannabidiol has been reported to reduce seizures in FIRES and is used as an adjunct in the chronic drug-resistant phase.\", \"meta\": {\"therapeutic_agents\": [\"cannabidiol\"]}}, {\"id\": \"Chronic Drug-Resistant Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors develop chronic drug-resistant epilepsy after the acute phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In survivors, the syndrome transitions to a chronic phase of drug-resistant (usually focal/multifocal) epilepsy accompanied by cognitive impairment and behavioral difficulties. This node captures the single concept of the chronic endpoint, kept distinct from the acute status-epilepticus endpoint, and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors are commonly left with cognitive impairment in the chronic phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Cortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent effect of cytokine action and barrier dysfunction is a shift of cortical networks toward excitation and hypersynchrony. This node captures the single concept of the network imbalance and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interleukin-1-beta and interleukin-6 act on neurons to lower seizure threshold - enhancing NMDA-receptor-mediated excitation, impairing GABAergic inhibition, and disrupting glutamate homeostasis. This node captures the single concept of the cytokine-to-excitability link and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Elevated CSF and Serum Pro-Inflammatory Cytokines\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Innate Neuroinflammatory Activation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CSF/serum cytokines report the active neuroinflammatory driver of FIRES.\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy accompanies the acute status epilepticus.\", \"meta\": {\"term_id\": \"HP:0001298\"}}, {\"id\": \"First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line immunotherapy - high-dose corticosteroids, intravenous immunoglobulin, and/or plasma exchange - is used acutely to suppress the presumed immune-mediated process, though responses are frequently incomplete.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Focal Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are typically multifocal, with focal-onset seizures that may become bilateral tonic-clonic.\", \"meta\": {\"term_id\": \"HP:0007359\"}}, {\"id\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A functional deficiency of endogenous interleukin-1 receptor antagonist (IL-1RA, encoded by IL1RN) is a candidate permissive host factor: with the natural brake on IL-1-beta signaling weakened, a common febrile trigger can drive unchecked IL-1-beta activity. This node captures the single concept of the \\\"loss of the anti-inflammatory brakes\\\" - the gene-environment convergence at the heart of the leading FIRES model - kept separate from the febrile trigger and from the downstream inflammatory activation it permits.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leukocyte\"], \"genes\": [\"IL1RN\"], \"gene_terms\": [{\"label\": \"IL1RN\", \"id\": \"hgnc:6000\"}], \"role\": \"modifier\"}}, {\"id\": \"IL1RN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL1RN\"], \"gene_terms\": [{\"label\": \"IL1RN\", \"id\": \"hgnc:6000\"}], \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Innate Neuroinflammatory Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger drives activation of brain-resident innate immunity - microglia and astrocytes - with inflammasome activation and production of pro-inflammatory cytokines, prominently interleukin-1-beta and interleukin-6. A genetic predisposition of the innate immune response (e.g., variation in the IL-1 pathway) is hypothesized. This node captures the single concept of the central neuroinflammatory driver.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\", \"Astrocyte\"], \"biological_processes\": [\"Microglial cell activation\", \"Interleukin-1 beta production\", \"Interleukin-6 production\"], \"role\": \"mediator\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most survivors are left with intellectual disability, frequently severe; only a small minority retain a normal cognitive level.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Ketogenic Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is a mainstay of FIRES management and can help terminate refractory status epilepticus, with anti-seizure and anti-inflammatory effects; early initiation is often recommended.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neuronal Injury and Network Reorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged status epilepticus and sustained neuroinflammation cause excitotoxic and inflammatory neuronal injury with mesial-temporal/hippocampal involvement and progressive atrophy, establishing an epileptogenic network. This node captures the single concept of the injury/reorganization step that bridges the acute and chronic phases.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Preceding Febrile Infection Trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A nonspecific febrile illness (usually an upper-respiratory or gastrointestinal infection) precedes seizure onset by roughly 24 hours to two weeks in a previously healthy individual. No specific pathogen is consistently identified in the CNS, and the fever is understood as a trigger of a maladaptive immune response rather than a direct CNS infection. This node captures the single concept of the initiating febrile trigger.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leukocyte\"], \"role\": \"trigger\"}}, {\"id\": \"Preceding Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A nonspecific febrile illness precedes seizure onset by roughly 24 hours to two weeks and is a mandatory diagnostic feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Refractory Status Epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining acute feature is new-onset refractory status epilepticus, often super-refractory, with explosive multifocal and bilateral tonic-clonic seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002133\"}}, {\"id\": \"Super-Refractory Status Epilepticus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute phase is explosive-onset, multifocal and bilateral tonic-clonic status epilepticus that is refractory to standard antiseizure medications and frequently to anesthetic burst-suppression (super-refractory status epilepticus), often lasting weeks. This node captures the single concept of the acute catastrophic endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Tocilizumab (IL-6 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tocilizumab, an anti-interleukin-6-receptor monoclonal antibody, targets the IL-6-driven arm of the neuroinflammation and is used as a second-line immunomodulatory option in refractory NORSE/FIRES when IL-1 blockade is insufficient.\"}], \"edges\": [{\"source\": \"Preceding Febrile Infection Trigger\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile trigger initiates a maladaptive innate immune response in the CNS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Preceding Febrile Infection Trigger\", \"target\": \"Preceding Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile illness is observed clinically as the mandatory preceding fever, 24 hours to two weeks before seizure onset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient IL-1RA braking permits unchecked IL-1-beta-driven neuroinflammatory activation on exposure to the febrile trigger.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cytokine surge acts on neurons to lower seizure threshold.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Blood-Brain Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuroinflammation disrupts the blood-brain barrier.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-driven changes shift the excitation-inhibition balance toward hyperexcitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blood-Brain Barrier Dysfunction\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier breakdown amplifies the shift toward network hyperexcitability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network hyperexcitability manifests as explosive, drug-resistant status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Neuronal Injury and Network Reorganization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged status epilepticus and inflammation injure neurons and reorganize networks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Refractory Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute catastrophic phase presents as new-onset refractory (often super-refractory) status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Focal Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The status epilepticus is built from multifocal, focal-onset seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Bilateral Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Those focal seizures frequently propagate to bilateral tonic-clonic seizures during the acute phase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Encephalopathy accompanies the acute status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Injury and Network Reorganization\", \"target\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reorganized, injured network produces chronic epilepsy and cognitive impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Chronic Drug-Resistant Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Survivors are left with chronic, usually focal or multifocal, drug-resistant epilepsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chronic phase carries cognitive impairment in the great majority of survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most survivors are left with intellectual disability, frequently severe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Behavioral Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral difficulties are part of the chronic neurodevelopmental sequelae in survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anakinra (IL-1 Receptor Antagonist)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab (IL-6 Receptor Antagonist)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"First-Line Immunotherapy\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anesthetic Burst-Suppression\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cannabidiol\", \"target\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Elevated CSF and Serum Pro-Inflammatory Cytokines\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CSF/serum cytokines report the active neuroinflammatory driver of FIRES.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"IL1RN\", \"target\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anakinra (IL-1 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra, a recombinant interleukin-1 receptor antagonist, targets the IL-1-beta-driven neuroinflammation thought to underlie FIRES and is used as an early targeted immunotherapy, with reports of seizure improvement especially when started early.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Anesthetic Burst-Suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Continuous intravenous anesthetics (e.g., midazolam, barbiturates, ketamine) are used to induce burst-suppression and control the super-refractory status epilepticus in the intensive care unit; this is supportive seizure control rather than disease-modifying.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Behavioral Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral difficulties are a common part of the chronic neurodevelopmental sequelae in survivors.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Bilateral Tonic-Clonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal seizures frequently evolve to bilateral tonic-clonic seizures during the acute phase.\", \"meta\": {\"term_id\": \"HP:0002069\"}}, {\"id\": \"Blood-Brain Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroinflammation disrupts the blood-brain barrier, which amplifies central inflammation, permits peripheral immune access, and further destabilizes neuronal excitability. This node captures the single concept of the barrier-dysfunction amplifier arm.\", \"meta\": {\"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Acute inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Cannabidiol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmaceutical-grade cannabidiol has been reported to reduce seizures in FIRES and is used as an adjunct in the chronic drug-resistant phase.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cannabidiol\"]}}, {\"id\": \"Chronic Drug-Resistant Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors develop chronic drug-resistant epilepsy after the acute phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In survivors, the syndrome transitions to a chronic phase of drug-resistant (usually focal/multifocal) epilepsy accompanied by cognitive impairment and behavioral difficulties. This node captures the single concept of the chronic endpoint, kept distinct from the acute status-epilepticus endpoint, and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors are commonly left with cognitive impairment in the chronic phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Cortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent effect of cytokine action and barrier dysfunction is a shift of cortical networks toward excitation and hypersynchrony. This node captures the single concept of the network imbalance and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interleukin-1-beta and interleukin-6 act on neurons to lower seizure threshold - enhancing NMDA-receptor-mediated excitation, impairing GABAergic inhibition, and disrupting glutamate homeostasis. This node captures the single concept of the cytokine-to-excitability link and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Elevated CSF and Serum Pro-Inflammatory Cytokines\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Innate Neuroinflammatory Activation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CSF/serum cytokines report the active neuroinflammatory driver of FIRES.\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy accompanies the acute status epilepticus.\", \"meta\": {\"term_id\": \"HP:0001298\"}}, {\"id\": \"First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line immunotherapy - high-dose corticosteroids, intravenous immunoglobulin, and/or plasma exchange - is used acutely to suppress the presumed immune-mediated process, though responses are frequently incomplete.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Focal Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are typically multifocal, with focal-onset seizures that may become bilateral tonic-clonic.\", \"meta\": {\"term_id\": \"HP:0007359\"}}, {\"id\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A functional deficiency of endogenous interleukin-1 receptor antagonist (IL-1RA, encoded by IL1RN) is a candidate permissive host factor: with the natural brake on IL-1-beta signaling weakened, a common febrile trigger can drive unchecked IL-1-beta activity. This node captures the single concept of the \\\"loss of the anti-inflammatory brakes\\\" - the gene-environment convergence at the heart of the leading FIRES model - kept separate from the febrile trigger and from the downstream inflammatory activation it permits.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leukocyte\"], \"genes\": [\"IL1RN\"], \"gene_terms\": [{\"label\": \"IL1RN\", \"id\": \"hgnc:6000\"}], \"role\": \"modifier\"}}, {\"id\": \"IL1RN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL1RN\"], \"gene_terms\": [{\"label\": \"IL1RN\", \"id\": \"hgnc:6000\"}], \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Innate Neuroinflammatory Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger drives activation of brain-resident innate immunity - microglia and astrocytes - with inflammasome activation and production of pro-inflammatory cytokines, prominently interleukin-1-beta and interleukin-6. A genetic predisposition of the innate immune response (e.g., variation in the IL-1 pathway) is hypothesized. This node captures the single concept of the central neuroinflammatory driver.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\", \"Astrocyte\"], \"biological_processes\": [\"Microglial cell activation\", \"Interleukin-1 beta production\", \"Interleukin-6 production\"], \"role\": \"mediator\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most survivors are left with intellectual disability, frequently severe; only a small minority retain a normal cognitive level.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Ketogenic Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is a mainstay of FIRES management and can help terminate refractory status epilepticus, with anti-seizure and anti-inflammatory effects; early initiation is often recommended.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neuronal Injury and Network Reorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged status epilepticus and sustained neuroinflammation cause excitotoxic and inflammatory neuronal injury with mesial-temporal/hippocampal involvement and progressive atrophy, establishing an epileptogenic network. This node captures the single concept of the injury/reorganization step that bridges the acute and chronic phases.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Preceding Febrile Infection Trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A nonspecific febrile illness (usually an upper-respiratory or gastrointestinal infection) precedes seizure onset by roughly 24 hours to two weeks in a previously healthy individual. No specific pathogen is consistently identified in the CNS, and the fever is understood as a trigger of a maladaptive immune response rather than a direct CNS infection. This node captures the single concept of the initiating febrile trigger.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leukocyte\"], \"role\": \"trigger\"}}, {\"id\": \"Preceding Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A nonspecific febrile illness precedes seizure onset by roughly 24 hours to two weeks and is a mandatory diagnostic feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Refractory Status Epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining acute feature is new-onset refractory status epilepticus, often super-refractory, with explosive multifocal and bilateral tonic-clonic seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002133\"}}, {\"id\": \"Super-Refractory Status Epilepticus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute phase is explosive-onset, multifocal and bilateral tonic-clonic status epilepticus that is refractory to standard antiseizure medications and frequently to anesthetic burst-suppression (super-refractory status epilepticus), often lasting weeks. This node captures the single concept of the acute catastrophic endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Tocilizumab (IL-6 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tocilizumab, an anti-interleukin-6-receptor monoclonal antibody, targets the IL-6-driven arm of the neuroinflammation and is used as a second-line immunomodulatory option in refractory NORSE/FIRES when IL-1 blockade is insufficient.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tocilizumab\"]}}], \"edges\": [{\"source\": \"Preceding Febrile Infection Trigger\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile trigger initiates a maladaptive innate immune response in the CNS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Preceding Febrile Infection Trigger\", \"target\": \"Preceding Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile illness is observed clinically as the mandatory preceding fever, 24 hours to two weeks before seizure onset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient IL-1RA braking permits unchecked IL-1-beta-driven neuroinflammatory activation on exposure to the febrile trigger.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cytokine surge acts on neurons to lower seizure threshold.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Blood-Brain Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuroinflammation disrupts the blood-brain barrier.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-driven changes shift the excitation-inhibition balance toward hyperexcitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blood-Brain Barrier Dysfunction\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier breakdown amplifies the shift toward network hyperexcitability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network hyperexcitability manifests as explosive, drug-resistant status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Neuronal Injury and Network Reorganization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged status epilepticus and inflammation injure neurons and reorganize networks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Refractory Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute catastrophic phase presents as new-onset refractory (often super-refractory) status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Focal Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The status epilepticus is built from multifocal, focal-onset seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Bilateral Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Those focal seizures frequently propagate to bilateral tonic-clonic seizures during the acute phase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Encephalopathy accompanies the acute status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Injury and Network Reorganization\", \"target\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reorganized, injured network produces chronic epilepsy and cognitive impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Chronic Drug-Resistant Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Survivors are left with chronic, usually focal or multifocal, drug-resistant epilepsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chronic phase carries cognitive impairment in the great majority of survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most survivors are left with intellectual disability, frequently severe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Behavioral Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral difficulties are part of the chronic neurodevelopmental sequelae in survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anakinra (IL-1 Receptor Antagonist)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab (IL-6 Receptor Antagonist)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"First-Line Immunotherapy\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anesthetic Burst-Suppression\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cannabidiol\", \"target\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Elevated CSF and Serum Pro-Inflammatory Cytokines\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CSF/serum cytokines report the active neuroinflammatory driver of FIRES.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"IL1RN\", \"target\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5785,6 +5871,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5799,6 +5888,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5880,6 +5970,9 @@ This clinical feature is Status epilepticus (HP:0002133), qualified as temporali
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5894,6 +5987,7 @@ This clinical feature is Status epilepticus (HP:0002133), qualified as temporali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5954,6 +6048,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-tonic-clonic-seizures" data-dismech-node="Bilateral Tonic-Clonic Seizures" data-dismech-type="phenotype">
@@ -5979,6 +6076,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6022,6 +6122,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
@@ -6052,6 +6155,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6066,6 +6172,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6120,6 +6227,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6134,6 +6244,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6190,6 +6301,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6204,6 +6318,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6278,6 +6393,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality chronic.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6292,6 +6410,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality chronic.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6392,6 +6511,9 @@ This disease-associated gene is IL1RN (hgnc:6000). hgnc:6000 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6406,6 +6528,7 @@ This disease-associated gene is IL1RN (hgnc:6000). hgnc:6000 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6430,6 +6553,7 @@ This disease-associated gene is IL1RN (hgnc:6000). hgnc:6000 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6537,6 +6661,9 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6547,6 +6674,9 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -6568,6 +6698,41 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
                         <span style="color: #7c3aed;"> &mdash; Anakinra blocks IL-1 receptor signaling, dampening the IL-1-beta-driven neuroinflammatory cascade.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27770579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27770579" target="_blank">PMID:27770579</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cerebral spinal fluid analysis revealed elevated levels of proinflammatory cytokines before treatment that normalized on anakinra, suggesting a potential pathogenic role for neuroinflammation in FIRES"</div>
+
+
+                <div class="evidence-explanation">Normalization of CSF proinflammatory cytokines on anakinra is a direct measurement of the drug acting on the neuroinflammatory node, not merely of clinical improvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -6595,6 +6760,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6616,6 +6782,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6677,6 +6844,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        tocilizumab
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C84217</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+                </div>
+
+
+
+
 
 
 
@@ -6692,6 +6884,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6714,6 +6909,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30408233" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30408233" target="_blank">PMID:30408233</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We investigated the therapeutic potential of the interleukin-6 receptor inhibitor tocilizumab in 7 patients with new onset refractory status epilepticus (NORSE) who remained refractory to conventional immunotherapy"</div>
+
+
+                <div class="evidence-explanation">Identifies IL-6 receptor inhibition as the mechanism by which tocilizumab acts on the neuroinflammatory node, and places its use after failure of conventional immunotherapy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                     </div>
 
@@ -6722,6 +6952,43 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30408233" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30408233" target="_blank">PMID:30408233</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Status epilepticus (SE) was terminated after 1 or 2 doses of tocilizumab in 6 patients with a median interval of 3 days from the initiation."</div>
+
+
+                <div class="evidence-explanation">Supports tocilizumab as a second-line option after conventional immunotherapy fails. The support is indirect: this is an uncontrolled 7-patient series in NORSE (of which FIRES is the febrile-triggered subset), and the authors call for prospective controlled studies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -6734,7 +7001,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">ketogenic diet intake<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">ketogenic diet intake<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6770,6 +7037,9 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6780,6 +7050,9 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
     </div>
+
+
+
 
 
 
@@ -6801,6 +7074,41 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
                         <span style="color: #7c3aed;"> &mdash; The ketogenic diet can help terminate refractory status epilepticus.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20813015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20813015" target="_blank">PMID:20813015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In seven patients, KD was efficacious within 2-4 days (mean 2 days) following the onset of ketonuria"</div>
+
+
+                <div class="evidence-explanation">Termination of the refractory status epilepticus within days of achieving ketosis links the diet directly to the status-epilepticus node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -6828,6 +7136,7 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6849,6 +7158,7 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6880,7 +7190,7 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Immunosuppressive Therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Immunosuppressive Therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6915,6 +7225,9 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6925,6 +7238,9 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
 
 
     </div>
+
+
+
 
 
 
@@ -6946,6 +7262,43 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
                         <span style="color: #7c3aed;"> &mdash; Broad immunosuppression aims to dampen the neuroinflammatory driver.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21883180" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21883180" target="_blank">PMID:21883180</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"intravenous immunoglobulin (IVIG, 30 patients), steroids (29 patients)"</div>
+
+
+                <div class="evidence-explanation">Documents that first-line immunotherapy is routinely directed at the presumed immune-mediated process in FIRES. The support is indirect, and deliberately so: the same cohort found no convincing effect of these modalities on the acute phase, so the link records intent rather than demonstrated mechanism-level efficacy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -6973,6 +7326,7 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6994,6 +7348,7 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7025,7 +7380,7 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7060,6 +7415,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7070,6 +7428,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7091,6 +7452,68 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <span style="color: #7c3aed;"> &mdash; Anesthetic burst-suppression suppresses ongoing status epilepticus.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21883180" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21883180" target="_blank">PMID:21883180</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"burst-suppression coma (BSC, 46 patients)"</div>
+
+
+                <div class="evidence-explanation">Burst-suppression coma was the modality used to control the acute status epilepticus in 46 of the 77 children, which is what places it on the status-epilepticus node. The support is indirect: a usage count establishes that the treatment is aimed at this node, not that it acts on it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21883180" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21883180" target="_blank">PMID:21883180</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was no evidence of efficacy for those treatment modalities except for IVIG (two patients), a ketogenic diet (one patient), and a prolonged cycle of barbiturate anesthesia coma (one patient)."</div>
+
+
+                <div class="evidence-explanation">This edge asserts that anesthetic burst-suppression inhibits the status epilepticus. The same cohort reports no evidence of efficacy for BSC, with the single exception of one patient given a prolonged barbiturate coma, so this sentence cuts against the asserted effect. The edge is kept because the treatment is genuinely directed at this node; its failure there is the finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -7115,6 +7538,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7146,7 +7570,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7187,16 +7611,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:69478</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:69478</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7219,6 +7646,9 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
 
+
+
+
                 <div class="item-desc">Pharmaceutical-grade cannabidiol has been reported to reduce seizures in FIRES and is used as an adjunct in the chronic drug-resistant phase.</div>
 
 
@@ -7235,6 +7665,43 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27655472" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27655472" target="_blank">PMID:27655472</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"After starting cannabidiol, 6 of 7 patients&#39; seizures improved in frequency and duration."</div>
+
+
+                <div class="evidence-explanation">Reduced seizure frequency and duration is the measured effect placing cannabidiol on the chronic drug-resistant epilepsy node. The support is indirect because the series is open-label and uncontrolled.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                     </div>
 
@@ -7243,6 +7710,43 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27655472" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27655472" target="_blank">PMID:27655472</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While this is an open-label case series, the authors add cannabidiol as a possible treatment for FIRES."</div>
+
+
+                <div class="evidence-explanation">Seven children across five centres who had failed antiepileptic drugs and other therapies received cannabidiol in the acute or chronic phase; the authors&#39; own framing as a &#34;possible&#34; treatment from an open-label series is why the support is recorded as indirect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -7323,6 +7827,7 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7344,6 +7849,7 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7401,11 +7907,11 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7445,6 +7951,7 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7603,6 +8110,7 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8425,6 +8933,16 @@ treatments:
     description: &gt;-
       Anakinra blocks IL-1 receptor signaling, dampening the IL-1-beta-driven
       neuroinflammatory cascade.
+    evidence:
+    - reference: PMID:27770579
+      reference_title: Febrile infection-related epilepsy syndrome treated with anakinra.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Cerebral spinal fluid analysis revealed elevated levels of proinflammatory cytokines before treatment that normalized on anakinra, suggesting a potential pathogenic role for neuroinflammation in FIRES&#34;
+      explanation: &gt;-
+        Normalization of CSF proinflammatory cytokines on anakinra is a direct
+        measurement of the drug acting on the neuroinflammatory node, not merely
+        of clinical improvement.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -8465,11 +8983,47 @@ treatments:
     description: &gt;-
       Tocilizumab blocks IL-6 receptor signaling, reducing the IL-6-driven
       inflammatory arm.
+    evidence:
+    - reference: PMID:30408233
+      reference_title: Tocilizumab treatment for new onset refractory status epilepticus.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        We investigated the therapeutic potential of the interleukin-6 receptor
+        inhibitor tocilizumab in 7 patients with new onset refractory status
+        epilepticus (NORSE) who remained refractory to conventional immunotherapy
+      explanation: &gt;-
+        Identifies IL-6 receptor inhibition as the mechanism by which tocilizumab
+        acts on the neuroinflammatory node, and places its use after failure of
+        conventional immunotherapy.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: tocilizumab
+      term:
+        id: NCIT:C84217
+        label: Tocilizumab
+  evidence:
+  - reference: PMID:30408233
+    reference_title: Tocilizumab treatment for new onset refractory status epilepticus.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Status epilepticus (SE) was terminated after 1 or 2 doses of tocilizumab in
+      6 patients with a median interval of 3 days from the initiation.
+    explanation: &gt;-
+      Supports tocilizumab as a second-line option after conventional
+      immunotherapy fails. The support is indirect: this is an uncontrolled
+      7-patient series in NORSE (of which FIRES is the febrile-triggered
+      subset), and the authors call for prospective controlled studies.
+  notes: &gt;-
+    2 of the 7 patients in this series had severe infection-related adverse events
+    during tocilizumab therapy, and the cohort was NORSE broadly rather than FIRES
+    specifically.
 - name: Ketogenic Diet
   description: &gt;-
     The ketogenic diet is a mainstay of FIRES management and can help terminate
@@ -8481,6 +9035,15 @@ treatments:
     treatment_effect: INHIBITS
     description: &gt;-
       The ketogenic diet can help terminate refractory status epilepticus.
+    evidence:
+    - reference: PMID:20813015
+      reference_title: Efficacy of ketogenic diet in severe refractory status epilepticus initiating fever induced refractory epileptic encephalopathy in school age children (FIRES).
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In seven patients, KD was efficacious within 2-4 days (mean 2 days) following the onset of ketonuria&#34;
+      explanation: &gt;-
+        Termination of the refractory status epilepticus within days of achieving
+        ketosis links the diet directly to the status-epilepticus node.
   treatment_term:
     preferred_term: ketogenic diet intake
     term:
@@ -8515,6 +9078,19 @@ treatments:
     treatment_effect: INHIBITS
     description: &gt;-
       Broad immunosuppression aims to dampen the neuroinflammatory driver.
+    evidence:
+    - reference: PMID:21883180
+      reference_title: &#34;Febrile infection-related epilepsy syndrome (FIRES): pathogenesis, treatment, and outcome: a multicenter study on 77 children.&#34;
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;intravenous immunoglobulin (IVIG, 30 patients), steroids (29 patients)&#34;
+      explanation: &gt;-
+        Documents that first-line immunotherapy is routinely directed at the
+        presumed immune-mediated process in FIRES. The support is indirect, and
+        deliberately so: the same cohort found no convincing effect of these
+        modalities on the acute phase, so the link records intent rather than
+        demonstrated mechanism-level efficacy.
   treatment_term:
     preferred_term: Immunosuppressive Therapy
     term:
@@ -8550,6 +9126,34 @@ treatments:
     treatment_effect: INHIBITS
     description: &gt;-
       Anesthetic burst-suppression suppresses ongoing status epilepticus.
+    evidence:
+    - reference: PMID:21883180
+      reference_title: &#34;Febrile infection-related epilepsy syndrome (FIRES): pathogenesis, treatment, and outcome: a multicenter study on 77 children.&#34;
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;burst-suppression coma (BSC, 46 patients)&#34;
+      explanation: &gt;-
+        Burst-suppression coma was the modality used to control the acute status
+        epilepticus in 46 of the 77 children, which is what places it on the
+        status-epilepticus node. The support is indirect: a usage count
+        establishes that the treatment is aimed at this node, not that it acts
+        on it.
+    - reference: PMID:21883180
+      reference_title: &#34;Febrile infection-related epilepsy syndrome (FIRES): pathogenesis, treatment, and outcome: a multicenter study on 77 children.&#34;
+      supports: REFUTE
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        There was no evidence of efficacy for those treatment modalities except
+        for IVIG (two patients), a ketogenic diet (one patient), and a prolonged
+        cycle of barbiturate anesthesia coma (one patient).
+      explanation: &gt;-
+        This edge asserts that anesthetic burst-suppression inhibits the status
+        epilepticus. The same cohort reports no evidence of efficacy for BSC,
+        with the single exception of one patient given a prolonged barbiturate
+        coma, so this sentence cuts against the asserted effect. The edge is
+        kept because the treatment is genuinely directed at this node; its
+        failure there is the finding.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -8564,6 +9168,13 @@ treatments:
     explanation: &gt;-
       Anesthetic-induced burst-suppression coma was used to control the acute
       status epilepticus in most patients in the cohort.
+  notes: &gt;-
+    Prolonged burst-suppression carries a documented harm signal in this cohort,
+    not merely an absence of benefit: cognitive level at follow-up was
+    significantly associated with duration of BSC (p = 0.005), and the authors
+    conclude that inducing a prolonged BSC was associated with a worse cognitive
+    outcome. This is the reason the entry frames BSC as supportive seizure
+    control rather than disease-modifying.
 - name: Cannabidiol
   description: &gt;-
     Pharmaceutical-grade cannabidiol has been reported to reduce seizures in
@@ -8574,6 +9185,19 @@ treatments:
     treatment_effect: INHIBITS
     description: &gt;-
       Cannabidiol reduces seizure burden as an adjunctive antiseizure agent.
+    evidence:
+    - reference: PMID:27655472
+      reference_title: &#34;Cannabidiol as a Potential Treatment for Febrile Infection-Related Epilepsy Syndrome (FIRES) in the Acute and Chronic Phases.&#34;
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        After starting cannabidiol, 6 of 7 patients&#39; seizures improved in
+        frequency and duration.
+      explanation: &gt;-
+        Reduced seizure frequency and duration is the measured effect placing
+        cannabidiol on the chronic drug-resistant epilepsy node. The support is
+        indirect because the series is open-label and uncontrolled.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -8584,6 +9208,24 @@ treatments:
       term:
         id: CHEBI:69478
         label: cannabidiol
+  evidence:
+  - reference: PMID:27655472
+    reference_title: &#34;Cannabidiol as a Potential Treatment for Febrile Infection-Related Epilepsy Syndrome (FIRES) in the Acute and Chronic Phases.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      While this is an open-label case series, the authors add cannabidiol as a
+      possible treatment for FIRES.
+    explanation: &gt;-
+      Seven children across five centres who had failed antiepileptic drugs and
+      other therapies received cannabidiol in the acute or chronic phase; the
+      authors&#39; own framing as a &#34;possible&#34; treatment from an open-label series is
+      why the support is recorded as indirect.
+  notes: &gt;-
+    An average of 4 antiepileptic drugs were weaned in this series. One patient
+    died of multiorgan failure secondary to isoflurane - a complication of the
+    background anesthetic management, not attributed to cannabidiol.
 discussions:
 - discussion_id: fires-il1-early-immunotherapy-window
   kind: KNOWLEDGE_GAP
@@ -8679,6 +9321,19 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Febrile Infection-Related Epilepsy Syndrome (FIRES)</strong> · 2026-07-24T12:29:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Febrile_Infection-Related_Epilepsy_Syndrome/2026-07-24T122932Z-claude-code-3c561b.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of FIRES (MONDO:0015584), the febrile subgroup of NORSE. Deep research provider: claude_code. Non-Mendelian so no GeneReviews; grounded in consensus definitions (Hirsch 2018 PMID:29399791), multicenter cohort (Kramer 2011 PMID:21883180), ketogenic diet (Nabbout 2010 PMID:20813015), anakinra/IL-1 mechanism (Kenney-Jung 2016 PMID:27770579), cytokine study (Hanin 2023 PMID:36871188), management consensus (Wickstrom 2022 PMID:35997591), and IL1RN functional-deficiency susceptibility (Clarkson 2019 PMID:30779222, surfaced by DR cross-check and independently verified). Pathophysiology deliberately partitioned into a biphasic cascade (febrile trigger -&gt; innate neuroinflammation/IL-1b-IL-6 -&gt; cytokine-driven hyperexcitability + BBB dysfunction -&gt; cortical E/I imbalance -&gt; acute super-refractory SE -&gt; neuronal injury -&gt; chronic refractory epilepsy) to minimize bundling. Includes prevalence, diagnosis, differentials (NORSE, anti-NMDAR encephalitis, HSV encephalitis, Dravet), IL1RN genetic susceptibility, and two knowledge-gap discussions. Validated: schema+terms pass; all 22 evidence snippets verified as exact substrings.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9020,7 +9675,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Febrile Infection-Related Epilepsy Syndrome", "mondoId": "MONDO:0015584", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Febrile_Infection-Related_Epilepsy_Syndrome", "yamlRevision": "4f64d5e83d36"};
+        const OS_CONFIG = {"diseaseName": "Febrile Infection-Related Epilepsy Syndrome", "mondoId": "MONDO:0015584", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Febrile_Infection-Related_Epilepsy_Syndrome", "yamlRevision": "43eec136a34a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

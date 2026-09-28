@@ -76,9 +76,9 @@ def test_lnp_and_galnac_sirnas_are_distinguishable(tmp_path: Path) -> None:
     )
 
     assert "Delivery: Lipid nanoparticle" in html
-    assert "Conjugate: Unconjugated" in html
+    assert "Targeting: Unconjugated" in html
     assert "Delivery: Ligand conjugate" in html
-    assert "Conjugate: GalNAc" in html
+    assert "Targeting: GalNAc" in html
 
     # Shared mechanism and target render for both.
     assert html.count("RNAi knockdown") == 2
@@ -199,7 +199,7 @@ def test_module_page_renders_its_treatments(tmp_path: Path) -> None:
 
     assert 'id="treatments"' in html
     assert "Vutrisiran" in html
-    assert "Conjugate: GalNAc" in html
+    assert "Targeting: GalNAc" in html
     assert "Delivery: Ligand conjugate" in html
     assert "hgnc:12405" in html
     assert "once every 3 months" in html
@@ -252,8 +252,8 @@ def test_every_platform_enum_value_has_a_curated_label() -> None:
         "TherapeuticModalityEnum",
         "OligonucleotideMechanismEnum",
         "OligonucleotideChemistryEnum",
-        "OligonucleotideConjugationEnum",
-        "OligonucleotideDeliveryPlatformEnum",
+        "TargetingLigandEnum",
+        "DeliveryPlatformEnum",
     ]
 
     missing = {
@@ -272,3 +272,159 @@ def test_platform_label_falls_back_rather_than_vanishing() -> None:
     assert treatment_platform_label("A_BRAND_NEW_VALUE") == "A brand new value"
     assert treatment_platform_label(None) == ""
     assert treatment_platform_label("") == ""
+
+
+# --------------------------------------------------------------------------
+# Treatment-level delivery_system (generalized out of oligonucleotide_details)
+# --------------------------------------------------------------------------
+
+
+def test_non_oligonucleotide_carrier_renders(tmp_path: Path) -> None:
+    """A carrier on a small molecule reaches the page.
+
+    This is the case the nested block could not express at all: before
+    `delivery_system`, `delivery_platform` lived only inside
+    `oligonucleotide_details`, so nab-sirolimus and liposomal irinotecan could
+    state their carrier nowhere but in prose.
+    """
+    html = _render(
+        tmp_path,
+        [
+            {
+                "name": "Nab-Sirolimus",
+                "therapeutic_modality": "SMALL_MOLECULE",
+                "delivery_system": {"delivery_platform": "PROTEIN_NANOPARTICLE"},
+            },
+            {
+                "name": "Liposomal Irinotecan",
+                "therapeutic_modality": "SMALL_MOLECULE",
+                "delivery_system": {"delivery_platform": "LIPOSOME"},
+            },
+        ],
+    )
+
+    assert "Delivery: Albumin-bound nanoparticle" in html
+    assert "Delivery: Liposome" in html
+    assert "PROTEIN_NANOPARTICLE" not in html
+
+
+def test_delivery_target_row_renders_receptor_and_cell_type(tmp_path: Path) -> None:
+    """What a targeted carrier is aimed at is a separate row from the platform."""
+    html = _render(
+        tmp_path,
+        [
+            {
+                "name": "Vutrisiran",
+                "therapeutic_modality": "SIRNA",
+                "delivery_system": {
+                    "delivery_platform": "CONJUGATE",
+                    "targeting_ligand": "GALNAC",
+                    "targeting_receptor": {
+                        "preferred_term": "ASGR1",
+                        "term": {"id": "hgnc:742", "label": "ASGR1"},
+                    },
+                    "target_cell_types": [
+                        {
+                            "preferred_term": "hepatocyte",
+                            "term": {"id": "CL:0000182", "label": "hepatocyte"},
+                        }
+                    ],
+                    "description": "GalNAc engages a hepatocyte-restricted receptor.",
+                },
+            }
+        ],
+    )
+
+    assert "Delivery target:" in html
+    assert "ASGR1" in html
+    assert "hepatocyte" in html
+    assert "GalNAc engages a hepatocyte-restricted receptor." in html
+
+
+def test_untargeted_carrier_shows_no_delivery_target_row(tmp_path: Path) -> None:
+    """A passive carrier has no ligand and no target; the row must stay absent.
+
+    Rendering an empty "Delivery target:" label would imply the formulation
+    targets something it does not.
+    """
+    html = _render(
+        tmp_path,
+        [
+            {
+                "name": "Liposomal Doxorubicin",
+                "delivery_system": {"delivery_platform": "LIPOSOME"},
+            }
+        ],
+    )
+
+    assert "Delivery: Liposome" in html
+    assert "Delivery target:" not in html
+
+
+def test_delivery_system_wins_over_the_nested_legacy_copy(tmp_path: Path) -> None:
+    """One chip per fact, from the current home.
+
+    A treatment filling both homes is a curation defect that
+    `check_delivery_system.py` gates on. The renderer's job is not to display
+    the disagreement -- it resolves `delivery_system` first and shows one value,
+    so the page never reads as if the drug had two carriers.
+    """
+    html = _render(
+        tmp_path,
+        [
+            {
+                "name": "Conflicted Drug",
+                "therapeutic_modality": "SIRNA",
+                "delivery_system": {"delivery_platform": "LIPID_NANOPARTICLE"},
+                "oligonucleotide_details": {
+                    "oligonucleotide_mechanism": "RNAI_KNOCKDOWN",
+                    "delivery_platform": "CONJUGATE",
+                },
+            }
+        ],
+    )
+
+    assert "Delivery: Lipid nanoparticle" in html
+    assert "Delivery: Ligand conjugate" not in html
+
+
+def test_deprecated_conjugation_still_renders_as_targeting(tmp_path: Path) -> None:
+    """`conjugation` is the pre-generalization spelling of `targeting_ligand`."""
+    html = _render(tmp_path, [_sirna("Vutrisiran", "GALNAC", "CONJUGATE")])
+    assert "Targeting: GalNAc" in html
+
+
+def test_module_page_renders_delivery_system_too(tmp_path: Path) -> None:
+    """The module template carries a twin macro; the two must not drift."""
+    module_path = tmp_path / "example_module.yaml"
+    module_path.write_text(
+        yaml.safe_dump(
+            {
+                "name": "Example Module",
+                "category": "Module",
+                "pathophysiology": [{"name": "Conserved Insult"}],
+                "treatments": [
+                    {
+                        "name": "Vutrisiran",
+                        "therapeutic_modality": "SIRNA",
+                        "delivery_system": {
+                            "delivery_platform": "CONJUGATE",
+                            "targeting_ligand": "GALNAC",
+                            "targeting_receptor": {"preferred_term": "ASGR1"},
+                            "target_cell_types": [{"preferred_term": "hepatocyte"}],
+                        },
+                    }
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+    output_path = tmp_path / "pages" / "modules" / "example_module.html"
+    render_module(module_path, output_path=output_path)
+    html = _strip_yaml_preview(output_path.read_text())
+
+    assert "Delivery: Ligand conjugate" in html
+    assert "Targeting: GalNAc" in html
+    assert "Delivery target:" in html
+    assert "ASGR1" in html
+    assert "hepatocyte" in html

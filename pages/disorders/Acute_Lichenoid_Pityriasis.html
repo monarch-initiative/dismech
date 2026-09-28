@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4120,6 +4188,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4144,6 +4213,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4165,6 +4235,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4389,6 +4460,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4480,6 +4552,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4501,6 +4574,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4592,6 +4666,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4703,6 +4778,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4786,6 +4862,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4877,6 +4954,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4901,6 +4979,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4922,6 +5001,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5017,6 +5097,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5122,6 +5203,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5143,6 +5225,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5220,6 +5303,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5254,6 +5338,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antigen-associated-immune-triggering" data-dismech-node="Antigen-associated immune triggering" data-dismech-type="pathophysiology">
                 <div class="item-name">Antigen-associated immune triggering</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">In the reactive model, an unidentified infectious or noninfectious antigen precedes cutaneous immune activation. The association is not equivalent to proof of infection within the lesion.</div>
 
@@ -5367,6 +5458,7 @@ This pathophysiological event involves abnormal immune response (GO:0006955). GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5389,6 +5481,13 @@ This pathophysiological event involves abnormal immune response (GO:0006955). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-or-oligoclonal-cutaneous-t-cell-expansion" data-dismech-node="Clonal or oligoclonal cutaneous T-cell expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal or oligoclonal cutaneous T-cell expansion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In the dyscrasia model, a lesional T-cell clone or oligoclonal population expands in skin and contributes to the PLEVA inflammatory phenotype. Clonality is neither universal nor by itself diagnostic of lymphoma. In the FUMHD severity variant, a monoclonal T-cell receptor rearrangement has been documented in a subset of cases and is associated with worse prognosis, placing those cases on a continuum with cutaneous T-cell lymphoma.</div>
 
@@ -5536,6 +5635,7 @@ This pathophysiological event involves abnormal T cell activation (GO:0042110). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5557,6 +5657,7 @@ This pathophysiological event involves abnormal T cell activation (GO:0042110). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5584,6 +5685,7 @@ This pathophysiological event involves abnormal T cell activation (GO:0042110). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5606,6 +5708,13 @@ This pathophysiological event involves abnormal T cell activation (GO:0042110). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd8-positive-cytotoxic-t-cell-epidermal-response" data-dismech-node="CD8-positive cytotoxic T-cell epidermal response" data-dismech-type="pathophysiology">
                 <div class="item-name">CD8-positive cytotoxic T-cell epidermal response</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PLEVA lesions contain increased CD8-positive and TIA-1-positive T cells. Their cytotoxic phenotype may contribute to keratinocyte injury, but the study evidence does not directly measure cytotoxic function.</div>
 
@@ -5782,6 +5891,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5804,6 +5914,13 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratinocyte-death-and-epidermal-necrosis" data-dismech-node="Keratinocyte death and epidermal necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Keratinocyte death and epidermal necrosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PLEVA lesions can show vacuolar change, necrotic keratinocytes, and focal epidermal necrosis. Epidermal disruption is a plausible contributor to vesiculation, crusting, small ulcers, dyspigmentation, and scars, but these outcomes are not an obligatory causal sequence.</div>
 
@@ -6093,6 +6210,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6114,6 +6232,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6139,6 +6258,13 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perivascular-lymphocytic-inflammation-and-erythrocyte-extravasation" data-dismech-node="Perivascular lymphocytic inflammation and erythrocyte extravasation" data-dismech-type="pathophysiology">
                 <div class="item-name">Perivascular lymphocytic inflammation and erythrocyte extravasation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PLEVA can show perivascular lymphocytes and extravasated erythrocytes in superficial dermis and epidermis. Although sometimes called lymphocytic vasculitis, a series found no fibrinoid vessel-wall deposition and cautioned that this is not necessarily true destructive vasculitis.</div>
 
@@ -6315,6 +6441,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6336,6 +6463,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6363,6 +6491,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6385,6 +6514,13 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ulceronecrotic-systemic-inflammatory-escalation-in-fumhd" data-dismech-node="Ulceronecrotic systemic inflammatory escalation in FUMHD" data-dismech-type="pathophysiology">
                 <div class="item-name">Ulceronecrotic systemic inflammatory escalation in FUMHD</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">FUMHD is the severe PLEVA branch in which generalized ulceronecrotic papules coalesce into ulcers while fever and systemic inflammation develop; the extreme end can meet criteria for hemophagocytic lymphohistiocytosis (HLH). The molecular reason only a minority of patients enter this branch is unknown.</div>
 
@@ -6556,6 +6692,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6577,6 +6714,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6639,6 +6777,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6660,6 +6799,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6710,6 +6850,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6757,6 +6898,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6781,6 +6923,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6802,6 +6945,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6852,6 +6996,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6894,7 +7039,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antigen-associated immune triggering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the reactive model, an unidentified infectious or noninfectious antigen precedes cutaneous immune activation. The association is not equivalent to proof of infection within the lesion.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune response\"]}}, {\"id\": \"Antimicrobial therapy and infection control for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because sepsis of the denuded skin is the dominant cause of FUMHD death, antimicrobial therapy and aggressive wound care / infection control are outcome-determining and are counted among the successful FUMHD modalities.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"antibiotic\"]}}, {\"id\": \"CD8-positive cytotoxic T-cell epidermal response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLEVA lesions contain increased CD8-positive and TIA-1-positive T cells. Their cytotoxic phenotype may contribute to keratinocyte injury, but the study evidence does not directly measure cytotoxic function.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive alpha-beta cytotoxic T cell\"], \"biological_processes\": [\"T cell mediated immunity\"], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Ciclosporin therapy for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ciclosporin is among the systemic immunosuppressants used in FUMHD; a pooled review found systemic corticosteroids combined with methotrexate or ciclosporin were associated with significantly more effective outcomes, supporting early combination therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ciclosporin\"]}}, {\"id\": \"Clonal or oligoclonal cutaneous T-cell expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the dyscrasia model, a lesional T-cell clone or oligoclonal population expands in skin and contributes to the PLEVA inflammatory phenotype. Clonality is neither universal nor by itself diagnostic of lymphoma. In the FUMHD severity variant, a monoclonal T-cell receptor rearrangement has been documented in a subset of cases and is associated with worse prognosis, placing those cases on a continuum with cutaneous T-cell lymphoma.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"]}}, {\"id\": \"Crusted skin lesions\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemorrhagic or necrotic centers form adherent crusts as lesions evolve.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007473\"}}, {\"id\": \"Disseminated intravascular coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disseminated intravascular coagulation is among the common systemic complications of FUMHD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Febrile ulceronecrotic Mucha-Habermann disease\"], \"term_id\": \"HP:0005521\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High fever is a defining systemic feature of FUMHD, not ordinary PLEVA.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Febrile ulceronecrotic Mucha-Habermann disease\"], \"severity\": \"SEVERE\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Hypopigmented skin patches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Healed lesions can leave post-inflammatory hypopigmented macules.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001053\"}}, {\"id\": \"Intravenous immunoglobulin (IVIG) for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous immunoglobulin has produced rapid disease control in FUMHD, including in a child refractory to steroids, methotrexate, dapsone, and erythromycin; it is among the reported successful FUMHD modalities.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Keratinocyte death and epidermal necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLEVA lesions can show vacuolar change, necrotic keratinocytes, and focal epidermal necrosis. Epidermal disruption is a plausible contributor to vesiculation, crusting, small ulcers, dyspigmentation, and scars, but these outcomes are not an obligatory causal sequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell death\"], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Methotrexate therapy for refractory or severe disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose methotrexate is reported for refractory PL and is among systemic options used for FUMHD. The ordinary-PL efficacy estimate comes from small, dated studies, and FUMHD evidence is case-based.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"Narrowband UVB phototherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Narrowband UVB is the best-supported active treatment in pooled PL literature and is commonly favored when observation, topical measures, or antibiotics are insufficient. Evidence combines PLEVA and PLC, consists mostly of uncontrolled studies, and is vulnerable to spontaneous resolution and short follow-up.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oral erythromycin therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral erythromycin is a commonly proposed initial systemic option, particularly in children. Its benefit may be anti-inflammatory rather than proof of an active bacterial cause, and response estimates are drawn from mixed PL cohorts.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"erythromycin\"]}}, {\"id\": \"Papulovesicular eruption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The hallmark is an abrupt crop of erythematous papules or papulovesicles, often with lesions at several stages simultaneously.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033700\"}}, {\"id\": \"Perivascular lymphocytic inflammation and erythrocyte extravasation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLEVA can show perivascular lymphocytes and extravasated erythrocytes in superficial dermis and epidermis. Although sometimes called lymphocytic vasculitis, a series found no fibrinoid vessel-wall deposition and cautioned that this is not necessarily true destructive vasculitis.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\", \"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"dermis\"]}}, {\"id\": \"Prompt systemic and supportive management for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FUMHD warrants prompt specialist evaluation and management for systemic involvement and sepsis, with supportive care and individualized systemic anti-inflammatory or immunosuppressive therapy. No optimal regimen is established, and immunosuppression must be balanced against infectious mortality.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Itch may accompany the eruption, but lesions can also be asymptomatic.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Purpura\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemorrhagic evolution and erythrocyte extravasation can produce purpuric areas.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000979\"}}, {\"id\": \"Scaling skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fine scale can overlie early erythematous macules and papules.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040189\"}}, {\"id\": \"Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deeper necrotic lesions may heal with small varioliform scars.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100699\"}}, {\"id\": \"Sepsis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sepsis is a frequent cause of death in FUMHD and its strongest reported risk factor for a fatal outcome.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Febrile ulceronecrotic Mucha-Habermann disease\"], \"term_id\": \"HP:0100806\"}}, {\"id\": \"Skin ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal necrotic ulcers can occur in PLEVA. Generalized ulceronecrotic papules that rapidly coalesce into large ulcers belong to the severe FUMHD subtype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0200042\"}}, {\"id\": \"TNF-alpha inhibitor therapy for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"TNF-alpha inhibitors (e.g., infliximab, often with IVIG) are reported for refractory FUMHD and are mechanistically rational given the elevated serum TNF-alpha at the PLEVA-to-FUMHD transition. Response is not uniform - at least one infant died despite a TNF-alpha inhibitor - so this remains a case-based option, not established therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"infliximab\"]}}, {\"id\": \"Topical corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical corticosteroids may be tried for inflammatory symptoms or itch, but they should not be presented as reliably disease-clearing monotherapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FUMHD is the severe PLEVA branch in which generalized ulceronecrotic papules coalesce into ulcers while fever and systemic inflammation develop; the extreme end can meet criteria for hemophagocytic lymphohistiocytosis (HLH). The molecular reason only a minority of patients enter this branch is unknown.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"TNF-alpha-mediated signaling\"], \"subtypes\": [\"Febrile ulceronecrotic Mucha-Habermann disease\"]}}], \"edges\": [{\"source\": \"Antigen-associated immune triggering\", \"target\": \"CD8-positive cytotoxic T-cell epidermal response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reactive model proposes that antigen exposure activates and recruits a cytotoxic cutaneous T-cell response.\", \"hypothesis_groups\": [\"reactive_antigen_trigger_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Clonal or oligoclonal cutaneous T-cell expansion\", \"target\": \"CD8-positive cytotoxic T-cell epidermal response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clonal model proposes convergence on the same cytotoxic lesional effector population observed by PLEVA immunophenotyping.\", \"hypothesis_groups\": [\"clonal_t_cell_dyscrasia_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CD8-positive cytotoxic T-cell epidermal response\", \"target\": \"Keratinocyte death and epidermal necrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cytotoxic T-cell contribution to epidermal keratinocyte injury is proposed from the lesional immunophenotype.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CD8-positive cytotoxic T-cell epidermal response\", \"target\": \"Perivascular lymphocytic inflammation and erythrocyte extravasation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lesional cytotoxic T-cell infiltrate also involves the superficial dermal perivascular compartment, where dense perivascular lymphocytic inflammation and erythrocyte extravasation are seen alongside the epidermal injury. The direction and mechanism linking the epidermal and perivascular components are not established, so this is an association between two compartments of the same infiltrate rather than a proven causal step.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Papulovesicular eruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal interface injury and epidermal disruption produce papules that can develop vesicles or pustules.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Epidermal disruption and vesiculation\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Crusted skin lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epidermal cell death and hemorrhagic exudate dry into the characteristic crusted or necrotic center.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hemorrhagic necrosis and surface exudate\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Scaling skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interface epidermal injury and altered surface keratinization produce scale over erythematous papules.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Skin ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In ordinary PLEVA, sufficiently deep focal epidermal necrosis can expose a small necrotic ulcer; rapidly coalescing generalized ulcers define the separate FUMHD severity branch.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Focal epidermal necrosis and surface loss\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epidermal necrosis with dermal damage can heal with a varioliform scar.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Necrotic tissue loss and repair\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Hypopigmented skin patches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resolution of inflamed or necrotic lesions can leave post-inflammatory hypopigmented macules.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Post-inflammatory pigmentary alteration\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a minority of patients the PLEVA cytotoxic/keratinocyte-necrosis process escalates into the fulminant ulceronecrotic, febrile FUMHD branch; the host or lesional factor that determines escalation is unknown. This edge states the severe-branch relationship that is the entry\u0027s thesis, linking the shared PLEVA pathophysiology to the FUMHD escalation node.\", \"hypothesis_groups\": [\"systemic_hyperinflammatory_escalation_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Perivascular lymphocytic inflammation and erythrocyte extravasation\", \"target\": \"Purpura\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extravasated erythrocytes and hemorrhagic change produce purpuric areas within evolving PLEVA lesions.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dermal and intraepidermal erythrocyte extravasation\"]}, {\"source\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalized ulceronecrotic papules rapidly coalesce into ulcers in FUMHD.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High fever accompanies the ulceronecrotic eruption and defines FUMHD.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"target\": \"Disseminated intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammation in FUMHD can be complicated by disseminated intravascular coagulation.\", \"hypothesis_groups\": [\"systemic_hyperinflammatory_escalation_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"target\": \"Sepsis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extensive cutaneous ulceration and systemic involvement predispose to sepsis, the leading contributor to FUMHD mortality.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Narrowband UVB phototherapy\", \"target\": \"Papulovesicular eruption\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Narrowband UVB phototherapy\", \"target\": \"Scaling skin\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral erythromycin therapy\", \"target\": \"Papulovesicular eruption\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical corticosteroid therapy\", \"target\": \"Pruritus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Methotrexate therapy for refractory or severe disease\", \"target\": \"Papulovesicular eruption\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Methotrexate therapy for refractory or severe disease\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Prompt systemic and supportive management for FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Prompt systemic and supportive management for FUMHD\", \"target\": \"Fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravenous immunoglobulin (IVIG) for FUMHD\", \"target\": \"Fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TNF-alpha inhibitor therapy for FUMHD\", \"target\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNF-alpha inhibitor therapy for FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ciclosporin therapy for FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antimicrobial therapy and infection control for FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antigen-associated immune triggering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the reactive model, an unidentified infectious or noninfectious antigen precedes cutaneous immune activation. The association is not equivalent to proof of infection within the lesion.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune response\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Antimicrobial therapy and infection control for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because sepsis of the denuded skin is the dominant cause of FUMHD death, antimicrobial therapy and aggressive wound care / infection control are outcome-determining and are counted among the successful FUMHD modalities.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"antibiotic\"]}}, {\"id\": \"CD8-positive cytotoxic T-cell epidermal response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLEVA lesions contain increased CD8-positive and TIA-1-positive T cells. Their cytotoxic phenotype may contribute to keratinocyte injury, but the study evidence does not directly measure cytotoxic function.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive alpha-beta cytotoxic T cell\"], \"biological_processes\": [\"T cell mediated immunity\"], \"locations\": [\"skin epidermis\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Ciclosporin therapy for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ciclosporin is among the systemic immunosuppressants used in FUMHD; a pooled review found systemic corticosteroids combined with methotrexate or ciclosporin were associated with significantly more effective outcomes, supporting early combination therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ciclosporin\"]}}, {\"id\": \"Clonal or oligoclonal cutaneous T-cell expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the dyscrasia model, a lesional T-cell clone or oligoclonal population expands in skin and contributes to the PLEVA inflammatory phenotype. Clonality is neither universal nor by itself diagnostic of lymphoma. In the FUMHD severity variant, a monoclonal T-cell receptor rearrangement has been documented in a subset of cases and is associated with worse prognosis, placing those cases on a continuum with cutaneous T-cell lymphoma.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Crusted skin lesions\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemorrhagic or necrotic centers form adherent crusts as lesions evolve.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007473\"}}, {\"id\": \"Disseminated intravascular coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disseminated intravascular coagulation is among the common systemic complications of FUMHD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Febrile ulceronecrotic Mucha-Habermann disease\"], \"term_id\": \"HP:0005521\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High fever is a defining systemic feature of FUMHD, not ordinary PLEVA.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Febrile ulceronecrotic Mucha-Habermann disease\"], \"severity\": \"SEVERE\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Hypopigmented skin patches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Healed lesions can leave post-inflammatory hypopigmented macules.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001053\"}}, {\"id\": \"Intravenous immunoglobulin (IVIG) for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous immunoglobulin has produced rapid disease control in FUMHD, including in a child refractory to steroids, methotrexate, dapsone, and erythromycin; it is among the reported successful FUMHD modalities.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Keratinocyte death and epidermal necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLEVA lesions can show vacuolar change, necrotic keratinocytes, and focal epidermal necrosis. Epidermal disruption is a plausible contributor to vesiculation, crusting, small ulcers, dyspigmentation, and scars, but these outcomes are not an obligatory causal sequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell death\"], \"locations\": [\"skin epidermis\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Methotrexate therapy for refractory or severe disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose methotrexate is reported for refractory PL and is among systemic options used for FUMHD. The ordinary-PL efficacy estimate comes from small, dated studies, and FUMHD evidence is case-based.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"Narrowband UVB phototherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Narrowband UVB is the best-supported active treatment in pooled PL literature and is commonly favored when observation, topical measures, or antibiotics are insufficient. Evidence combines PLEVA and PLC, consists mostly of uncontrolled studies, and is vulnerable to spontaneous resolution and short follow-up.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oral erythromycin therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral erythromycin is a commonly proposed initial systemic option, particularly in children. Its benefit may be anti-inflammatory rather than proof of an active bacterial cause, and response estimates are drawn from mixed PL cohorts.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"erythromycin\"]}}, {\"id\": \"Papulovesicular eruption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The hallmark is an abrupt crop of erythematous papules or papulovesicles, often with lesions at several stages simultaneously.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033700\"}}, {\"id\": \"Perivascular lymphocytic inflammation and erythrocyte extravasation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PLEVA can show perivascular lymphocytes and extravasated erythrocytes in superficial dermis and epidermis. Although sometimes called lymphocytic vasculitis, a series found no fibrinoid vessel-wall deposition and cautioned that this is not necessarily true destructive vasculitis.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\", \"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"dermis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Prompt systemic and supportive management for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FUMHD warrants prompt specialist evaluation and management for systemic involvement and sepsis, with supportive care and individualized systemic anti-inflammatory or immunosuppressive therapy. No optimal regimen is established, and immunosuppression must be balanced against infectious mortality.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Itch may accompany the eruption, but lesions can also be asymptomatic.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Purpura\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemorrhagic evolution and erythrocyte extravasation can produce purpuric areas.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000979\"}}, {\"id\": \"Scaling skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fine scale can overlie early erythematous macules and papules.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040189\"}}, {\"id\": \"Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deeper necrotic lesions may heal with small varioliform scars.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100699\"}}, {\"id\": \"Sepsis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sepsis is a frequent cause of death in FUMHD and its strongest reported risk factor for a fatal outcome.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Febrile ulceronecrotic Mucha-Habermann disease\"], \"term_id\": \"HP:0100806\"}}, {\"id\": \"Skin ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal necrotic ulcers can occur in PLEVA. Generalized ulceronecrotic papules that rapidly coalesce into large ulcers belong to the severe FUMHD subtype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0200042\"}}, {\"id\": \"TNF-alpha inhibitor therapy for FUMHD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"TNF-alpha inhibitors (e.g., infliximab, often with IVIG) are reported for refractory FUMHD and are mechanistically rational given the elevated serum TNF-alpha at the PLEVA-to-FUMHD transition. Response is not uniform - at least one infant died despite a TNF-alpha inhibitor - so this remains a case-based option, not established therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"infliximab\"]}}, {\"id\": \"Topical corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical corticosteroids may be tried for inflammatory symptoms or itch, but they should not be presented as reliably disease-clearing monotherapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FUMHD is the severe PLEVA branch in which generalized ulceronecrotic papules coalesce into ulcers while fever and systemic inflammation develop; the extreme end can meet criteria for hemophagocytic lymphohistiocytosis (HLH). The molecular reason only a minority of patients enter this branch is unknown.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"TNF-alpha-mediated signaling\"], \"subtypes\": [\"Febrile ulceronecrotic Mucha-Habermann disease\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Antigen-associated immune triggering\", \"target\": \"CD8-positive cytotoxic T-cell epidermal response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reactive model proposes that antigen exposure activates and recruits a cytotoxic cutaneous T-cell response.\", \"hypothesis_groups\": [\"reactive_antigen_trigger_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Clonal or oligoclonal cutaneous T-cell expansion\", \"target\": \"CD8-positive cytotoxic T-cell epidermal response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clonal model proposes convergence on the same cytotoxic lesional effector population observed by PLEVA immunophenotyping.\", \"hypothesis_groups\": [\"clonal_t_cell_dyscrasia_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CD8-positive cytotoxic T-cell epidermal response\", \"target\": \"Keratinocyte death and epidermal necrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cytotoxic T-cell contribution to epidermal keratinocyte injury is proposed from the lesional immunophenotype.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CD8-positive cytotoxic T-cell epidermal response\", \"target\": \"Perivascular lymphocytic inflammation and erythrocyte extravasation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lesional cytotoxic T-cell infiltrate also involves the superficial dermal perivascular compartment, where dense perivascular lymphocytic inflammation and erythrocyte extravasation are seen alongside the epidermal injury. The direction and mechanism linking the epidermal and perivascular components are not established, so this is an association between two compartments of the same infiltrate rather than a proven causal step.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Papulovesicular eruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal interface injury and epidermal disruption produce papules that can develop vesicles or pustules.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Epidermal disruption and vesiculation\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Crusted skin lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epidermal cell death and hemorrhagic exudate dry into the characteristic crusted or necrotic center.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hemorrhagic necrosis and surface exudate\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Scaling skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interface epidermal injury and altered surface keratinization produce scale over erythematous papules.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Skin ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In ordinary PLEVA, sufficiently deep focal epidermal necrosis can expose a small necrotic ulcer; rapidly coalescing generalized ulcers define the separate FUMHD severity branch.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Focal epidermal necrosis and surface loss\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epidermal necrosis with dermal damage can heal with a varioliform scar.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Necrotic tissue loss and repair\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Hypopigmented skin patches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resolution of inflamed or necrotic lesions can leave post-inflammatory hypopigmented macules.\", \"hypothesis_groups\": [\"cytotoxic_t_cell_epidermal_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Post-inflammatory pigmentary alteration\"]}, {\"source\": \"Keratinocyte death and epidermal necrosis\", \"target\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a minority of patients the PLEVA cytotoxic/keratinocyte-necrosis process escalates into the fulminant ulceronecrotic, febrile FUMHD branch; the host or lesional factor that determines escalation is unknown. This edge states the severe-branch relationship that is the entry\u0027s thesis, linking the shared PLEVA pathophysiology to the FUMHD escalation node.\", \"hypothesis_groups\": [\"systemic_hyperinflammatory_escalation_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Perivascular lymphocytic inflammation and erythrocyte extravasation\", \"target\": \"Purpura\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extravasated erythrocytes and hemorrhagic change produce purpuric areas within evolving PLEVA lesions.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dermal and intraepidermal erythrocyte extravasation\"]}, {\"source\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalized ulceronecrotic papules rapidly coalesce into ulcers in FUMHD.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High fever accompanies the ulceronecrotic eruption and defines FUMHD.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"target\": \"Disseminated intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammation in FUMHD can be complicated by disseminated intravascular coagulation.\", \"hypothesis_groups\": [\"systemic_hyperinflammatory_escalation_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"target\": \"Sepsis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extensive cutaneous ulceration and systemic involvement predispose to sepsis, the leading contributor to FUMHD mortality.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Narrowband UVB phototherapy\", \"target\": \"Papulovesicular eruption\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Narrowband UVB phototherapy\", \"target\": \"Scaling skin\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Oral erythromycin therapy\", \"target\": \"Papulovesicular eruption\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical corticosteroid therapy\", \"target\": \"Pruritus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Methotrexate therapy for refractory or severe disease\", \"target\": \"Papulovesicular eruption\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Methotrexate therapy for refractory or severe disease\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Prompt systemic and supportive management for FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Prompt systemic and supportive management for FUMHD\", \"target\": \"Fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravenous immunoglobulin (IVIG) for FUMHD\", \"target\": \"Fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"TNF-alpha inhibitor therapy for FUMHD\", \"target\": \"Ulceronecrotic systemic inflammatory escalation in FUMHD\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNF-alpha inhibitor therapy for FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ciclosporin therapy for FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antimicrobial therapy and infection control for FUMHD\", \"target\": \"Skin ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6972,6 +7117,9 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6986,6 +7134,7 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7040,6 +7189,9 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7054,6 +7206,7 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7108,6 +7261,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7122,6 +7278,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7178,6 +7335,9 @@ This clinical feature is Leukopenia, annotated with Decreased total leukocyte co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7192,6 +7352,7 @@ This clinical feature is Leukopenia, annotated with Decreased total leukocyte co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7257,6 +7418,9 @@ This clinical feature is Cardiac involvement, annotated with Abnormality of the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7271,6 +7435,7 @@ This clinical feature is Cardiac involvement, annotated with Abnormality of the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7336,6 +7501,9 @@ This clinical feature is Gastrointestinal involvement, annotated with Abnormalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7350,6 +7518,7 @@ This clinical feature is Gastrointestinal involvement, annotated with Abnormalit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7415,6 +7584,9 @@ This clinical feature is Mucosal involvement, annotated with Oral ulcer (HP:0000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7429,6 +7601,7 @@ This clinical feature is Mucosal involvement, annotated with Oral ulcer (HP:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7453,6 +7626,7 @@ This clinical feature is Mucosal involvement, annotated with Oral ulcer (HP:0000
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7516,6 +7690,9 @@ This clinical feature is Papulovesicular eruption (HP:0033700). HP:0033700 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7530,6 +7707,7 @@ This clinical feature is Papulovesicular eruption (HP:0033700). HP:0033700 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7554,6 +7732,7 @@ This clinical feature is Papulovesicular eruption (HP:0033700). HP:0033700 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7610,6 +7789,9 @@ This clinical feature is Crusted skin lesions, annotated with Crusting erythemat
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7624,6 +7806,7 @@ This clinical feature is Crusted skin lesions, annotated with Crusting erythemat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7678,6 +7861,9 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7692,6 +7878,7 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7716,6 +7903,7 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7779,6 +7967,9 @@ This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7793,6 +7984,7 @@ This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7847,6 +8039,9 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7861,6 +8056,7 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7885,6 +8081,7 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7939,6 +8136,9 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7953,6 +8153,7 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8007,6 +8208,9 @@ This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8021,6 +8225,7 @@ This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8075,6 +8280,9 @@ This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8089,6 +8297,7 @@ This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8145,6 +8354,9 @@ This clinical feature is Hemorrhagic bullae, annotated with Abnormal blistering 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8159,6 +8371,7 @@ This clinical feature is Hemorrhagic bullae, annotated with Abnormal blistering 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8222,6 +8435,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8236,6 +8452,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8299,6 +8516,9 @@ This clinical feature is Scarring (HP:0100699). HP:0100699 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8313,6 +8533,7 @@ This clinical feature is Scarring (HP:0100699). HP:0100699 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8378,6 +8599,9 @@ This clinical feature is Central nervous system involvement, annotated with Abno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8392,6 +8616,7 @@ This clinical feature is Central nervous system involvement, annotated with Abno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8446,6 +8671,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8460,6 +8688,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8525,6 +8754,9 @@ This clinical feature is Pulmonary involvement, annotated with Abnormality of th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8539,6 +8771,7 @@ This clinical feature is Pulmonary involvement, annotated with Abnormality of th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8662,6 +8895,12 @@ This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Narrowband UVB is the best-supported active treatment in pooled PL literature and is commonly favored when observation, topical measures, or antibiotics are insufficient. Evidence combines PLEVA and PLC, consists mostly of uncontrolled studies, and is vulnerable to spontaneous resolution and short follow-up.</div>
 
 
@@ -8725,6 +8964,7 @@ This treatment targets Scaling skin (HP:0040189). HP:0040189 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8746,6 +8986,7 @@ This treatment targets Scaling skin (HP:0040189). HP:0040189 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8840,6 +9081,12 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral erythromycin is a commonly proposed initial systemic option, particularly in children. Its benefit may be anti-inflammatory rather than proof of an active bacterial cause, and response estimates are drawn from mixed PL cohorts.</div>
 
 
@@ -8886,6 +9133,7 @@ This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a ph
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8907,6 +9155,7 @@ This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9001,6 +9250,12 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Topical corticosteroids may be tried for inflammatory symptoms or itch, but they should not be presented as reliably disease-clearing monotherapy.</div>
 
 
@@ -9047,6 +9302,7 @@ This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9068,6 +9324,7 @@ This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9162,6 +9419,12 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Low-dose methotrexate is reported for refractory PL and is among systemic options used for FUMHD. The ordinary-PL efficacy estimate comes from small, dated studies, and FUMHD evidence is case-based.</div>
 
 
@@ -9225,6 +9488,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9246,6 +9510,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9340,6 +9605,12 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">FUMHD warrants prompt specialist evaluation and management for systemic involvement and sepsis, with supportive care and individualized systemic anti-inflammatory or immunosuppressive therapy. No optimal regimen is established, and immunosuppression must be balanced against infectious mortality.</div>
 
 
@@ -9403,6 +9674,7 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9427,6 +9699,7 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9448,6 +9721,7 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9516,6 +9790,9 @@ This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9526,6 +9803,9 @@ This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C12133
 
 
     </div>
+
+
+
 
 
 
@@ -9575,6 +9855,7 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9663,6 +9944,9 @@ This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9673,6 +9957,9 @@ This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -9743,6 +10030,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9764,6 +10052,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9852,6 +10141,9 @@ This treatment uses ciclosporin, annotated with cyclosporin A (CHEBI:4031). CHEB
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9862,6 +10154,9 @@ This treatment uses ciclosporin, annotated with cyclosporin A (CHEBI:4031). CHEB
 
 
     </div>
+
+
+
 
 
 
@@ -9911,6 +10206,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10000,6 +10296,9 @@ This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10010,6 +10309,9 @@ This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -10062,6 +10364,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10083,6 +10386,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10148,6 +10452,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10172,6 +10477,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10193,6 +10499,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10303,6 +10610,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10327,6 +10635,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10348,6 +10657,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10407,6 +10717,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10463,6 +10774,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10484,6 +10796,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10540,6 +10853,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10610,6 +10924,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10634,6 +10949,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10655,6 +10971,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10710,6 +11027,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10734,14 +11052,15 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"multiple erythematous lesions that disappeared leaving hypopigmented macules."</div>
+                <div class="evidence-snippet">"We describe the case of a 5-year-old male, previously healthy, with multiple erythematous lesions that disappeared leaving hypopigmented macules. The biopsy reported histological changes suggestive of mycosis fungoides. After a second revision of lamellae in this hospital, lymphocytic vasculitis..."</div>
 
 
-                <div class="evidence-explanation">This PLEVA case directly supports post-inflammatory hypopigmentation.</div>
+                <div class="evidence-explanation">Identifies the pediatric acute pityriasis lichenoides case with resolving hypopigmented lesions and focal epidermal necrosis. Hyperpigmentation and varioliform scarring are not documented in this excerpt.</div>
 
 
 
@@ -10783,6 +11102,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10854,6 +11174,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10909,6 +11230,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10930,6 +11252,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11028,6 +11351,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11049,6 +11373,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11115,6 +11440,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11188,6 +11514,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11265,6 +11592,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11338,6 +11666,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11404,6 +11733,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11425,6 +11755,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11685,9 +12016,16 @@ progression:
     reference_title: &#34;Acute lichenoid and varioliform pityriasis in a pediatric patient.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;multiple erythematous lesions that disappeared leaving hypopigmented macules.&#34;
+    snippet: &gt;-
+      We describe the case of a 5-year-old male, previously healthy, with multiple erythematous
+      lesions that disappeared leaving hypopigmented macules. The biopsy reported histological
+      changes suggestive of mycosis fungoides. After a second revision of lamellae in this hospital,
+      lymphocytic vasculitis (LV) with focal epidermal necrosis consistent with acute pityriasis
+      lichenoides (PL) was identified.
     explanation: &gt;-
-      This PLEVA case directly supports post-inflammatory hypopigmentation.
+      Identifies the pediatric acute pityriasis lichenoides case with resolving hypopigmented
+      lesions and focal epidermal necrosis. Hyperpigmentation and varioliform scarring are not
+      documented in this excerpt.
 - phase: Febrile ulceronecrotic systemic branch
   subtype: Febrile ulceronecrotic Mucha-Habermann disease
   notes: &gt;-
@@ -13689,6 +14027,67 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (4)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Acute_Lichenoid_Pityriasis-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                    <div>
+                        <p><strong>Fold FUMHD into Acute Lichenoid Pityriasis as an enriched subtype</strong> · 2026-07-31T02:57:45Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acute_Lichenoid_Pityriasis/2026-07-31T025745Z-claude-code-3b4378.yaml">View source</a></p>
+                        <p class="research-review-text">Lumped Febrile Ulceronecrotic Mucha-Habermann Disease (FUMHD; MONDO:0023134)
+into this Acute Lichenoid Pityriasis (PLEVA; MONDO:0024250) entry as an
+enriched clinical_severity_variant subtype, and retired the standalone
+kb/disorders/Febrile_Ulceronecrotic_Mucha-Habermann_Disease.yaml entry (and
+its history record) that had briefly landed via PR #7224. Rationale: FUMHD is
+a severity variant of PLEVA (MONDO subclass), which per dismech convention is
+modeled as a subtype rather than a distinct entry; the sibling already
+modeled FUMHD as has_subtypes[0], so a standalone entry created a parallel,
+drift-prone model. FUMHD MONDO identity is preserved on subtype_term.
+Ported verified FUMHD-specific content (all subtype-tagged where applicable):
+systemic/severe phenotypes [pulmonary HP:0002086, cardiac HP:0001626, GI
+HP:0011024, CNS HP:0000707, seizures HP:0001250, DIC HP:0005521, sepsis
+HP:0100806, cutaneous necrosis HP:0033126, hemorrhagic bullae HP:0008066,
+mucosal involvement HP:0000155 with the mortality REFUTE conflict, cytopenias
+HP:0001873/HP:0001882]; the TNF-alpha amplification arm on the FUMHD
+escalation node [GO:0033209, PMID:15840118] with downstream edges to
+DIC/sepsis; FUMHD treatments IVIG [NCIT:C121331, PMID:38234081], TNF-alpha
+inhibitor/infliximab [NCIT:C1789, PMID:23391565, 42178566] with a
+target_mechanisms INHIBITS join to the escalation node, ciclosporin
+[CHEBI:4031, PMID:35950146], and antimicrobial/infection control [NCIT:C258,
+PMID:36483219, 42178566]; the atypical CD8 lymphomatoid histopathology node
+[PMID:38457671]; the Nofal diagnostic-criteria node [PMID:26695875]; a FUMHD
+optimal-treatment knowledge-gap discussion; and male-predominance data
+[PMID:35950146] on the subtype. Also converted all four pre-existing MAXO
+terms in this entry to NCIT per maintainer instruction (skin biopsy
+-&gt; NCIT:C51692; three treatment actions -&gt; NCIT:C15986 Pharmacotherapy with
+existing CHEBI/NCIT therapeutic_agent). Deep research provenance for FUMHD is
+the OpenScientist run at research/Febrile_Ulceronecrotic_Mucha-Habermann_Disease-deep-research-openscientist.md
+(Falcon/Edison was 402/out-of-credits). Validated: just validate passes
+schema+terms+references; all newly added PMID snippets verified as exact
+substrings of cached abstracts; no MAXO remains; subtype foreign keys and
+pathograph downstream/target_mechanisms all resolve.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: fix findings-evidence backfill (PR #5861)</strong> · 2026-07-09T14:14:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acute_Lichenoid_Pityriasis/2026-07-09T141452Z-claude-code-a7f15f.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed ai4c-agent CHANGES_REQUESTED review on the deep-research findings-evidence backfill. The reviewer flagged 11 of 46 new evidence items whose snippets were non-content citation cruft: citation headers, author lists, journal names, and one Comment-in line belonging to a different article (PMID:34617317). Resolution split two ways. For the 7 references whose cached abstract actually contains a usable sentence [PMID:35716105, PMID:38959922, PMID:41420620, PMID:31334928, PMID:41633545, DOI:10.1007/s13671-013-0054-x, DOI:10.1007/s13671-023-00380-1] the finding statement, supporting_text, and snippet were rewritten to a verified exact-substring abstract sentence with corrected evidence_source. For the 4 references whose cache is a citation-header stub with no abstract body [PMID:34617317, PMID:34751995, PMID:35617206, PMID:35841285] the junk evidence block was dropped and the finding statement/supporting_text reset to the paper title, matching the existing no-evidence findings bucket. Findings with evidence 46 to 42; without 4 to 8. Validated: linkml-validate passed, term validation passed, and all 7 upgraded snippets were confirmed as whitespace-normalized substrings of their references_cache files.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Backfill deep-research findings evidence</strong> · 2026-07-09T13:24:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Acute_Lichenoid_Pityriasis/2026-07-09T132455Z-claude-code-869b41.yaml">View source</a></p>
+                        <p class="research-review-text">Weekly compliance pass. Backfilled references findings evidence blocks for cached deep-research references so 46 of 50 findings now carry a SUPPORT evidence item whose snippet equals the cache-derived supporting_text. Also repaired pre-existing findings whose statement/supporting_text were PubMed citation-header lines. Validated with schema, term, and reference validators. Weighted compliance rose from 52.6 to 94.4 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -15085,7 +15484,7 @@ Consider etoposide/dexamethasone if HLH develops
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Lichenoid Pityriasis", "mondoId": "MONDO:0024250", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Lichenoid_Pityriasis", "yamlRevision": "379c2586a7b3"};
+        const OS_CONFIG = {"diseaseName": "Acute Lichenoid Pityriasis", "mondoId": "MONDO:0024250", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Lichenoid_Pityriasis", "yamlRevision": "754f0552b14b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
