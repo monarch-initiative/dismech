@@ -278,12 +278,18 @@ Two places to look:
 
 **What to do with it:**
 
-- **Read `needs_review` first.** It is the one key that cannot give you a false
-  all-clear: it is set when any identifier failed to resolve, *or* any quote
-  failed to match, *or* any reference looks off topic. Do **not** read
-  `confabulation_rate` as the whole-report signal — it measures identifier
-  resolution and nothing else, so a report whose every PMID exists but whose
-  quotes do not match still reports `0.0`.
+- **Read `needs_review` first.** It is set when any identifier failed to
+  resolve, *or* any quote failed to match, *or* any reference looks off topic.
+  Do **not** read `confabulation_rate` as the whole-report signal — it measures
+  identifier resolution and nothing else, so a report whose every PMID exists but
+  whose quotes do not match still reports `0.0`.
+- **An absent `needs_review` is not an all-clear on its own.** The key is written
+  only when true, and nine committed reports omit it although their own block
+  meets a trigger (`Bone_Giant_Cell_Tumor` has `quotes_valid: 0` of
+  `quotes_checked: 4`; #11794). When the key is absent, check the triggers
+  yourself: `not_found`, `unresolved_references`, `quotes_valid` against
+  `quotes_checked`, and `off_topic`. `just dr-validation-census --needs-review`
+  lists every report that meets a trigger, with or without the key.
 - Anything under `unresolved_references` — **do not cite it.** Either find a
   different source for the claim or drop the claim. Do not "verify it yourself"
   by fetching it again and moving on if it happens to work the second time
