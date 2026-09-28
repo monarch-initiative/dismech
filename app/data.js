@@ -132469,6 +132469,107 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Flinders Island Spotted Fever",
+    "disease_id": "MONDO:0000232",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-28T05:11:14Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Flinders Island spotted fever is an acute tick-borne spotted-fever-group rickettsiosis caused by the obligately intracellular bacterium Rickettsia honei in southern and eastern Australia. Reptile-associated Bothriocroton, formerly Aponomma, ticks maintain R. honei transovarially and inoculate the organism into human skin, where local infection can create an eschar before dissemination reaches vascular endothelium. The resulting rickettsial vasculitis accounts for the characteristic fever, headache, maculopapular-to-petechial rash, myalgia, arthralgia, and occasional lymphadenopathy.",
+    "pathophysiology": [
+      "Reptile Tick-Borne Rickettsia honei Inoculation",
+      "Dermal Mononuclear Phagocyte Rickettsia honei Infection",
+      "Rickettsial Lymphatic Dissemination",
+      "Endothelial Cell Rickettsia honei Infection",
+      "Rickettsial Vasculitis",
+      "Rickettsial Ribosomal Translation",
+      "Intracytosolic Rickettsia honei Niche"
+    ],
+    "cell_types": [
+      "macrophage",
+      "dendritic cell",
+      "endothelial cell of vascular tree"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000451",
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "inflammatory response",
+      "positive regulation of vascular permeability",
+      "Translation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Maculopapular Rash",
+      "Arthralgia",
+      "Myalgia",
+      "Cough",
+      "Nausea",
+      "Pharyngitis",
+      "Regional Lymphadenopathy",
+      "Eschar"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Neurologic",
+      "Dermatologic",
+      "Musculoskeletal",
+      "Respiratory",
+      "Digestive System",
+      "Immune"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0040186",
+      "HP:0002829",
+      "HP:0003326",
+      "HP:0012735",
+      "HP:0002018",
+      "HP:0025439",
+      "HP:0002716",
+      "HP:6000793"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Empiric doxycycline"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Flinders_Island_Spotted_Fever.yaml",
+    "page_url": "../pages/disorders/Flinders_Island_Spotted_Fever.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Floating-Harbor syndrome",
     "disease_id": "MONDO:0007621",
     "category": "Mendelian",
@@ -274959,6 +275060,105 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Queensland Tick Typhus",
+    "disease_id": "MONDO:0001118",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-25T12:20:56Z",
+    "updated_date": "2026-09-25T12:20:56Z",
+    "subtypes": [],
+    "description": "Queensland tick typhus is an acute tick-borne rickettsiosis caused by the obligately intracellular bacterium Rickettsia australis in eastern coastal Australia. Ixodes ticks inoculate the organism into skin, where early infection of dermal macrophages creates an eschar and draining-node lymphadenopathy before lymphatic and hematogenous spread reaches the microvascular endothelium. The resulting rickettsial vasculitis accounts for the fever and maculopapular or vesicular rash that distinguish Queensland tick typhus within the spotted-fever rickettsioses; a minority of adult infections progress to severe microvascular injury with purpura fulminans or multi-organ failure requiring intensive care.",
+    "pathophysiology": [
+      "Ixodes-Borne Rickettsia australis Inoculation",
+      "Dermal Macrophage Rickettsia australis Infection",
+      "Rickettsial Lymphatic Dissemination",
+      "Endothelial Cell Rickettsia australis Infection",
+      "Rickettsial Vasculitis and Vascular Leak",
+      "Severe Microvascular Injury and Capillary Leak",
+      "TLR4-ASC-MyD88 Rickettsia australis Innate Control",
+      "CD8 T Cell Rickettsia australis Clearance",
+      "Rickettsial Ribosomal Translation",
+      "Intracytosolic Rickettsia australis Niche"
+    ],
+    "cell_types": [
+      "macrophage",
+      "endothelial cell of vascular tree",
+      "CD8-positive, alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0002139",
+      "CL:0000625"
+    ],
+    "biological_processes": [
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "inflammatory response",
+      "positive regulation of vascular permeability",
+      "toll-like receptor signaling pathway",
+      "innate immune response",
+      "T cell mediated cytotoxicity",
+      "Translation"
+    ],
+    "phenotypes": [
+      "Eschar",
+      "Regional Lymphadenopathy",
+      "Fever",
+      "Headache",
+      "Vesicular Rash",
+      "Maculopapular Rash",
+      "Myalgia",
+      "Multiple Organ Failure",
+      "Purpura Fulminans"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Immune",
+      "Constitutional",
+      "Neurological",
+      "Musculoskeletal",
+      "Multisystem"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:6000793",
+      "HP:0002716",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0200037",
+      "HP:0040186",
+      "HP:0003326",
+      "HP:0000979"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Empiric doxycycline"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Queensland_Tick_Typhus.yaml",
+    "page_url": "../pages/disorders/Queensland_Tick_Typhus.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "RAB23-related Carpenter Syndrome",
     "disease_id": "MONDO:0008710",
     "category": "Mendelian",
@@ -282347,6 +282547,87 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "61",
     "causal_graph_longest_path": "12"
+  },
+  {
+    "name": "Rickettsialpox",
+    "disease_id": "MONDO:0019360",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis",
+      "Rickettsial disease"
+    ],
+    "creation_date": "2026-09-25T11:47:36Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rickettsialpox is an acute mite-borne rickettsiosis caused by the obligate intracellular Gram-negative bacterium Rickettsia akari. The house mouse mite inoculates the organism into skin, producing an eschar at the bite site followed by fever and a papulovesicular exanthem. Although R. akari has been reassigned from the spotted fever group to the transitional group on genomic grounds, the infection remains clinically tied to the spotted-fever rickettsioses through eschar-associated cutaneous disease, microvascular endothelial infection, and spotted-fever-group serologic cross-reactivity.",
+    "pathophysiology": [
+      "Rickettsia akari Ribosomal Translation",
+      "Obligate Intracellular Rickettsia akari Niche",
+      "Cutaneous Rickettsia akari Infection",
+      "Endothelial Rickettsial Invasion and Vascular Leak",
+      "Macrophage Cytokine Response to Rickettsia akari",
+      "Inoculation Eschar Formation",
+      "Small-Vessel Vasculitis",
+      "Papulovesicular Exanthem",
+      "Rare Hepatic Involvement"
+    ],
+    "cell_types": [
+      "macrophage",
+      "vascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "Translation",
+      "Biological Process Involved in Interaction with Host",
+      "biological process involved in interaction with host",
+      "positive regulation of vascular permeability",
+      "cytokine production",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Eschar",
+      "Papulovesicular eruption",
+      "Acute hepatitis"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Dermatologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:6000793",
+      "HP:0033700",
+      "HP:0200119"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rickettsialpox.yaml",
+    "page_url": "../pages/disorders/Rickettsialpox.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Rienhoff Syndrome",
@@ -298910,6 +299191,83 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Siberian Tick Typhus",
+    "disease_id": "MONDO:0001154",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-25T12:57:17Z",
+    "updated_date": "2026-09-25T12:57:17Z",
+    "subtypes": [],
+    "description": "Siberian tick typhus, also called North Asian tick typhus, is an acute tick-borne spotted-fever-group rickettsiosis caused by Rickettsia sibirica subsp. sibirica in northern Asia. Dermacentor ticks maintain the organism in enzootic foci and inoculate rickettsiae into skin, where early infection of mononuclear phagocytes creates an eschar and regional lymphadenopathy before hematogenous spread reaches the microvascular endothelium. The resulting rickettsial vasculitis accounts for the fever and maculopapular rash that characterize this usually mild spotted-fever-group disease.",
+    "pathophysiology": [
+      "Dermacentor-Borne Rickettsia sibirica Inoculation",
+      "Dermal Mononuclear Phagocyte Rickettsia sibirica Infection",
+      "Rickettsial Lymphatic Dissemination",
+      "Endothelial Cell Rickettsia sibirica Infection",
+      "Rickettsial Vasculitis",
+      "Rickettsial Ribosomal Translation",
+      "Intracytosolic Rickettsia sibirica Niche"
+    ],
+    "cell_types": [
+      "macrophage",
+      "dendritic cell",
+      "endothelial cell of vascular tree"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000451",
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "inflammatory response",
+      "positive regulation of vascular permeability",
+      "Translation"
+    ],
+    "phenotypes": [
+      "Eschar",
+      "Regional Lymphadenopathy",
+      "Fever",
+      "Maculopapular Rash"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Immune",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:6000793",
+      "HP:0002716",
+      "HP:0001945",
+      "HP:0040186"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Empiric doxycycline",
+      "Personal protection against tick bites"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Siberian_Tick_Typhus.yaml",
+    "page_url": "../pages/disorders/Siberian_Tick_Typhus.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Sick Sinus Syndrome 2, Autosomal Dominant",
@@ -340641,17 +340999,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3209,
+  "total_disorder_pages": 3213,
   "total_subtypes": 4400,
-  "total_disorders_and_subtypes": 7609,
-  "total_unique_evidence_sources": 47075,
-  "total_unique_publications": 44124,
+  "total_disorders_and_subtypes": 7613,
+  "total_unique_evidence_sources": 47094,
+  "total_unique_publications": 44143,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 288,
-  "total_pathographs": 3204,
-  "total_unique_pathological_events": 20496,
+  "total_pathographs": 3208,
+  "total_unique_pathological_events": 20521,
   "total_modules": 179,
-  "total_research_reports": 3325,
+  "total_research_reports": 3329,
   "total_classifications": 20,
   "total_comorbidities": 51,
   "total_groupings": 109
