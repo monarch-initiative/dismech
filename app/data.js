@@ -5966,14 +5966,14 @@ window.searchData = [
     "creation_date": "2026-09-24T20:42:38Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "AICA-ribosiduria is an ultra-rare autosomal recessive inborn error of de novo purine synthesis caused by biallelic pathogenic variants in ATIC, which encodes the bifunctional enzyme 5-aminoimidazole-4-carboxamide ribonucleotide (AICAR) formyltransferase / IMP cyclohydrolase that catalyzes the last two steps of the pathway. Loss of the transformylase activity blocks conversion of AICAR (ZMP) toward IMP, so ZMP and its di- and triphosphates accumulate in erythrocytes and its dephosphorylated riboside (AICA-riboside, acadesine) is excreted massively in urine. The disorder is defined clinically as the syndromic association of severe-to-profound global neurodevelopmental impairment, severe visual impairment due to chorioretinal atrophy, ante- and postnatal growth impairment, and severe scoliosis, with coarse facies, frequent and often pharmacoresistant early-onset epilepsy, and less frequently aortic coarctation, chronic hepatic cytolysis, nephrocalcinosis and minor genital malformations. A pair of siblings with milder neurodevelopmental and visual involvement and no scoliosis widened the spectrum. Purine deficiency has not been demonstrated in patients; the leading explanation of the phenotype is cytotoxicity of the accumulated AICA-riboside and its phosphorylated forms, and a purine-enriched diet that suppresses de novo synthesis reduced the metabolite excretion in one patient.",
+    "description": "AICA-ribosiduria is an ultra-rare autosomal recessive inborn error of de novo purine synthesis caused by ATIC deficiency. ATIC catalyzes conversion of AICAR (ZMP) to FAICAR and then IMP. AICA-riboside accumulates in urine, with SAICA-riboside and succinyladenosine; ZMP and its di- and triphosphates have been measured in patient erythrocytes. The clinical spectrum includes developmental delay and intellectual disability ranging from mild to profound, hypotonia, progressive retinal disease with variable visual impairment, growth impairment, and sometimes severe scoliosis and epilepsy. Hepatic, cardiac, renal and genital findings occur in some patients. Metabolite cytotoxicity and inadequate purine supply during development remain proposed mechanisms, rather than established explanations for each organ manifestation. A purine-enriched diet reduced urinary metabolite excretion in one reported patient; clinical benefit remains unestablished.",
     "pathophysiology": [
       "ATIC Bifunctional Enzyme Deficiency",
-      "Failure of Purinosome Assembly",
+      "Impaired Purinosome Assembly",
       "Blocked De Novo Purine Synthesis at the AICAR Transformylase Step",
       "Accumulation of ZMP and AICA-Riboside",
-      "ZMP-Mediated AMPK Activation",
-      "Cytotoxic Injury to Developing Neural, Retinal and Skeletal Tissue"
+      "Proposed ZMP-Mediated AMPK Activation",
+      "Proposed Cellular Cytotoxicity"
     ],
     "cell_types": [
       "skin fibroblast",
@@ -5988,10 +5988,10 @@ window.searchData = [
       "'de novo' IMP biosynthetic process"
     ],
     "phenotypes": [
-      "Severe global developmental delay",
+      "Global developmental delay",
       "Seizure",
       "Chorioretinal atrophy",
-      "Severely reduced visual acuity",
+      "Visual impairment",
       "Nystagmus",
       "Intrauterine growth retardation",
       "Postnatal growth retardation",
@@ -6001,7 +6001,22 @@ window.searchData = [
       "Coarctation of aorta",
       "Elevated circulating hepatic transaminase concentration",
       "Nephrocalcinosis",
-      "Genital malformation"
+      "Genital malformation",
+      "Hypotonia",
+      "Intellectual disability",
+      "Hypermetropia",
+      "Vomiting",
+      "Hepatomegaly",
+      "Hepatic steatosis",
+      "Cryptorchidism",
+      "Hip dysplasia",
+      "Hip dislocation",
+      "Delayed myelination",
+      "Atrial septal defect",
+      "Ventricular septal defect",
+      "Clitoral hypertrophy",
+      "Hypoglycemia",
+      "Delayed skeletal maturation"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -6012,23 +6027,27 @@ window.searchData = [
       "Cardiovascular",
       "Hepatic",
       "Renal",
-      "Genitourinary"
+      "Genitourinary",
+      "Gastrointestinal",
+      "Metabolic"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
       "Eye",
       "Genitourinary",
       "Growth",
       "Head and Neck",
+      "Limbs",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0011344",
+      "HP:0001263",
       "HP:0001250",
       "HP:0000533",
-      "HP:0001141",
+      "HP:0000505",
       "HP:0000639",
       "HP:0001511",
       "HP:0008897",
@@ -6038,36 +6057,49 @@ window.searchData = [
       "HP:0001680",
       "HP:0002910",
       "HP:0000121",
-      "HP:0000078"
+      "HP:0000078",
+      "HP:0001252",
+      "HP:0001249",
+      "HP:0000540",
+      "HP:0002013",
+      "HP:0002240",
+      "HP:0001397",
+      "HP:0000028",
+      "HP:0001385",
+      "HP:0002827",
+      "HP:0012448",
+      "HP:0001631",
+      "HP:0001629",
+      "HP:0008665",
+      "HP:0001943",
+      "HP:0002750"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "ATIC"
     ],
     "treatments": [
       "Purine-Enriched Diet",
       "Antiseizure Medication",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Orthopedic management of scoliosis"
     ],
     "environmental": [],
     "biochemical": [
       "Increased urinary AICA-riboside",
       "Increased urinary succinyladenosine",
       "Increased erythrocyte ZMP",
-      "Deficient AICAR transformylase activity in fibroblasts"
+      "Deficient AICAR transformylase activity in fibroblasts",
+      "Increased urinary SAICA-riboside"
     ],
     "source_file": "AICA-ribosiduria.yaml",
     "page_url": "../pages/disorders/AICA-ribosiduria.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 29,
     "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "33",
-    "causal_graph_longest_path": "9"
+    "num_treatments": 4,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "AIP-related pituitary adenoma predisposition",
@@ -7419,20 +7451,23 @@ window.searchData = [
       "Biallelic",
       "Heterozygous"
     ],
-    "description": "ALPK3-related hypertrophic cardiomyopathy is a Mendelian cardiomyopathy caused by loss-of-function variants in ALPK3, which encodes alpha-protein kinase 3, a muscle-specific atypical alpha-kinase that occupies the sarcomeric M-band and organizes the myomesins and the proteostasis machinery there. Whether it has catalytic activity at all, and whether it also occupies the nuclear envelope, are both actively disputed; the M-band localization and the proteostatic role are not. The entity has a zygosity-dependent architecture that distinguishes it from the sarcomere-gene forms of hypertrophic cardiomyopathy. Biallelic truncating variants cause a severe cardiomyopathy presenting in utero, at birth, or in early childhood, characteristically as a dilated, hypocontractile ventricle that subsequently remodels into hypertrophy, and are accompanied in about half of patients by craniofacial and musculoskeletal features. Heterozygous truncating variants cause an adult-onset hypertrophic cardiomyopathy with incomplete, age-related penetrance, an apical or concentric hypertrophy pattern, extensive myocardial fibrosis, and a low rate of left ventricular outflow tract obstruction. ALPK3 is among the genes most often recovered when sarcomere-negative hypertrophic cardiomyopathy is re-analysed by exome or genome sequencing, ranking second or third in five of seven pooled cohorts, behind cryptic-splice MYBPC3 variants and, in one cohort, FLNC.",
+    "description": "ALPK3-related hypertrophic cardiomyopathy is a Mendelian cardiomyopathy caused by loss-of-function variants in ALPK3, which encodes alpha-protein kinase 3, a muscle-specific atypical alpha-kinase that occupies the sarcomeric M-band and organizes the myomesins and the proteostasis machinery there. Whether it has catalytic activity at all, and whether it also occupies the nuclear envelope, are both actively disputed; the M-band localization and the proteostatic role are not. The entity has a zygosity-dependent architecture that distinguishes it from the sarcomere-gene forms of hypertrophic cardiomyopathy. Biallelic truncating variants commonly cause severe cardiomyopathy presenting in utero, at birth, or in early childhood, sometimes as a dilated, hypocontractile ventricle that subsequently remodels into hypertrophy, and can be accompanied by craniofacial and musculoskeletal features, with proportions varying across clinically ascertained series. Heterozygous truncating variants cause an adult-onset hypertrophic cardiomyopathy with incomplete, age-related penetrance, an apical or concentric hypertrophy pattern, extensive myocardial fibrosis, and a low rate of left ventricular outflow tract obstruction. ALPK3 is among the genes most often recovered when sarcomere-negative hypertrophic cardiomyopathy is re-analysed by exome or genome sequencing, ranking second or third in five of seven pooled cohorts, behind cryptic-splice MYBPC3 variants and, in one cohort, FLNC.",
     "pathophysiology": [
       "ALPK3 Loss of Function",
-      "Extracardiac Striated Muscle and Craniofacial Involvement",
       "Loss of M-Band Scaffolding",
-      "Myomesin Mislocalization and Impaired Force Buffering",
+      "Myomesin Mislocalization",
       "Impaired Sarcomere Proteostasis",
-      "Sarcomere and Intercalated Disc Disorganization",
+      "Sarcomere Disorganization",
       "Abnormal Cardiomyocyte Calcium Handling",
       "Impaired Cardiomyocyte Contractility",
       "Cardiomyocyte Hypertrophy",
       "Ventricular Dilatation",
       "Ventricular Hypertrophy",
-      "Reactive Interstitial Fibrosis"
+      "Reactive Interstitial Fibrosis",
+      "Reduced PKA-Target Phosphorylation",
+      "Reduced Myosin Super-Relaxed State",
+      "SQSTM1 Mislocalization",
+      "Intercalated Disc Remodeling"
     ],
     "cell_types": [
       "cardiomyocyte"
@@ -7469,20 +7504,39 @@ window.searchData = [
       "Scoliosis",
       "Hypotonia",
       "Pterygium",
-      "Short stature"
+      "Short stature",
+      "Sudden cardiac death",
+      "Right ventricular hypertrophy",
+      "Webbed neck",
+      "Motor delay",
+      "Elevated circulating creatine kinase activity",
+      "Pectus carinatum",
+      "Hydrops fetalis",
+      "Left ventricular apical aneurysm",
+      "Mitral regurgitation",
+      "Left atrial enlargement",
+      "Left ventricular diastolic dysfunction",
+      "Premature ventricular contraction"
     ],
     "phenotype_categories": [
       "Cardiovascular",
       "Cellular",
       "Craniofacial",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Neurologic",
+      "Biochemical",
+      "Prenatal"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Growth",
       "Head and Neck",
       "Integument",
-      "Musculoskeletal"
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
     ],
     "phenotype_ids": [
       "HP:0001639",
@@ -7506,13 +7560,22 @@ window.searchData = [
       "HP:0002650",
       "HP:0001252",
       "HP:0001059",
-      "HP:0004322"
+      "HP:0004322",
+      "HP:0001645",
+      "HP:0001667",
+      "HP:0000465",
+      "HP:0001270",
+      "HP:0003236",
+      "HP:0000768",
+      "HP:0001789",
+      "HP:6000144",
+      "HP:0001653",
+      "HP:0031295",
+      "HP:0025168",
+      "HP:0006682"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL",
-      "VERY_RARE"
+      "FREQUENT"
     ],
     "genes": [
       "ALPK3"
@@ -7523,18 +7586,25 @@ window.searchData = [
       "Implantable Cardioverter-Defibrillator",
       "Heart Transplantation",
       "Mavacamten",
-      "AAV-Delivered miniALPK3 Gene Replacement"
+      "AAV-Delivered miniALPK3 Gene Replacement",
+      "Anticoagulation for atrial fibrillation",
+      "Cardiac follow-up and hydration advice",
+      "AAV-Delivered Full-Length ALPK3 Gene Replacement",
+      "Disopyramide for symptomatic outflow obstruction",
+      "Septal reduction for persistent symptomatic obstruction",
+      "Liwen percutaneous intramyocardial radiofrequency ablation",
+      "Heart-failure management for systolic dysfunction"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "ALPK3-Related_Hypertrophic_Cardiomyopathy.yaml",
     "page_url": "../pages/disorders/ALPK3-Related_Hypertrophic_Cardiomyopathy.html",
-    "num_phenotypes": 22,
-    "num_pathophysiology": 12,
+    "num_phenotypes": 34,
+    "num_pathophysiology": 15,
     "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "47",
-    "causal_graph_longest_path": "11"
+    "num_treatments": 13,
+    "causal_graph_edges": "58",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Systemic AL Amyloidosis",
@@ -39659,13 +39729,13 @@ window.searchData = [
     "creation_date": "2026-09-11T21:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Non-syndromic sensorineural hearing loss caused by biallelic loss of OTOA, which encodes otoancorin: a GPI-anchored protein found only in the inner ear, and only at the interface where an acellular gel meets the epithelium underneath it. In the cochlea that interface is the attachment of the tectorial membrane to the spiral limbus.\nTwo things distinguish this disease from most hereditary hearing loss and shaped how this entry is curated.\nThe first is that the lesion is not in the hair cell. Otoancorin is made by the non-sensory interdental cells of the spiral limbus, not by hair cells, and the mouse model shows the consequence precisely: the tectorial membrane loses its limbal attachment but keeps its shape and stays over the organ of Corti, so outer hair cell amplification and cochlear tuning remain close to normal while inner hair cell sensitivity falls. The deafness is a failure to stimulate the inner hair cells, not a failure of transduction within them. Most of what is asserted about this mechanism comes from that mouse, and the entry says so rather than presenting it as human pathology.\nThe second is genotype. OTOA sits in a segmental duplication and a large share of pathogenic alleles are recurrent copy-number deletions rather than point mutations, which is why the gene is under-called by sequencing-only pipelines and why the diagnostic recommendation here is about assay choice rather than about gene choice.\nThe severity reported in humans is not uniform. The founding Palestinian family was described as having non-syndromic recessive deafness, while the largest published case series found mostly post-lingual, mild-to-moderate low-frequency and moderate-to-severe high-frequency loss. The entry records the sloping, post-lingual presentation as the common one and congenital presentation as occasional, which is what that series reports.",
+    "description": "DFNB22 is autosomal recessive nonsyndromic sensorineural hearing loss caused by biallelic OTOA dysfunction. OTOA encodes otoancorin, a GPI-anchored protein at the interface between nonsensory inner-ear epithelia and overlying acellular gels. In knockout mice, loss of otoancorin detaches the tectorial membrane from the spiral limbus and alters its morphology. Cochlear physiology supports impaired mechanical stimulation of inner hair cells despite relatively preserved basilar-membrane amplification; direct human cochlear pathology remains unestablished. Human severity, onset and audiogram shape vary: congenital or prelingual, childhood and postlingual presentations, with mid-frequency, flat or sloping loss, have been reported. Progression occurs in some patients but its frequency and rate are not established. Pathogenic alleles include sequence variants, deletions and OTOAP1-mediated conversions. High gene-pseudogene homology complicates variant detection and requires assay-specific coverage and confirmation.",
     "pathophysiology": [
       "Biallelic OTOA Loss-of-Function",
-      "Loss of Otoancorin from the Limbal Attachment Zone",
+      "Deficient Otoancorin at the Limbal Attachment Zone",
       "Tectorial Membrane Detachment from the Spiral Limbus",
       "Failure of Inner Hair Cell Stimulation",
-      "Preserved Outer Hair Cell Amplification",
+      "Relatively Preserved Cochlear Amplification in Mice",
       "Sensorineural Hearing Loss"
     ],
     "cell_types": [
@@ -39679,16 +39749,16 @@ window.searchData = [
       "CL:0000601"
     ],
     "biological_processes": [
-      "attachment of the tectorial membrane to the limbal epithelium",
-      "mechanical stimulation of the inner hair cell bundle",
-      "hearing"
+      "mechanical stimulation of the inner hair-cell bundle"
     ],
     "phenotypes": [
       "Bilateral Sensorineural Hearing Loss",
       "Postlingual Onset",
       "Congenital Onset",
       "High-Frequency Sensorineural Hearing Loss",
-      "Low-Frequency Sensorineural Hearing Loss"
+      "Low-Frequency Sensorineural Hearing Loss",
+      "Mid-Frequency Hearing Loss",
+      "Progressive Sensorineural Hearing Loss"
     ],
     "phenotype_categories": [
       "Otologic"
@@ -39701,30 +39771,31 @@ window.searchData = [
       "HP:0008596",
       "HP:0008527",
       "HP:0001757",
-      "HP:0008573"
+      "HP:0008573",
+      "HP:0012781",
+      "HP:0000408"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "OTOA"
     ],
     "treatments": [
       "Hearing Amplification and Auditory Rehabilitation",
       "Cochlear Implantation",
-      "Genetic Counselling"
+      "Genetic Counselling",
+      "Communication and language support",
+      "Hearing-conservation counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_22.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_22.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 7,
     "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 3,
+    "num_treatments": 5,
     "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 26",
@@ -39801,12 +39872,13 @@ window.searchData = [
     "creation_date": "2026-09-04T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "DFNB30 is nonsyndromic sensorineural hearing loss caused by biallelic variants in MYO3A, which encodes myosin IIIa - a class III unconventional myosin with an N-terminal kinase domain, a motor head, and a tail that binds actin. It was the first human disease attributed to a class III myosin, found in an extended Israeli family in which eighteen affected relatives carried three different recessive loss-of-function alleles, and the same paper noted the evolutionary echo that made the finding interesting: the fly ortholog NINAC is required for normal vision, and mammalian myosin IIIa is expressed most strongly in retina and cochlea.\nThe mechanism is a transport and shaping defect at the tips of hair-cell stereocilia rather than a mechanotransduction-channel defect. Myosin IIIa sits at stereocilia tips - the site of actin polymerisation - and carries espin-1 there; in heterologous cells the pair together elongate filopodia roughly tenfold, and that elongation depends on myosin IIIa doing the transporting. What the class III myosins do in the intact ear turns out to be more subtle than \"make stereocilia longer\": mice lacking both myosin IIIa and IIIb build abnormally tall and numerous stereocilia and microvilli with ungraded bundles, so the motors are also acting to *limit* elongation and to shape the bundle. Notably espin-1 still reached the tips in those double mutants, which means the espin-1 transport model cannot be the whole account.\nClinically the usual DFNB30 presentation is late and progressive rather than congenital. In the largest series - nine probands out of 15,684 Japanese hearing-loss patients - onset was between 10 and 30 years, every patient was post-lingual, every patient was aware of progression, and the audiogram was down-sloping in six of eight. But a congenital profound presentation is also on record, in a consanguineous Kazakh family and with a kinase-domain ATP-binding-site allele, and a computational study of kinase-domain variants proposes that this is where the two ends of the phenotype come from: alleles that abolish kinase activity and autophosphorylation give the congenital profound form, while partial inactivation gives the late-onset progressive one. That proposal is modelling, not a validated genotype-phenotype rule, and the largest cohort explicitly looked for a genotype-phenotype correlation and did not find one.\nMYO3A is also reported in autosomal dominant hearing loss, through a motor-domain allele that cripples ATPase activity and motility. That is a separate allelic disease and is recorded here only as context, not as part of DFNB30.",
+    "description": "DFNB30 is autosomal recessive nonsyndromic sensorineural hearing loss caused by biallelic pathogenic MYO3A variants. Myosin IIIa combines an N-terminal regulatory kinase, an actin-based motor and a cargo-binding tail and localizes to hair-cell stereocilia tips. Bilateral, progressive, high-frequency hearing loss was described in the founding Iraqi Jewish family; congenital profound presentations also occur. Onset and severity vary, and available families do not establish a universal genotype-phenotype rule. Mouse and cell studies implicate stereocilia regulation and maintenance, but failed espin-1 delivery, loss of tip localization and normal mechanotransduction are not established universal features of DFNB30. In a nonsense knock-in mouse, hearing deficits precede visible hair-cell degeneration. The MYO3A variants associated with dominant hearing loss require separate allele-specific interpretation.",
     "pathophysiology": [
       "MYO3A Loss of Function",
-      "Failure of Myosin IIIa Delivery to Stereocilia Tips",
+      "Altered Myosin IIIa Function at Stereocilia Tips",
       "Disordered Stereocilia and Hair Bundle Architecture",
-      "Progressive Hair Cell Degeneration"
+      "Progressive Hair Cell Degeneration",
+      "Cochlear Hearing Dysfunction"
     ],
     "cell_types": [
       "auditory hair cell",
@@ -39821,6 +39893,7 @@ window.searchData = [
       "sensory perception of sound"
     ],
     "phenotypes": [
+      "Bilateral Sensorineural Hearing Impairment",
       "Progressive Sensorineural Hearing Impairment",
       "Postlingual Onset Hearing Loss",
       "Congenital Profound Sensorineural Hearing Loss",
@@ -39835,32 +39908,31 @@ window.searchData = [
       "Ear"
     ],
     "phenotype_ids": [
+      "HP:0008619",
       "HP:0000408",
       "HP:0008596",
       "HP:0011476",
       "HP:0001757",
       "HP:0002321"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "MYO3A"
     ],
     "treatments": [
       "Hearing Aid Amplification",
-      "Cochlear Implantation"
+      "Cochlear Implantation",
+      "Genetic Counselling",
+      "Communication and language support"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_30.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_30.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 2,
+    "num_treatments": 4,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
@@ -88118,12 +88190,45 @@ window.searchData = [
     "subtypes": [
       "AD Complex HSP",
       "AR Complex HSP",
-      "XL Complex HSP"
+      "XL Complex HSP",
+      "Troyer Syndrome",
+      "SPG70",
+      "SPG76",
+      "SPG78",
+      "GPT2 Deficiency",
+      "HSAN-SP",
+      "SPG15",
+      "SPG18",
+      "SPG23",
+      "SPG26",
+      "SPG39",
+      "SPG43",
+      "SPG53",
+      "SPG54",
+      "SPG57",
+      "SPG63",
+      "SPG64",
+      "SPG74",
+      "SPG75",
+      "SPAX2",
+      "SPG85",
+      "SPG86",
+      "SINO",
+      "SPOAN",
+      "SPPRS",
+      "AP-4-HSP"
     ],
-    "description": "Complex (also \"complicated\") hereditary spastic paraplegia (HSP) is the clinical-genetic category of HSP in which the core corticospinal-tract syndrome of progressive lower-limb spasticity and weakness is accompanied by additional neurologic or systemic abnormalities \u2014 such as thin corpus callosum, cognitive impairment or intellectual disability, peripheral neuropathy, cerebellar ataxia, distal amyotrophy, epilepsy, optic atrophy, pigmentary retinopathy, or dysarthria. It is defined in contrast to \"pure\" (uncomplicated) HSP, in which lower-limb spasticity with subtle dorsal-column impairment and urinary urgency are the only features. Complex HSP is not a single disease but a syndromic grouping (MONDO:0015150) spanning many spastic paraplegia (SPG) genetic loci, and it is stratified by inheritance into autosomal dominant (MONDO:0015087), autosomal recessive, and X-linked complex forms. The shared substrate is the same length-dependent, distal-predominant degeneration of the longest corticospinal-tract upper motor neuron axons (maximal in the thoracic spinal cord) and dorsal-column sensory fibers seen in pure HSP; the \"complex\" features arise because many of the mutated SPG proteins have pleiotropic housekeeping roles (endoplasmic reticulum morphogenesis, axonal transport, mitochondrial quality control, myelination, endolysosomal and autophagic trafficking, lipid metabolism) whose loss injures additional neuronal and glial populations beyond the corticospinal tract. Correlation between the clinical pure-versus-complex split and the underlying genetic type is imperfect: several loci can present as either form. Autosomal recessive complex forms (e.g., SPG11/spatacsin, SPG15/ZFYVE26/spastizin) are classically associated with thin corpus callosum and cognitive decline; X-linked complex forms include SPG1 (L1CAM) and SPG2 (PLP1).\n",
+    "description": "Complex (also \"complicated\") hereditary spastic paraplegia (HSP) is the clinical-genetic category of HSP in which the core corticospinal-tract syndrome of progressive lower-limb spasticity and weakness is accompanied by additional neurologic or systemic abnormalities \u2014 such as thin corpus callosum, cognitive impairment or intellectual disability, peripheral neuropathy, cerebellar ataxia, distal amyotrophy, epilepsy, optic atrophy, pigmentary retinopathy, or dysarthria. It is defined in contrast to \"pure\" (uncomplicated) HSP, in which lower-limb spasticity with subtle dorsal-column impairment and urinary urgency are the only features. Complex HSP is not a single disease but a syndromic grouping (MONDO:0015150) spanning many spastic paraplegia (SPG) genetic loci, and it is stratified by inheritance into autosomal dominant (MONDO:0015087), autosomal recessive, and X-linked complex forms. The shared substrate is the same length-dependent, distal-predominant degeneration of the longest corticospinal-tract upper motor neuron axons (maximal in the thoracic spinal cord) and dorsal-column sensory fibers seen in pure HSP; the \"complex\" features arise because many of the mutated SPG proteins have pleiotropic housekeeping roles (endoplasmic reticulum morphogenesis, axonal transport, mitochondrial quality control, myelination, endolysosomal and autophagic trafficking, lipid metabolism) whose loss injures additional neuronal and glial populations beyond the corticospinal tract. Correlation between the clinical pure-versus-complex split and the underlying genetic type is imperfect: several loci can present as either form. Autosomal recessive complex forms (e.g., SPG11/spatacsin, SPG15/ZFYVE26/spastizin) are classically associated with thin corpus callosum and cognitive decline; X-linked complex forms include SPG1 (L1CAM) and SPG2 (PLP1). Individual gene-defined complex forms are carried as `has_subtypes` rows bound to their own MONDO classes beneath the three inheritance-stratified rows; see `notes` for the rule that routes a given SPG form here rather than to the pure HSP entry.\n",
     "pathophysiology": [
       "Length-Dependent Corticospinal-Tract Axonal Degeneration",
-      "Pleiotropic SPG-Protein Dysfunction Beyond the Corticospinal Tract"
+      "Pleiotropic SPG-Protein Dysfunction Beyond the Corticospinal Tract",
+      "Endolysosomal and ESCRT Membrane-Traffic Failure",
+      "AP-4-Dependent ATG9A Export and Autophagosome Formation Failure",
+      "Neuronal Membrane-Lipid and Ganglioside Metabolic Failure",
+      "Mitochondrial Iron-Sulfur Cluster Assembly Failure",
+      "Impaired Mitochondrial Anaplerosis",
+      "Kinesin-Dependent Axonal Cargo Transport Failure",
+      "IP3-Receptor-Dependent Endoplasmic Reticulum Calcium Release Dysregulation"
     ],
     "cell_types": [
       "Corticospinal-tract upper motor neuron",
@@ -88137,7 +88242,15 @@ window.searchData = [
       "Axonal transport",
       "Endoplasmic reticulum tubular network morphogenesis",
       "Mitochondrion organization",
-      "Myelination"
+      "Myelination",
+      "Endosomal transport",
+      "Autophagosome assembly",
+      "Lipid metabolic process",
+      "Ganglioside biosynthetic process",
+      "Iron-sulfur cluster assembly",
+      "Tricarboxylic acid cycle",
+      "Release of sequestered calcium ion into cytosol",
+      "ERAD pathway"
     ],
     "phenotypes": [
       "Lower-Limb Spastic Paraplegia",
@@ -88179,7 +88292,33 @@ window.searchData = [
       "SPART",
       "AP4B1",
       "L1CAM",
-      "PLP1"
+      "PLP1",
+      "MARS1",
+      "CAPN1",
+      "ATP13A2",
+      "GPT2",
+      "CCT5",
+      "ERLIN2",
+      "DSTYK",
+      "B4GALNT1",
+      "PNPLA6",
+      "C19orf12",
+      "VPS37A",
+      "DDHD2",
+      "TFG",
+      "AMPD2",
+      "ENTPD1",
+      "IBA57",
+      "MAG",
+      "KIF1C",
+      "RNF170",
+      "ABHD16A",
+      "KIDINS220",
+      "KLC2",
+      "HACE1",
+      "AP4E1",
+      "AP4M1",
+      "AP4S1"
     ],
     "treatments": [
       "Antispasticity Pharmacotherapy",
@@ -88191,11 +88330,11 @@ window.searchData = [
     "source_file": "Complex_Hereditary_Spastic_Paraplegia.yaml",
     "page_url": "../pages/disorders/Complex_Hereditary_Spastic_Paraplegia.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 2,
-    "num_genes": 8,
+    "num_pathophysiology": 9,
+    "num_genes": 34,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Complex Regional Pain Syndrome Type 1",
@@ -341489,14 +341628,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3215,
-  "total_subtypes": 4400,
-  "total_disorders_and_subtypes": 7615,
-  "total_unique_evidence_sources": 47132,
-  "total_unique_publications": 44173,
+  "total_subtypes": 4426,
+  "total_disorders_and_subtypes": 7641,
+  "total_unique_evidence_sources": 47183,
+  "total_unique_publications": 44200,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
   "total_pathographs": 3210,
-  "total_unique_pathological_events": 20534,
+  "total_unique_pathological_events": 20546,
   "total_modules": 179,
   "total_research_reports": 3331,
   "total_classifications": 20,
