@@ -55537,47 +55537,57 @@ window.searchData = [
       "interleukin-1 beta production"
     ],
     "phenotypes": [
+      "Fatigue",
+      "Pulmonary Exacerbations",
       "Chronic Cough",
       "Sputum Production",
       "Dyspnea",
       "Hemoptysis",
       "Recurrent Respiratory Infections",
       "Fixed Airflow Obstruction",
-      "Wheezing"
+      "Wheezing",
+      "Crackles"
     ],
     "phenotype_categories": [
+      "Constitutional",
       "Respiratory"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Immune",
       "Respiratory"
     ],
     "phenotype_ids": [
+      "HP:0012378",
       "HP:0034315",
       "HP:0033709",
       "HP:0002094",
       "HP:0002105",
       "HP:0002205",
       "HP:0006510",
-      "HP:0030828"
+      "HP:0030828",
+      "HP:0030830"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "FREQUENT"
     ],
     "genes": [
-      "CFTR",
-      "SCNN1A"
+      "SCNN1A susceptibility variant",
+      "CFTR heterozygosity and dysfunction"
     ],
     "treatments": [
       "Airway Clearance Techniques",
-      "Antibiotic Therapy",
+      "Pulmonary Rehabilitation",
+      "Antibiotic Treatment of Acute Exacerbations",
       "Long-term Macrolide Therapy",
+      "Long-Term Inhaled Antibiotic Therapy",
+      "Pathogen Eradication Therapy",
+      "Mucoactive Therapy",
       "Brensocatib",
-      "Bronchodilators",
-      "Inhaled Corticosteroids",
       "Surgery",
+      "Bronchodilators for Airflow Obstruction",
+      "Routine Inhaled Corticosteroids",
       "Vaccinations"
     ],
     "environmental": [
@@ -55585,6 +55595,7 @@ window.searchData = [
       "Smoking"
     ],
     "biochemical": [
+      "Bronchiectasis Biomarker Profiles",
       "C-Reactive Protein (CRP)",
       "Sputum Culture",
       "Neutrophil Elastase (NE)",
@@ -55593,12 +55604,12 @@ window.searchData = [
     ],
     "source_file": "Bronchiectasis.yaml",
     "page_url": "../pages/disorders/Bronchiectasis.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 10,
     "num_pathophysiology": 8,
     "num_genes": 2,
-    "num_treatments": 8,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 12,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Bronchiectasis and Nasal Polyposis",
@@ -341480,8 +341491,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3215,
   "total_subtypes": 4400,
   "total_disorders_and_subtypes": 7615,
-  "total_unique_evidence_sources": 47130,
-  "total_unique_publications": 44171,
+  "total_unique_evidence_sources": 47132,
+  "total_unique_publications": 44173,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
   "total_pathographs": 3210,
