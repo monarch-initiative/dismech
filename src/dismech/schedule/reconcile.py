@@ -274,8 +274,10 @@ def _summarize(
     awaiting = sum(1 for c in classifications if c.category == "awaiting_review")
     merging = sum(1 for c in classifications if c.category == "waiting_to_merge")
     parts = [
-        f"{len(classifications)} open PR(s): "
-        f"{needs} need work, {awaiting} awaiting review, {merging} waiting to merge",
+        (
+            f"{len(classifications)} open PR(s): "
+            f"{needs} need work, {awaiting} awaiting review, {merging} waiting to merge"
+        ),
         f"{len(unclaimed)} un-PR'd claim issue(s)",
     ]
     if should_claim:
