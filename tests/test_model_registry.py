@@ -98,6 +98,7 @@ def test_every_authored_runner_reports_its_results_current(spec_path: Path):
         [sys.executable, str(runner), "--check"],
         cwd=REPO_ROOT,
         capture_output=True,
+        check=False,
         text=True,
         timeout=300,
     )

@@ -13,6 +13,7 @@ and a stronger perturbation must never land more neurons in the plate.
 from __future__ import annotations
 
 import importlib.util
+import itertools
 import json
 import pathlib
 import sys
@@ -92,7 +93,7 @@ def test_stronger_perturbation_never_lands_more_neurons_in_the_plate(results):
     for name in ("perturbation_no_arrest", "perturbation_with_arrest"):
         rows = results["sweeps"][name]["rows"]
         fractions = [row["cortical_plate_fraction"] for row in rows]
-        for earlier, later in zip(fractions, fractions[1:]):
+        for earlier, later in itertools.pairwise(fractions):
             assert later <= earlier + 0.02, (
                 f"{name}: plate fraction rises along the sweep: {fractions}"
             )

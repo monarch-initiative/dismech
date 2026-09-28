@@ -19,8 +19,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from dismech import kb_cache
-from dismech import model_registry
+from dismech import kb_cache, model_registry
 from dismech.export.utils import slugify
 
 #: Repository hosts we recognise, so "where does this model live?" is a facet

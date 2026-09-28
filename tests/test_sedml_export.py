@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from dismech import model_registry
 from dismech.perturb.sedml_export import (
     SEDML_NS,
     ModelSymbol,
@@ -21,7 +22,6 @@ from dismech.perturb.sedml_export import (
     sanitize_sid,
     write_omex,
 )
-from dismech import model_registry
 from dismech.perturb.simulate import load_model_config
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

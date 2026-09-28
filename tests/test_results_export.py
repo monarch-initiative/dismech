@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from dismech import model_registry
 from dismech.perturb.results_export import (
     DEFAULT_OUTPUT_DIR,
     ROUNDING_DECIMALS,
@@ -19,7 +20,6 @@ from dismech.perturb.results_export import (
     run_config,
     threshold_kind,
 )
-from dismech import model_registry
 from dismech.perturb.simulate import load_model_config
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

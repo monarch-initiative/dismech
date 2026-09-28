@@ -45,8 +45,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from dismech import kb_cache
-from dismech import model_registry
+from dismech import kb_cache, model_registry
 from dismech.perturb.simulate import (
     ModelConfig,
     load_model_config,

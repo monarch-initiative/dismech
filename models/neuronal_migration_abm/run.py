@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Run the microtubule-dependent radial neuronal migration agent-based model.
 
 Reads ``models/neuronal_migration_abm/spec.yaml``, simulates each scenario and
@@ -72,7 +71,7 @@ class Params:
     rescue: float = 0.0
 
     @classmethod
-    def from_mapping(cls, mapping: dict, defaults: dict) -> "Params":
+    def from_mapping(cls, mapping: dict, defaults: dict) -> Params:
         values = dict(defaults)
         values.update({k: v for k, v in mapping.items() if k in values})
         return cls(**values)
