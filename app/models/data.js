@@ -344,6 +344,66 @@ window.searchData = [
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
+    "model_key": "Hepatitis_C--computational-model-aston2018-hcv-within-host-viral-dynamics-model--0",
+    "name": "Aston2018 HCV Within-Host Viral-Dynamics Model",
+    "description": "Deterministic three-state ordinary differential-equation model of healthy hepatocytes, infected hepatocytes, and circulating HCV viral load in a well-mixed liver compartment. It represents hepatocyte regeneration and death, infection, virion production and clearance, and treatment-adjusted infection and virion-production rates.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "SBML Level 2 Version 4 (main PVR parameterization); COPASI CPS scenario variants; SED-ML Level 1 Version 4 / COMBINE OMEX",
+    "model_software": "MATLAB for publication fitting; COPASI for the BioModels model and fitted variants",
+    "base_model": "",
+    "model_id": "BIOMD0000000713",
+    "repository_url": "https://www.ebi.ac.uk/biomodels/BIOMD0000000713",
+    "repository_host": "BioModels",
+    "publication": "PMID:29652855",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Hepatitis C",
+    "disease_id": "MONDO:0005231",
+    "category": "Infectious Disease",
+    "parents": [
+      "Viral Hepatitis",
+      "Liver Disease"
+    ],
+    "variables": [
+      "Healthy hepatocyte concentration",
+      "Infected hepatocyte concentration",
+      "HCV viral load",
+      "Stem-cell hepatocyte generation rate",
+      "Treatment-adjusted infection rate",
+      "Treatment-adjusted virion-production rate"
+    ],
+    "variable_ids": [
+      "T",
+      "I",
+      "V",
+      "s",
+      "beta",
+      "pstar"
+    ],
+    "variable_terms": [],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "HCV genome replication and early viremia"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The same three-state ODE structure was fitted to partial virologic response, breakthrough, null-response, and triphasic treatment-period viral-load profiles.",
+      "With stem-cell hepatocyte generation set to zero, the model has uninfected, infected, and pure-infection steady-state branches; adding stem-cell generation unfolds the pure-infection bifurcation into one valid infected branch with a limit point."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:29652855"
+    ],
+    "num_evidence": 1,
+    "notes": "BioModels entry BIOMD0000000713 (internal submission MODEL1808280002) is manually curated; this record pins public revision 9 at https://www.biomodels.org/services/download/get-files/MODEL1808280002/9/MODEL1808280002.9.omex. The revision-9 COMBINE archive retrieved for curator testing was 83,278 bytes with SHA-256 5ca8ec25248d053f4dc52374658df7fc403ea1c4fa4a9141ca93bd0b600712c8, and its main PVR.xml file has SHA-256 b8d62ff28623b18ba31fd59a39a3f5bbd799a0fef9601a5a0f435d5c722cf3b3. BioModels distributes the model under CC0; the archive itself contains no separate license file. PVR.cps, Breakthrough.cps, NullResponse.cps, and Triphasic.cps are distinct parameter and initial-condition variants of the same three-species, nine-reaction structure. Under Python 3.13.9 with COPASI 4.46.300 and basiCO 0.86, all four CPS files loaded and simulated; the PVR SBML and CPS trajectories agreed to a maximum relative difference below 1.03e-7 under matched LSODA settings and reproduced the archived Figure 12(a) result. The standardized workflow is incomplete: every SED-ML file references PVR.xml without model changes, so the named Breakthrough, NullResponse, and Triphasic SED-ML files do not encode their corresponding CPS parameterizations; Breakthrough.sedml and NullResponse.sedml are byte-identical. The stored Triphasic CPS time-course settings are internally inconsistent (19 steps of 3.333333333 days with a declared duration of 60 days), and current COPASI runs to 63.333 days unless the step size is forced to 60/19. BioSimulators archive validation completes with unit/modeling warnings, but the standardized COPASI archive runner hung after task start in the curator environment while direct COPASI execution succeeded. libSBML reports no parse errors, with 17 unit/modeling-practice warnings including eight parameters without declared units. The archive hash is a retrieval snapshot because BioModels can regenerate container packaging; the revision and main-file hash are the stronger content pins. The original MATLAB fit estimated ten parameters and initial values by least squares on log viral load. Raw fitting data and fitting code are not deposited, COPASI parameter-estimation and validation sets are empty, and the paper warns that substantially different parameters give similar fits. The clinical profiles predate modern direct-acting antiviral regimens; direct-acting antiviral effects are discussed as parameter hypotheses rather than validated against DAA-treated cohorts. The model does not justify links to Chronic Inflammation and Fibrosis, Immune Evasion, or Hepatocellular Carcinoma Development.",
+    "creation_date": "2026-01-09T05:44:55Z",
+    "page_url": "../../pages/disorders/Hepatitis_C.html#computational-model-aston2018-hcv-within-host-viral-dynamics-model",
+    "source_file": "kb/disorders/Hepatitis_C.yaml"
+  },
+  {
     "model_key": "Ataxia-telangiectasia--computational-model-atm-p-ala2386glu-variant-structure-predictions--1",
     "name": "ATM p.Ala2386Glu variant-structure predictions",
     "description": "Allele-specific structural analyses of homozygous ATM c.7157C>A (p.Ala2386Glu) found in two brothers with variant A-T. Missense3D/PHYRE2 and DynaMut modeled the substitution in the FAT-domain alpha-21 helix against wild-type cryo-EM template PDB 6K9L and produced competing hypotheses: buried-charge structural destabilization or stabilization of the closed, less-active ATM dimer. Patient lymphoblastoid-cell experiments favored the instability branch while showing residual kinase function.",
@@ -5829,10 +5889,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 121,
-  "total_source_entries": 49,
+  "total_models": 122,
+  "total_source_entries": 50,
   "total_model_types": 10,
   "total_runnable": 4,
-  "total_with_repository": 53
+  "total_with_repository": 54
 };
 window.dispatchEvent(new Event('searchDataReady'));
