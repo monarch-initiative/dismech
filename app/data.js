@@ -33263,7 +33263,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "30",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "7"
   },
   {
@@ -145071,13 +145071,17 @@ window.searchData = [
       "Concurrent autoimmune disorder",
       "Thymoma",
       "Pure red cell aplasia",
-      "Myasthenia gravis"
+      "Myasthenia gravis",
+      "CD4 T-cell lymphopenia",
+      "Inverted CD4:CD8 ratio",
+      "Bronchiectasis"
     ],
     "phenotype_categories": [
       "Immunologic",
       "Neoplastic",
       "Hematologic",
-      "Neurologic"
+      "Neurologic",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -145086,7 +145090,8 @@ window.searchData = [
       "Endocrine",
       "Immune",
       "Metabolism",
-      "Neoplasm"
+      "Neoplasm",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0004313",
@@ -145095,7 +145100,10 @@ window.searchData = [
       "HP:0002960",
       "HP:0100522",
       "HP:0012410",
-      "MONDO:0009688"
+      "MONDO:0009688",
+      "HP:5210418",
+      "HP:0033222",
+      "HP:0002110"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -145114,12 +145122,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Good_Syndrome.yaml",
     "page_url": "../pages/disorders/Good_Syndrome.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 10,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Gorham-Stout disease",
@@ -329722,7 +329730,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
   },
   {
